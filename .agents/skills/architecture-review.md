@@ -9,7 +9,7 @@ Mọi thay đổi thuộc một trong các trường hợp sau phải có `archi
 - thêm bounded context mới
 - gộp hoặc tách bounded context
 - thêm dependency mới giữa hai contexts
-- thêm shared abstraction vào `shared_kernel`
+- thêm shared abstraction vào `core`
 - cho phép đọc chéo dữ liệu giữa contexts
 - thay đổi ownership của bảng hoặc schema
 - thay đổi flow audit trail, query lifecycle, lock/finalization
@@ -49,6 +49,7 @@ Mọi thay đổi thuộc một trong các trường hợp sau phải có `archi
 Mô tả ngắn gọn vấn đề đang gặp phải hoặc nhu cầu mới.
 
 Gợi ý viết:
+
 - feature nào đang cần
 - tại sao thiết kế hiện tại không còn đủ
 - giới hạn hiện tại nằm ở đâu
@@ -59,21 +60,25 @@ Gợi ý viết:
 ## 2. Hiện trạng
 
 ### 2.1 Context hiện tại bị tác động
+
 - Source context(s):
 - Target context(s):
 - Shared components liên quan:
 
 ### 2.2 Luồng hiện tại
+
 Mô tả cách hệ thống đang vận hành trước thay đổi này.
 
 ### 2.3 Invariant / rule hiện tại
+
 Liệt kê các invariant hoặc rule đang được giữ bởi kiến trúc hiện tại.
 
 Ví dụ:
-- `clinical_capture` sở hữu `PageEntry`
-- `query_management` không được update trực tiếp `PageEntry`
-- `audit_compliance` là append-only
-- `data_review` sở hữu finalization/lock decision
+
+- `datacapture` sở hữu `PageEntry` và `FieldEntry`
+- `reconcile` không được update trực tiếp bảng private của `datacapture`
+- `audit` là append-only đối với audit trail nghiệp vụ
+- `governance` sở hữu policy về quyền sử dụng, masking, retention và export authorization
 
 ---
 
@@ -82,6 +87,7 @@ Ví dụ:
 Mô tả chính xác điều gì đang bị thiếu hoặc gây cản trở.
 
 ### 3.1 Tín hiệu cho thấy cần review kiến trúc
+
 Đánh dấu các mục áp dụng:
 
 - [ ] Context A cần dùng trực tiếp dữ liệu hoặc rule của Context B
@@ -95,6 +101,7 @@ Mô tả chính xác điều gì đang bị thiếu hoặc gây cản trở.
 - [ ] Cần thêm export/reporting path mới
 
 ### 3.2 Nếu không thay đổi
+
 Điều gì sẽ xảy ra nếu giữ nguyên kiến trúc hiện tại?
 
 ---
@@ -102,6 +109,7 @@ Mô tả chính xác điều gì đang bị thiếu hoặc gây cản trở.
 ## 4. Các phương án đã xem xét
 
 Mỗi phương án nên nêu:
+
 - mô tả
 - ưu điểm
 - nhược điểm
@@ -109,24 +117,28 @@ Mỗi phương án nên nêu:
 - lý do không chọn hoặc điều kiện để chọn
 
 ### Option A — Giữ nguyên kiến trúc, chỉ xử lý ở application layer
+
 - Mô tả:
 - Ưu điểm:
 - Nhược điểm:
 - Kết luận:
 
 ### Option B — Thêm public contract / facade
+
 - Mô tả:
 - Ưu điểm:
 - Nhược điểm:
 - Kết luận:
 
 ### Option C — Dùng domain event / projection
+
 - Mô tả:
 - Ưu điểm:
 - Nhược điểm:
 - Kết luận:
 
 ### Option D — Tách / gộp / đổi ownership context
+
 - Mô tả:
 - Ưu điểm:
 - Nhược điểm:
@@ -137,9 +149,11 @@ Mỗi phương án nên nêu:
 ## 5. Quyết định được chọn
 
 ### 5.1 Decision summary
+
 Viết ngắn gọn quyết định cuối cùng.
 
 ### 5.2 Kiểu thay đổi
+
 Đánh dấu các mục áp dụng:
 
 - [ ] Thêm dependency qua `public.py`
@@ -150,41 +164,47 @@ Viết ngắn gọn quyết định cuối cùng.
 - [ ] Thay đổi ownership bảng/schema
 - [ ] Tách bounded context
 - [ ] Gộp bounded context
-- [ ] Bổ sung rule vào shared kernel
+- [ ] Bổ sung rule hoặc abstraction vào `core`
 - [ ] Khác
 
 ### 5.3 Owner sau thay đổi
+
 | Thành phần | Owner context |
-|---|---|
-|  |  |
+| ---------- | ------------- |
+|            |               |
 
 ---
 
 ## 6. Ảnh hưởng đến dependency
 
 ### 6.1 Dependency mới
-| Source | Target | Type | Allowed via | Notes |
-|---|---|---|---|---|
-|  |  | sync / async / read-only | public.py / event / projection / ACL |  |
+
+| Source | Target | Type                     | Allowed via                          | Notes |
+| ------ | ------ | ------------------------ | ------------------------------------ | ----- |
+|        |        | sync / async / read-only | public.py / event / projection / ACL |       |
 
 ### 6.2 Dependency bị cấm vẫn giữ nguyên
+
 Liệt kê rõ các thứ vẫn không được phép sau thay đổi.
 
 Ví dụ:
-- `clinical_capture.domain` không import `study_design.domain`
-- `query_management` không update trực tiếp bảng `clinical_capture_*`
-- `reporting_export` không điều khiển ngược core domain
+
+- `datacapture.domain` không import trực tiếp `crf.domain` hoặc `study.domain`
+- `reconcile` không update trực tiếp bảng private của `datacapture`
+- `exporting` không điều khiển ngược rule của write domain
 
 ---
 
 ## 7. Ảnh hưởng đến persistence ownership
 
 ### 7.1 Bảng / schema / projection bị tác động
-| Name | Current owner | New owner | Change type | Notes |
-|---|---|---|---|---|
-|  |  |  | unchanged / transferred / new projection |  |
+
+| Name | Current owner | New owner | Change type                              | Notes |
+| ---- | ------------- | --------- | ---------------------------------------- | ----- |
+|      |               |           | unchanged / transferred / new projection |       |
 
 ### 7.2 Rule ownership
+
 - Context nào được write?
 - Context nào chỉ được read?
 - Read bằng cơ chế gì?
@@ -195,21 +215,24 @@ Ví dụ:
 
 ## 8. Ảnh hưởng đến audit, compliance và bảo mật dữ liệu
 
-Mục này là bắt buộc cho mọi thay đổi liên quan dữ liệu nghiên cứu, subject, query, review, export.
+Mục này là bắt buộc cho mọi thay đổi liên quan dữ liệu nghiên cứu, subject, query/discrepancy, governance policy, audit trail hoặc export.
 
 ### 8.1 Audit trail impact
+
 - Thay đổi này có tạo thêm audit event không?
 - Có làm mất before/after value không?
 - Có thay đổi actor/source action không?
 - Có khả năng bypass audit trail không?
 
 ### 8.2 Compliance impact
+
 - Có ảnh hưởng inspection readiness không?
 - Có thay đổi retention / delete / export / traceability không?
 - Có dùng dữ liệu cá nhân mới không?
 - Có cần cập nhật data protection controls không?
 
 ### 8.3 Security / access impact
+
 - Có permission mới không?
 - Có exposure mới qua API / export / reporting không?
 - Có read path mới tới dữ liệu nhạy cảm không?
@@ -219,31 +242,39 @@ Mục này là bắt buộc cho mọi thay đổi liên quan dữ liệu nghiên
 ## 9. Ảnh hưởng đến ubiquitous language
 
 ### 9.1 Thuật ngữ mới
+
 | Term | Context owner | Meaning | Notes |
-|---|---|---|---|
-|  |  |  |  |
+| ---- | ------------- | ------- | ----- |
+|      |               |         |       |
 
 ### 9.2 Thuật ngữ có nguy cơ chồng lấn
+
 Nêu rõ các từ có thể bị dùng sai giữa các contexts.
 
 Ví dụ:
-- `VisitDefinition` vs `VisitInstance`
-- `QueryStatus` vs `ReviewStatus`
-- `Freeze` vs `Lock` vs `Finalize`
+
+- `VisitDefinition` trong `crf` vs `VisitInstance` trong `datacapture`
+- `QueryStatus` / discrepancy state trong `reconcile` vs completion/entry state trong `datacapture`
+- `Audit trail` trong `audit` vs access/export policy decision trong `governance`
 
 ---
 
 ## 10. Public contract được thêm hoặc sửa
 
 ### 10.1 Contract mới
+
 ```python
 # ví dụ minh họa
-class SubjectRegistry(Protocol):
-    def exists(self, subject_id: SubjectId) -> bool: ...
-    def is_active_for_study(self, subject_id: SubjectId, study_id: StudyId) -> bool: ...
+class StudySubjectRegistry(Protocol):
+    def subject_exists(self, subject_id: SubjectId) -> bool: ...
+    def subject_belongs_to_study(self, subject_id: SubjectId, study_id: StudyId) -> bool: ...
+
+class CrfTemplateReader(Protocol):
+    def get_page_template_snapshot(self, page_template_id: PageTemplateId, version: int) -> PageTemplateSnapshot: ...
 ```
 
 ### 10.2 Contract thay đổi
+
 - Breaking change?
 - Consumer nào bị ảnh hưởng?
 - Kế hoạch migration?
@@ -255,6 +286,7 @@ class SubjectRegistry(Protocol):
 Điền mục này nếu có bất kỳ ngoại lệ nào phá boundary chuẩn.
 
 ### Boundary exception 1
+
 - **Source context**:
 - **Target context**:
 - **Reason**:
@@ -271,32 +303,35 @@ Có thể lặp lại mục này nếu có nhiều exception.
 ## 12. Kế hoạch triển khai
 
 ### 12.1 Bước thực hiện
+
 1.
 2.
 3.
 
 ### 12.2 Migration / rollout
+
 - cần migration dữ liệu không?
 - cần backfill projection không?
 - có cần chạy job một lần không?
 - có cần feature flag không?
 
 ### 12.3 Test bắt buộc
+
 - [ ] unit tests cho rule mới
 - [ ] application tests cho use case
 - [ ] integration tests cho dependency mới
 - [ ] contract tests cho public API mới
 - [ ] audit trail tests
 - [ ] permission / security tests
-- [ ] export / reporting regression tests
+- [ ] exporting / dashboard / governance regression tests
 
 ---
 
 ## 13. Rủi ro và biện pháp giảm thiểu
 
 | Risk | Impact | Likelihood | Mitigation |
-|---|---|---|---|
-|  |  |  |  |
+| ---- | ------ | ---------- | ---------- |
+|      |        |            |            |
 
 ---
 
@@ -325,5 +360,5 @@ Chỉ được coi là review đạt khi:
 ## 16. Hành động tiếp theo
 
 | Action | Owner | Due date |
-|---|---|---|
-|  |  |  |
+| ------ | ----- | -------- |
+|        |       |          |

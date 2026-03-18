@@ -1,6 +1,7 @@
 # AGENT.MD
 
 ## Mục tiêu
+
 Kho mã này là nền tảng phát triển hệ thống EDC theo hướng DDD, bounded context rõ ràng, ưu tiên tính toàn vẹn dữ liệu, auditability, và khả năng mở rộng nghiệp vụ nghiên cứu lâm sàng.
 
 Tài liệu này là quy ước làm việc bắt buộc cho tất cả kỹ sư tham gia dự án.
@@ -10,6 +11,7 @@ Tài liệu này là quy ước làm việc bắt buộc cho tất cả kỹ sư
 ## 1) Nguyên tắc kiến trúc
 
 ### 1.1. Kiến trúc tổng thể
+
 - Kiến trúc mặc định là **Modular Monolith**.
 - Không tách microservice khi chưa có áp lực nghiệp vụ, hiệu năng, hoặc tổ chức đủ rõ.
 - Mỗi bounded context là một module độc lập về ngôn ngữ, use case, rule và persistence boundary.
@@ -21,7 +23,9 @@ Tài liệu này là quy ước làm việc bắt buộc cho tất cả kỹ sư
 - Không cho phép context này đọc trực tiếp aggregate nội bộ của context khác.
 
 ### 1.2. Kiểu kiến trúc trong từng context
+
 Mỗi bounded context đóng gói theo hướng:
+
 - `domain/`
 - `application/`
 - `infrastructure/`
@@ -30,7 +34,9 @@ Mỗi bounded context đóng gói theo hướng:
 Cho phép áp dụng Clean Architecture ở **bên trong từng bounded context**, không áp đặt clean architecture ở mức toàn repo theo kiểu quá cơ học.
 
 ### 1.3. Quy tắc ưu tiên
+
 Khi có xung đột, ưu tiên theo thứ tự:
+
 1. Tính đúng nghiệp vụ nghiên cứu lâm sàng
 2. Audit trail và compliance
 3. Tính nhất quán dữ liệu
@@ -40,51 +46,68 @@ Khi có xung đột, ưu tiên theo thứ tự:
 
 ---
 
-## 2) Bounded Context chính
+## 2) Top-level modules chính
 
-### Generic
-- `identity_access`
-- `user_administration`
+Các top-level modules dưới đây là **module triển khai cấp cao** cho modular monolith của hệ thống EDC.
 
-### Core Domain
-- `study_design`
-- `study_operations`
-- `clinical_capture`
-- `query_management`
-- `data_review`
+Chúng không đồng nghĩa với việc được phép dùng chung domain model nội bộ. Mỗi module vẫn phải giữ boundary rõ ràng, ownership rõ ràng, và tuân thủ quy tắc dependency của tài liệu này.
 
-### Supporting / Compliance
-- `audit_compliance`
-- `reporting_export`
-- `operational_tracking`
+- `identity`
+- `study`
+- `crf`
+- `datacapture`
+- `reconcile`
+- `audit`
+- `governance`
+- `exporting`
+- `dashboard`
+- `core`
 
-### Shared
-- `shared_kernel`
+### Ghi chú quan trọng
+
+- Đây là **module triển khai**, không phải lời mời gọi gom mọi thứ “liên quan” vào cùng một chỗ.
+- Bên trong mỗi module có thể còn các sub-boundary hoặc subdomain nhỏ hơn.
+- Việc chọn ít module top-level hơn nhằm giúp team dễ triển khai hơn, không làm mất đi yêu cầu tách boundary.
+- `core` không phải là trung tâm nghiệp vụ. `core` chỉ là nơi chứa primitive và abstraction thật sự ổn định dùng chung.
 
 ---
 
-## 3) Ý nghĩa từng context
+## 3) Ý nghĩa từng module
 
-### `identity_access`
+### `identity`
+
 Chịu trách nhiệm:
+
 - login/logout
 - credential
 - session/token
 - password policy
 - authorization runtime check
-
-Không chứa workflow quản trị user ở mức admin.
-
-### `user_administration`
-Chịu trách nhiệm:
-- tạo/sửa/khóa user
-- gán role
-- gán site/study membership
+- user administration
+- role assignment
+- site/study membership
 - quản trị hồ sơ user vận hành
 
-### `study_design`
+Không được biến thành nơi chứa business rule của study, CRF, query, hoặc review workflow.
+
+### `study`
+
 Chịu trách nhiệm:
-- study metadata
+
+- Study
+- Site
+- StudySite
+- Subject
+- Enrollment
+- Subject status vận hành
+- các quan hệ vận hành giữa subject, site và study
+
+Không chứa CRF template, page template, field definition hay query lifecycle.
+
+### `crf`
+
+Chịu trách nhiệm:
+
 - CRF Template
 - Page Template
 - Visit Definition
@@ -92,74 +115,102 @@ Chịu trách nhiệm:
 - Validation Rule Definition
 - versioning metadata thiết kế
 
-### `study_operations`
-Chịu trách nhiệm:
-- Site
-- StudySite
-- Subject
-- Enrollment
-- Subject status vận hành
+Module này sở hữu ngôn ngữ “phải thu thập dữ liệu gì”, không sở hữu dữ liệu runtime đã được nhập.
 
-### `clinical_capture`
+### `datacapture`
+
 Chịu trách nhiệm:
+
 - VisitInstance
 - PageEntry
 - FieldEntry
 - nhập liệu
 - validation runtime
 - completion state
+- data entry workflow
 
-### `query_management`
+Module này sở hữu ngôn ngữ “đã thu thập dữ liệu gì” ở runtime.
+
+### `reconcile`
+
 Chịu trách nhiệm:
+
 - manual query
 - automation query
 - response thread
+- discrepancy resolution
 - close/reopen/resolve lifecycle
+- readiness check trước lock/finalize khi liên quan dữ liệu chưa sạch hoặc còn nghi vấn
 
-### `data_review`
-Chịu trách nhiệm:
-- review state
-- lock field
-- lock page
-- lock subject
-- database lock/freeze/finalization rule
+`reconcile` sở hữu workflow làm sạch, hòa giải và xử lý dữ liệu nghi vấn. Không được biến thành nơi chứa nhập liệu gốc, audit trail, permission runtime, hay export logic.
 
-### `audit_compliance`
+### `audit`
+
 Chịu trách nhiệm:
+
 - audit trail nghiệp vụ
 - immutable change history
 - compliance event
-- inspection-ready export feed
+- inspection-ready trace/feed
 
-### `reporting_export`
+`audit` chỉ sở hữu lịch sử thay đổi nghiệp vụ bất biến phục vụ traceability và compliance. Không dùng `audit` như nơi chứa debug log, application log, system log hoặc observability metrics.
+
+### `governance`
+
 Chịu trách nhiệm:
+
+- data access policy
+- export authorization policy
+- masking/disclosure rule
+- retention/disposition policy
+- dataset usage / release approval policy
+- các policy kiểm soát quyền sử dụng và phát hành dữ liệu
+
+`governance` là nơi sở hữu policy về việc dữ liệu có được xem, sử dụng, che giấu, giữ lại hay phát hành hay không. Không được biến `governance` thành bucket cho mọi loại validation hoặc business rule chung chung.
+
+### `exporting`
+
+Chịu trách nhiệm:
+
 - CDISC export
 - operational report export
+- audit export package
 - data package build
 - export job lifecycle
 
-### `operational_tracking`
+`exporting` chỉ thực hiện build và phát hành output theo contract đã được cho phép. Không điều khiển ngược rule của core domain.
+
+### `dashboard`
+
 Chịu trách nhiệm:
+
 - dashboard
 - KPI
 - progress read model
 - finalized/locked/query metrics
+- projection phục vụ theo dõi vận hành
 
-### `shared_kernel`
+`dashboard` là read-side phục vụ quan sát nghiệp vụ. Không được ghi ngược vào bảng vận hành để thay đổi state nghiệp vụ.
+
+### `core`
+
 Chỉ chứa các thành phần thật sự dùng chung và ổn định:
+
 - base value objects kỹ thuật
 - typed ids
 - Result/Error primitives
 - domain event abstractions
 - audit metadata base types
+- technical primitives ổn định được nhiều module dùng chung
 
-Không được biến thành nơi chứa code dùng chung tùy tiện.
+`core` không phải là nơi đặt domain nghiệp vụ dùng chung. Không được đưa vào `core` các aggregate, entity hoặc rule nghiệp vụ như Subject, Visit, Query, LockPolicy, CRF, StudyStatus hoặc các khái niệm có nghĩa khác nhau giữa các module.
 
 ---
 
 ## 4) Quy tắc về dependency
 
 ### 4.1. Quy tắc import
+
 - Một context **không import trực tiếp domain model nội bộ** của context khác.
 - Chỉ được phụ thuộc qua:
   - contract,
@@ -168,16 +219,20 @@ Không được biến thành nơi chứa code dùng chung tùy tiện.
   - anti-corruption adapter.
 
 ### 4.2. Quy tắc persistence
+
 - Một context không được viết trực tiếp vào bảng aggregate của context khác.
 - Nếu dùng chung một database vật lý, vẫn phải coi schema/table ownership là theo context.
 - Mỗi bảng phải có owner context rõ ràng.
 
 ### 4.3. Cross-context workflow
+
 Ví dụ hợp lệ:
+
 - `study_design` publish `StudyVersionReleased`
 - `clinical_capture` subscribe để mở dữ liệu nhập theo version
 
 Ví dụ không hợp lệ:
+
 - `clinical_capture` cập nhật trực tiếp bảng template của `study_design`
 
 ---
@@ -185,12 +240,15 @@ Ví dụ không hợp lệ:
 ## 5) Quy tắc modeling
 
 ### 5.1. Entity / Aggregate
+
 - Chỉ tạo aggregate khi có boundary nhất quán thật sự.
 - Không biến mọi entity thành aggregate root.
 - Aggregate phải bảo vệ invariant quan trọng.
 
 ### 5.2. Value Object
+
 Ưu tiên value object cho:
+
 - subject code
 - visit code
 - page code
@@ -200,13 +258,17 @@ Ví dụ không hợp lệ:
 - audit reason
 
 ### 5.3. Domain Service
+
 Dùng domain service khi rule:
+
 - liên quan nhiều aggregate,
 - không thuộc tự nhiên vào một entity/value object,
 - không chỉ là wrapper gọi repo.
 
 ### 5.4. Application Service
+
 Application service:
+
 - điều phối use case,
 - mở transaction,
 - gọi repo,
@@ -238,10 +300,12 @@ Các module không được tự log audit theo cách riêng nếu đã có adap
 ## 7) Quy tắc đặt tên
 
 ### 7.1. Module
+
 - snake_case cho tên thư mục context
 - không dùng tên theo menu UI nếu không phản ánh ngôn ngữ nghiệp vụ
 
 ### 7.2. Domain types
+
 - PascalCase cho class
 - tên phải phản ánh nghiệp vụ, ví dụ:
   - `StudyVersion`
@@ -251,6 +315,7 @@ Các module không được tự log audit theo cách riêng nếu đã có adap
   - `DatabaseLock`
 
 ### 7.3. Use case
+
 - Đặt theo động từ nghiệp vụ:
   - `CreateSubject`
   - `RecordPageEntry`
@@ -260,6 +325,7 @@ Các module không được tự log audit theo cách riêng nếu đã có adap
   - `FinalizeSubject`
 
 ### 7.4. Events
+
 - Quá khứ, mô tả fact đã xảy ra:
   - `SubjectEnrolled`
   - `PageEntryRecorded`
@@ -284,12 +350,14 @@ Các module không được tự log audit theo cách riêng nếu đã có adap
 ## 9) Quy tắc test
 
 Mỗi feature phải xác định ít nhất các lớp test sau khi phù hợp:
+
 - unit test cho domain rule
 - application test cho use case
 - integration test cho repository / event / transaction
 - contract test nếu context có public contract dùng bởi context khác
 
 Ưu tiên test các nghiệp vụ:
+
 - versioning study design
 - data capture invariant
 - query lifecycle
@@ -301,6 +369,7 @@ Mỗi feature phải xác định ít nhất các lớp test sau khi phù hợp:
 ## 10) Cách thêm feature mới
 
 Khi thêm feature mới, bắt buộc trả lời theo thứ tự:
+
 1. Feature thuộc bounded context nào?
 2. Aggregate nào sở hữu invariant chính?
 3. Có cần event không?
@@ -315,6 +384,7 @@ Bắt buộc dùng skill `feature-scaffold` trước khi code, và dùng `archit
 ## 11) Khi nào phải chạy architecture review
 
 Bắt buộc chạy review nếu có một trong các dấu hiệu sau:
+
 - thêm bounded context mới
 - sửa quan hệ giữa các context
 - context này cần đọc/ghi dữ liệu của context khác
@@ -339,6 +409,7 @@ Bắt buộc chạy review nếu có một trong các dấu hiệu sau:
 ## 13) Quy trình pull request
 
 Mọi PR nên có các mục sau:
+
 - Context bị tác động
 - Use case được thêm/sửa
 - Aggregate/invariant liên quan
@@ -357,9 +428,7 @@ Xem tại `.agent/skills/`:
 
 - `architecture-review.md`
 - `feature-scaffold.md`
-- `bounded-context-checklist.md`
-- `coding-standards.md`
-- `audit-trail-rules.md`
+- `dependency-rules-edc.md`
 
 ---
 
@@ -367,17 +436,16 @@ Xem tại `.agent/skills/`:
 
 ```text
 apps/
-  identity_access/
-  user_administration/
-  study_design/
-  study_operations/
-  clinical_capture/
-  query_management/
-  data_review/
-  audit_compliance/
-  reporting_export/
-  operational_tracking/
-  shared_kernel/
+  identity/
+  study/
+  crf/
+  datacapture/
+  reconcile/
+  audit/
+  governance/
+  exporting/
+  dashboard/
+  core/
 ```
 
 Chi tiết cây thư mục xem `docs/folder-tree.md`.

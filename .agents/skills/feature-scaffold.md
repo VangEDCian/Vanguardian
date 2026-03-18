@@ -20,7 +20,7 @@ Bắt buộc dùng cho:
 - feature mới
 - thay đổi use case hiện có
 - thêm command/query mới
-- thêm workflow review/query/lock/export
+- thêm workflow reconcile/query/discrepancy/governance/export
 - thêm API mới có ghi dữ liệu
 - thêm batch job ảnh hưởng dữ liệu nghiệp vụ
 - thêm report/export có logic nghiệp vụ riêng
@@ -51,7 +51,7 @@ Không bắt buộc cho:
 - **Related issue / ticket**:
 - **Status**: Draft / Ready / In Progress / Done
 - **Priority**:
-- **Primary bounded context**:
+- **Primary module / bounded context**:
 
 ---
 
@@ -82,7 +82,7 @@ Nêu rõ nếu có thuật ngữ dễ nhầm với context khác.
 
 ---
 
-## 3. Primary bounded context
+## 3. Primary module / bounded context
 
 - **Primary bounded context**:
 - **Vì sao feature này thuộc context này**:
@@ -92,7 +92,7 @@ Nêu rõ nếu có thuật ngữ dễ nhầm với context khác.
 
 ---
 
-## 4. Supporting contexts
+## 4. Supporting modules / contexts
 
 Liệt kê các context phụ trợ thật sự cần dùng.
 
@@ -147,10 +147,10 @@ Liệt kê query/read model cần thiết.
 Liệt kê các rule bắt buộc phải giữ.
 
 Ví dụ:
-- không raise query trên field không tồn tại
-- không sửa page entry khi page đã locked
-- không finalize subject khi còn query mở
-- không export dữ liệu ngoài study được cấp quyền
+- không raise query/discrepancy trên field không tồn tại
+- không sửa page entry khi page đã locked hoặc finalized theo policy
+- không reconcile/close discrepancy nếu trạng thái hiện tại không hợp lệ
+- không export dữ liệu vượt quá policy do governance cho phép
 
 ---
 
@@ -193,7 +193,7 @@ Mô tả happy path ngắn gọn theo thứ tự bước.
 - [ ] Có
 - [ ] Không
 
-Nếu không, giải thích ngắn gọn tại sao feature này vẫn nằm trong boundary hiện tại.
+Nếu không, giải thích ngắn gọn tại sao feature này vẫn nằm gọn trong boundary hiện tại và không tạo dependency mới giữa các module.
 
 ---
 
@@ -213,9 +213,9 @@ Mục này là bắt buộc nếu feature có thay đổi dữ liệu nghiệp v
 
 Ví dụ:
 - `ManualQueryRaised`
-- `PageLocked`
+- `DiscrepancyResolved`
 - `FieldEntryCorrected`
-- `DatabaseFrozen`
+- `DatasetExportAuthorized`
 
 ---
 
@@ -225,12 +225,13 @@ Ví dụ:
 
 - [ ] dữ liệu cá nhân
 - [ ] dữ liệu nghiên cứu lâm sàng
-- [ ] audit export
-- [ ] query / review / lock
+- [ ] audit trail / audit export
+- [ ] reconcile / query / discrepancy
 - [ ] subject lifecycle
-- [ ] reporting/export ngoài hệ thống
-- [ ] dữ liệu cần retention rule
-- [ ] dữ liệu cần masking / access restriction
+- [ ] exporting / data package ra ngoài hệ thống
+- [ ] retention / disposition policy
+- [ ] masking / disclosure / access restriction
+- [ ] governance approval hoặc policy decision
 
 Nếu có, mô tả ngắn gọn:
 - dữ liệu nào
@@ -314,8 +315,8 @@ Ví dụ:
 
 ### Regression tests
 - [ ] existing workflow unaffected
-- [ ] reporting/projection unaffected
-- [ ] lock/query/finalize rules unaffected
+- [ ] dashboard/projection unaffected
+- [ ] reconcile/governance/export rules unaffected
 
 ---
 
@@ -350,28 +351,31 @@ Feature chỉ được coi là hoàn thành khi:
 ## 18. Ví dụ điền mẫu ngắn
 
 ### Ví dụ: Raise Manual Query
-- **Primary bounded context**: `query_management`
+- **Primary bounded context**: `reconcile`
 - **Supporting contexts**:
-  - `clinical_capture` qua read contract để xác nhận page entry / field path tồn tại
-  - `identity_access` để xác định actor
+  - `datacapture` qua read contract để xác nhận `PageEntry` / `FieldEntry` tồn tại
+  - `identity` để xác định actor và permission
 - **Aggregate**: `QueryCase`
 - **Invariant**:
   - không raise query nếu field path không tồn tại
-  - không raise query nếu page đã final lock và policy cấm query mới
+  - không raise query nếu page đã final lock và policy hiện tại không cho phép query mới
 - **Event emitted**:
   - `ManualQueryRaised`
 - **Audit trail required**: Yes
 - **Architecture review required**: No, nếu chỉ dùng public contract đã có
 
-### Ví dụ: Lock Page
-- **Primary bounded context**: `data_review`
+### Ví dụ: Export Subject Dataset
+- **Primary bounded context**: `exporting`
 - **Supporting contexts**:
-  - `query_management` qua query/projection để kiểm tra open queries
-  - `clinical_capture` qua public contract để xác định page entry state
-- **Aggregate**: `PageLock`
+  - `governance` để kiểm tra export authorization, masking/disclosure policy
+  - `study` để xác nhận subject thuộc study scope được yêu cầu
+  - `audit` để ghi audit trail cho hành vi export hoặc approval decision
+- **Aggregate**: `ExportJob`
 - **Invariant**:
-  - không lock nếu còn open query
-  - không lock nếu page chưa complete theo policy
+  - không export nếu governance policy chưa cho phép
+  - không export vượt study scope hoặc actor scope đã được cấp quyền
+  - dữ liệu phải được masking nếu policy yêu cầu
 - **Event emitted**:
-  - `PageLocked`
+  - `DatasetExportRequested`
+  - `DatasetExportCompleted`
 - **Audit trail required**: Yes

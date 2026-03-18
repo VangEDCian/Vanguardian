@@ -50,21 +50,35 @@ Không được import thẳng `domain/`, `models.py`, `repositories.py` nội b
 
 ```sh
 apps/
-  identity_access/
+  identity/
     apps.py
     public.py
     domain/
     application/
     infrastructure/
     presentation/
-  study_design/
+  study/
     apps.py
     public.py
     domain/
     application/
     infrastructure/
     presentation/
-  clinical_capture/
+  crf/
+    apps.py
+    public.py
+    domain/
+    application/
+    infrastructure/
+    presentation/
+  datacapture/
+    apps.py
+    public.py
+    domain/
+    application/
+    infrastructure/
+    presentation/
+  reconcile/
     apps.py
     public.py
     domain/
@@ -82,14 +96,14 @@ apps/
 **Cấm**
 
 ```python
-from src.study_design.domain.entities import PageTemplate
-from src.query_management.domain.models import QueryCase
+from apps.crf.domain.entities import PageTemplate
+from apps.reconcile.domain.models import QueryCase
 ```
 
 **Cho phép**
 
 ```python
-from src.shared_kernel.ids import StudyId, SubjectId, PageEntryId
+from apps.core.domain.ids import StudyId, SubjectId, PageEntryId
 ```
 
 **Giải thích**
@@ -101,19 +115,19 @@ Domain phải giữ invariant của chính nó. Nếu domain import domain khác
 **Đúng**
 
 ```python
-from src.study_operations.public import SubjectQueryService
+from apps.study.public import StudySubjectQueryService
 ```
 
 **Sai**
 
 ```python
-from src.study_operations.application.subject_queries import SubjectQueryService
-from src.study_operations.domain.subject import Subject
+from apps.study.application.subject_queries import StudySubjectQueryService
+from apps.study.domain.subject import Subject
 ```
 
 ### Rule I3 — `infrastructure/` có thể tích hợp kỹ thuật, nhưng không được làm lộ internal domain xuyên context
 
-Ví dụ `clinical_capture.infrastructure` có thể gọi DB, cache, broker, nhưng không được trở thành đường vòng để sửa private state của `study_design`.
+Ví dụ `datacapture.infrastructure` có thể gọi DB, cache, broker, nhưng không được trở thành đường vòng để sửa private state của `crf` hoặc `study`.
 
 ### Rule I4 — `presentation/` không được chứa business rule xuyên context
 
@@ -134,14 +148,14 @@ Controller/API/View có thể orchestration mức nhẹ, nhưng không được:
 Ví dụ:
 
 ```python
-# src/study_operations/public.py
+# apps/study/public.py
 
-from .application.subject_queries import SubjectQueryService
-from .application.subject_commands import SubjectCommandService
+from .application.subject_queries import StudySubjectQueryService
+from .application.subject_commands import StudySubjectCommandService
 
 __all__ = [
-    "SubjectQueryService",
-    "SubjectCommandService",
+    "StudySubjectQueryService",
+    "StudySubjectCommandService",
 ]
 ```
 
@@ -181,7 +195,7 @@ Không export:
 
 ### Rule S1 — Shared kernel phải cực nhỏ
 
-Chỉ được đặt trong `shared_kernel` các thành phần sau:
+Chỉ được đặt trong `core` các thành phần sau:
 
 - ID types: `StudyId`, `SiteId`, `SubjectId`, `UserId`
 - domain event base class
@@ -220,19 +234,19 @@ Mỗi bảng hoặc aggregate store phải có một context sở hữu.
 
 Ví dụ:
 
-- `study_design_*` do `study_design` sở hữu
-- `clinical_capture_*` do `clinical_capture` sở hữu
-- `query_management_*` do `query_management` sở hữu
+- `crf_*` do `crf` sở hữu
+- `datacapture_*` do `datacapture` sở hữu
+- `reconcile_*` do `reconcile` sở hữu
 
 ### Rule D2 — Không context nào được update bảng private của context khác
 
 **Cấm**
 
-`query_management` update trực tiếp bảng page entry để đóng query flag.
+`reconcile` update trực tiếp bảng page entry để đóng discrepancy/query flag.
 
 **Đúng**
 
-- gọi public API của `clinical_capture`
+- gọi public API của `datacapture`
 - hoặc phát event
 - hoặc materialize read model riêng
 
@@ -260,12 +274,12 @@ Không được đọc trực tiếp bảng private theo kiểu “tiện thì j
 
 ### Rule C1 — Đồng bộ qua application facade khi cần quyết định tức thời
 
-Ví dụ `clinical_capture` cần kiểm tra subject còn active không:
+Ví dụ `datacapture` cần kiểm tra subject còn active trong study không:
 
 ```python
-class SubjectRegistry(Protocol):
-    def exists(self, subject_id: SubjectId) -> bool: ...
-    def is_active_for_study(self, subject_id: SubjectId, study_id: StudyId) -> bool: ...
+class StudySubjectRegistry(Protocol):
+    def subject_exists(self, subject_id: SubjectId) -> bool: ...
+    def subject_belongs_to_study(self, subject_id: SubjectId, study_id: StudyId) -> bool: ...
 ```
 
 ### Rule C2 — Bất đồng bộ qua domain event khi không cần transaction chung
@@ -277,7 +291,7 @@ Ví dụ:
 - `SubjectEnrolled`
 - `DatabaseLocked`
 
-Dashboard, audit, reporting nên tiêu thụ event/projection thay vì bám write model.
+Dashboard, audit, exporting và governance projections nên tiêu thụ event/projection thay vì bám write model.
 
 ### Rule C3 — Không truyền aggregate xuyên context
 
@@ -315,9 +329,9 @@ class PageTemplateSnapshot:
 
 Ví dụ:
 
-- `clinical_capture.domain` xử lý field entry, completion, validation result tại thời điểm capture
-- `query_management.domain` xử lý lifecycle query
-- `data_review.domain` xử lý lock/review/finalize
+- `datacapture.domain` xử lý field entry, completion, validation result tại thời điểm capture
+- `reconcile.domain` xử lý query/discrepancy lifecycle
+- `governance.domain` xử lý policy decision về access/export/masking/retention
 
 Không domain nào ôm logic nghiệp vụ của context khác.
 
@@ -378,10 +392,10 @@ Django admin chỉ dùng cho:
 
 Không dùng admin để thao tác những luồng cần audit/invariant nghiêm ngặt như:
 
-- finalize subject
-- lock database
-- close query
+- authorize dataset export
+- close discrepancy/query
 - modify clinical entry có kiểm soát
+- thay đổi governance policy decision có audit bắt buộc
 
 ### Rule J4 — Migration ownership theo context
 
@@ -397,7 +411,7 @@ Bất kỳ dependency mới nào sau đây phải ghi vào `architecture-review.
 
 - import public API mới
 - read model mới dùng chéo context
-- shared kernel mở rộng
+- core abstractions mở rộng
 - event integration mới
 - DB projection/view dùng chung mới
 
@@ -450,32 +464,32 @@ Mỗi feature mới phải trả lời tối thiểu các câu hỏi sau:
 
 ## 13. Ví dụ cụ thể
 
-### Ví dụ 1 — Clinical Capture cần biết template
+### Ví dụ 1 — Datacapture cần biết template
 
 **Sai**
 
 ```python
-from src.study_design.domain.page_template import PageTemplate
+from apps.crf.domain.page_template import PageTemplate
 ```
 
 **Đúng**
 
 ```python
-from src.study_design.public import StudyTemplateReader
+from apps.crf.public import CrfTemplateReader
 ```
 
 Hoặc:
 
 ```python
-template_snapshot = study_template_reader.get_page_template_snapshot(
+template_snapshot = crf_template_reader.get_page_template_snapshot(
     page_template_id=page_template_id,
     version=version,
 )
 ```
 
-`clinical_capture` chỉ dùng snapshot để record entry.
+`datacapture` chỉ dùng snapshot để record entry.
 
-### Ví dụ 2 — Query Management cần gắn với field entry
+### Ví dụ 2 — Reconcile cần gắn với field entry
 
 **Sai**
 
@@ -493,16 +507,16 @@ template_snapshot = study_template_reader.get_page_template_snapshot(
 
 Nếu cần derived status cho UI, build read model hoặc application orchestration.
 
-### Ví dụ 3 — Reporting cần dữ liệu nhiều context
+### Ví dụ 3 — Exporting cần dữ liệu nhiều module
 
 **Sai**
-`reporting_export` join trực tiếp toàn bộ bảng private mỗi khi chạy export.
+`exporting` join trực tiếp toàn bộ bảng private mỗi khi chạy export.
 
 **Đúng**
 
-- dùng reporting projection
-- hoặc contract query chuyên biệt từ từng context
-- hoặc event-built export snapshot
+- dùng export projection hoặc published query contract
+- hỏi `governance` về policy/authorization trước khi phát hành dữ liệu
+- ghi audit trail cho hành vi export hoặc approval decision
 
 ---
 
@@ -510,7 +524,7 @@ Nếu cần derived status cho UI, build read model hoặc application orchestra
 
 ### Allowed
 
-- import từ `shared_kernel`
+- import từ `core`
 - import từ `other_context.public`
 - giao tiếp qua DTO / event / facade / gateway
 - đọc qua published projection/read model
@@ -522,7 +536,7 @@ Nếu cần derived status cho UI, build read model hoặc application orchestra
 - import `other_context.application.*` trực tiếp
 - dùng ORM model context khác như domain object của mình
 - update bảng private của context khác
-- nhét aggregate nghiệp vụ vào `shared_kernel`
+- nhét aggregate nghiệp vụ vào `core`
 - để Django admin bypass use case quan trọng
 
 ---
@@ -535,8 +549,8 @@ Nếu cần derived status cho UI, build read model hoặc application orchestra
 1. `domain/` của một bounded context không được import `domain/` của bounded context khác.
 2. Cross-context access chỉ được phép qua `public.py`, published DTOs, domain events, hoặc gateway interfaces.
 3. Không được dùng trực tiếp ORM model, aggregate, repository nội bộ của context khác.
-4. Shared kernel chỉ chứa IDs, stable enums, domain-event base classes, result/error primitives, và metadata rất ổn định.
-5. Không aggregate nghiệp vụ nào được đặt trong shared kernel.
+4. Core chỉ chứa IDs, stable enums, domain-event base classes, result/error primitives, và metadata rất ổn định.
+5. Không aggregate nghiệp vụ nào được đặt trong core.
 6. Mỗi bảng/private persistence phải có đúng một owner context.
 7. Không được update bảng private của context khác.
 8. Mọi dependency mới giữa các contexts phải được ghi vào `architecture-review.md`.
@@ -552,4 +566,4 @@ Bộ rule này chỉ có giá trị thực nếu được cưỡng chế bằng 
 
 - `architecture-review.md`
 - `feature-scaffold.md`
-- `import-linter` hoặc test pytest để chặn import chéo trong CI
+- `import-linter` hoặc architecture tests bằng pytest để chặn import chéo trong CI
