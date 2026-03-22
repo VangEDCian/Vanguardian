@@ -26,6 +26,7 @@ Bắt buộc dùng cho:
 - thêm report/export có logic nghiệp vụ riêng
 
 Không bắt buộc cho:
+
 - đổi text UI đơn giản
 - sửa typo
 - refactor nội bộ không đổi hành vi
@@ -58,12 +59,14 @@ Không bắt buộc cho:
 ## 1. Bài toán nghiệp vụ
 
 Mô tả ngắn gọn:
+
 - feature này phục vụ nghiệp vụ gì
 - ai sử dụng
 - hành vi mong muốn là gì
 - không nên mô tả theo ngôn ngữ UI thuần túy
 
 Ví dụ tốt:
+
 - “Cho phép Data Manager raise manual query trên một field đã nhập của subject”
 - “Cho phép lock page sau khi toàn bộ query đã resolved”
 - “Cho phép export audit trail của subject theo khoảng thời gian”
@@ -111,6 +114,7 @@ Không liệt kê context chỉ vì “có liên quan về UI”.
 |  |  |  |
 
 Nêu rõ:
+
 - ai được thực hiện
 - ai không được thực hiện
 - có kiểm tra site/study ownership không
@@ -121,6 +125,7 @@ Nêu rõ:
 ## 6. Use case summary
 
 ### 6.1 Command(s)
+
 Liệt kê command chính.
 
 | Command | Description | Owner context |
@@ -128,6 +133,7 @@ Liệt kê command chính.
 |  |  |  |
 
 ### 6.2 Query(s)
+
 Liệt kê query/read model cần thiết.
 
 | Query | Description | Source |
@@ -139,14 +145,17 @@ Liệt kê query/read model cần thiết.
 ## 7. Aggregate và invariant
 
 ### 7.1 Aggregate(s) touched
+
 | Aggregate | Action | Why needed |
 |---|---|---|
 |  |  |  |
 
 ### 7.2 Invariant(s)
+
 Liệt kê các rule bắt buộc phải giữ.
 
 Ví dụ:
+
 - không raise query/discrepancy trên field không tồn tại
 - không sửa page entry khi page đã locked hoặc finalized theo policy
 - không reconcile/close discrepancy nếu trạng thái hiện tại không hợp lệ
@@ -163,6 +172,7 @@ Mô tả happy path ngắn gọn theo thứ tự bước.
 3.
 
 ### 8.1 Alternate flows / edge cases
+
 - trường hợp thiếu permission
 - đối tượng không tồn tại
 - dữ liệu đang locked
@@ -175,21 +185,25 @@ Mô tả happy path ngắn gọn theo thứ tự bước.
 ## 9. Cross-context interaction
 
 ### 9.1 Contract được dùng
+
 | Source context | Contract / API | Purpose |
 |---|---|---|
 |  |  |  |
 
 ### 9.2 Event được consume
+
 | Event | Producer | Why needed |
 |---|---|---|
 |  |  |  |
 
 ### 9.3 Event được emit
+
 | Event | Consumers expected | Notes |
 |---|---|---|
 |  |  |  |
 
 ### 9.4 Có cần `architecture-review.md` không?
+
 - [ ] Có
 - [ ] Không
 
@@ -212,6 +226,7 @@ Mục này là bắt buộc nếu feature có thay đổi dữ liệu nghiệp v
 - **Comment / free-text required**: Yes / No
 
 Ví dụ:
+
 - `ManualQueryRaised`
 - `DiscrepancyResolved`
 - `FieldEntryCorrected`
@@ -234,6 +249,7 @@ Ví dụ:
 - [ ] governance approval hoặc policy decision
 
 Nếu có, mô tả ngắn gọn:
+
 - dữ liệu nào
 - ai được xem
 - ai được sửa
@@ -248,14 +264,17 @@ Nếu có, mô tả ngắn gọn:
 |  | new / update / no change |  |
 
 ### 12.1 Migration needed
+
 - [ ] Yes
 - [ ] No
 
 ### 12.2 Projection/backfill needed
+
 - [ ] Yes
 - [ ] No
 
 ### 12.3 Ownership check
+
 Xác nhận feature này không ghi trực tiếp vào bảng private của context khác.
 
 - [ ] Confirmed
@@ -272,6 +291,7 @@ Xác nhận feature này không ghi trực tiếp vào bảng private của cont
 | Message consumer |  |  |
 
 Rule:
+
 - không expose domain entity trực tiếp
 - request/response dùng DTO
 - transport validation không thay thế domain invariant
@@ -287,6 +307,7 @@ Liệt kê lỗi có chủ đích cần xử lý.
 |  | domain / app / transport / infra |  |
 
 Ví dụ:
+
 - invalid status transition
 - page locked
 - missing subject
@@ -298,22 +319,26 @@ Ví dụ:
 ## 15. Test plan tối thiểu
 
 ### Unit tests
+
 - [ ] domain rule
 - [ ] value object
 - [ ] state transition
 
 ### Application tests
+
 - [ ] command handler / use case
 - [ ] permission flow
 - [ ] transaction boundary
 
 ### Integration tests
+
 - [ ] repository
 - [ ] public contract
 - [ ] event publish/consume
 - [ ] audit trail persistence
 
 ### Regression tests
+
 - [ ] existing workflow unaffected
 - [ ] dashboard/projection unaffected
 - [ ] reconcile/governance/export rules unaffected
@@ -337,7 +362,8 @@ Feature chỉ được coi là hoàn thành khi:
 
 ## 17. Gợi ý đánh giá nhanh trước khi code
 
-### Nếu câu trả lời là “không rõ”, dừng lại và review lại thiết kế:
+### Nếu câu trả lời là “không rõ”, dừng lại và review lại thiết kế
+
 - Feature này thuộc context nào?
 - Rule cốt lõi nằm ở aggregate nào?
 - Có đang dùng UI menu để quyết định boundary không?
@@ -351,6 +377,7 @@ Feature chỉ được coi là hoàn thành khi:
 ## 18. Ví dụ điền mẫu ngắn
 
 ### Ví dụ: Raise Manual Query
+
 - **Primary bounded context**: `reconcile`
 - **Supporting contexts**:
   - `datacapture` qua read contract để xác nhận `PageEntry` / `FieldEntry` tồn tại
@@ -365,6 +392,7 @@ Feature chỉ được coi là hoàn thành khi:
 - **Architecture review required**: No, nếu chỉ dùng public contract đã có
 
 ### Ví dụ: Export Subject Dataset
+
 - **Primary bounded context**: `exporting`
 - **Supporting contexts**:
   - `governance` để kiểm tra export authorization, masking/disclosure policy
