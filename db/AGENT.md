@@ -9,7 +9,6 @@ Mục tiêu bắt buộc:
 - Duy trì `db/dbdiagram.dbml` như nguồn mô tả logic schema rõ ràng, nhất quán và đọc được.
 - Đảm bảo quan hệ dữ liệu luôn nguyên vẹn, cardinality rõ ràng, không tạo bảng mồ côi hoặc quan hệ mập mờ.
 - Phản ánh đầy đủ thông tin hệ thống và thông tin nghiệp vụ, không chỉ mô hình hóa nhu cầu kỹ thuật thuần túy.
-- Mỗi lần cập nhật `db/dbdiagram.dbml` có ảnh hưởng đến schema phải đi kèm migration hợp lý trong `db/migrations/`.
 - Không cho phép lệch nhau giữa tài liệu nghiệp vụ, `dbdiagram.dbml`, và migration SQL.
 
 ## Tài liệu bắt buộc phải đọc trước khi sửa schema
@@ -18,7 +17,7 @@ Trước khi tạo mới hoặc chỉnh sửa `db/dbdiagram.dbml`, bắt buộc 
 
 Tối thiểu phải đọc:
 
-- `docs/research-outline.md`
+- `docs/business/research-outline.md`
 - `docs/folder-tree.md`
 - `src/AGENT.md`
 
@@ -71,6 +70,19 @@ Khi thiết kế bảng, phải phân biệt và giữ đủ:
 - thông tin thời gian có ý nghĩa nghiệp vụ
 
 Không được chỉ giữ các cột kỹ thuật như `id`, `created_at`, `updated_at` mà bỏ mất meaning của dữ liệu lâm sàng, visit, period, randomization, PK/PD, AE/SAE, eligibility hoặc workflow vận hành.
+
+### 5) Quy ước RBAC cho `identity`
+
+- `permissions` dùng concept chuẩn của Django qua `auth_permission`; không tạo cơ chế permission riêng song song.
+- `group` là lớp gom permissions theo semantics của Django (`auth_group` + `auth_group_permissions`).
+- `role` là lớp nghiệp vụ của project: một role có thể gán nhiều group và nhiều permission trực tiếp.
+- Quan hệ nhiều-nhiều cho RBAC phải đi qua bảng nối rõ nghĩa:
+  - `identity_role_groups`
+  - `identity_role_permissions`
+- Các codename permission do project khai báo trong model state phải nhất quán giữa:
+  - `db/dbdiagram.dbml`
+  - `db/migrations/*.sql`
+  - model/migration state trong `src/apps/identity/`
 
 ## Quy tắc cập nhật `db/dbdiagram.dbml`
 

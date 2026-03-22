@@ -15,14 +15,6 @@ from pathlib import Path
 import environ
 
 
-class DisableMigrations(dict):
-    def __contains__(self, item):
-        return True
-
-    def __getitem__(self, item):
-        return None
-
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -57,11 +49,12 @@ APPEND_SLASH = True
 
 X_INSTALLED_APPS = [
     "apps.identity.apps.IdentityConfig",
+    "apps.dashboard.apps.DashboardConfig",
 ]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
-    "apps.identity.auth_apps.ManualPermissionAuthConfig",
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
@@ -89,7 +82,7 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.PBKDF2PasswordHasher"]
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -115,14 +108,20 @@ DATABASES = {
     ),
 }
 
-# settings.py
-CACHES = {
-    # Read os.environ['CACHE_URL'] and raises
-    # ImproperlyConfigured exception if not found.
-    #
-    # The cache() method is an alias for cache_url().
-    "default": env.cache(default="locmemcache://"),
-}
+_cache_url = env("CACHE_URL", default="locmemcache://")
+if _cache_url.startswith("memcache://"):
+    # django-environ maps memcache:// to the legacy MemcachedCache backend,
+    # which is removed in Django 6. Use the supported backend explicitly.
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.memcached.PyMemcacheCache",
+            "LOCATION": _cache_url.removeprefix("memcache://"),
+        }
+    }
+else:
+    CACHES = {
+        "default": environ.Env.cache_url_config(_cache_url),
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -160,16 +159,12 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [
-    BASE_DIR.parent / "staticfiles",
+    BASE_DIR / "staticfiles",
 ]
 STATIC_ROOT = BASE_DIR.parent / "static"
 
 AUTH_USER_MODEL = "identity.User"
 LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/admin/"
+LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/login/"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
-# Source code follows a DB-first approach. Schema changes are owned in
-# db/dbdiagram.dbml and db/migrations/*.sql, not in Django migration modules.
-MIGRATION_MODULES = DisableMigrations()

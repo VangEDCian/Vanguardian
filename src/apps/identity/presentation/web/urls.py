@@ -2,7 +2,6 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from apps.identity.forms import (
-    StyledAuthenticationForm,
     StyledPasswordResetForm,
     StyledSetPasswordForm,
 )
@@ -49,4 +48,3 @@ urlpatterns = [
         name="reset_password_done",
     ),
 ]
-

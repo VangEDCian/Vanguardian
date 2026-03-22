@@ -1,0 +1,134 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Dashboard | Vanguardian{% endblock %}</title>
+  <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+  <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
+  <link rel="stylesheet" href="{% static 'shared/css/layout.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="dashboard-page">
+  <div class="dashboard-shell" data-dashboard-shell>
+    <header class="top-nav">
+      <div class="top-nav__inner">
+        <nav class="top-nav__menu" aria-label="Main navigation">
+          <button type="button" class="top-nav__item is-active" data-nav-item data-nav-label="SUBJECTS">
+            <span class="top-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M17 10a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-10 0a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm10 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4ZM7 12c-.34 0-.72.02-1.12.05C3.8 12.24 0 13.29 0 16v2h7v-2c0-1.55.71-2.89 1.9-3.92A11.85 11.85 0 0 0 7 12Z" /></svg>
+            </span>
+            <span>SUBJECTS</span>
+          </button>
+          <button type="button" class="top-nav__item" data-nav-item data-nav-label="SITES">
+            <span class="top-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 14.5 9 2.5 2.5 0 0 1 12 11.5Z" /></svg>
+            </span>
+            <span>SITES</span>
+          </button>
+          <button type="button" class="top-nav__item" data-nav-item data-nav-label="PROJECT">
+            <span class="top-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3Zm10 0h8v5h-8ZM3 13h5v8H3Zm7 0h11v8H10Z" /></svg>
+            </span>
+            <span>PROJECT</span>
+          </button>
+          <button type="button" class="top-nav__item" data-nav-item data-nav-label="USERS">
+            <span class="top-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-5 0-9 2.24-9 5v2h18v-2c0-2.76-4-5-9-5Z" /></svg>
+            </span>
+            <span>USERS</span>
+          </button>
+          <button type="button" class="top-nav__item" data-nav-item data-nav-label="DASHBOARD">
+            <span class="top-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 13h6v7H4Zm10-9h6v16h-6ZM4 4h6v7H4Zm10 5h6v3h-6Z" /></svg>
+            </span>
+            <span>DASHBOARD</span>
+          </button>
+        </nav>
+
+        <div class="top-nav__controls">
+          <div class="nav-select" data-dropdown>
+            <button type="button" class="nav-select__trigger" data-dropdown-trigger aria-expanded="false">
+              <span data-dropdown-value>REACT-AF Training</span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div class="nav-select__menu" data-dropdown-menu hidden>
+              <button type="button" data-dropdown-option>REACT-AF Training</button>
+              <button type="button" data-dropdown-option>REACT-AF Phase II</button>
+              <button type="button" data-dropdown-option>CARDIO-Study 1</button>
+            </div>
+          </div>
+
+          <div class="nav-select nav-select--site" data-dropdown>
+            <button type="button" class="nav-select__trigger" data-dropdown-trigger aria-expanded="false">
+              <span data-dropdown-value>100-JHU1</span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div class="nav-select__menu" data-dropdown-menu hidden>
+              <button type="button" data-dropdown-option>100-JHU1</button>
+              <button type="button" data-dropdown-option>100-JHU2</button>
+              <button type="button" data-dropdown-option>200-MAYO</button>
+              <button type="button" data-dropdown-option>300-UCLA</button>
+            </div>
+          </div>
+
+          <span class="top-nav__divider" aria-hidden="true"></span>
+
+          <div class="avatar-menu" data-avatar-menu>
+            <button type="button" class="avatar-menu__trigger" data-avatar-trigger aria-expanded="false">
+              <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-5 0-9 2.24-9 5v2h18v-2c0-2.76-4-5-9-5Z" /></svg>
+            </button>
+            <div class="avatar-menu__panel" data-avatar-panel hidden>
+              <div class="avatar-menu__header">
+                <strong>John Coordinator</strong>
+                <span>Coordinator</span>
+              </div>
+              <button type="button">Thông tin</button>
+              <button type="button">Change Password</button>
+              <button type="button" class="avatar-menu__logout">Logout</button>
+            </div>
+          </div>
+
+          <div class="role-select-wrap">
+            <span>Select Role</span>
+            <div class="nav-select nav-select--role" data-dropdown>
+              <button type="button" class="nav-select__trigger" data-dropdown-trigger aria-expanded="false">
+                <span data-dropdown-value>Coordinator</span>
+                <span aria-hidden="true">▾</span>
+              </button>
+              <div class="nav-select__menu" data-dropdown-menu hidden>
+                <button type="button" data-dropdown-option>Coordinator</button>
+                <button type="button" data-dropdown-option>Investigator</button>
+                <button type="button" data-dropdown-option>Monitor</button>
+                <button type="button" data-dropdown-option>Data Manager</button>
+                <button type="button" data-dropdown-option>Administrator</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="dashboard-breadcrumb">
+      <span data-breadcrumb-study>REACT-AF Training</span>
+      <span aria-hidden="true">›</span>
+      <span data-breadcrumb-site>100-JHU1</span>
+      <span aria-hidden="true">›</span>
+      <strong data-breadcrumb-active>SUBJECTS</strong>
+    </div>
+
+    <main class="dashboard-main">
+      {% block dashboard_content %}
+      <section class="dashboard-placeholder">
+        <h1>Dashboard Layout</h1>
+        <p>Khu vực nội dung chính sẽ được thay theo module đang active.</p>
+      </section>
+      {% endblock %}
+    </main>
+  </div>
+
+  <script src="{% static 'shared/js/layout.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

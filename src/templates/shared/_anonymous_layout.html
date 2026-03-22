@@ -5,7 +5,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Vanguardian{% endblock %}</title>
+  <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
   <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
+  <link rel="stylesheet" href="{% static 'identity/css/identity_style.css' %}">
   <link rel="stylesheet" href="{% static 'identity/css/auth.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
@@ -20,18 +22,6 @@
             Nền tảng quản trị vận hành nghiên cứu lâm sàng với quy trình xác thực,
             phân quyền và kiểm soát truy cập rõ ràng.
           </p>
-        </div>
-        <div class="brand-highlights">
-          <article>
-            <span class="highlight-index">01</span>
-            <h2>Access Control First</h2>
-            <p>User có permissions trực tiếp, group là tập hợp permissions, toàn bộ được quản trị minh bạch.</p>
-          </article>
-          <article>
-            <span class="highlight-index">02</span>
-            <h2>Audit-Friendly</h2>
-            <p>Thiết kế giao diện và luồng xác thực nhất quán để dễ truy vết và chuẩn hóa vận hành.</p>
-          </article>
         </div>
       </div>
     </section>
@@ -49,7 +39,7 @@
         {% block content %}{% endblock %}
 
         <footer class="auth-footer">
-          <p>© 2026 Clinical Trial Management System</p>
+          <p>© 2026 Vanguardian</p>
         </footer>
       </div>
     </section>

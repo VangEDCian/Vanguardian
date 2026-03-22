@@ -10,21 +10,23 @@ Tài liệu này là quy ước làm việc bắt buộc cho tất cả kỹ sư
 
 Trước khi phân tích, thiết kế, scaffold, viết code, sửa model, tạo migration, định nghĩa API, hoặc thiết kế E-CRF, kỹ sư bắt buộc phải đọc và đối chiếu các tài liệu sau:
 
-- `docs/research-outline.md`
+- `docs/business/research-outline.md`
 - Tài liệu nguồn nghiệp vụ gốc:
   `/Users/trungthudo/Library/CloudStorage/OneDrive-Personal/00.PROJECTS/03.NANOGEN/01.NANOKINE/2. Đề cương nghiên cứu_NNG31_bản nộp Hội đồng cơ sở- Synopsis for E-CRF.docx`
 
 ### Quy tắc áp dụng
 
-- `docs/research-outline.md` là bản tóm tắt nội bộ để team kỹ thuật nắm nhanh nghiệp vụ.
+- `docs/business/research-outline.md` là bản tóm tắt nội bộ để team kỹ thuật nắm nhanh nghiệp vụ.
 - File `.docx` là tài liệu nguồn phải được ưu tiên đối chiếu khi có điểm chưa rõ hoặc có xung đột diễn giải.
 - Khi xây dựng `models`, thiết kế persistence, mapping entity sang bảng, hoặc viết migration, phải tham khảo `db/dbdiagram.dbml` trước khi thực hiện.
 - `db/dbdiagram.dbml` là nguồn mô tả schema logic cần được đối chiếu để tránh lệch giữa model code và thiết kế dữ liệu.
 - Trong `src/`, dự án theo hướng `DB-first`: không dùng Django migrations để sở hữu schema nghiệp vụ.
 - Mọi thay đổi schema phải được thực hiện qua `db/dbdiagram.dbml` và SQL trong `db/migrations/`, sau đó `models` trong `src/` chỉ ánh xạ lại schema đã được chốt.
 - Không tạo hoặc duy trì Django migration files trong `src/` như nguồn sự thật cho database schema.
-- Quản lý `permissions` không được auto-generate theo mặc định của Django và cũng không được tự ý suy diễn bởi kỹ thuật đơn lẻ.
-- Danh mục `permissions`, codename, ý nghĩa nghiệp vụ và cách gom `group` phải do lập trình viên và business cùng quyết định, sau đó mới được khai báo thủ công trong hệ thống.
+- Quản lý `permissions` dùng cơ chế chuẩn của Django (`auth_permission`) và được tạo qua `./manage.py migrate` dựa trên `django_content_type` + `Meta.permissions`.
+- Danh mục `permissions`, codename, ý nghĩa nghiệp vụ và cách gom `group` vẫn phải do lập trình viên và business cùng quyết định, sau đó được khai báo trong model state để migrate tạo ra.
+- `permissions` vẫn đi theo concept chuẩn của Django (`auth_permission`) và được quản trị theo model nội bộ của project, không định nghĩa lại một permission engine riêng.
+- `Role` là lớp vai trò nghiệp vụ của `identity`: một role có thể gán nhiều `permissions` và nhiều `groups`; `group` là nơi tổng hợp permissions theo semantics của Django.
 - Không được suy diễn workflow nghiệp vụ, field E-CRF, visit schedule, randomization flow, PK/PD sampling, hoặc safety handling chỉ từ tên module hay giả định kỹ thuật.
 - Nếu không truy cập được file `.docx`, phải dừng các quyết định nghiệp vụ quan trọng và yêu cầu cung cấp lại tài liệu trước khi tiếp tục.
 - Mọi thay đổi ảnh hưởng `study`, `crf`, `datacapture`, `reconcile`, `audit`, `governance`, `exporting`, `dashboard` đều phải kiểm tra lại với tài liệu nguồn trước khi triển khai.
@@ -108,6 +110,7 @@ Chịu trách nhiệm:
 - authorization runtime check
 - user administration
 - role assignment
+- role management (Role, Role-Group, Role-Permission)
 - site/study membership
 - quản trị hồ sơ user vận hành
 

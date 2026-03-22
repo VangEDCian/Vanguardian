@@ -18,7 +18,8 @@ static/
 .env
 *.env
 .env.*
-!.env.tpl
+!.env\.tpl
+!.env\.*\.tpl
 .envrc
 secrets.json
 

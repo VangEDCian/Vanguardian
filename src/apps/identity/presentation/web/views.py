@@ -8,5 +8,4 @@ class IdentityLoginView(LoginView):
     template_name = "identity/login.html"
     authentication_form = StyledAuthenticationForm
     redirect_authenticated_user = True
-    next_page = reverse_lazy("admin:index")
-
+    next_page = reverse_lazy("dashboard:main")
