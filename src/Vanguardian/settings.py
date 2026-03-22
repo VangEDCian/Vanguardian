@@ -15,6 +15,14 @@ from pathlib import Path
 import environ
 
 
+class DisableMigrations(dict):
+    def __contains__(self, item):
+        return True
+
+    def __getitem__(self, item):
+        return None
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -47,11 +55,13 @@ APPEND_SLASH = True
 
 # Application definition
 
-X_APPS = []
+X_INSTALLED_APPS = [
+    "apps.identity.apps.IdentityConfig",
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
-    "django.contrib.auth",
+    "apps.identity.auth_apps.ManualPermissionAuthConfig",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
@@ -60,7 +70,7 @@ INSTALLED_APPS = [
     "django_filters",
     "drf_spectacular",
     "drf_spectacular_sidecar",
-] + X_APPS
+] + X_INSTALLED_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -69,11 +79,10 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "djangorestframework_camel_case.middleware.CamelCaseMiddleWare",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = "Vanguardian.urls"
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.PBKDF2PasswordHasher"]
 
@@ -92,8 +101,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "config.wsgi.application"
-ASGI_APPLICATION = "config.asgi.application"
+WSGI_APPLICATION = "Vanguardian.wsgi.application"
+ASGI_APPLICATION = "Vanguardian.asgi.application"
 
 
 # Database
@@ -137,7 +146,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = "vn-vi"
+LANGUAGE_CODE = "vi"
 
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
@@ -149,4 +158,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [
+    BASE_DIR.parent / "staticfiles",
+]
+STATIC_ROOT = BASE_DIR.parent / "static"
+
+AUTH_USER_MODEL = "identity.User"
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/admin/"
+LOGOUT_REDIRECT_URL = "/login/"
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# Source code follows a DB-first approach. Schema changes are owned in
+# db/dbdiagram.dbml and db/migrations/*.sql, not in Django migration modules.
+MIGRATION_MODULES = DisableMigrations()
