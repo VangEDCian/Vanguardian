@@ -17,12 +17,3 @@ CACHE_URL=memcache://127.0.0.1:11211
 # If source runs inside the same docker network, switch to service DNS names:
 # DATABASE_URL=mysql://vanguardian:vanguardian@mariadb:3306/vanguardian
 # CACHE_URL=memcache://memcached:11211
-
-MQTT_HOST=127.0.0.1
-MQTT_PORT=1883
-MQTT_WS_PORT=9001
-MQTT_URL=mqtt://127.0.0.1:1883
-
-NODE_RED_HOST=127.0.0.1
-NODE_RED_PORT=1880
-NODE_RED_URL=http://127.0.0.1:1880
