@@ -232,6 +232,29 @@
   white-space: nowrap;
 }
 
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.language-switch__label {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.language-switch__select {
+  min-width: 104px;
+  height: 34px;
+  border: 1px solid #d7dfe5;
+  border-radius: 8px;
+  background: #fff;
+  color: #2f3d47;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .dashboard-breadcrumb {
   min-height: 34px;
   background: #fff;
@@ -366,6 +389,10 @@
   }
 
   .role-select-wrap > span {
+    display: none;
+  }
+
+  .language-switch__label {
     display: none;
   }
 

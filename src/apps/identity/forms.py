@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.utils.translation import gettext_lazy as _
 
 
 class StyledAuthenticationForm(AuthenticationForm):
@@ -7,13 +8,13 @@ class StyledAuthenticationForm(AuthenticationForm):
         super().__init__(*args, **kwargs)
         self.fields["username"].widget.attrs.update(
             {
-                "placeholder": "Nhập tên đăng nhập",
+                "placeholder": _("Enter username"),
                 "autocomplete": "username",
             }
         )
         self.fields["password"].widget.attrs.update(
             {
-                "placeholder": "Nhập mật khẩu",
+                "placeholder": _("Enter password"),
                 "autocomplete": "current-password",
             }
         )
@@ -32,23 +33,22 @@ class StyledPasswordResetForm(PasswordResetForm):
 
 class StyledSetPasswordForm(SetPasswordForm):
     password_requirements = (
-        "Ít nhất 8 ký tự",
-        "Bao gồm chữ hoa và chữ thường",
-        "Ít nhất một số hoặc ký tự đặc biệt",
+        _("At least 8 characters"),
+        _("Must include uppercase and lowercase letters"),
+        _("At least one number or special character"),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["new_password1"].widget.attrs.update(
             {
-                "placeholder": "Nhập mật khẩu mới",
+                "placeholder": _("Enter new password"),
                 "autocomplete": "new-password",
             }
         )
         self.fields["new_password2"].widget.attrs.update(
             {
-                "placeholder": "Nhập lại mật khẩu mới",
+                "placeholder": _("Confirm new password"),
                 "autocomplete": "new-password",
             }
         )
-

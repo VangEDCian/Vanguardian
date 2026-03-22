@@ -1,9 +1,9 @@
 {% extends "shared/_anonymous_layout.html" %}
-{% load static %}
+{% load i18n static %}
 
-{% block title %}Đăng nhập | Vanguardian{% endblock %}
-{% block heading %}Đăng nhập{% endblock %}
-{% block subheading %}Sử dụng tài khoản của bạn để tiếp tục vào hệ thống.{% endblock %}
+{% block title %}{% trans "Sign In | Vanguardian" %}{% endblock %}
+{% block heading %}{% trans "Sign In" %}{% endblock %}
+{% block subheading %}{% trans "Use your account to continue to the system." %}{% endblock %}
 
 {% block auth_icon %}
 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -14,7 +14,7 @@
 {% block content %}
 {% if form.non_field_errors %}
 <div class="auth-alert auth-alert--warning">
-  <strong>Đăng nhập thất bại.</strong>
+  <strong>{% trans "Sign in failed." %}</strong>
   <span>{{ form.non_field_errors|striptags }}</span>
 </div>
 {% endif %}
@@ -22,7 +22,7 @@
 <form method="post" class="auth-form" novalidate>
   {% csrf_token %}
   <div class="field-group">
-    <label for="{{ form.username.id_for_label }}">Tên đăng nhập</label>
+    <label for="{{ form.username.id_for_label }}">{% trans "Username" %}</label>
     <div class="field-control">
       <span class="field-icon">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -35,7 +35,7 @@
   </div>
 
   <div class="field-group">
-    <label for="{{ form.password.id_for_label }}">Mật khẩu</label>
+    <label for="{{ form.password.id_for_label }}">{% trans "Password" %}</label>
     <div class="field-control">
       <span class="field-icon">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -43,7 +43,7 @@
         </svg>
       </span>
       {{ form.password }}
-      <button type="button" class="field-action" data-password-toggle aria-label="Hiện hoặc ẩn mật khẩu">
+      <button type="button" class="field-action" data-password-toggle aria-label="{% trans 'Show or hide password' %}">
         <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 5c5.5 0 9.73 4.11 10.87 6.88.17.39.17.85 0 1.24C21.73 15.89 17.5 20 12 20S2.27 15.89 1.13 13.12a1.6 1.6 0 0 1 0-1.24C2.27 9.11 6.5 5 12 5Zm0 2c-4.34 0-7.73 3.05-8.8 5 .96 1.95 4.46 5 8.8 5 4.34 0 7.73-3.05 8.8-5-.96-1.95-4.46-5-8.8-5Zm0 1.75A3.25 3.25 0 1 1 8.75 12 3.25 3.25 0 0 1 12 8.75Z" fill="currentColor"/>
         </svg>
@@ -57,10 +57,10 @@
   {% endif %}
 
   <div class="auth-actions auth-actions--end">
-    <a href="{% url 'identity:forgot_password' %}" class="auth-link">Quên mật khẩu?</a>
+    <a href="{% url 'identity:forgot_password' %}" class="auth-link">{% trans "Forgot password?" %}</a>
   </div>
 
-  <button type="submit" class="primary-button">Đăng nhập</button>
+  <button type="submit" class="primary-button">{% trans "Sign In" %}</button>
 </form>
 {% endblock %}
 

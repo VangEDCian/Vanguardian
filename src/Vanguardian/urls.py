@@ -19,6 +19,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 urlpatterns = [
+    path("i18n/", include("django.conf.urls.i18n")),
     path("", RedirectView.as_view(pattern_name="identity:login", permanent=False)),
     path("", include("apps.identity.presentation.web.urls")),
     path("", include("apps.dashboard.presentation.web.urls")),

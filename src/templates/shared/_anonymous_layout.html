@@ -1,10 +1,11 @@
-{% load static %}
+{% load i18n static %}
+{% get_current_language as CURRENT_LANGUAGE %}
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="{{ CURRENT_LANGUAGE }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Vanguardian{% endblock %}</title>
+  <title>{% block title %}{% trans "Vanguardian" %}{% endblock %}</title>
   <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
   <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
   <link rel="stylesheet" href="{% static 'identity/css/identity_style.css' %}">
@@ -16,11 +17,10 @@
     <section class="auth-brand-panel">
       <div class="auth-brand-panel__inner">
         <div class="brand-lockup">
-          <span class="brand-kicker">Vanguardian</span>
-          <h1>Clinical Trial Management</h1>
+          <span class="brand-kicker">{% trans "Vanguardian" %}</span>
+          <h1>{% trans "Clinical Trial Management" %}</h1>
           <p>
-            Nền tảng quản trị vận hành nghiên cứu lâm sàng với quy trình xác thực,
-            phân quyền và kiểm soát truy cập rõ ràng.
+            {% trans "Clinical trial operations platform with clear authentication, authorization, and access control workflows." %}
           </p>
         </div>
       </div>
@@ -28,6 +28,17 @@
 
     <section class="auth-card-panel">
       <div class="auth-card">
+        <div class="auth-card__tools">
+          <form class="language-switch" action="{% url 'set_language' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <label class="language-switch__label" for="language-select-anon">{% trans "Language" %}</label>
+            <select id="language-select-anon" name="language" class="language-switch__select" onchange="this.form.submit()">
+              <option value="vi" {% if CURRENT_LANGUAGE|slice:":2" == "vi" %}selected{% endif %}>{% trans "Vietnamese" %}</option>
+              <option value="en" {% if CURRENT_LANGUAGE|slice:":2" == "en" %}selected{% endif %}>{% trans "English" %}</option>
+            </select>
+          </form>
+        </div>
         <div class="auth-card__header">
           <div class="auth-icon">
             {% block auth_icon %}{% endblock %}
@@ -39,7 +50,7 @@
         {% block content %}{% endblock %}
 
         <footer class="auth-footer">
-          <p>© 2026 Vanguardian</p>
+          <p>{% trans "© 2026 Vanguardian" %}</p>
         </footer>
       </div>
     </section>

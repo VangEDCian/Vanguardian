@@ -25,6 +25,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const bar = form.querySelector("[data-password-strength-bar]");
   const label = form.querySelector("[data-password-strength-label]");
   const match = form.querySelector("[data-password-match]");
+  const weakLabel = form.getAttribute("data-strength-weak") || "Weak";
+  const mediumLabel = form.getAttribute("data-strength-medium") || "Medium";
+  const strongLabel = form.getAttribute("data-strength-strong") || "Strong";
+  const matchOkLabel = form.getAttribute("data-match-ok") || "Passwords match";
+  const matchFailLabel = form.getAttribute("data-match-fail") || "Passwords do not match";
 
   const evaluateStrength = (value) => {
     if (!value) {
@@ -36,14 +41,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasDigitOrSymbol = /[\d\W_]/.test(value);
 
     if (value.length < 8 || !(hasUpper && hasLower)) {
-      return { visible: true, width: "33%", color: "#f44336", label: "Yếu" };
+      return { visible: true, width: "33%", color: "#f44336", label: weakLabel };
     }
 
     if (!hasDigitOrSymbol || value.length < 10) {
-      return { visible: true, width: "66%", color: "#ff9800", label: "Trung bình" };
+      return { visible: true, width: "66%", color: "#ff9800", label: mediumLabel };
     }
 
-    return { visible: true, width: "100%", color: "#4caf50", label: "Mạnh" };
+    return { visible: true, width: "100%", color: "#4caf50", label: strongLabel };
   };
 
   const render = () => {
@@ -65,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const matched = passwordInput.value === confirmInput.value;
-      match.textContent = matched ? "Mật khẩu khớp" : "Mật khẩu không khớp";
+      match.textContent = matched ? matchOkLabel : matchFailLabel;
       match.classList.toggle("is-success", matched);
       match.classList.toggle("is-error", !matched);
     }

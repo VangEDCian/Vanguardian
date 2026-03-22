@@ -119,6 +119,32 @@
   padding: 32px;
 }
 
+.auth-card__tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.language-switch__label {
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.language-switch__select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--foreground);
+  min-height: 34px;
+  padding: 0 10px;
+}
+
 .auth-card__header {
   text-align: center;
   margin-bottom: 28px;

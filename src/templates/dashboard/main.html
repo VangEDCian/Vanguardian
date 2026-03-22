@@ -1,32 +1,32 @@
 {% extends "shared/_layout.html" %}
+{% load i18n %}
 
-{% block title %}Dashboard Main | Vanguardian{% endblock %}
+{% block title %}{% trans "Dashboard Main | Vanguardian" %}{% endblock %}
 
 {% block dashboard_content %}
 <section class="dashboard-grid">
   <article class="dashboard-card">
-    <h3>Total Subjects</h3>
+    <h3>{% trans "Total Subjects" %}</h3>
     <strong>18</strong>
   </article>
   <article class="dashboard-card">
-    <h3>Sites Active</h3>
+    <h3>{% trans "Sites Active" %}</h3>
     <strong>3</strong>
   </article>
   <article class="dashboard-card">
-    <h3>Randomized</h3>
+    <h3>{% trans "Randomized" %}</h3>
     <strong>5</strong>
   </article>
   <article class="dashboard-card">
-    <h3>Queries Open</h3>
+    <h3>{% trans "Queries Open" %}</h3>
     <strong>3</strong>
   </article>
 </section>
 
 <section class="dashboard-panel">
-  <h2>Main Content Area</h2>
+  <h2>{% trans "Main Content Area" %}</h2>
   <p>
-    Đây là layout dashboard theo style của `DashboardMain` + `TopNav`.
-    Bạn có thể gắn các view thật cho `SUBJECTS`, `SITES`, `PROJECT`, `USERS`, `DASHBOARD` ở khu vực này.
+    {% trans "This dashboard layout is based on `DashboardMain` + `TopNav`. You can attach real views for `SUBJECTS`, `SITES`, `PROJECT`, `USERS`, and `DASHBOARD` in this area." %}
   </p>
 </section>
 {% endblock %}
