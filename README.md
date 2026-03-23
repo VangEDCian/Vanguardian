@@ -8,7 +8,7 @@ Về mặt sản phẩm, Vanguardian hướng tới bài toán giảm phân mả
 
 - Kiến trúc mặc định là modular monolith, mỗi bounded context phải giữ boundary và ownership rõ ràng.
 - Schema nghiệp vụ không lấy Django migrations làm nguồn sự thật; thay đổi schema phải đi qua `db/dbdiagram.dbml` và `db/migrations/*.sql`.
-- Trước khi mở rộng nghiệp vụ, cần đọc `src/AGENT.md` và `docs/business/research-outline.md`.
+- Trước khi mở rộng nghiệp vụ, cần đọc `src/AGENT.md`.
 
 ## Khởi tạo source local
 
@@ -105,6 +105,5 @@ Các URL chính:
 ## Tài liệu nên đọc trước khi phát triển
 
 - `src/AGENT.md`
-- `docs/business/research-outline.md`
 - `docs/db-first-migrate-guide.md`
 - `db/dbdiagram.dbml`

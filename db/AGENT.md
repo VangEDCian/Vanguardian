@@ -17,7 +17,6 @@ Trước khi tạo mới hoặc chỉnh sửa `db/dbdiagram.dbml`, bắt buộc 
 
 Tối thiểu phải đọc:
 
-- `docs/business/research-outline.md`
 - `docs/folder-tree.md`
 - `src/AGENT.md`
 

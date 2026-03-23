@@ -10,13 +10,11 @@ Tài liệu này là quy ước làm việc bắt buộc cho tất cả kỹ sư
 
 Trước khi phân tích, thiết kế, scaffold, viết code, sửa model, tạo migration, định nghĩa API, hoặc thiết kế E-CRF, kỹ sư bắt buộc phải đọc và đối chiếu các tài liệu sau:
 
-- `docs/business/research-outline.md`
 - Tài liệu nguồn nghiệp vụ gốc:
   `/Users/trungthudo/Library/CloudStorage/OneDrive-Personal/00.PROJECTS/03.NANOGEN/01.NANOKINE/2. Đề cương nghiên cứu_NNG31_bản nộp Hội đồng cơ sở- Synopsis for E-CRF.docx`
 
 ### Quy tắc áp dụng
 
-- `docs/business/research-outline.md` là bản tóm tắt nội bộ để team kỹ thuật nắm nhanh nghiệp vụ.
 - File `.docx` là tài liệu nguồn phải được ưu tiên đối chiếu khi có điểm chưa rõ hoặc có xung đột diễn giải.
 - Khi xây dựng `models`, thiết kế persistence, mapping entity sang bảng, hoặc viết migration, phải tham khảo `db/dbdiagram.dbml` trước khi thực hiện.
 - `db/dbdiagram.dbml` là nguồn mô tả schema logic cần được đối chiếu để tránh lệch giữa model code và thiết kế dữ liệu.

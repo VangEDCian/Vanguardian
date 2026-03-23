@@ -116,7 +116,6 @@ Table study_subject {
   subject_status_reason_text longtext
 
   enrollment_date date
-  pneumococcal_cap tinyint
 
   randomization_status varchar(16)
   randomization_datetime datetime
@@ -474,7 +473,7 @@ Table datacapture_pageentry {
   }
 }
 
-Table datacapture_dataquery {
+Table reconcile_dataquery {
   id bigint [pk, increment]
   created_at datetime [not null]
   updated_at datetime [not null]
@@ -492,6 +491,8 @@ Table datacapture_dataquery {
   assigned_to_id bigint
   created_by_id bigint
   updated_by_id bigint
+
+  Note: "Reconcile-owned query aggregate. Datacapture provides context via page_state_id/field_template_id/validation_rule_id references."
 }
 
 Table reconcile_query_thread {
@@ -626,123 +627,123 @@ Table exporting_exportjob {
 Ref: identity_role_groups.role_id > identity_role.id
 Ref: identity_role_permissions.role_id > identity_role.id
 
-Ref: identity_user.created_by_id > identity_user.id
-Ref: identity_user.updated_by_id > identity_user.id
+// Ref: identity_user.created_by_id > identity_user.id
+// Ref: identity_user.updated_by_id > identity_user.id
 
-Ref: study_study.created_by_id > identity_user.id
-Ref: study_study.updated_by_id > identity_user.id
+// Ref: study_study.created_by_id > identity_user.id
+// Ref: study_study.updated_by_id > identity_user.id
 Ref: study_site.study_id > study_study.id
-Ref: study_site.created_by_id > identity_user.id
-Ref: study_site.updated_by_id > identity_user.id
+// Ref: study_site.created_by_id > identity_user.id
+// Ref: study_site.updated_by_id > identity_user.id
 
 Ref: study_subject.study_id > study_study.id
 Ref: study_subject.site_id > study_site.id
-Ref: study_subject.created_by_id > identity_user.id
-Ref: study_subject.updated_by_id > identity_user.id
-Ref: study_subject.randomized_by_id > identity_user.id
+// Ref: study_subject.created_by_id > identity_user.id
+// Ref: study_subject.updated_by_id > identity_user.id
+// Ref: study_subject.randomized_by_id > identity_user.id
 
 Ref: study_subject_status_history.subject_id > study_subject.id
-Ref: study_subject_status_history.changed_by_id > identity_user.id
+// Ref: study_subject_status_history.changed_by_id > identity_user.id
 
 Ref: study_subject_period.subject_id > study_subject.id
-Ref: study_subject_period.created_by_id > identity_user.id
-Ref: study_subject_period.updated_by_id > identity_user.id
+// Ref: study_subject_period.created_by_id > identity_user.id
+// Ref: study_subject_period.updated_by_id > identity_user.id
 
 Ref: study_randomization_event.subject_id > study_subject.id
 Ref: study_randomization_event.study_id > study_study.id
-Ref: study_randomization_event.actor_id > identity_user.id
-Ref: study_randomization_event.created_by_id > identity_user.id
+// Ref: study_randomization_event.actor_id > identity_user.id
+// Ref: study_randomization_event.created_by_id > identity_user.id
 
 Ref: study_status_transition_policy.study_id > study_study.id
-Ref: study_status_transition_policy.created_by_id > identity_user.id
-Ref: study_status_transition_policy.updated_by_id > identity_user.id
+// Ref: study_status_transition_policy.created_by_id > identity_user.id
+// Ref: study_status_transition_policy.updated_by_id > identity_user.id
 
 Ref: study_visittemplate.study_id > study_study.id
-Ref: study_visittemplate.created_by_id > identity_user.id
-Ref: study_visittemplate.updated_by_id > identity_user.id
+// Ref: study_visittemplate.created_by_id > identity_user.id
+// Ref: study_visittemplate.updated_by_id > identity_user.id
 
 Ref: study_visit.subject_id > study_subject.id
 Ref: study_visit.visit_template_id > study_visittemplate.id
-Ref: study_visit.created_by_id > identity_user.id
-Ref: study_visit.updated_by_id > identity_user.id
+// Ref: study_visit.created_by_id > identity_user.id
+// Ref: study_visit.updated_by_id > identity_user.id
 
 Ref: crf_crftemplate.study_id > study_study.id
-Ref: crf_crftemplate.created_by_id > identity_user.id
-Ref: crf_crftemplate.updated_by_id > identity_user.id
+// Ref: crf_crftemplate.created_by_id > identity_user.id
+// Ref: crf_crftemplate.updated_by_id > identity_user.id
 
 Ref: crf_pagetemplate.crf_template_id > crf_crftemplate.id
-Ref: crf_pagetemplate.created_by_id > identity_user.id
-Ref: crf_pagetemplate.updated_by_id > identity_user.id
+// Ref: crf_pagetemplate.created_by_id > identity_user.id
+// Ref: crf_pagetemplate.updated_by_id > identity_user.id
 
 Ref: study_visittemplate_crftemplate.visit_template_id > study_visittemplate.id
 Ref: study_visittemplate_crftemplate.crf_template_id > crf_crftemplate.id
-Ref: study_visittemplate_crftemplate.created_by_id > identity_user.id
-Ref: study_visittemplate_crftemplate.updated_by_id > identity_user.id
+// Ref: study_visittemplate_crftemplate.created_by_id > identity_user.id
+// Ref: study_visittemplate_crftemplate.updated_by_id > identity_user.id
 
 Ref: crf_fieldtemplate.page_template_id > crf_pagetemplate.id
-Ref: crf_fieldtemplate.created_by_id > identity_user.id
-Ref: crf_fieldtemplate.updated_by_id > identity_user.id
+// Ref: crf_fieldtemplate.created_by_id > identity_user.id
+// Ref: crf_fieldtemplate.updated_by_id > identity_user.id
 
 Ref: crf_fielddefinition.field_template_id > crf_fieldtemplate.id
-Ref: crf_fielddefinition.created_by_id > identity_user.id
-Ref: crf_fielddefinition.updated_by_id > identity_user.id
+// Ref: crf_fielddefinition.created_by_id > identity_user.id
+// Ref: crf_fielddefinition.updated_by_id > identity_user.id
 
 Ref: crf_fielduiconfig.field_template_id > crf_fieldtemplate.id
-Ref: crf_fielduiconfig.created_by_id > identity_user.id
-Ref: crf_fielduiconfig.updated_by_id > identity_user.id
+// Ref: crf_fielduiconfig.created_by_id > identity_user.id
+// Ref: crf_fielduiconfig.updated_by_id > identity_user.id
 
 Ref: crf_fieldvalidationrule.field_template_id > crf_fieldtemplate.id
-Ref: crf_fieldvalidationrule.created_by_id > identity_user.id
-Ref: crf_fieldvalidationrule.updated_by_id > identity_user.id
+// Ref: crf_fieldvalidationrule.created_by_id > identity_user.id
+// Ref: crf_fieldvalidationrule.updated_by_id > identity_user.id
 
 Ref: datacapture_pagestate.page_template_id > crf_pagetemplate.id
 Ref: datacapture_pagestate.subject_id > study_subject.id
 Ref: datacapture_pagestate.visit_id > study_visit.id
-Ref: datacapture_pagestate.created_by_id > identity_user.id
-Ref: datacapture_pagestate.updated_by_id > identity_user.id
-Ref: datacapture_pagestate.verified_by_id > identity_user.id
-Ref: datacapture_pagestate.locked_by_id > identity_user.id
+// Ref: datacapture_pagestate.created_by_id > identity_user.id
+// Ref: datacapture_pagestate.updated_by_id > identity_user.id
+// Ref: datacapture_pagestate.verified_by_id > identity_user.id
+// Ref: datacapture_pagestate.locked_by_id > identity_user.id
 
 Ref: datacapture_pageentry.page_template_id > crf_pagetemplate.id
 Ref: datacapture_pageentry.subject_id > study_subject.id
 Ref: datacapture_pageentry.visit_id > study_visit.id
-Ref: datacapture_pageentry.created_by_id > identity_user.id
-Ref: datacapture_pageentry.updated_by_id > identity_user.id
+// Ref: datacapture_pageentry.created_by_id > identity_user.id
+// Ref: datacapture_pageentry.updated_by_id > identity_user.id
 
-Ref: datacapture_dataquery.page_state_id > datacapture_pagestate.id
-Ref: datacapture_dataquery.field_template_id > crf_fieldtemplate.id
-Ref: datacapture_dataquery.validation_rule_id > crf_fieldvalidationrule.id
-Ref: datacapture_dataquery.assigned_to_id > identity_user.id
-Ref: datacapture_dataquery.created_by_id > identity_user.id
-Ref: datacapture_dataquery.updated_by_id > identity_user.id
+Ref: reconcile_dataquery.page_state_id > datacapture_pagestate.id
+Ref: reconcile_dataquery.field_template_id > crf_fieldtemplate.id
+Ref: reconcile_dataquery.validation_rule_id > crf_fieldvalidationrule.id
+// Ref: reconcile_dataquery.assigned_to_id > identity_user.id
+// Ref: reconcile_dataquery.created_by_id > identity_user.id
+// Ref: reconcile_dataquery.updated_by_id > identity_user.id
 
-Ref: reconcile_query_thread.dataquery_id > datacapture_dataquery.id
-Ref: reconcile_query_thread.author_id > identity_user.id
-Ref: reconcile_query_thread.created_by_id > identity_user.id
-Ref: reconcile_query_thread.updated_by_id > identity_user.id
+Ref: reconcile_query_thread.dataquery_id > reconcile_dataquery.id
+// Ref: reconcile_query_thread.author_id > identity_user.id
+// Ref: reconcile_query_thread.created_by_id > identity_user.id
+// Ref: reconcile_query_thread.updated_by_id > identity_user.id
 
 Ref: reconcile_reconcilerecord.page_state_id > datacapture_pagestate.id
 Ref: reconcile_reconcilerecord.field_template_id > crf_fieldtemplate.id
-Ref: reconcile_reconcilerecord.created_by_id > identity_user.id
-Ref: reconcile_reconcilerecord.updated_by_id > identity_user.id
+// Ref: reconcile_reconcilerecord.created_by_id > identity_user.id
+// Ref: reconcile_reconcilerecord.updated_by_id > identity_user.id
 
 Ref: governance_databaselock.study_id > study_study.id
-Ref: governance_databaselock.created_by_id > identity_user.id
-Ref: governance_databaselock.updated_by_id > identity_user.id
-Ref: governance_databaselock.locked_by_id > identity_user.id
-Ref: governance_databaselock.unlocked_by_id > identity_user.id
+// Ref: governance_databaselock.created_by_id > identity_user.id
+// Ref: governance_databaselock.updated_by_id > identity_user.id
+// Ref: governance_databaselock.locked_by_id > identity_user.id
+// Ref: governance_databaselock.unlocked_by_id > identity_user.id
 
 Ref: governance_lockrecord.page_state_id > datacapture_pagestate.id
-Ref: governance_lockrecord.created_by_id > identity_user.id
-Ref: governance_lockrecord.updated_by_id > identity_user.id
-Ref: governance_lockrecord.locked_by_id > identity_user.id
-Ref: governance_lockrecord.unlocked_by_id > identity_user.id
+// Ref: governance_lockrecord.created_by_id > identity_user.id
+// Ref: governance_lockrecord.updated_by_id > identity_user.id
+// Ref: governance_lockrecord.locked_by_id > identity_user.id
+// Ref: governance_lockrecord.unlocked_by_id > identity_user.id
 
-Ref: audit_auditevent.user_id > identity_user.id
-Ref: audit_auditevent.created_by_id > identity_user.id
-Ref: audit_auditevent.updated_by_id > identity_user.id
+// Ref: audit_auditevent.user_id > identity_user.id
+// Ref: audit_auditevent.created_by_id > identity_user.id
+// Ref: audit_auditevent.updated_by_id > identity_user.id
 
 Ref: exporting_exportjob.study_id > study_study.id
-Ref: exporting_exportjob.requested_by_id > identity_user.id
-Ref: exporting_exportjob.created_by_id > identity_user.id
-Ref: exporting_exportjob.updated_by_id > identity_user.id
+// Ref: exporting_exportjob.requested_by_id > identity_user.id
+// Ref: exporting_exportjob.created_by_id > identity_user.id
+// Ref: exporting_exportjob.updated_by_id > identity_user.id
