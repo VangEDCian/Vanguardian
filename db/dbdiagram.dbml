@@ -63,6 +63,45 @@ Table identity_role_permissions {
   Note: "permission_id points to Django-managed auth_permission table (omitted from this diagram)."
 }
 
+Table study_membership {
+  id bigint [pk, increment]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted tinyint [not null, default: 0]
+
+  user_id bigint [not null]
+  study_id bigint [not null]
+  created_by_id bigint
+  updated_by_id bigint
+
+  indexes {
+    (user_id, study_id) [unique, name: "study_membership_user_study_uniq"]
+    (study_id, user_id) [name: "study_membership_study_user_idx"]
+  }
+
+  Note: "Study membership assigning a user into a study boundary."
+}
+
+Table study_site_membership {
+  id bigint [pk, increment]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted tinyint [not null, default: 0]
+
+  user_id bigint [not null]
+  study_id bigint [not null]
+  site_id bigint [not null]
+  created_by_id bigint
+  updated_by_id bigint
+
+  indexes {
+    (user_id, study_id, site_id) [unique, name: "study_site_membership_user_study_site_uniq"]
+    (study_id, site_id, user_id) [name: "study_site_membership_study_site_user_idx"]
+  }
+
+  Note: "Study-site membership assigning a user into one site inside a study. The (user_id, study_id) pair must already exist in study_membership."
+}
+
 Table study_study {
   id bigint [pk, increment]
   created_at datetime [not null]
@@ -100,6 +139,7 @@ Table study_site {
 
   indexes {
     (study_id, code) [unique, name: "study_site_study_code_uniq"]
+    (id, study_id) [unique, name: "study_site_id_study_uniq"]
   }
 }
 
@@ -629,6 +669,16 @@ Ref: identity_role_permissions.role_id > identity_role.id
 
 // Ref: identity_user.created_by_id > identity_user.id
 // Ref: identity_user.updated_by_id > identity_user.id
+
+Ref: study_membership.user_id > identity_user.id
+Ref: study_membership.study_id > study_study.id
+// Ref: study_membership.created_by_id > identity_user.id
+// Ref: study_membership.updated_by_id > identity_user.id
+
+Ref: study_site_membership.(user_id, study_id) > study_membership.(user_id, study_id)
+Ref: study_site_membership.(site_id, study_id) > study_site.(id, study_id)
+// Ref: study_site_membership.created_by_id > identity_user.id
+// Ref: study_site_membership.updated_by_id > identity_user.id
 
 // Ref: study_study.created_by_id > identity_user.id
 // Ref: study_study.updated_by_id > identity_user.id
