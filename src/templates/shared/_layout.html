@@ -85,9 +85,9 @@
                 <strong>John Coordinator</strong>
                 <span>{% trans "Coordinator" %}</span>
               </div>
-              <button type="button">{% trans "Profile" %}</button>
-              <button type="button">{% trans "Change Password" %}</button>
-              <a href="{% url 'identity:logout' %}" class="avatar-menu__logout">{% trans "Logout" %}</a>
+              <button type="button" class="avatar-menu__item">{% trans "Profile" %}</button>
+              <button type="button" class="avatar-menu__item">{% trans "Change Password" %}</button>
+              <a href="{% url 'identity:logout' %}" class="avatar-menu__item avatar-menu__item--danger">{% trans "Logout" %}</a>
             </div>
           </div>
 

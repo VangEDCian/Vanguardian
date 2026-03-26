@@ -199,8 +199,7 @@
   font-weight: 600;
 }
 
-.avatar-menu__panel button,
-.avatar-menu__panel a {
+.avatar-menu__item {
   width: 100%;
   border: 0;
   background: #fff;
@@ -211,17 +210,21 @@
   cursor: pointer;
   display: block;
   text-decoration: none;
+  box-sizing: border-box;
 }
 
-.avatar-menu__panel button:hover,
-.avatar-menu__panel a:hover {
+.avatar-menu__item:hover {
   background: #f3f8fc;
 }
 
-.avatar-menu__logout {
+.avatar-menu__item--danger {
   color: #c5373f !important;
   border-top: 1px solid #eef2f4 !important;
   font-weight: 700;
+}
+
+.avatar-menu__item--danger:hover {
+  background: #fdf1f2 !important;
 }
 
 .role-select-wrap {
@@ -243,8 +246,9 @@
 }
 
 .language-switch__label {
-  font-size: 0.825rem;
-  color: #000;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  white-space: nowrap;
   margin-bottom: 2px;
 }
 
@@ -359,6 +363,14 @@
     flex-direction: column;
     align-items: flex-start;
     padding: 8px 10px 10px;
+  }
+
+  .top-nav__controls {
+    order: 1;
+  }
+
+  .top-nav__menu {
+    order: 2;
   }
 
   .top-nav__controls {
