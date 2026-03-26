@@ -8,6 +8,22 @@ class User(AbstractUser):
     reserving ownership of the concrete user table for the DB-first schema.
     """
 
+    email = models.EmailField(blank=True, null=True, unique=True)
+    phone_number = models.CharField(max_length=32, blank=True, null=True, unique=True)
+
+    def save(self, *args, **kwargs):
+        self.email = self._normalize_optional_identifier(self.email)
+        self.phone_number = self._normalize_optional_identifier(self.phone_number)
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def _normalize_optional_identifier(value):
+        if value is None:
+            return None
+
+        normalized_value = value.strip()
+        return normalized_value or None
+
     class Meta(AbstractUser.Meta):
         db_table = "identity_user"
         managed = False
@@ -71,3 +87,34 @@ class RolePermission(models.Model):
         permissions = ()
         verbose_name = "role permission mapping"
         verbose_name_plural = "role permission mappings"
+
+
+class StudyMembership(models.Model):
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    study_id = models.BigIntegerField()
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "study_membership"
+        managed = False
+        unique_together = (("user", "study_id"),)
+        default_permissions = ()
+        permissions = ()
+        verbose_name = "study membership"
+        verbose_name_plural = "study memberships"
+
+
+class StudySiteMembership(models.Model):
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    study_id = models.BigIntegerField()
+    site_id = models.BigIntegerField()
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "study_site_membership"
+        managed = False
+        unique_together = (("user", "study_id", "site_id"),)
+        default_permissions = ()
+        permissions = ()
+        verbose_name = "study site membership"
+        verbose_name_plural = "study site memberships"

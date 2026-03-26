@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 class StyledAuthenticationForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["username"].label = _("Username")
         self.fields["username"].widget.attrs.update(
             {
                 "placeholder": _("Enter username"),

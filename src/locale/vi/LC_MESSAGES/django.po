@@ -139,6 +139,12 @@ msgstr "Bố cục dashboard này dựa trên `DashboardMain` + `TopNav`. Bạn 
 msgid "Enter username"
 msgstr "Nhập tên đăng nhập"
 
+msgid "Username, email, or phone number"
+msgstr "Tên đăng nhập, email hoặc số điện thoại"
+
+msgid "Enter username, email, or phone number"
+msgstr "Nhập tên đăng nhập, email hoặc số điện thoại"
+
 msgid "Enter password"
 msgstr "Nhập mật khẩu"
 
@@ -184,6 +190,19 @@ msgstr "Hiện hoặc ẩn mật khẩu"
 
 msgid "Forgot password?"
 msgstr "Quên mật khẩu?"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/access_denied.html
+#. ==============================
+msgid "Access Denied | Vanguardian"
+msgstr "Từ chối truy cập | Vanguardian"
+
+msgid "You do not have access to this system. Please contact the administrator for support."
+msgstr "Bạn chưa có quyền truy cập vào hệ thống này, hãy liên hệ Admin để được hỗ trợ"
+
+msgid "Your account is authenticated, but it is not assigned to any study or site membership yet."
+msgstr "Tài khoản của bạn đã đăng nhập nhưng chưa được gán vào study hoặc site nào."
 
 #. ==============================
 #. Module: Identity

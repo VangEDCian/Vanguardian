@@ -87,7 +87,7 @@
               </div>
               <button type="button">{% trans "Profile" %}</button>
               <button type="button">{% trans "Change Password" %}</button>
-              <button type="button" class="avatar-menu__logout">{% trans "Logout" %}</button>
+              <a href="{% url 'identity:logout' %}" class="avatar-menu__logout">{% trans "Logout" %}</a>
             </div>
           </div>
 

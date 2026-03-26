@@ -22,7 +22,7 @@
 <form method="post" class="auth-form" novalidate>
   {% csrf_token %}
   <div class="field-group">
-    <label for="{{ form.username.id_for_label }}">{% trans "Username" %}</label>
+    <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
     <div class="field-control">
       <span class="field-icon">
         <svg viewBox="0 0 24 24" aria-hidden="true">

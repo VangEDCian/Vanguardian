@@ -17,27 +17,16 @@
     <form class="language-switch language-switch--floating" action="{% url 'set_language' %}" method="post">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <label class="language-switch__label" for="language-select-anon">{% trans "Language" %}</label>
-      <select id="language-select-anon" name="language" class="language-switch__select" onchange="this.form.submit()">
+      <label class="language-switch__label" for="language-select-anon-singular">{% trans "Language" %}</label>
+      <select id="language-select-anon-singular" name="language" class="language-switch__select" onchange="this.form.submit()">
         <option value="vi" {% if CURRENT_LANGUAGE|slice:":2" == "vi" %}selected{% endif %}>{% trans "Vietnamese" %}</option>
         <option value="en" {% if CURRENT_LANGUAGE|slice:":2" == "en" %}selected{% endif %}>{% trans "English" %}</option>
       </select>
     </form>
   </div>
-  <main class="auth-layout">
-    <section class="auth-brand-panel">
-      <div class="auth-brand-panel__inner">
-        <div class="brand-lockup">
-          <span class="brand-kicker">{% trans "Vanguardian" %}</span>
-          <h1>{% trans "Clinical Trial Management" %}</h1>
-          <p>
-            {% trans "Clinical trial operations platform with clear authentication, authorization, and access control workflows." %}
-          </p>
-        </div>
-      </div>
-    </section>
 
-    <section class="auth-card-panel">
+  <main class="auth-layout auth-layout--singular">
+    <section class="auth-card-panel auth-card-panel--singular">
       <div class="auth-card">
         <div class="auth-card__header">
           <div class="auth-icon">

@@ -73,6 +73,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.identity.infrastructure.auth.middleware.MembershipAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -175,6 +176,9 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR.parent / "static"
 
 AUTH_USER_MODEL = "identity.User"
+AUTHENTICATION_BACKENDS = [
+    "apps.identity.infrastructure.auth.backends.IdentifierBackend",
+]
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/login/"

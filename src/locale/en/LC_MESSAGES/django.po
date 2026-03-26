@@ -139,6 +139,12 @@ msgstr "This dashboard layout is based on `DashboardMain` + `TopNav`. You can at
 msgid "Enter username"
 msgstr "Enter username"
 
+msgid "Username, email, or phone number"
+msgstr "Username, email, or phone number"
+
+msgid "Enter username, email, or phone number"
+msgstr "Enter username, email, or phone number"
+
 msgid "Enter password"
 msgstr "Enter password"
 
@@ -184,6 +190,19 @@ msgstr "Show or hide password"
 
 msgid "Forgot password?"
 msgstr "Forgot password?"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/access_denied.html
+#. ==============================
+msgid "Access Denied | Vanguardian"
+msgstr "Access Denied | Vanguardian"
+
+msgid "You do not have access to this system. Please contact the administrator for support."
+msgstr "You do not have access to this system. Please contact the administrator for support."
+
+msgid "Your account is authenticated, but it is not assigned to any study or site membership yet."
+msgstr "Your account is authenticated, but it is not assigned to any study or site membership yet."
 
 #. ==============================
 #. Module: Identity

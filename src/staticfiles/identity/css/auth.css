@@ -4,6 +4,17 @@
   grid-template-columns: 1.1fr minmax(480px, 640px)
 }
 
+.auth-layout--singular {
+  grid-template-columns: 1fr;
+}
+
+.auth-page__language {
+  position: fixed;
+  inset-block-start: 24px;
+  inset-inline-end: 24px;
+  z-index: 20;
+}
+
 .auth-brand-panel {
   position: relative;
   overflow: hidden;
@@ -109,6 +120,10 @@
   padding: 32px;
 }
 
+.auth-card-panel--singular {
+  min-height: 100vh;
+}
+
 .auth-card {
   width: min(100%, 460px);
   background: rgba(255, 255, 255, 0.92);
@@ -119,30 +134,41 @@
   padding: 32px;
 }
 
-.auth-card__tools {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-
 .language-switch {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
+.language-switch--floating {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
 .language-switch__label {
-  font-size: 0.82rem;
-  color: var(--muted-foreground);
+  font-size: 0.825rem;
+  color: #000;
+  margin-bottom: 2px;
 }
 
 .language-switch__select {
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  min-width: 104px;
+  height: 34px;
+  border: 1px solid #d7dfe5;
+  border-radius: 8px;
   background: #fff;
-  color: var(--foreground);
-  min-height: 34px;
+  color: #2f3d47;
   padding: 0 10px;
+  font-size: 13px;
+}
+
+#language-select-anon {
+  border: 1px solid var(--border);
+  background: #fff;
 }
 
 .auth-card__header {
@@ -384,10 +410,24 @@
   gap: 18px;
 }
 
+.auth-message--centered {
+  justify-items: center;
+  text-align: center;
+}
+
 .auth-message p {
   margin: 0;
   color: var(--muted-foreground);
   line-height: 1.65;
+}
+
+.auth-link--danger {
+  color: #c5373f;
+  font-size: 1rem;
+}
+
+.auth-link--danger:hover {
+  color: #9e2830;
 }
 
 .password-meter {
@@ -441,6 +481,11 @@
     grid-template-columns: 1fr;
   }
 
+  .auth-page__language {
+    inset-block-start: 16px;
+    inset-inline-end: 16px;
+  }
+
   .auth-brand-panel {
     min-height: 320px;
     padding: 32px 24px;
@@ -453,6 +498,10 @@
 }
 
 @media (max-width: 640px) {
+  .auth-page__language {
+    position: absolute;
+  }
+
   .auth-brand-panel {
     min-height: auto;
   }
