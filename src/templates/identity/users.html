@@ -1,0 +1,108 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Users | Vanguardian" %}{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <div class="entity-table__toolbar">
+    <span class="entity-table__toolbar-icon" aria-hidden="true">
+      <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
+    </span>
+    <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
+    <div class="entity-table__summary">
+      {% trans "Total Users" %}: <strong>{{ users_total }}</strong>
+    </div>
+
+    <form method="get" class="entity-table__search">
+      <span class="entity-table__search-icon" aria-hidden="true">
+        <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
+      </span>
+      <input
+        type="search"
+        name="q"
+        value="{{ user_search_query }}"
+        placeholder="{% trans 'Search users...' %}"
+        aria-label="{% trans 'Search users' %}"
+      >
+    </form>
+  </div>
+
+  <div class="entity-table__scroller">
+    <table class="entity-table">
+      <thead>
+        <tr>
+          <th>{% trans "USERNAME" %}</th>
+          <th>{% trans "DISPLAY NAME" %}</th>
+          <th>{% trans "EMAIL" %}</th>
+          <th>{% trans "PHONE NUMBER" %}</th>
+          <th>{% trans "ROLE" %}</th>
+          <th>{% trans "STATUS" %}</th>
+          <th>{% trans "JOINED DATE" %}</th>
+          <th>{% trans "LAST LOGIN" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user_row in users %}
+        <tr>
+          <td class="entity-table__primary">{{ user_row.username }}</td>
+          <td>{{ user_row.display_name }}</td>
+          <td>
+            {% if user_row.email %}
+            <span class="entity-table__secondary">{{ user_row.email }}</span>
+            {% else %}
+            <span class="entity-table__muted">&mdash;</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user_row.phone_number %}
+            <span class="entity-table__secondary">{{ user_row.phone_number }}</span>
+            {% else %}
+            <span class="entity-table__muted">&mdash;</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="entity-table__role entity-table__role--{{ user_row.role_tone }}">{{ user_row.role }}</span>
+          </td>
+          <td>
+            {% if user_row.is_active %}
+            <span class="entity-table__state entity-table__state--active">
+              <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/success-circle.svg' %}')"></span>
+              {% trans "Active" %}
+            </span>
+            {% else %}
+            <span class="entity-table__state entity-table__state--inactive">
+              <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/error-circle.svg' %}')"></span>
+              {% trans "Inactive" %}
+            </span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user_row.date_joined %}
+            {{ user_row.date_joined|date:"d-M-Y" }}
+            {% else %}
+            <span class="entity-table__muted">&mdash;</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user_row.last_login %}
+            {{ user_row.last_login|date:"d-M-Y H:i" }}
+            {% else %}
+            <span class="entity-table__muted">&mdash;</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="entity-table__empty">{% trans "No users found matching your criteria." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="entity-table__footer">
+    <button type="button" class="entity-table__footer-button">{% trans "Add New User" %}</button>
+  </div>
+</section>
+{% endblock %}

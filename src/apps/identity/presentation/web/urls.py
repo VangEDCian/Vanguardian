@@ -5,7 +5,11 @@ from apps.identity.forms import (
     StyledPasswordResetForm,
     StyledSetPasswordForm,
 )
-from apps.identity.presentation.web.views import IdentityLoginView, IdentityLogoutView
+from apps.identity.presentation.web.views import (
+    IdentityLoginView,
+    IdentityLogoutView,
+    IdentityUsersView,
+)
 
 
 app_name = "identity"
@@ -14,6 +18,7 @@ app_name = "identity"
 urlpatterns = [
     path("login/", IdentityLoginView.as_view(), name="login"),
     path("logout/", IdentityLogoutView.as_view(), name="logout"),
+    path("users", IdentityUsersView.as_view(), name="users"),
     path(
         "forgot-password/",
         auth_views.PasswordResetView.as_view(

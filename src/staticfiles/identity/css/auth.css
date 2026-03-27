@@ -202,7 +202,7 @@
   box-shadow: 0 16px 30px rgba(33, 150, 196, 0.28);
 }
 
-.auth-icon svg {
+.auth-icon .svg-icon {
   inline-size: 32px;
   block-size: 32px;
 }
@@ -264,8 +264,8 @@
   pointer-events: none;
 }
 
-.field-icon svg,
-.field-action svg {
+.field-icon .svg-icon,
+.field-action .svg-icon {
   inline-size: 18px;
   block-size: 18px;
 }

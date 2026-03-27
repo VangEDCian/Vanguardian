@@ -51,3 +51,14 @@ button,
 input {
   font: inherit;
 }
+
+.svg-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+  mask: var(--icon-url) center / contain no-repeat;
+  vertical-align: middle;
+}

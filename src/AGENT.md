@@ -363,6 +363,8 @@ Các module không được tự log audit theo cách riêng nếu đã có adap
 
 - Không expose domain entity trực tiếp ra API.
 - API request/response dùng DTO riêng.
+- Mọi class-based view render template và dùng shared layout phải kế thừa `apps.shared.views.generic.AuthenticateTemplateView` hoặc lớp dẫn xuất từ nó để luôn có `auth_user` và các helper context dùng chung cho layout.
+- `shared/_layout.html` sẽ chủ động ném lỗi 500 nếu thiếu `auth_user`; đây là guard để lập trình viên biết view đang render sai contract và cần dùng `AuthenticateTemplateView`.
 - Validation chia thành:
   - transport validation
   - application validation

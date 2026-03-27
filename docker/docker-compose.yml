@@ -1,4 +1,4 @@
-name: vanguardian
+name: vanguardian_local
 
 services:
   mariadb:
@@ -52,25 +52,9 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
-    networks:
-      - workflow
-
-  node-red:
-    image: nodered/node-red:4.1-debian
-    container_name: vanguardian-node-red
-    restart: unless-stopped
-    environment:
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
-    depends_on:
-      - mosquitto
-      - mariadb
-      - memcached
-    ports:
-      - "1880:1880"
-    volumes:
-      - nodered_data:/data
     networks:
       - workflow
 

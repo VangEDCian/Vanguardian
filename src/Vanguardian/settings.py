@@ -49,6 +49,7 @@ APPEND_SLASH = True
 # Application definition
 
 X_INSTALLED_APPS = [
+    "apps.shared.apps.SharedConfig",
     "apps.identity.apps.IdentityConfig",
     "apps.dashboard.apps.DashboardConfig",
 ]
