@@ -1,0 +1,62 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{{ detail_user.username }} | {% trans "Users | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <div class="entity-table__toolbar">
+    <div class="entity-table__summary">
+      {% trans "User Detail" %}: <strong>{{ detail_user.username }}</strong>
+    </div>
+  </div>
+
+  <div class="entity-table__scroller">
+    <table class="entity-table">
+      <tbody>
+        <tr>
+          <th>{% trans "USERNAME" %}</th>
+          <td>{{ detail_user.username }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "DISPLAY NAME" %}</th>
+          <td>{{ detail_user.display_name }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "EMAIL" %}</th>
+          <td>{{ detail_user.email }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "PHONE NUMBER" %}</th>
+          <td>{{ detail_user.phone_number }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "ROLE" %}</th>
+          <td>{{ detail_user.role }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "STATUS" %}</th>
+          <td>{{ detail_user.status }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "JOINED DATE" %}</th>
+          <td>{{ detail_user.date_joined }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "LAST LOGIN" %}</th>
+          <td>{{ detail_user.last_login }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="entity-table__footer">
+    <a href="{{ detail_user.back_url }}" class="entity-table__footer-button">{% trans "Back to Users" %}</a>
+  </div>
+</section>
+{% endblock %}

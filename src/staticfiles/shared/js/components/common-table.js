@@ -15,13 +15,42 @@
   }
 
   tables.forEach((table) => {
+    const enableDetailClick = table.dataset.enableDetailClick === "true";
+    const sortHeaders = Array.from(table.querySelectorAll("[data-sort-header]"));
     const rows = Array.from(table.querySelectorAll("[data-selectable-row]"));
+
+    sortHeaders.forEach((header) => {
+      const form = header.querySelector("[data-sort-form]");
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+
+      header.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        if (isInteractiveTarget(target)) {
+          return;
+        }
+
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+          return;
+        }
+
+        form.submit();
+      });
+    });
 
     rows.forEach((row) => {
       const checkbox = row.querySelector("[data-row-checkbox]");
       if (!(checkbox instanceof HTMLInputElement)) {
         return;
       }
+
+      const detailHref = row.dataset.detailHref || "";
 
       syncRowSelection(row, checkbox);
 
@@ -39,8 +68,20 @@
           return;
         }
 
-        checkbox.checked = !checkbox.checked;
-        syncRowSelection(row, checkbox);
+        const clickedCell = target.closest("td");
+        if (!(clickedCell instanceof HTMLTableCellElement)) {
+          return;
+        }
+
+        if (clickedCell.cellIndex === 0) {
+          checkbox.checked = !checkbox.checked;
+          syncRowSelection(row, checkbox);
+          return;
+        }
+
+        if (enableDetailClick && detailHref) {
+          window.location.href = detailHref;
+        }
       });
     });
   });
