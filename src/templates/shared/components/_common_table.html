@@ -1,0 +1,55 @@
+{% load i18n static %}
+
+<div class="entity-table__scroller">
+  <table class="entity-table" data-common-table>
+    <thead>
+      <tr>
+        <th class="entity-table__select-column"></th>
+        {% for header in headers %}
+        <th>{{ header }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr data-selectable-row>
+        <td class="entity-table__select-column">
+          <input
+            type="checkbox"
+            name="selected_rows"
+            value="{% if row.selection_value %}{{ row.selection_value }}{% else %}{{ forloop.counter0 }}{% endif %}"
+            aria-label="{% trans 'Select row' %}"
+            data-row-checkbox
+          >
+        </td>
+        {% for cell in row.cells %}
+        <td{% if cell.column_class %} class="{{ cell.column_class }}"{% endif %}>
+          {% if cell.kind == "secondary" %}
+          <span class="entity-table__secondary">{{ cell.value }}</span>
+          {% elif cell.kind == "muted" %}
+          <span class="entity-table__muted">{{ cell.value }}</span>
+          {% elif cell.kind == "role" %}
+          <span class="entity-table__role entity-table__role--{{ cell.tone }}">{{ cell.value }}</span>
+          {% elif cell.kind == "state" %}
+          <span class="entity-table__state entity-table__state--{{ cell.tone }}">
+            {% if cell.tone == "active" %}
+            <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/success-circle.svg' %}')"></span>
+            {% else %}
+            <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/error-circle.svg' %}')"></span>
+            {% endif %}
+            {{ cell.value }}
+          </span>
+          {% else %}
+          {{ cell.value }}
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="{{ headers|length|add:'1' }}" class="entity-table__empty">{{ empty_text }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

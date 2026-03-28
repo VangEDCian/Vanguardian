@@ -14,5 +14,5 @@ MODIFY COLUMN email VARCHAR(254) NULL,
 MODIFY COLUMN phone_number VARCHAR(32) NULL;
 
 ALTER TABLE identity_user
-ADD CONSTRAINT uq_identity_user_email UNIQUE (email),
-ADD CONSTRAINT uq_identity_user_phone_number UNIQUE (phone_number);
+ADD CONSTRAINT uq_identity_user_email UNIQUE IF NOT EXISTS (email),
+ADD CONSTRAINT uq_identity_user_phone_number UNIQUE IF NOT EXISTS (phone_number);

@@ -1,0 +1,136 @@
+.entity-table__scroller {
+  overflow: auto;
+  flex: 1;
+}
+
+.entity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 980px;
+}
+
+.entity-table thead tr {
+  background: #f5f5f5;
+  border-bottom: 2px solid #ddd;
+}
+
+.entity-table th {
+  padding: 11px 12px;
+  text-align: left;
+  white-space: nowrap;
+  color: #2196c4;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-right: 1px solid #e0e0e0;
+}
+
+.entity-table th:last-child,
+.entity-table td:last-child {
+  border-right: 0;
+}
+
+.entity-table tbody tr {
+  border-bottom: 1px solid #e8e8e8;
+  transition: background-color 120ms ease;
+  cursor: pointer;
+}
+
+.entity-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.entity-table tbody tr:hover {
+  background: #f7fbfe;
+}
+
+.entity-table td {
+  padding: 12px;
+  color: #333;
+  border-right: 1px solid #e8e8e8;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.entity-table tbody tr.is-selected,
+.entity-table tbody tr.is-selected:nth-child(even),
+.entity-table tbody tr.is-selected:hover {
+  background-color: rgb(232, 244, 253);
+}
+
+.entity-table__select-column {
+  text-align: center;
+}
+
+.entity-table__select-column input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2196c4;
+  cursor: pointer;
+}
+
+.entity-table__primary {
+  color: #2196c4;
+  font-weight: 600;
+}
+
+.entity-table__secondary {
+  color: #555;
+}
+
+.entity-table__muted {
+  color: #c3c9cf;
+}
+
+.entity-table__role {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.entity-table__role--admin {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+
+.entity-table__role--staff {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.entity-table__role--user {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.entity-table__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.entity-table__state .svg-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.entity-table__state--active {
+  color: #2e7d32;
+}
+
+.entity-table__state--inactive {
+  color: #bbb;
+}
+
+.entity-table__empty {
+  padding: 36px 18px;
+  text-align: center;
+  color: #83919b;
+}

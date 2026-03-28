@@ -365,6 +365,14 @@ Các module không được tự log audit theo cách riêng nếu đã có adap
 - API request/response dùng DTO riêng.
 - Mọi class-based view render template và dùng shared layout phải kế thừa `apps.shared.views.generic.AuthenticateTemplateView` hoặc lớp dẫn xuất từ nó để luôn có `auth_user` và các helper context dùng chung cho layout.
 - `shared/_layout.html` sẽ chủ động ném lỗi 500 nếu thiếu `auth_user`; đây là guard để lập trình viên biết view đang render sai contract và cần dùng `AuthenticateTemplateView`.
+- Khi render bảng theo UI chuẩn của dashboard, ưu tiên dùng component `src/templates/shared/components/_common_table.html` thay vì viết lại `<table>` ở từng màn hình.
+- Contract của `_common_table.html`:
+  - truyền `headers`: danh sách tiêu đề cột, không cần khai báo cột checkbox đầu tiên vì component tự thêm cột select với header rỗng.
+  - truyền `rows`: danh sách row, mỗi row có dạng `{"selection_value": ..., "cells": [...]}`.
+  - mỗi `cell` hỗ trợ các `kind`: `text`, `secondary`, `muted`, `role`, `state`; có thể truyền thêm `column_class` nếu cần style riêng cho ô.
+  - truyền `empty_text` để render dòng empty state với `colspan` đúng theo số cột thực tế.
+- Nếu cần select row cho bulk action, truyền `selection_value` ổn định như `pk` hoặc business id; nếu không truyền, component sẽ fallback theo index của dòng.
+- CSS của common table nằm ở `src/staticfiles/shared/css/components/common-table.css`; màn hình dùng component phải nạp file này qua block `extra_css`.
 - Validation chia thành:
   - transport validation
   - application validation

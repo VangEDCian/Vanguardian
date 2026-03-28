@@ -3,6 +3,16 @@
 
 {% block title %}{% trans "Users | Vanguardian" %}{% endblock %}
 
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+{% endblock %}
+
 {% block dashboard_content %}
 <section class="entity-table-panel">
   <div class="entity-table__toolbar">
@@ -10,11 +20,47 @@
       <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
     </span>
     <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
+    <form method="get" class="entity-table__filter">
+      {% if user_search_query %}
+      <input type="hidden" name="q" value="{{ user_search_query }}">
+      {% endif %}
+      <label for="user-status-filter" class="entity-table__filter-label">{% trans "Filter:" %}</label>
+      <div class="nav-select nav-select--filter" data-dropdown>
+        <button
+          id="user-status-filter"
+          type="button"
+          class="nav-select__trigger"
+          data-dropdown-trigger
+          aria-expanded="false"
+          aria-label="{% trans 'Filter users by status' %}"
+        >
+          <span data-dropdown-value>
+            {% if user_status_filter == "active" %}
+            {% trans "Active" %}
+            {% elif user_status_filter == "inactive" %}
+            {% trans "Inactive" %}
+            {% else %}
+            {% trans "All statuses" %}
+            {% endif %}
+          </span>
+          <span aria-hidden="true">▾</span>
+        </button>
+        <div class="nav-select__menu" data-dropdown-menu hidden>
+          <button type="submit" name="status" value="" data-dropdown-option>{% trans "All statuses" %}</button>
+          <button type="submit" name="status" value="active" data-dropdown-option>{% trans "Active" %}</button>
+          <button type="submit" name="status" value="inactive" data-dropdown-option>{% trans "Inactive" %}</button>
+        </div>
+      </div>
+    </form>
+    <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
     <div class="entity-table__summary">
       {% trans "Total Users" %}: <strong>{{ users_total }}</strong>
     </div>
 
     <form method="get" class="entity-table__search">
+      {% if user_status_filter %}
+      <input type="hidden" name="status" value="{{ user_status_filter }}">
+      {% endif %}
       <span class="entity-table__search-icon" aria-hidden="true">
         <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
       </span>
@@ -28,78 +74,7 @@
     </form>
   </div>
 
-  <div class="entity-table__scroller">
-    <table class="entity-table">
-      <thead>
-        <tr>
-          <th>{% trans "USERNAME" %}</th>
-          <th>{% trans "DISPLAY NAME" %}</th>
-          <th>{% trans "EMAIL" %}</th>
-          <th>{% trans "PHONE NUMBER" %}</th>
-          <th>{% trans "ROLE" %}</th>
-          <th>{% trans "STATUS" %}</th>
-          <th>{% trans "JOINED DATE" %}</th>
-          <th>{% trans "LAST LOGIN" %}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for user_row in users %}
-        <tr>
-          <td class="entity-table__primary">{{ user_row.username }}</td>
-          <td>{{ user_row.display_name }}</td>
-          <td>
-            {% if user_row.email %}
-            <span class="entity-table__secondary">{{ user_row.email }}</span>
-            {% else %}
-            <span class="entity-table__muted">&mdash;</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if user_row.phone_number %}
-            <span class="entity-table__secondary">{{ user_row.phone_number }}</span>
-            {% else %}
-            <span class="entity-table__muted">&mdash;</span>
-            {% endif %}
-          </td>
-          <td>
-            <span class="entity-table__role entity-table__role--{{ user_row.role_tone }}">{{ user_row.role }}</span>
-          </td>
-          <td>
-            {% if user_row.is_active %}
-            <span class="entity-table__state entity-table__state--active">
-              <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/success-circle.svg' %}')"></span>
-              {% trans "Active" %}
-            </span>
-            {% else %}
-            <span class="entity-table__state entity-table__state--inactive">
-              <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/error-circle.svg' %}')"></span>
-              {% trans "Inactive" %}
-            </span>
-            {% endif %}
-          </td>
-          <td>
-            {% if user_row.date_joined %}
-            {{ user_row.date_joined|date:"d-M-Y" }}
-            {% else %}
-            <span class="entity-table__muted">&mdash;</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if user_row.last_login %}
-            {{ user_row.last_login|date:"d-M-Y H:i" }}
-            {% else %}
-            <span class="entity-table__muted">&mdash;</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="8" class="entity-table__empty">{% trans "No users found matching your criteria." %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% include "shared/components/_common_table.html" with headers=users_table_headers rows=users_table_rows empty_text=users_empty_text %}
 
   <div class="entity-table__footer">
     <button type="button" class="entity-table__footer-button">{% trans "Add New User" %}</button>
