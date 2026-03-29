@@ -30,33 +30,9 @@
       {% if users_table_sort_direction %}
       <input type="hidden" name="direction" value="{{ users_table_sort_direction }}">
       {% endif %}
-      <label for="user-status-filter" class="entity-table__filter-label">{% trans "Filter:" %}</label>
-      <div class="nav-select nav-select--filter" data-dropdown>
-        <button
-          id="user-status-filter"
-          type="button"
-          class="nav-select__trigger"
-          data-dropdown-trigger
-          aria-expanded="false"
-          aria-label="{% trans 'Filter users by status' %}"
-        >
-          <span data-dropdown-value>
-            {% if user_status_filter == "active" %}
-            {% trans "Active" %}
-            {% elif user_status_filter == "inactive" %}
-            {% trans "Inactive" %}
-            {% else %}
-            {% trans "All statuses" %}
-            {% endif %}
-          </span>
-          <span aria-hidden="true">▾</span>
-        </button>
-        <div class="nav-select__menu" data-dropdown-menu hidden>
-          <button type="submit" name="status" value="" data-dropdown-option>{% trans "All statuses" %}</button>
-          <button type="submit" name="status" value="active" data-dropdown-option>{% trans "Active" %}</button>
-          <button type="submit" name="status" value="inactive" data-dropdown-option>{% trans "Inactive" %}</button>
-        </div>
-      </div>
+      <label for="user-filter" class="entity-table__filter-label">{% trans "Filter:" %}</label>
+      {% trans "Filter users" as filter_users_aria_label %}
+      {% include "shared/components/common-select.html" with select_mode="dropdown" select_id="user-filter" select_name="filter" select_wrapper_class="common-select--filter" select_display_text=user_selected_filter_label select_options=users_filters select_aria_label=filter_users_aria_label %}
     </form>
     <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
     <div class="entity-table__summary">
@@ -64,8 +40,8 @@
     </div>
 
     <form method="get" class="entity-table__search">
-      {% if user_status_filter %}
-      <input type="hidden" name="status" value="{{ user_status_filter }}">
+      {% if user_selected_filter %}
+      <input type="hidden" name="filter" value="{{ user_selected_filter }}">
       {% endif %}
       {% if users_table_sort_key %}
       <input type="hidden" name="sort" value="{{ users_table_sort_key }}">

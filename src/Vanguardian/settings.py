@@ -50,6 +50,7 @@ APPEND_SLASH = True
 
 X_INSTALLED_APPS = [
     "apps.shared.apps.SharedConfig",
+    "apps.audit.apps.AuditConfig",
     "apps.identity.apps.IdentityConfig",
     "apps.dashboard.apps.DashboardConfig",
 ]
@@ -93,6 +94,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.shared.context_processors.shared_select_options",
             ],
         },
     },

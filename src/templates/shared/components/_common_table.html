@@ -67,9 +67,9 @@
           {% elif cell.kind == "state" %}
           <span class="entity-table__state entity-table__state--{{ cell.tone }}">
             {% if cell.tone == "active" %}
-            <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/success-circle.svg' %}')"></span>
+            <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/activate.svg' %}')"></span>
             {% else %}
-            <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/error-circle.svg' %}')"></span>
+            <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/activate.svg' %}')"></span>
             {% endif %}
             {{ cell.value }}
           </span>

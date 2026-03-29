@@ -59,6 +59,9 @@
   box-sizing: border-box;
   text-decoration: none;
   transition: background-color 140ms ease, border-color 140ms ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-nav__item:hover {
@@ -94,60 +97,11 @@
   gap: 12px;
 }
 
-.nav-select {
-  position: relative;
-}
-
-.nav-select__trigger {
-  min-width: 180px;
-  height: 34px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #2f3d47;
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.nav-select--site .nav-select__trigger {
+.common-select--site .common-select__trigger,
+.common-select--site .common-select__native,
+.common-select--role .common-select__trigger,
+.common-select--role .common-select__native {
   min-width: 130px;
-}
-
-.nav-select--role .nav-select__trigger {
-  min-width: 130px;
-}
-
-.nav-select__menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  min-width: 100%;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
-  overflow: hidden;
-  z-index: 20;
-}
-
-.nav-select__menu button {
-  width: 100%;
-  border: 0;
-  background: #fff;
-  color: #2b3740;
-  text-align: left;
-  font-size: 13px;
-  padding: 9px 12px;
-  cursor: pointer;
-}
-
-.nav-select__menu button:hover {
-  background: #e8f3fa;
 }
 
 .top-nav__divider {
@@ -261,17 +215,6 @@
   font-size: 12px;
   white-space: nowrap;
   margin-bottom: 2px;
-}
-
-.language-switch__select {
-  min-width: 104px;
-  height: 34px;
-  border: 1px solid #d7dfe5;
-  border-radius: 8px;
-  background: #fff;
-  color: #2f3d47;
-  padding: 0 10px;
-  font-size: 13px;
 }
 
 .dashboard-breadcrumb {
@@ -664,15 +607,11 @@
   white-space: nowrap;
 }
 
-.nav-select--filter .nav-select__trigger {
+.common-select--filter .common-select__trigger {
   min-width: 150px;
-  height: 32px;
-  border-color: #bbb;
-  color: #333;
-  font-size: 12px;
 }
 
-.nav-select--filter .nav-select__menu {
+.common-select--filter .common-select__menu {
   left: 0;
   right: auto;
 }
@@ -766,7 +705,7 @@
     justify-content: flex-end; */
   }
 
-  .nav-select__trigger {
+  .common-select--top-nav .common-select__trigger {
     min-width: 168px;
   }
 

@@ -156,18 +156,8 @@
   margin-bottom: 2px;
 }
 
-.language-switch__select {
-  min-width: 104px;
-  height: 34px;
-  border: 1px solid #d7dfe5;
-  border-radius: 8px;
-  background: #fff;
-  color: #2f3d47;
-  padding: 0 10px;
-  font-size: 13px;
-}
-
-#language-select-anon {
+#language-select-anon,
+#language-select-anon-singular {
   border: 1px solid var(--border);
   background: #fff;
 }
