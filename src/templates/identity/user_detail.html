@@ -8,6 +8,11 @@
   <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
 {% endblock %}
 
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ detail_user.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Users" %}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
 {% block dashboard_content %}
 <section class="entity-table-panel">
   <div class="entity-table__toolbar">
@@ -55,8 +60,9 @@
     </table>
   </div>
 
-  <div class="entity-table__footer">
-    <a href="{{ detail_user.back_url }}" class="entity-table__footer-button">{% trans "Back to Users" %}</a>
+  <div class="entity-table__footer entity-table__footer--actions">
+    <button type="button" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Save" %}</button>
+    <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Reset" %}</button>
   </div>
 </section>
 {% endblock %}

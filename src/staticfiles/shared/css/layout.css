@@ -290,6 +290,20 @@
   font-size: 12px;
   color: rgb(136, 136, 136);
   line-height: 1.5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.dashboard-breadcrumb__back {
+  color: #2196c4;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-breadcrumb__back:hover {
+  text-decoration: underline;
 }
 
 .dashboard-breadcrumb strong {
@@ -687,27 +701,48 @@
 
 .entity-table__footer {
   border-top: 1px solid #ddd;
-  background: #f0f0f0;
+  background: #e8e8e8;
   padding: 8px;
   display: flex;
   justify-content: center;
+  gap: 8px;
 }
 
 .entity-table__footer-button {
-  min-width: 180px;
-  height: 40px;
-  border: 2px solid #d0d0d0;
+  border: 1px solid #d0d0d0;
   border-radius: 3px;
   background: #fff;
   color: #c0392b;
-  padding: 0 16px;
   font-size: 13px;
-  font-weight: 700;
+  padding: 4px 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .entity-table__footer-button:hover {
   background: #fff7f5;
+}
+
+.entity-table__footer-button--primary {
+  background: #2196c4;
+  color: #fff;
+  border-color: #1976d2;
+}
+
+.entity-table__footer-button--primary:hover {
+  background: #1d87b1;
+}
+
+.entity-table__footer-button--secondary {
+  background: #fff;
+  color: #333;
+  border-color: #bbb;
+}
+
+.entity-table__footer-button--secondary:hover {
+  background: #fafafa;
 }
 
 @media (max-width: 1200px) {

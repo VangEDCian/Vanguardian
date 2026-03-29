@@ -188,7 +188,7 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
         context = super().get_context_data(**kwargs)
         user = self.user_object
         full_name = user.get_full_name().strip()
-        role_label, _ = IdentityUsersView._get_role_metadata(user)
+        role_label, __ = IdentityUsersView._get_role_metadata(user)
         context["detail_user"] = {
             "username": user.get_username(),
             "display_name": full_name or user.get_username(),

@@ -123,6 +123,7 @@
     </header>
 
     <div class="dashboard-breadcrumb">
+      {% block dashboard_breadcrumb_prefix %}{% endblock %}
       <span data-breadcrumb-study>{% trans "REACT-AF Training" %}</span>
       <span aria-hidden="true">›</span>
       <span data-breadcrumb-site>100-JHU1</span>
