@@ -36,6 +36,12 @@
             </span>
             <span>{% trans "PROJECT" %}</span>
           </button>
+          <a href="{% url 'study:study_list' %}" class="top-nav__item{% if layout_nav_key == 'STUDIES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'STUDIES' %}">
+            <span class="top-nav__icon" aria-hidden="true">
+              <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/project.svg' %}')"></span>
+            </span>
+            <span>{% trans "STUDIES" %}</span>
+          </a>
           <a href="{% url 'identity:users' %}" class="top-nav__item{% if layout_nav_key == 'USERS' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'USERS' %}">
             <span class="top-nav__icon" aria-hidden="true">
               <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/users.svg' %}')"></span>

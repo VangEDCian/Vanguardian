@@ -1,14 +1,22 @@
 from django.utils.translation import gettext_lazy as _
 
 
+def _build_study_select_options():
+    try:
+        from apps.study.infrastructure.persistence.models import Study
+        studies = Study.objects.filter(is_active=True, deleted=False).order_by("code").values("id", "code", "name")
+        return [{"value": str(s["id"]), "label": f"{s['code']} — {s['name']}"} for s in studies]
+    except Exception:
+        return []
+
+
 def shared_select_options(request):
+    study_options = _build_study_select_options()
+    study_default = study_options[0]["label"] if study_options else _("Select study")
+
     return {
-        "shared_study_select_default": _("REACT-AF Training"),
-        "shared_study_select_options": [
-            {"value": "react-af-training", "label": _("REACT-AF Training")},
-            {"value": "react-af-phase-ii", "label": _("REACT-AF Phase II")},
-            {"value": "cardio-study-1", "label": _("CARDIO-Study 1")},
-        ],
+        "shared_study_select_default": study_default,
+        "shared_study_select_options": study_options,
         "shared_site_select_default": "100-JHU1",
         "shared_site_select_options": [
             {"value": "100-JHU1", "label": "100-JHU1"},

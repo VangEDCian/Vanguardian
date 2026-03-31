@@ -1,0 +1,81 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{{ detail_study.code }} | {% trans "Studies | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Studies" %}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <div class="entity-table__toolbar">
+    <div class="entity-table__summary">
+      {% trans "Study" %}: <strong>{{ detail_study.code }}</strong>
+    </div>
+  </div>
+
+  {# Tab bar — các FR sau chỉ cần thêm tab vào đây #}
+  <nav class="entity-detail-tabs">
+    <!-- <a
+      href="?tab=info"
+      class="entity-detail-tabs__item{% if active_tab == 'info' or not active_tab %} is-active{% endif %}"
+    >{% trans "Info" %}</a> -->
+    {# FR-ST-02: <a href="?tab=sites" class="entity-detail-tabs__item{% if active_tab == 'sites' %} is-active{% endif %}">{% trans "Sites" %}</a> #}
+    {# FR-ST-04: <a href="?tab=members" class="entity-detail-tabs__item{% if active_tab == 'members' %} is-active{% endif %}">{% trans "Members" %}</a> #}
+    {# FR-ST-06: <a href="?tab=subjects" class="entity-detail-tabs__item{% if active_tab == 'subjects' %} is-active{% endif %}">{% trans "Subjects" %}</a> #}
+  </nav>
+
+  {# Tab content: info #}
+  {% if active_tab == 'info' or not active_tab %}
+  <div class="entity-table__scroller">
+    <table class="entity-table">
+      <tbody>
+        <tr>
+          <th>{% trans "CODE" %}</th>
+          <td>{{ detail_study.code }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "NAME" %}</th>
+          <td>{{ detail_study.name }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "SPONSOR" %}</th>
+          <td>{{ detail_study.sponsor }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "START DATE" %}</th>
+          <td>{{ detail_study.start_date }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "END DATE" %}</th>
+          <td>{{ detail_study.end_date }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "DESCRIPTION" %}</th>
+          <td>{{ detail_study.description|linebreaksbr }}</td>
+        </tr>
+        <tr>
+          <th>{% trans "STATUS" %}</th>
+          <td>
+            <span class="entity-table__state entity-table__state--{% if detail_study.is_active %}active{% else %}inactive{% endif %}">
+              {{ detail_study.status }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="entity-table__footer entity-table__footer--actions">
+    <a href="{{ detail_study.edit_url }}" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Edit" %}</a>
+  </div>
+</section>
+{% endblock %}

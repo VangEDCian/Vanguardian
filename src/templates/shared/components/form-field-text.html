@@ -1,0 +1,18 @@
+<div class="form-field{% if extra_class %} {{ extra_class }}{% endif %}{% if field.errors %} form-field--error{% endif %}">
+  <label class="form-field__label" for="{{ field_id|default:field.id_for_label }}">
+    {{ field.label }}
+  </label>
+  <input
+    type="text"
+    id="{{ field_id|default:field.id_for_label }}"
+    name="{{ field.html_name }}"
+    value="{{ field.value|default:'' }}"
+    class="form-field__input{% if field.errors %} form-field__input--error{% endif %}"
+    {% if placeholder %}placeholder="{{ placeholder }}"{% elif field.field.widget.attrs.placeholder %}placeholder="{{ field.field.widget.attrs.placeholder }}"{% endif %}
+    {% if readonly %}readonly{% endif %}
+    {% if field.field.required %}required{% endif %}
+  >
+  {% if field.errors %}
+  <span class="form-field__error-msg">{{ field.errors.0 }}</span>
+  {% endif %}
+</div>

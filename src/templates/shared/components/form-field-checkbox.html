@@ -1,0 +1,15 @@
+<div class="form-field form-field--checkbox{% if extra_class %} {{ extra_class }}{% endif %}">
+  <label class="form-field__label" for="{{ field_id|default:field.id_for_label }}">
+    {{ field.label }}
+  </label>
+  <input
+    type="checkbox"
+    id="{{ field_id|default:field.id_for_label }}"
+    name="{{ field.html_name }}"
+    class="form-field__checkbox"
+    {% if field.value %}checked{% endif %}
+  >
+  {% if field.errors %}
+  <span class="form-field__error-msg">{{ field.errors.0 }}</span>
+  {% endif %}
+</div>

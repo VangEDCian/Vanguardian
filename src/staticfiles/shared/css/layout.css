@@ -554,6 +554,12 @@
   overflow: hidden;
 }
 
+.entity-table-panel--form {
+  min-height: auto;
+  background: #f4f6f8;
+  box-shadow: none;
+}
+
 .entity-table__toolbar {
   display: flex;
   align-items: center;
@@ -648,6 +654,7 @@
 }
 
 .entity-table__footer-button {
+  text-decoration: none;
   border: 1px solid #d0d0d0;
   border-radius: 3px;
   background: #fff;

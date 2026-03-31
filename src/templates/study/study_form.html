@@ -1,0 +1,64 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{{ form_title }} | {% trans "Studies | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-form.css' %}">
+{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{% url 'study:study_list' %}" class="dashboard-breadcrumb__back">&lt; {% trans "Studies" %}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel entity-table-panel--form">
+  <div class="form-panel">
+    <form method="post" class="form-card">
+      {% csrf_token %}
+      <div class="form-card__header">
+        <strong>{{ form_title }}</strong>
+      </div>
+      <div class="common-form">
+        {% include "shared/components/form-field-text.html" with field=form.code %}
+        {% include "shared/components/form-field-text.html" with field=form.name %}
+        {% include "shared/components/form-field-text.html" with field=form.sponsor %}
+        {% include "shared/components/form-field-date.html" with field=form.start_date min=start_date_min %}
+        {% include "shared/components/form-field-date.html" with field=form.end_date %}
+        {% include "shared/components/form-field-textarea.html" with field=form.description rows=5 %}
+        {% include "shared/components/form-field-checkbox.html" with field=form.is_active %}
+      </div>
+      <div class="form-card__footer">
+        <button type="submit" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Save" %}</button>
+        <a href="{{ back_url }}" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Cancel" %}</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    var startInput = document.getElementById("{{ form.start_date.id_for_label }}");
+    var endInput = document.getElementById("{{ form.end_date.id_for_label }}");
+    if (!startInput || !endInput) return;
+
+    function syncEndMin() {
+      if (startInput.value) {
+        endInput.min = startInput.value;
+        if (endInput.value && endInput.value < startInput.value) {
+          endInput.value = "";
+        }
+      } else {
+        endInput.removeAttribute("min");
+      }
+    }
+
+    startInput.addEventListener("change", syncEndMin);
+    syncEndMin();
+  })();
+</script>
+{% endblock %}

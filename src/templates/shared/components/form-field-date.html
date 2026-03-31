@@ -1,0 +1,17 @@
+<div class="form-field{% if extra_class %} {{ extra_class }}{% endif %}{% if field.errors %} form-field--error{% endif %}">
+  <label class="form-field__label" for="{{ field_id|default:field.id_for_label }}">
+    {{ field.label }}
+  </label>
+  <input
+    type="date"
+    id="{{ field_id|default:field.id_for_label }}"
+    name="{{ field.html_name }}"
+    value="{{ field.value|date:'Y-m-d'|default:'' }}"
+    class="form-field__input form-field__input--date{% if field.errors %} form-field__input--error{% endif %}"
+    {% if min %}min="{{ min }}"{% endif %}
+    {% if readonly %}readonly{% endif %}
+  >
+  {% if field.errors %}
+  <span class="form-field__error-msg">{{ field.errors.0 }}</span>
+  {% endif %}
+</div>

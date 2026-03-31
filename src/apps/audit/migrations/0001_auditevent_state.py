@@ -68,7 +68,7 @@ class Migration(migrations.Migration):
                         "indexes": [
                             models.Index(
                                 fields=["object_type", "object_id", "created_at"],
-                                name="audit_auditevent_object_timeline_idx",
+                                name="audit_ae_object_timeline_idx",
                             )
                         ],
                     },
