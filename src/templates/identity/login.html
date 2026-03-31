@@ -1,0 +1,61 @@
+{% extends "shared/_anonymous_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Sign In | Vanguardian" %}{% endblock %}
+{% block heading %}{% trans "Sign In" %}{% endblock %}
+{% block subheading %}{% trans "Use your account to continue to the system." %}{% endblock %}
+
+{% block auth_icon %}
+<span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/auth/lock.svg' %}')"></span>
+{% endblock %}
+
+{% block content %}
+{% if form.non_field_errors %}
+<div class="auth-alert auth-alert--warning">
+  <strong>{% trans "Sign in failed." %}</strong>
+  <span>{{ form.non_field_errors|striptags }}</span>
+</div>
+{% endif %}
+
+<form method="post" class="auth-form" novalidate>
+  {% csrf_token %}
+  <div class="field-group">
+    <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+    <div class="field-control">
+      <span class="field-icon">
+        <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/auth/user.svg' %}')"></span>
+      </span>
+      {{ form.username }}
+    </div>
+    {% if form.username.errors %}<p class="field-error">{{ form.username.errors|striptags }}</p>{% endif %}
+  </div>
+
+  <div class="field-group">
+    <label for="{{ form.password.id_for_label }}">{% trans "Password" %}</label>
+    <div class="field-control">
+      <span class="field-icon">
+        <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/auth/lock.svg' %}')"></span>
+      </span>
+      {{ form.password }}
+      <button type="button" class="field-action" data-password-toggle aria-label="{% trans 'Show or hide password' %}">
+        <span class="svg-icon icon-eye" aria-hidden="true" style="--icon-url: url('{% static 'images/auth/eye.svg' %}')"></span>
+      </button>
+    </div>
+    {% if form.password.errors %}<p class="field-error">{{ form.password.errors|striptags }}</p>{% endif %}
+  </div>
+
+  {% if next %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% endif %}
+
+  <div class="auth-actions auth-actions--end">
+    <a href="{% url 'identity:forgot_password' %}" class="auth-link">{% trans "Forgot password?" %}</a>
+  </div>
+
+  <button type="submit" class="primary-button">{% trans "Sign In" %}</button>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'identity/js/login.js' %}"></script>
+{% endblock %}

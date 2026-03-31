@@ -1,0 +1,30 @@
+.old-textbox {
+  min-height: 32px;
+  border: 1px solid #c6c6c6;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  background: #fff;
+  color: #333;
+  font-size: 13px;
+  padding: 0.25rem 0.5rem;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-bottom-color 140ms ease;
+}
+
+.old-textbox:hover:not([readonly]),
+.old-textbox:hover:not(:disabled) {
+  border-bottom-color: var(--primary, #2196c4);
+}
+
+.old-textbox:focus:not([readonly]),
+.old-textbox:focus:not(:disabled) {
+  border-bottom-color: var(--primary, #2196c4);
+  box-shadow: none;
+}
+
+.old-textbox:disabled,
+.old-textbox[readonly] {
+  color: #666;
+  background-color: #efefef;
+}

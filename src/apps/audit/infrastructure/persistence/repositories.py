@@ -1,0 +1,36 @@
+from django.utils import timezone
+
+from apps.audit.infrastructure.persistence.models import AuditEvent
+
+
+class DjangoAuditEventRepository:
+    def create(
+        self,
+        *,
+        action,
+        object_type,
+        object_id,
+        before_data,
+        after_data,
+        ip_address,
+        user_agent,
+        user_id,
+        created_by_id,
+        updated_by_id,
+    ):
+        now = timezone.now()
+        return AuditEvent.objects.create(
+            created_at=now,
+            updated_at=now,
+            deleted=False,
+            action=action,
+            object_type=object_type,
+            object_id=object_id,
+            before_data=before_data,
+            after_data=after_data,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            user_id=user_id,
+            created_by_id=created_by_id,
+            updated_by_id=updated_by_id,
+        )

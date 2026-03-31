@@ -1,0 +1,340 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Vanguardian\n"
+"POT-Creation-Date: 2026-03-22 00:00+0700\n"
+"PO-Revision-Date: 2026-03-22 00:00+0700\n"
+"Last-Translator: Vanguardian Team\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. ==============================
+#. Module: Core Settings
+#. File: Vanguardian/settings.py
+#. ==============================
+msgid "Vietnamese"
+msgstr "Vietnamese"
+
+msgid "English"
+msgstr "English"
+
+#. ==============================
+#. Module: Shared Layout
+#. Template: templates/shared/_anonymous_layout.html
+#. ==============================
+msgid "Vanguardian"
+msgstr "Vanguardian"
+
+msgid "Clinical Trial Management"
+msgstr "Clinical Trial Management"
+
+msgid "Clinical trial operations platform with clear authentication, authorization, and access control workflows."
+msgstr "Clinical trial operations platform with clear authentication, authorization, and access control workflows."
+
+msgid "Language"
+msgstr "Language"
+
+msgid "© 2026 Vanguardian"
+msgstr "© 2026 Vanguardian"
+
+#. ==============================
+#. Module: Shared Layout
+#. Template: templates/shared/_layout.html
+#. ==============================
+msgid "Dashboard | Vanguardian"
+msgstr "Dashboard | Vanguardian"
+
+msgid "Main navigation"
+msgstr "Main navigation"
+
+msgid "SUBJECTS"
+msgstr "SUBJECTS"
+
+msgid "SITES"
+msgstr "SITES"
+
+msgid "PROJECT"
+msgstr "PROJECT"
+
+msgid "USERS"
+msgstr "USERS"
+
+msgid "DASHBOARD"
+msgstr "DASHBOARD"
+
+msgid "REACT-AF Training"
+msgstr "REACT-AF Training"
+
+msgid "REACT-AF Phase II"
+msgstr "REACT-AF Phase II"
+
+msgid "CARDIO-Study 1"
+msgstr "CARDIO-Study 1"
+
+msgid "Coordinator"
+msgstr "Coordinator"
+
+msgid "Profile"
+msgstr "Profile"
+
+msgid "Change Password"
+msgstr "Change Password"
+
+msgid "Logout"
+msgstr "Logout"
+
+msgid "Select Role"
+msgstr "Select Role"
+
+msgid "Investigator"
+msgstr "Investigator"
+
+msgid "Monitor"
+msgstr "Monitor"
+
+msgid "Data Manager"
+msgstr "Data Manager"
+
+msgid "Administrator"
+msgstr "Administrator"
+
+msgid "Dashboard Layout"
+msgstr "Dashboard Layout"
+
+msgid "The main content area will change based on the active module."
+msgstr "The main content area will change based on the active module."
+
+#. ==============================
+#. Module: Dashboard
+#. Template: templates/dashboard/main.html
+#. ==============================
+msgid "Dashboard Main | Vanguardian"
+msgstr "Dashboard Main | Vanguardian"
+
+msgid "Total Subjects"
+msgstr "Total Subjects"
+
+msgid "Sites Active"
+msgstr "Sites Active"
+
+msgid "Randomized"
+msgstr "Randomized"
+
+msgid "Queries Open"
+msgstr "Queries Open"
+
+msgid "Main Content Area"
+msgstr "Main Content Area"
+
+msgid "This dashboard layout is based on `DashboardMain` + `TopNav`. You can attach real views for `SUBJECTS`, `SITES`, `PROJECT`, `USERS`, and `DASHBOARD` in this area."
+msgstr "This dashboard layout is based on `DashboardMain` + `TopNav`. You can attach real views for `SUBJECTS`, `SITES`, `PROJECT`, `USERS`, and `DASHBOARD` in this area."
+
+#. ==============================
+#. Module: Identity
+#. File: apps/identity/forms.py
+#. ==============================
+msgid "Enter username"
+msgstr "Enter username"
+
+msgid "Username, email, or phone number"
+msgstr "Username, email, or phone number"
+
+msgid "Enter username, email, or phone number"
+msgstr "Enter username, email, or phone number"
+
+msgid "Enter password"
+msgstr "Enter password"
+
+msgid "At least 8 characters"
+msgstr "At least 8 characters"
+
+msgid "Must include uppercase and lowercase letters"
+msgstr "Must include uppercase and lowercase letters"
+
+msgid "At least one number or special character"
+msgstr "At least one number or special character"
+
+msgid "Enter new password"
+msgstr "Enter new password"
+
+msgid "Confirm new password"
+msgstr "Confirm new password"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/login.html
+#. ==============================
+msgid "Sign In | Vanguardian"
+msgstr "Sign In | Vanguardian"
+
+msgid "Sign In"
+msgstr "Sign In"
+
+msgid "Use your account to continue to the system."
+msgstr "Use your account to continue to the system."
+
+msgid "Sign in failed."
+msgstr "Sign in failed."
+
+msgid "Username"
+msgstr "Username"
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Show or hide password"
+msgstr "Show or hide password"
+
+msgid "Forgot password?"
+msgstr "Forgot password?"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/access_denied.html
+#. ==============================
+msgid "Access Denied | Vanguardian"
+msgstr "Access Denied | Vanguardian"
+
+msgid "You do not have access to this system. Please contact the administrator for support."
+msgstr "You do not have access to this system. Please contact the administrator for support."
+
+msgid "Your account is authenticated, but it is not assigned to any study or site membership yet."
+msgstr "Your account is authenticated, but it is not assigned to any study or site membership yet."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/forgot_password.html
+#. ==============================
+msgid "Forgot Password | Vanguardian"
+msgstr "Forgot Password | Vanguardian"
+
+msgid "Forgot Password"
+msgstr "Forgot Password"
+
+msgid "Enter your email to receive password reset instructions."
+msgstr "Enter your email to receive password reset instructions."
+
+msgid "Email Address"
+msgstr "Email Address"
+
+msgid "Submit Request"
+msgstr "Submit Request"
+
+msgid "Back to Sign In"
+msgstr "Back to Sign In"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/forgot_password_done.html
+#. ==============================
+msgid "Check Your Email | Vanguardian"
+msgstr "Check Your Email | Vanguardian"
+
+msgid "Check your email"
+msgstr "Check your email"
+
+msgid "If the account exists, we have sent password reset instructions."
+msgstr "If the account exists, we have sent password reset instructions."
+
+msgid "Please check your inbox and spam folder. The reset link will expire according to system security policy."
+msgstr "Please check your inbox and spam folder. The reset link will expire according to system security policy."
+
+msgid "Next Steps"
+msgstr "Next Steps"
+
+msgid "Open the email containing the reset password link."
+msgstr "Open the email containing the reset password link."
+
+msgid "Click the link and enter your new password."
+msgstr "Click the link and enter your new password."
+
+msgid "If you have not received the email, try sending again after a few minutes."
+msgstr "If you have not received the email, try sending again after a few minutes."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/reset_password.html
+#. ==============================
+msgid "Reset Password | Vanguardian"
+msgstr "Reset Password | Vanguardian"
+
+msgid "Reset Password"
+msgstr "Reset Password"
+
+msgid "Enter a new password for your account."
+msgstr "Enter a new password for your account."
+
+msgid "Weak"
+msgstr "Weak"
+
+msgid "Medium"
+msgstr "Medium"
+
+msgid "Strong"
+msgstr "Strong"
+
+msgid "Passwords match"
+msgstr "Passwords match"
+
+msgid "Passwords do not match"
+msgstr "Passwords do not match"
+
+msgid "New Password"
+msgstr "New Password"
+
+msgid "Password strength"
+msgstr "Password strength"
+
+msgid "Confirm Password"
+msgstr "Confirm Password"
+
+msgid "Password Requirements"
+msgstr "Password Requirements"
+
+msgid "The link is invalid or has expired."
+msgstr "The link is invalid or has expired."
+
+msgid "Please create a new forgot password request to receive a new link."
+msgstr "Please create a new forgot password request to receive a new link."
+
+msgid "Create New Request"
+msgstr "Create New Request"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/reset_password_done.html
+#. ==============================
+msgid "Password Updated | Vanguardian"
+msgstr "Password Updated | Vanguardian"
+
+msgid "Password Reset Successful"
+msgstr "Password Reset Successful"
+
+msgid "You can sign in now with your new password."
+msgstr "You can sign in now with your new password."
+
+msgid "Your password has been saved successfully. Please continue with a new sign-in session."
+msgstr "Your password has been saved successfully. Please continue with a new sign-in session."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/password_reset_email.txt
+#. ==============================
+msgid "You received this email because a password reset was requested for your Vanguardian account."
+msgstr "You received this email because a password reset was requested for your Vanguardian account."
+
+msgid "Open the following link to reset your password:"
+msgstr "Open the following link to reset your password:"
+
+msgid "If you did not make this request, please ignore this email."
+msgstr "If you did not make this request, please ignore this email."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/password_reset_subject.txt
+#. ==============================
+msgid "Vanguardian - Password Reset Instructions"
+msgstr "Vanguardian - Password Reset Instructions"

@@ -1,0 +1,160 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Dashboard Main | Vanguardian" %}{% endblock %}
+
+{% block dashboard_content %}
+<section class="dashboard-overview">
+  <article class="dashboard-stat">
+    <span class="dashboard-stat__icon dashboard-stat__icon--blue" aria-hidden="true">
+      <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
+    </span>
+    <div class="dashboard-stat__body">
+      <strong>18</strong>
+      <span>{% trans "Total Subjects" %}</span>
+    </div>
+  </article>
+  <article class="dashboard-stat">
+    <span class="dashboard-stat__icon dashboard-stat__icon--green" aria-hidden="true">
+      <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
+    </span>
+    <div class="dashboard-stat__body">
+      <strong>3</strong>
+      <span>{% trans "Sites Active" %}</span>
+    </div>
+  </article>
+  <article class="dashboard-stat">
+    <span class="dashboard-stat__icon dashboard-stat__icon--purple" aria-hidden="true">
+      <span class="svg-icon" style="--icon-url: url('{% static 'images/status/success-circle.svg' %}')"></span>
+    </span>
+    <div class="dashboard-stat__body">
+      <strong>5</strong>
+      <span>{% trans "Randomized" %}</span>
+    </div>
+  </article>
+  <article class="dashboard-stat">
+    <span class="dashboard-stat__icon dashboard-stat__icon--rose" aria-hidden="true">
+      <span class="svg-icon" style="--icon-url: url('{% static 'images/status/error-circle.svg' %}')"></span>
+    </span>
+    <div class="dashboard-stat__body">
+      <strong>3</strong>
+      <span>{% trans "Queries Open" %}</span>
+    </div>
+  </article>
+</section>
+
+<section class="dashboard-panels">
+  <article class="dashboard-surface">
+    <header class="dashboard-surface__header">
+      <span class="dashboard-surface__icon" aria-hidden="true">
+        <span class="svg-icon" style="--icon-url: url('{% static 'images/dashboard/enrollment.svg' %}')"></span>
+      </span>
+      <h2>{% trans "Enrollment Over Time" %}</h2>
+    </header>
+    <div class="dashboard-bars">
+      <div class="dashboard-bars__row" style="--screened: 35%; --enrolled: 18%;">
+        <span class="dashboard-bars__label">Jan</span>
+        <div class="dashboard-bars__track">
+          <span class="dashboard-bars__bar dashboard-bars__bar--screened"></span>
+          <span class="dashboard-bars__bar dashboard-bars__bar--enrolled"></span>
+        </div>
+      </div>
+      <div class="dashboard-bars__row" style="--screened: 48%; --enrolled: 26%;">
+        <span class="dashboard-bars__label">Feb</span>
+        <div class="dashboard-bars__track">
+          <span class="dashboard-bars__bar dashboard-bars__bar--screened"></span>
+          <span class="dashboard-bars__bar dashboard-bars__bar--enrolled"></span>
+        </div>
+      </div>
+      <div class="dashboard-bars__row" style="--screened: 62%; --enrolled: 38%;">
+        <span class="dashboard-bars__label">Mar</span>
+        <div class="dashboard-bars__track">
+          <span class="dashboard-bars__bar dashboard-bars__bar--screened"></span>
+          <span class="dashboard-bars__bar dashboard-bars__bar--enrolled"></span>
+        </div>
+      </div>
+      <div class="dashboard-bars__row" style="--screened: 78%; --enrolled: 48%;">
+        <span class="dashboard-bars__label">Apr</span>
+        <div class="dashboard-bars__track">
+          <span class="dashboard-bars__bar dashboard-bars__bar--screened"></span>
+          <span class="dashboard-bars__bar dashboard-bars__bar--enrolled"></span>
+        </div>
+      </div>
+      <div class="dashboard-bars__row" style="--screened: 54%; --enrolled: 28%;">
+        <span class="dashboard-bars__label">May</span>
+        <div class="dashboard-bars__track">
+          <span class="dashboard-bars__bar dashboard-bars__bar--screened"></span>
+          <span class="dashboard-bars__bar dashboard-bars__bar--enrolled"></span>
+        </div>
+      </div>
+      <div class="dashboard-bars__row" style="--screened: 40%; --enrolled: 20%;">
+        <span class="dashboard-bars__label">Jun</span>
+        <div class="dashboard-bars__track">
+          <span class="dashboard-bars__bar dashboard-bars__bar--screened"></span>
+          <span class="dashboard-bars__bar dashboard-bars__bar--enrolled"></span>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="dashboard-surface">
+    <header class="dashboard-surface__header">
+      <span class="dashboard-surface__icon" aria-hidden="true">
+        <span class="svg-icon" style="--icon-url: url('{% static 'images/dashboard/status-distribution.svg' %}')"></span>
+      </span>
+      <h2>{% trans "Subject Status Distribution" %}</h2>
+    </header>
+    <div class="dashboard-status">
+      <div class="dashboard-status__ring" aria-hidden="true"></div>
+      <div class="dashboard-status__legend">
+        <div class="dashboard-status__item"><span class="dashboard-status__dot dashboard-status__dot--green"></span><span>{% trans "Consented" %}</span><strong>9</strong></div>
+        <div class="dashboard-status__item"><span class="dashboard-status__dot dashboard-status__dot--blue"></span><span>{% trans "Randomized" %}</span><strong>5</strong></div>
+        <div class="dashboard-status__item"><span class="dashboard-status__dot dashboard-status__dot--purple"></span><span>{% trans "Completed" %}</span><strong>2</strong></div>
+        <div class="dashboard-status__item"><span class="dashboard-status__dot dashboard-status__dot--red"></span><span>{% trans "Screen Failed" %}</span><strong>2</strong></div>
+        <div class="dashboard-status__item"><span class="dashboard-status__dot dashboard-status__dot--orange"></span><span>{% trans "Active" %}</span><strong>7</strong></div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="dashboard-surface dashboard-surface--activity">
+  <header class="dashboard-surface__header">
+    <span class="dashboard-surface__icon" aria-hidden="true">
+      <span class="svg-icon" style="--icon-url: url('{% static 'images/dashboard/recent-activity.svg' %}')"></span>
+    </span>
+    <h2>{% trans "Recent Activity" %}</h2>
+  </header>
+  <div class="dashboard-activity">
+    <div class="dashboard-activity__item">
+      <span class="dashboard-activity__dot dashboard-activity__dot--purple"></span>
+      <div class="dashboard-activity__body">{% trans "Subject 100-035-T randomized" %}</div>
+      <div class="dashboard-activity__meta">by jdoe</div>
+      <div class="dashboard-activity__time">2h ago</div>
+    </div>
+    <div class="dashboard-activity__item">
+      <span class="dashboard-activity__dot dashboard-activity__dot--green"></span>
+      <div class="dashboard-activity__body">{% trans "Query closed for 100-032-T" %}</div>
+      <div class="dashboard-activity__meta">by msmith</div>
+      <div class="dashboard-activity__time">5h ago</div>
+    </div>
+    <div class="dashboard-activity__item">
+      <span class="dashboard-activity__dot dashboard-activity__dot--blue"></span>
+      <div class="dashboard-activity__body">{% trans "Subject 100-036-T consented" %}</div>
+      <div class="dashboard-activity__meta">by alee</div>
+      <div class="dashboard-activity__time">1d ago</div>
+    </div>
+    <div class="dashboard-activity__item">
+      <span class="dashboard-activity__dot dashboard-activity__dot--red"></span>
+      <div class="dashboard-activity__body">{% trans "New query opened for 100-036-T" %}</div>
+      <div class="dashboard-activity__meta">by system</div>
+      <div class="dashboard-activity__time">1d ago</div>
+    </div>
+    <div class="dashboard-activity__item">
+      <span class="dashboard-activity__dot dashboard-activity__dot--orange"></span>
+      <div class="dashboard-activity__body">{% trans "Subject 100-031-T failed screening" %}</div>
+      <div class="dashboard-activity__meta">by jdoe</div>
+      <div class="dashboard-activity__time">2d ago</div>
+    </div>
+  </div>
+</section>
+{% endblock %}

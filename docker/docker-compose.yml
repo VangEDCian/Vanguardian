@@ -1,0 +1,69 @@
+name: vanguardian_local
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: vanguardian-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-vanguardian}
+      MARIADB_USER: ${MARIADB_USER:-vanguardian}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-vanguardian}
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mariadb-admin ping -h 127.0.0.1 -u root -p$$MARIADB_ROOT_PASSWORD
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - workflow
+
+  memcached:
+    image: memcached:1.6-alpine
+    container_name: vanguardian-memcached
+    restart: unless-stopped
+    command:
+      - memcached
+      - -m
+      - "128"
+      - -I
+      - 4m
+    ports:
+      - "11211:11211"
+    networks:
+      - workflow
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: vanguardian-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - workflow
+
+volumes:
+  mariadb_data:
+  mosquitto_data:
+  mosquitto_log:
+  nodered_data:
+
+networks:
+  workflow:
+    driver: bridge
