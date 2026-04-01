@@ -28,3 +28,11 @@
   color: #666;
   background-color: #efefef;
 }
+
+.old-textbox--error {
+  border-bottom-color: #c62828;
+}
+
+.old-textbox--error:focus {
+  border-bottom-color: #c62828;
+}

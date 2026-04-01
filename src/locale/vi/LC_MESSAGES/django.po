@@ -338,3 +338,196 @@ msgstr "Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email."
 #. ==============================
 msgid "Vanguardian - Password Reset Instructions"
 msgstr "Vanguardian - Hướng dẫn đặt lại mật khẩu"
+
+
+#. ==============================
+#. Module: Study
+#. Template: templates/shared/_layout.html
+#. ==============================
+msgid "STUDIES"
+msgstr "NGHIÊN CỨU"
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/studies.html
+#. ==============================
+msgid "Studies | Vanguardian"
+msgstr "Nghiên cứu | Vanguardian"
+
+msgid "Filter:"
+msgstr "Lọc:"
+
+msgid "Filter studies"
+msgstr "Lọc nghiên cứu"
+
+msgid "Total Studies"
+msgstr "Tổng số nghiên cứu"
+
+msgid "Search studies..."
+msgstr "Tìm kiếm nghiên cứu..."
+
+msgid "Search studies"
+msgstr "Tìm kiếm nghiên cứu"
+
+msgid "Add New Study"
+msgstr "Thêm nghiên cứu mới"
+
+msgid "No studies found matching your criteria."
+msgstr "Không tìm thấy nghiên cứu nào phù hợp."
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/study_form.html
+#. ==============================
+msgid "Studies"
+msgstr "Nghiên cứu"
+
+msgid "New Study"
+msgstr "Nghiên cứu mới"
+
+msgid "Save"
+msgstr "Lưu"
+
+msgid "Cancel"
+msgstr "Hủy"
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/study_detail.html
+#. ==============================
+msgid "Study"
+msgstr "Nghiên cứu"
+
+msgid "Info"
+msgstr "Thông tin"
+
+msgid "Edit"
+msgstr "Chỉnh sửa"
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/application/queries/study_directory.py
+#. ==============================
+msgid "CODE"
+msgstr "MÃ"
+
+msgid "NAME"
+msgstr "TÊN"
+
+msgid "SPONSOR"
+msgstr "NHÀ TÀI TRỢ"
+
+msgid "START DATE"
+msgstr "NGÀY BẮT ĐẦU"
+
+msgid "END DATE"
+msgstr "NGÀY KẾT THÚC"
+
+msgid "STATUS"
+msgstr "TRẠNG THÁI"
+
+msgid "Active"
+msgstr "Đang hoạt động"
+
+msgid "Inactive"
+msgstr "Không hoạt động"
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/presentation/web/forms.py
+#. ==============================
+msgid "Study Code"
+msgstr "Mã nghiên cứu"
+
+msgid "Study Name"
+msgstr "Tên nghiên cứu"
+
+msgid "Sponsor"
+msgstr "Nhà tài trợ"
+
+msgid "Start Date"
+msgstr "Ngày bắt đầu"
+
+msgid "End Date"
+msgstr "Ngày kết thúc"
+
+msgid "Description"
+msgstr "Mô tả"
+
+msgid "e.g. STUDY-001"
+msgstr "VD: STUDY-001"
+
+msgid "e.g. REACT-AF Phase II"
+msgstr "VD: REACT-AF Giai đoạn II"
+
+msgid "e.g. Acme Pharma"
+msgstr "VD: Acme Pharma"
+
+msgid "Enter study description..."
+msgstr "Nhập mô tả nghiên cứu..."
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/presentation/web/views.py
+#. ==============================
+msgid "NEW STUDY"
+msgstr "NGHIÊN CỨU MỚI"
+
+msgid "This study code already exists."
+msgstr "Mã nghiên cứu này đã tồn tại."
+
+msgid "Start date cannot be in the past."
+msgstr "Ngày bắt đầu không được là ngày trong quá khứ."
+
+msgid "End date must be on or after start date."
+msgstr "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu."
+msgid "Deactivate this study?"
+msgstr "Bạn có chắc muốn ngưng hoạt động nghiên cứu này?"
+
+msgid "Activate this study?"
+msgstr "Bạn có chắc muốn kích hoạt nghiên cứu này?"
+
+msgid "Deactivate"
+msgstr "Ngưng hoạt động"
+
+msgid "Activate"
+msgstr "Kích hoạt"
+
+msgid "History"
+msgstr "Lịch sử"
+
+msgid "DATE / TIME"
+msgstr "NGÀY / GIỜ"
+
+msgid "ACTION"
+msgstr "HÀNH ĐỘNG"
+
+msgid "PERFORMED BY"
+msgstr "THỰC HIỆN BỞI"
+
+msgid "CHANGES"
+msgstr "THAY ĐỔI"
+
+msgid "No history recorded for this study yet."
+msgstr "Chưa có lịch sử ghi nhận cho nghiên cứu này."
+
+msgid "Created"
+msgstr "Đã tạo"
+
+msgid "Updated"
+msgstr "Đã cập nhật"
+
+msgid "Status changed"
+msgstr "Đã đổi trạng thái"
+
+msgid "Search by name..."
+msgstr "Tìm kiếm theo tên..."
+
+msgid "Search studies by name"
+msgstr "Tìm kiếm nghiên cứu theo tên"
+
+msgid "Filter by code..."
+msgstr "Lọc theo mã..."
+
+msgid "Filter studies by code"
+msgstr "Lọc nghiên cứu theo mã"

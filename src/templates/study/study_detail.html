@@ -1,0 +1,213 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{{ detail_study.code }} | {% trans "Studies | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+  <link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}">
+  <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}">
+{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Studies" %}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+
+  <div class="entity-table__toolbar">
+    <div class="entity-table__summary">
+      {% trans "Study" %}: <strong>{{ detail_study.code }}</strong>
+    </div>
+    <span class="entity-table__state entity-table__state--{% if detail_study.is_active %}active{% else %}inactive{% endif %}">
+      {{ detail_study.status }}
+    </span>
+  </div>
+
+  {# ── Tab bar ───────────────────────────────────────────────────────────── #}
+  <nav class="entity-detail-tabs" aria-label="{% trans 'Study sections' %}">
+    <a
+      href="?tab=info"
+      class="entity-detail-tabs__item{% if active_tab == 'info' or not active_tab %} is-active{% endif %}"
+    >{% trans "Info" %}</a>
+    {% if can_view_history %}
+    <a
+      href="?tab=history"
+      class="entity-detail-tabs__item{% if active_tab == 'history' %} is-active{% endif %}"
+    >{% trans "History" %}</a>
+    {% endif %}
+  </nav>
+
+  {# ── Tab: Info ─────────────────────────────────────────────────────────── #}
+  {% if active_tab == 'info' or not active_tab %}
+  <div class="user-detail-form__content">
+
+    <section class="user-detail-section">
+      <h2 class="user-detail-section__title">{% trans "STUDY INFO" %}</h2>
+      <div class="user-detail-section__body">
+
+        <div class="user-detail-inline-row">
+          {% if can_view_field_code %}
+          <div class="user-detail-inline-field">
+            <label class="user-detail-inline-field__label" for="detail-code">{% trans "Code" %}:</label>
+            <div class="user-detail-inline-field__control-wrap">
+              {% include 'shared/components/_old_textbox.html' with textbox_id='detail-code' textbox_name='code' textbox_value=detail_study.code textbox_readonly='readonly' %}
+            </div>
+          </div>
+          {% endif %}
+          {% if can_view_field_name %}
+          <div class="user-detail-inline-field">
+            <label class="user-detail-inline-field__label" for="detail-name">{% trans "Name" %}:</label>
+            <div class="user-detail-inline-field__control-wrap">
+              {% include 'shared/components/_old_textbox.html' with textbox_id='detail-name' textbox_name='name' textbox_value=detail_study.name textbox_readonly='readonly' %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="user-detail-inline-row">
+          {% if can_view_field_sponsor %}
+          <div class="user-detail-inline-field">
+            <label class="user-detail-inline-field__label" for="detail-sponsor">{% trans "Sponsor" %}:</label>
+            <div class="user-detail-inline-field__control-wrap">
+              {% include 'shared/components/_old_textbox.html' with textbox_id='detail-sponsor' textbox_name='sponsor' textbox_value=detail_study.sponsor textbox_readonly='readonly' %}
+            </div>
+          </div>
+          {% endif %}
+          <div class="user-detail-inline-field">
+            <span class="user-detail-inline-field__label">{% trans "Status" %}:</span>
+            <div class="user-detail-inline-field__control-wrap">
+              <div class="user-detail-inline-field__display user-detail-field__status">
+                <span class="entity-table__state entity-table__state--{% if detail_study.is_active %}active{% else %}inactive{% endif %}">
+                  {{ detail_study.status }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if can_view_field_dates %}
+        <div class="user-detail-inline-row">
+          <div class="user-detail-inline-field">
+            <label class="user-detail-inline-field__label" for="detail-start-date">{% trans "Start Date" %}:</label>
+            <div class="user-detail-inline-field__control-wrap">
+              {% include 'shared/components/_old_textbox.html' with textbox_id='detail-start-date' textbox_name='start_date' textbox_value=detail_study.start_date textbox_readonly='readonly' %}
+            </div>
+          </div>
+          <div class="user-detail-inline-field">
+            <label class="user-detail-inline-field__label" for="detail-end-date">{% trans "End Date" %}:</label>
+            <div class="user-detail-inline-field__control-wrap">
+              {% include 'shared/components/_old_textbox.html' with textbox_id='detail-end-date' textbox_name='end_date' textbox_value=detail_study.end_date textbox_readonly='readonly' %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if can_view_field_description %}
+        <div class="user-detail-inline-row">
+          <div class="user-detail-inline-field user-detail-inline-field--full">
+            <label class="user-detail-inline-field__label" for="detail-description">{% trans "Description" %}:</label>
+            <div class="user-detail-inline-field__control-wrap">
+              <textarea
+                id="detail-description"
+                name="description"
+                class="old-textbox"
+                style="width:100%; resize:vertical; min-height:72px;"
+                readonly
+              >{{ detail_study.description|default:'' }}</textarea>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+    </section>
+
+  </div>
+  {% endif %}
+
+  {# ── Tab: History ──────────────────────────────────────────────────────── #}
+  {% if active_tab == 'history' and can_view_history %}
+  <div class="entity-table__scroller">
+    {% if history_rows %}
+    <table class="entity-table">
+      <thead>
+        <tr>
+          <th style="width: 140px;">{% trans "DATE / TIME" %}</th>
+          <th style="width: 120px;">{% trans "ACTION" %}</th>
+          <th style="width: 140px;">{% trans "PERFORMED BY" %}</th>
+          <th>{% trans "CHANGES" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in history_rows %}
+        <tr>
+          <td class="entity-table__muted">{{ row.timestamp|date:"d-M-Y H:i" }}</td>
+          <td>{{ row.action_label }}</td>
+          <td>{{ row.actor }}</td>
+          <td>
+            {% if row.changes %}
+            <ul class="history-changes">
+              {% for change in row.changes %}
+              <li>
+                <span class="history-changes__field">{{ change.field }}</span>
+                <span class="history-changes__before">{{ change.before }}</span>
+                &rarr;
+                <span class="history-changes__after">{{ change.after }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <span class="entity-table__muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="entity-table__empty">{{ history_empty_text }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ── Footer actions ────────────────────────────────────────────────────── #}
+  <div class="entity-table__footer entity-table__footer--actions">
+    {% if can_toggle_status and perms.study.change_study_status %}
+      {% if detail_study.is_active %}
+      <button type="button" class="entity-table__footer-button entity-table__footer-button--danger" data-modal-open="modal-toggle-study">
+        {% trans "Deactivate" %}
+      </button>
+      {% else %}
+      <button type="button" class="entity-table__footer-button entity-table__footer-button--success" data-modal-open="modal-toggle-study">
+        {% trans "Activate" %}
+      </button>
+      {% endif %}
+    {% endif %}
+    <a href="{{ detail_study.edit_url }}" class="entity-table__footer-button entity-table__footer-button--primary">
+      {% trans "Edit" %}
+    </a>
+  </div>
+
+</section>
+
+{# ── Modal ─────────────────────────────────────────────────────────────── #}
+{% if can_toggle_status %}
+  {% url 'study:study_toggle_status' study_id=detail_study.id as toggle_url %}
+  {% if detail_study.is_active %}
+    {% trans "Deactivate Study" as modal_title %}
+    {% trans "Deactivate" as modal_confirm %}
+    {% blocktrans with code=detail_study.code asvar modal_message %}Are you sure you want to deactivate <strong>{{ code }}</strong>?<br>The study will no longer be accessible to Data Managers.{% endblocktrans %}
+    {% include "shared/components/modal-confirm.html" with modal_id="modal-toggle-study" modal_variant="danger" modal_title=modal_title modal_message=modal_message modal_confirm_label=modal_confirm form_action=toggle_url %}
+  {% else %}
+    {% trans "Activate Study" as modal_title %}
+    {% trans "Activate" as modal_confirm %}
+    {% blocktrans with code=detail_study.code asvar modal_message %}Are you sure you want to activate <strong>{{ code }}</strong>?<br>The study will become accessible to assigned Data Managers.{% endblocktrans %}
+    {% include "shared/components/modal-confirm.html" with modal_id="modal-toggle-study" modal_variant="success" modal_title=modal_title modal_message=modal_message modal_confirm_label=modal_confirm form_action=toggle_url %}
+  {% endif %}
+{% endif %}
+
+{% endblock %}

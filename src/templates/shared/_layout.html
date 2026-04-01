@@ -10,6 +10,7 @@
   <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
   <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
   <link rel="stylesheet" href="{% static 'shared/css/components/_common_select.css' %}">
+  <link rel="stylesheet" href="{% static 'shared/css/components/modal.css' %}">
   <link rel="stylesheet" href="{% static 'shared/css/layout.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
@@ -36,6 +37,12 @@
             </span>
             <span>{% trans "PROJECT" %}</span>
           </button>
+          <a href="{% url 'study:study_list' %}" class="top-nav__item{% if layout_nav_key == 'STUDIES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'STUDIES' %}">
+            <span class="top-nav__icon" aria-hidden="true">
+              <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/project.svg' %}')"></span>
+            </span>
+            <span>{% trans "STUDIES" %}</span>
+          </a>
           <a href="{% url 'identity:users' %}" class="top-nav__item{% if layout_nav_key == 'USERS' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'USERS' %}">
             <span class="top-nav__icon" aria-hidden="true">
               <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/users.svg' %}')"></span>
@@ -113,6 +120,7 @@
   </div>
 
   <script src="{% static 'shared/js/layout.js' %}"></script>
+  <script src="{% static 'shared/js/components/modal.js' %}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

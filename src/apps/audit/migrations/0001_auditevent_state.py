@@ -16,7 +16,12 @@ class Migration(migrations.Migration):
                 migrations.CreateModel(
                     name="AuditEvent",
                     fields=[
-                        ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                        (
+                            "id",
+                            models.BigAutoField(
+                                auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                            ),
+                        ),
                         ("created_at", models.DateTimeField()),
                         ("updated_at", models.DateTimeField()),
                         ("deleted", models.BooleanField(default=False)),
@@ -68,7 +73,7 @@ class Migration(migrations.Migration):
                         "indexes": [
                             models.Index(
                                 fields=["object_type", "object_id", "created_at"],
-                                name="audit_auditevent_obj_time_idx",
+                                name="audit_ae_object_timeline_idx",
                             )
                         ],
                     },

@@ -53,6 +53,7 @@ X_INSTALLED_APPS = [
     "apps.audit.apps.AuditConfig",
     "apps.identity.apps.IdentityConfig",
     "apps.dashboard.apps.DashboardConfig",
+    "apps.study.apps.StudyConfig",
 ]
 
 INSTALLED_APPS = [
