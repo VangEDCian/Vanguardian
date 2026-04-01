@@ -85,4 +85,4 @@ class Command(BaseCommand):
         self.stdout.write(f"  Username : {username}")
         self.stdout.write(f"  Password : {password}")
         self.stdout.write(f"  Perms    : {', '.join(ADMIN_CODENAMES)}")
-        self.stdout.write(f"  Note     : Can see Deactivate/Activate button in study_detail")
+        self.stdout.write("  Note     : Can see Deactivate/Activate button in study_detail")
