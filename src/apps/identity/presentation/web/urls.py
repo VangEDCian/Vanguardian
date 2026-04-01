@@ -12,7 +12,6 @@ from apps.identity.presentation.web.views import (
     IdentityUsersView,
 )
 
-
 app_name = "identity"
 
 

@@ -16,9 +16,8 @@ Usage:
 
 import datetime
 
-from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Permission
-
+from django.core.management.base import BaseCommand
 
 DATA_MANAGER_CODENAMES = [
     "view_study_list",
@@ -57,7 +56,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from apps.identity.infrastructure.persistence.models import User, StudyMembership
+        from apps.identity.infrastructure.persistence.models import StudyMembership, User
         from apps.study.infrastructure.persistence.models import Study
 
         username = options["username"]

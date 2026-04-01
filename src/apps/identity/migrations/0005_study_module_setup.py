@@ -13,9 +13,8 @@ Data:
 
 import django.db.models.deletion
 from django.conf import settings
-from django.db import migrations, models
 from django.contrib.auth.models import Permission
-
+from django.db import migrations, models
 
 # ---------------------------------------------------------------------------
 # Permission lists

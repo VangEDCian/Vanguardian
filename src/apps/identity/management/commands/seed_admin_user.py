@@ -9,9 +9,8 @@ Usage:
     python manage.py seed_admin_user --username admin_test --password secret123
 """
 
-from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Permission
-
+from django.core.management.base import BaseCommand
 
 ADMIN_CODENAMES = [
     "view_study_list",

@@ -5,8 +5,8 @@ from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
-from apps.identity.models import Role, User
 from apps.identity.application.queries.user_filters import IdentityUserFilterQueryService
+from apps.identity.models import Role, User
 
 
 class IdentityUserNotFoundError(Exception):

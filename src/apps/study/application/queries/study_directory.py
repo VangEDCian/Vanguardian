@@ -3,8 +3,8 @@ from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
-from apps.study.infrastructure.persistence.models import Study
 from apps.study.application.queries.study_filters import StudyFilterQueryService
+from apps.study.infrastructure.persistence.models import Study
 
 
 class StudyNotFoundError(Exception):
