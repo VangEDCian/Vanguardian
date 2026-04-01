@@ -18,8 +18,14 @@ on:
 permissions:
   contents: read
 
+env:
+  SECRET_KEY: ${{ secrets.SECRET_KEY }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  CACHE_URL: ${{ secrets.CACHE_URL }}
+
 jobs:
   ci:
+    name: CI
     runs-on: ubuntu-latest
 
     steps:
@@ -47,9 +53,5 @@ jobs:
           ruff check manage.py src tests
 
       - name: Unit test
-        env:
-          SECRET_KEY: ci-secret-key
-          DATABASE_URL: sqlite:////tmp/vanguardian-ci.sqlite3
-          CACHE_URL: locmemcache://
         run: |
           python manage.py test
