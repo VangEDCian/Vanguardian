@@ -1,4 +1,4 @@
-from django.db.models import Q
+# from django.db.models import Q
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
@@ -42,7 +42,9 @@ class StudyDirectoryQueryService:
             filter_query_service_class() for filter_query_service_class in registered_filter_query_service_classes
         ]
 
-    def list_studies(self, *, user=None, search_query="", code_filter="", filter_key="", sort_key="code", sort_direction="asc"):
+    def list_studies(
+        self, *, user=None, search_query="", code_filter="", filter_key="", sort_key="code", sort_direction="asc"
+    ):
         normalized_search_query = (search_query or "").strip()
         normalized_code_filter = (code_filter or "").strip()
         normalized_filter_key = (filter_key or "").strip().lower()
@@ -60,9 +62,10 @@ class StudyDirectoryQueryService:
         # Data scope: only Django superusers bypass membership filtering.
         if user is not None and not user.is_superuser:
             from apps.identity.infrastructure.persistence.models import StudyMembership
-            member_study_ids = StudyMembership.objects.filter(
-                user=user, deleted=False
-            ).values_list("study_id", flat=True)
+
+            member_study_ids = StudyMembership.objects.filter(user=user, deleted=False).values_list(
+                "study_id", flat=True
+            )
             studies_queryset = studies_queryset.filter(pk__in=member_study_ids)
 
         active_filter_query_service = self._get_active_filter_query_service(normalized_filter_key)
