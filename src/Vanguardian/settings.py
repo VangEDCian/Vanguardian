@@ -115,7 +115,13 @@ DATABASES = {
 }
 
 _cache_url = env("CACHE_URL", default="locmemcache://")
-if _cache_url.startswith("memcache://"):
+if _cache_url.startswith("locmemcache://"):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+elif _cache_url.startswith("memcache://"):
     # django-environ maps memcache:// to the legacy MemcachedCache backend,
     # which is removed in Django 6. Use the supported backend explicitly.
     CACHES = {
