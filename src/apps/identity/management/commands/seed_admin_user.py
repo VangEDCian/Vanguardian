@@ -9,8 +9,6 @@ Usage:
     python manage.py seed_admin_user --username admin_test --password secret123
 """
 
-import datetime
-
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Permission
 
@@ -76,16 +74,10 @@ class Command(BaseCommand):
         found_codenames = set(perms.values_list("codename", flat=True))
         missing = set(ADMIN_CODENAMES) - found_codenames
         if missing:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"  WARNING: permissions not found (run migrate first): {missing}"
-                )
-            )
+            self.stdout.write(self.style.WARNING(f"  WARNING: permissions not found (run migrate first): {missing}"))
 
         user.user_permissions.set(perms)
-        self.stdout.write(
-            self.style.SUCCESS(f"  Assigned permissions: {sorted(found_codenames)}")
-        )
+        self.stdout.write(self.style.SUCCESS(f"  Assigned permissions: {sorted(found_codenames)}"))
 
         # ── Summary ───────────────────────────────────────────────────────────
         self.stdout.write("")
