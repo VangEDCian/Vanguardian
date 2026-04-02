@@ -8,10 +8,10 @@ class Study(models.Model):
 
     code = models.CharField(max_length=64, unique=True)
     name = models.CharField(max_length=255)
-    sponsor = models.CharField(max_length=255)
+    sponsor = models.CharField(max_length=255, null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
-    description = models.TextField(default="")
+    description = models.CharField(max_length=255, default="")
     is_active = models.BooleanField(default=True)
 
     created_by_id = models.BigIntegerField(null=True, blank=True)

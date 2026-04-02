@@ -15,6 +15,7 @@ class StudyForm(forms.Form):
     )
     sponsor = forms.CharField(
         max_length=255,
+        required=False,
         label=_("Sponsor"),
         widget=forms.TextInput(attrs={"placeholder": _("e.g. Acme Pharma")}),
     )
@@ -29,9 +30,10 @@ class StudyForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     description = forms.CharField(
+        max_length=255,
         required=False,
         label=_("Description"),
-        widget=forms.Textarea(attrs={"rows": 4, "placeholder": _("Enter study description...")}),
+        widget=forms.TextInput(attrs={"placeholder": _("Enter study description...")}),
     )
     is_active = forms.BooleanField(
         required=False,

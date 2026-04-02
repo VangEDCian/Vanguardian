@@ -44,7 +44,7 @@ class AuditEvent(models.Model):
         indexes = [
             models.Index(
                 fields=("object_type", "object_id", "created_at"),
-                name="audit_ae_object_timeline_idx",
+                name="audit_auditevent_obj_time_idx",
             ),
         ]
         verbose_name = "audit event"
