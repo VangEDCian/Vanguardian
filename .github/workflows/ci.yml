@@ -27,6 +27,7 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
+    environment: ci
 
     steps:
       - name: Checkout repository

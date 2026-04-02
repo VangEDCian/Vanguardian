@@ -1,7 +1,7 @@
 import datetime
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
+from django.test import SimpleTestCase
 
 from apps.study.application.commands.create_study import CreateStudyCommand, CreateStudyService
 from apps.study.application.commands.exceptions import StudyCodeAlreadyExistsError, StudyDateRangeError
@@ -37,7 +37,7 @@ def _make_study(**kwargs):
     return study
 
 
-class CreateStudyServiceTests(TestCase):
+class CreateStudyServiceTests(SimpleTestCase):
 
     def _make_command(self, **overrides):
         defaults = dict(
@@ -78,10 +78,12 @@ class CreateStudyServiceTests(TestCase):
 
         service = CreateStudyService()
         with self.assertRaises(StudyDateRangeError):
-            service.execute(self._make_command(
-                start_date=datetime.date(2026, 12, 1),
-                end_date=datetime.date(2026, 6, 1),
-            ))
+            service.execute(
+                self._make_command(
+                    start_date=datetime.date(2026, 12, 1),
+                    end_date=datetime.date(2026, 6, 1),
+                )
+            )
 
     @patch("apps.study.application.commands.create_study.Study")
     def test_allows_no_dates(self, mock_study_cls):
@@ -93,7 +95,7 @@ class CreateStudyServiceTests(TestCase):
         self.assertIsNotNone(result)
 
 
-class UpdateStudyServiceTests(TestCase):
+class UpdateStudyServiceTests(SimpleTestCase):
 
     def _make_command(self, **overrides):
         defaults = dict(
@@ -133,9 +135,7 @@ class UpdateStudyServiceTests(TestCase):
     @patch("apps.study.application.commands.update_study.Study")
     def test_raises_when_code_taken_by_another_study(self, mock_study_cls):
         existing = _make_study(pk=1)
-        # first() returns the study being updated
         mock_study_cls.objects.filter.return_value.first.return_value = existing
-        # exclude(pk=1).exists() returns True — another study has the same code
         mock_study_cls.objects.filter.return_value.exclude.return_value.exists.return_value = True
 
         service = UpdateStudyService()
@@ -162,13 +162,15 @@ class UpdateStudyServiceTests(TestCase):
 
         service = UpdateStudyService()
         with self.assertRaises(StudyDateRangeError):
-            service.execute(self._make_command(
-                start_date=datetime.date(2026, 12, 1),
-                end_date=datetime.date(2026, 6, 1),
-            ))
+            service.execute(
+                self._make_command(
+                    start_date=datetime.date(2026, 12, 1),
+                    end_date=datetime.date(2026, 6, 1),
+                )
+            )
 
 
-class ToggleStudyStatusServiceTests(TestCase):
+class ToggleStudyStatusServiceTests(SimpleTestCase):
 
     def _make_command(self, study_id=1, actor_user_id=1):
         return ToggleStudyStatusCommand(study_id=study_id, actor_user_id=actor_user_id)
