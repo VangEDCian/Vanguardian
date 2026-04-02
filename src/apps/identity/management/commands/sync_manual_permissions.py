@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 
+
 class Command(BaseCommand):
     help = (
         "Deprecated: identity permissions are now created by Django migrate via "

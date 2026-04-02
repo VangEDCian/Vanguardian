@@ -5,8 +5,8 @@ from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
-from apps.identity.models import Role, User
 from apps.identity.application.queries.user_filters import IdentityUserFilterQueryService
+from apps.identity.models import Role, User
 
 
 class IdentityUserNotFoundError(Exception):
@@ -58,9 +58,7 @@ class IdentityUserDirectoryQueryService:
         if normalized_sort_key not in self.users_sort_map:
             normalized_sort_key = "username"
 
-        users_queryset = User.objects.order_by(
-            *self._build_order_by(normalized_sort_key, normalized_sort_direction)
-        )
+        users_queryset = User.objects.order_by(*self._build_order_by(normalized_sort_key, normalized_sort_direction))
 
         active_filter_query_service = self._get_active_filter_query_service(normalized_filter_key)
         if active_filter_query_service is not None:
@@ -164,12 +162,8 @@ class IdentityUserDirectoryQueryService:
                     "value": _("Active") if user.is_active else _("Inactive"),
                     "tone": "active" if user.is_active else "inactive",
                 },
-                self._build_text_cell(
-                    date_format(user.date_joined, "d-M-Y") if user.date_joined else ""
-                ),
-                self._build_text_cell(
-                    date_format(user.last_login, "d-M-Y H:i") if user.last_login else ""
-                ),
+                self._build_text_cell(date_format(user.date_joined, "d-M-Y") if user.date_joined else ""),
+                self._build_text_cell(date_format(user.last_login, "d-M-Y H:i") if user.last_login else ""),
             ],
         }
 
@@ -192,8 +186,7 @@ class IdentityUserDirectoryQueryService:
     def _build_filter_options(self):
         options = [IdentityUserFilterQueryService().build_option()]
         options.extend(
-            filter_query_service.build_option()
-            for filter_query_service in self.registered_filter_query_services
+            filter_query_service.build_option() for filter_query_service in self.registered_filter_query_services
         )
         return options
 

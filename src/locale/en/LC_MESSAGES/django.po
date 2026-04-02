@@ -338,3 +338,196 @@ msgstr "If you did not make this request, please ignore this email."
 #. ==============================
 msgid "Vanguardian - Password Reset Instructions"
 msgstr "Vanguardian - Password Reset Instructions"
+
+
+#. ==============================
+#. Module: Study
+#. Template: templates/shared/_layout.html
+#. ==============================
+msgid "STUDIES"
+msgstr "STUDIES"
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/studies.html
+#. ==============================
+msgid "Studies | Vanguardian"
+msgstr "Studies | Vanguardian"
+
+msgid "Filter:"
+msgstr "Filter:"
+
+msgid "Filter studies"
+msgstr "Filter studies"
+
+msgid "Total Studies"
+msgstr "Total Studies"
+
+msgid "Search studies..."
+msgstr "Search studies..."
+
+msgid "Search studies"
+msgstr "Search studies"
+
+msgid "Add New Study"
+msgstr "Add New Study"
+
+msgid "No studies found matching your criteria."
+msgstr "No studies found matching your criteria."
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/study_form.html
+#. ==============================
+msgid "Studies"
+msgstr "Studies"
+
+msgid "New Study"
+msgstr "New Study"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/study_detail.html
+#. ==============================
+msgid "Study"
+msgstr "Study"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Edit"
+msgstr "Edit"
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/application/queries/study_directory.py
+#. ==============================
+msgid "CODE"
+msgstr "CODE"
+
+msgid "NAME"
+msgstr "NAME"
+
+msgid "SPONSOR"
+msgstr "SPONSOR"
+
+msgid "START DATE"
+msgstr "START DATE"
+
+msgid "END DATE"
+msgstr "END DATE"
+
+msgid "STATUS"
+msgstr "STATUS"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Inactive"
+msgstr "Inactive"
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/presentation/web/forms.py
+#. ==============================
+msgid "Study Code"
+msgstr "Study Code"
+
+msgid "Study Name"
+msgstr "Study Name"
+
+msgid "Sponsor"
+msgstr "Sponsor"
+
+msgid "Start Date"
+msgstr "Start Date"
+
+msgid "End Date"
+msgstr "End Date"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "e.g. STUDY-001"
+msgstr "e.g. STUDY-001"
+
+msgid "e.g. REACT-AF Phase II"
+msgstr "e.g. REACT-AF Phase II"
+
+msgid "e.g. Acme Pharma"
+msgstr "e.g. Acme Pharma"
+
+msgid "Enter study description..."
+msgstr "Enter study description..."
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/presentation/web/views.py
+#. ==============================
+msgid "NEW STUDY"
+msgstr "NEW STUDY"
+
+msgid "This study code already exists."
+msgstr "This study code already exists."
+
+msgid "Start date cannot be in the past."
+msgstr "Start date cannot be in the past."
+
+msgid "End date must be on or after start date."
+msgstr "End date must be on or after start date."
+msgid "Deactivate this study?"
+msgstr "Deactivate this study?"
+
+msgid "Activate this study?"
+msgstr "Activate this study?"
+
+msgid "Deactivate"
+msgstr "Deactivate"
+
+msgid "Activate"
+msgstr "Activate"
+
+msgid "History"
+msgstr "History"
+
+msgid "DATE / TIME"
+msgstr "DATE / TIME"
+
+msgid "ACTION"
+msgstr "ACTION"
+
+msgid "PERFORMED BY"
+msgstr "PERFORMED BY"
+
+msgid "CHANGES"
+msgstr "CHANGES"
+
+msgid "No history recorded for this study yet."
+msgstr "No history recorded for this study yet."
+
+msgid "Created"
+msgstr "Created"
+
+msgid "Updated"
+msgstr "Updated"
+
+msgid "Status changed"
+msgstr "Status changed"
+
+msgid "Search by name..."
+msgstr "Search by name..."
+
+msgid "Search studies by name"
+msgstr "Search studies by name"
+
+msgid "Filter by code..."
+msgstr "Filter by code..."
+
+msgid "Filter studies by code"
+msgstr "Filter studies by code"

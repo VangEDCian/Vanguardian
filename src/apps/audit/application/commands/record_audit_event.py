@@ -24,6 +24,7 @@ class RecordAuditEventService:
         self.repository = repository or self.repository_class()
 
     def execute(self, command: RecordAuditEventCommand):
+        actor_id = command.actor_user_id or command.user_id
         return self.repository.create(
             action=command.action.strip(),
             object_type=command.object_type.strip(),
@@ -32,9 +33,9 @@ class RecordAuditEventService:
             after_data=self._serialize_payload(command.after_data),
             ip_address=(command.ip_address or "")[:39] or None,
             user_agent=(command.user_agent or "")[:255],
-            user_id=command.user_id,
-            created_by_id=command.actor_user_id,
-            updated_by_id=command.actor_user_id,
+            user_id=actor_id,
+            created_by_id=actor_id,
+            updated_by_id=actor_id,
         )
 
     @staticmethod

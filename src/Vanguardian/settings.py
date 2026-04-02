@@ -15,7 +15,6 @@ from pathlib import Path
 import environ
 from django.utils.translation import gettext_lazy as _
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -53,6 +52,7 @@ X_INSTALLED_APPS = [
     "apps.audit.apps.AuditConfig",
     "apps.identity.apps.IdentityConfig",
     "apps.dashboard.apps.DashboardConfig",
+    "apps.study.apps.StudyConfig",
 ]
 
 INSTALLED_APPS = [

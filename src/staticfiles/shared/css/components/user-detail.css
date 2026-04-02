@@ -132,6 +132,13 @@
   align-items: center;
 }
 
+.user-detail-field__error {
+  display: block;
+  font-size: 12px;
+  color: #c62828;
+  margin-top: 3px;
+}
+
 @media (max-width: 1080px) {
   .user-detail-inline-field {
     grid-template-columns: 108px minmax(0, 1fr);

@@ -91,9 +91,17 @@ class RolePermission(models.Model):
 
 
 class StudyMembership(models.Model):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
-    study_id = models.BigIntegerField()
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
+
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="study_memberships")
+    study_id = models.BigIntegerField()
+    role = models.CharField(max_length=64)
+    is_global_role = models.BooleanField(default=False)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "study_membership"
@@ -106,10 +114,16 @@ class StudyMembership(models.Model):
 
 
 class StudySiteMembership(models.Model):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="study_site_memberships")
     study_id = models.BigIntegerField()
     site_id = models.BigIntegerField()
-    deleted = models.BooleanField(default=False)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "study_site_membership"
