@@ -5,6 +5,27 @@
   flex-direction: column;
 }
 
+.user-detail-form__feedback {
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid #d6d6d6;
+  background: #f7f7f7;
+  color: #24323b;
+  font-size: 12px;
+}
+
+.user-detail-form__feedback.is-success {
+  border-color: #9ccc9c;
+  background: #edf8ed;
+  color: #1f6d1f;
+}
+
+.user-detail-form__feedback.is-error {
+  border-color: #d9aaaa;
+  background: #fff1f1;
+  color: #a32020;
+}
+
 .user-detail-form__content {
   flex: 1;
   overflow: auto;
@@ -130,6 +151,63 @@
   min-height: 32px;
   display: flex;
   align-items: center;
+}
+
+.user-detail-field__status-toggle {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-detail-field__checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #2196c4;
+  cursor: pointer;
+}
+
+.user-detail-field__checkbox:disabled {
+  cursor: default;
+}
+
+.user-detail-field__checkbox-label {
+  font-size: 13px;
+  color: #24323b;
+  cursor: pointer;
+}
+
+.user-detail-password-control {
+  position: relative;
+}
+
+.user-detail-password-control .old-textbox {
+  padding-right: 2rem;
+}
+
+.user-detail-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.125rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: #5f6b76;
+  cursor: pointer;
+}
+
+.user-detail-password-toggle .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.user-detail-generate-button {
+  min-width: 11rem;
 }
 
 .user-detail-field__error {
