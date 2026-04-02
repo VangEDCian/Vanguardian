@@ -1,4 +1,3 @@
-# fmt: off
 from django.db import migrations, models
 
 
