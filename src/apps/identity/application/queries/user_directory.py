@@ -73,6 +73,8 @@ class IdentityUserDirectoryQueryService:
             )
 
         user_rows = [self._build_table_row(user) for user in users_queryset]
+        filter_options = self._build_filter_options()
+        selected_filter_label = self._get_selected_filter_label(normalized_filter_key)
 
         return {
             "users_table_headers": self.users_table_headers,
@@ -86,10 +88,19 @@ class IdentityUserDirectoryQueryService:
             ),
             "users_total": len(user_rows),
             "users_empty_text": _("No users found matching your criteria."),
-            "users_filters": self._build_filter_options(),
+            "users_filters": filter_options,
             "user_selected_filter": normalized_filter_key,
-            "user_selected_filter_label": self._get_selected_filter_label(normalized_filter_key),
+            "user_selected_filter_label": selected_filter_label,
             "user_search_query": normalized_search_query,
+            "users_table_toolbar": self._build_table_toolbar(
+                total=len(user_rows),
+                search_query=normalized_search_query,
+                filter_key=normalized_filter_key,
+                sort_key=normalized_sort_key,
+                sort_direction=normalized_sort_direction,
+                filters=filter_options,
+                selected_filter_label=selected_filter_label,
+            ),
         }
 
     def get_user_detail(self, *, user_id):
@@ -187,6 +198,51 @@ class IdentityUserDirectoryQueryService:
         prefix = "-" if sort_direction == "desc" else ""
         return tuple(f"{prefix}{field_name}" for field_name in self.users_sort_map[sort_key])
 
+    def _build_table_toolbar(
+        self,
+        *,
+        total,
+        search_query,
+        filter_key,
+        sort_key,
+        sort_direction,
+        filters,
+        selected_filter_label,
+    ):
+        return {
+            "filter": {
+                "id": "user-filter",
+                "name": "filter",
+                "label": _("Filter:"),
+                "aria_label": _("Filter users"),
+                "display_text": selected_filter_label,
+                "options": filters,
+                "select_wrapper_class": "common-select--filter",
+                "hidden_fields": self._build_hidden_fields(
+                    q=search_query,
+                    sort=sort_key,
+                    direction=sort_direction,
+                ),
+            },
+            "secondary_search": None,
+            "summary": {
+                "label": _("Total Users"),
+                "value": total,
+            },
+            "search": {
+                "name": "q",
+                "value": search_query,
+                "placeholder": _("Search users..."),
+                "aria_label": _("Search users"),
+                "show_icon": True,
+                "hidden_fields": self._build_hidden_fields(
+                    filter=filter_key,
+                    sort=sort_key,
+                    direction=sort_direction,
+                ),
+            },
+        }
+
     def _build_filter_options(self):
         options = [IdentityUserFilterQueryService().build_option()]
         options.extend(
@@ -217,6 +273,10 @@ class IdentityUserDirectoryQueryService:
         if filter_key:
             params.append({"name": "filter", "value": filter_key})
         return params
+
+    @staticmethod
+    def _build_hidden_fields(**params):
+        return [{"name": name, "value": value} for name, value in params.items() if value not in (None, "")]
 
     @staticmethod
     def _get_role_metadata(user):

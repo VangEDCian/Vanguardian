@@ -96,6 +96,9 @@ class StudyListView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTem
                 filter_key=self.request.GET.get("filter", "") if can_filter_status else "",
                 sort_key=self.request.GET.get("sort", "code"),
                 sort_direction=self.request.GET.get("direction", "asc"),
+                can_search=can_search,
+                can_filter_code=can_filter_code,
+                can_filter_status=can_filter_status,
             )
         )
         context["can_search"] = can_search
