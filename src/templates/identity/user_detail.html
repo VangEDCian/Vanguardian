@@ -26,9 +26,11 @@
       <div class="entity-table__summary">
         {% trans 'User Detail' %}: <strong>{{ detail_user.username }}</strong>
       </div>
+      <p class="user-detail-form__feedback" hidden data-user-detail-feedback></p>
     </div>
 
-    <form class="user-detail-form">
+    <form class="user-detail-form" data-user-detail-form data-save-url="{{ detail_user.update_url }}">
+      {% csrf_token %}
       <div class="user-detail-form__content">
         <section class="user-detail-section">
           <h2 class="user-detail-section__title">{% trans 'USER INFO' %}</h2>
@@ -52,13 +54,21 @@
               <div class="user-detail-inline-field">
                 <label class="user-detail-inline-field__label" for="detail-first-name">{% trans 'First Name' %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id='detail-first-name' textbox_name='first_name' textbox_value=detail_user.first_name %}
+                  {% if can_update_detail %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-first-name' textbox_name='first_name' textbox_value=detail_user.first_name %}
+                  {% else %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-first-name' textbox_name='first_name' textbox_value=detail_user.first_name textbox_disabled='disabled' %}
+                  {% endif %}
                 </div>
               </div>
               <div class="user-detail-inline-field">
                 <label class="user-detail-inline-field__label" for="detail-last-name">{% trans 'Last Name' %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id='detail-last-name' textbox_name='last_name' textbox_value=detail_user.last_name %}
+                  {% if can_update_detail %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-last-name' textbox_name='last_name' textbox_value=detail_user.last_name %}
+                  {% else %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-last-name' textbox_name='last_name' textbox_value=detail_user.last_name textbox_disabled='disabled' %}
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -67,13 +77,21 @@
               <div class="user-detail-inline-field">
                 <label class="user-detail-inline-field__label" for="detail-email">{% trans 'Email' %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id='detail-email' textbox_name='email' textbox_type='email' textbox_value=detail_user.email_value %}
+                  {% if can_update_detail %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-email' textbox_name='email' textbox_type='email' textbox_value=detail_user.email_value %}
+                  {% else %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-email' textbox_name='email' textbox_type='email' textbox_value=detail_user.email_value textbox_disabled='disabled' %}
+                  {% endif %}
                 </div>
               </div>
               <div class="user-detail-inline-field">
                 <label class="user-detail-inline-field__label" for="detail-phone-number">{% trans 'Phone Number' %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id='detail-phone-number' textbox_name='phone_number' textbox_value=detail_user.phone_number_value %}
+                  {% if can_update_detail %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-phone-number' textbox_name='phone_number' textbox_value=detail_user.phone_number_value %}
+                  {% else %}
+                    {% include 'shared/components/_old_textbox.html' with textbox_id='detail-phone-number' textbox_name='phone_number' textbox_value=detail_user.phone_number_value textbox_disabled='disabled' %}
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -88,17 +106,28 @@
                 <label class="user-detail-inline-field__label" for="detail-role">{% trans 'Role' %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
                   {% trans 'Select role' as select_role_placeholder %}
-                  {% include 'shared/components/_old_select2_single_choice.html' with select_id='detail-role' select_name='role' select_options=detail_user.role_options select_placeholder=select_role_placeholder %}
+                  {% if can_manage_permissions %}
+                    {% include 'shared/components/_old_select2_single_choice.html' with select_id='detail-role' select_name='role' select_options=detail_user.role_options select_placeholder=select_role_placeholder %}
+                  {% else %}
+                    {% include 'shared/components/_old_select2_single_choice.html' with select_id='detail-role' select_name='role' select_options=detail_user.role_options select_placeholder=select_role_placeholder select_disabled='disabled' %}
+                  {% endif %}
                 </div>
               </div>
               <div class="user-detail-inline-field">
-                <span class="user-detail-inline-field__label">{% trans 'Status' %}:</span>
+                <label class="user-detail-inline-field__label" for="detail-is-active">{% trans 'Status' %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
-                  <div class="user-detail-inline-field__display user-detail-field__status">
-                    <span class="entity-table__state entity-table__state--{{ detail_user.status_tone }}">
-                      <span class="svg-icon" aria-hidden="true" style="--icon-url: url('{% static 'images/status/activate.svg' %}')"></span>
-                      {{ detail_user.status }}
-                    </span>
+                  <div class="user-detail-inline-field__display user-detail-field__status-toggle">
+                    <input
+                      type="checkbox"
+                      id="detail-is-active"
+                      name="is_active"
+                      class="user-detail-field__checkbox"
+                      {% if detail_user.is_active %}checked{% endif %}
+                      {% if not can_update_detail %}disabled{% endif %}
+                    >
+                    <label for="detail-is-active" class="user-detail-field__checkbox-label">
+                      {% trans 'Active' %}
+                    </label>
                   </div>
                 </div>
               </div>
@@ -109,7 +138,11 @@
                 <label class="user-detail-inline-field__label" for="detail-permission-groups">{% trans 'Permission Groups' %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
                   {% trans 'Select permission groups' as select_permission_groups_placeholder %}
-                  {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-permission-groups' select_name='permission_groups' select_options=detail_user.permission_group_options select_placeholder=select_permission_groups_placeholder %}
+                  {% if can_manage_permissions %}
+                    {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-permission-groups' select_name='permission_groups' select_options=detail_user.permission_group_options select_placeholder=select_permission_groups_placeholder %}
+                  {% else %}
+                    {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-permission-groups' select_name='permission_groups' select_options=detail_user.permission_group_options select_placeholder=select_permission_groups_placeholder select_disabled='disabled' %}
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -138,7 +171,12 @@
       </div>
 
       <div class="entity-table__footer entity-table__footer--actions">
-        <button type="button" class="entity-table__footer-button entity-table__footer-button--primary">{% trans 'Save' %}</button>
+        <button
+          type="button"
+          class="entity-table__footer-button entity-table__footer-button--primary"
+          data-user-detail-save
+          {% if not can_update_detail %}disabled{% endif %}
+        >{% trans 'Save' %}</button>
         <button type="reset" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans 'Reset' %}</button>
       </div>
     </form>
@@ -171,6 +209,98 @@
           placeholder: function () {
             return $(this).data("placeholder") || "";
           }
+        });
+
+        const form = document.querySelector("[data-user-detail-form]");
+        const saveButton = document.querySelector("[data-user-detail-save]");
+        const feedback = document.querySelector("[data-user-detail-feedback]");
+
+        if (!form || !saveButton) {
+          return;
+        }
+
+        const originalSaveLabel = saveButton.textContent.trim();
+
+        function setFeedback(message, tone) {
+          if (!feedback) {
+            return;
+          }
+
+          feedback.textContent = message;
+          feedback.classList.remove("is-success", "is-error");
+          if (tone) {
+            feedback.classList.add(`is-${tone}`);
+          }
+          feedback.hidden = !message;
+        }
+
+        function clearFeedback() {
+          setFeedback("", "");
+        }
+
+        function flattenErrors(errors) {
+          return Object.values(errors || {})
+            .flat()
+            .map((item) => item.message)
+            .filter(Boolean)
+            .join(" ");
+        }
+
+        function getPayload() {
+          return {
+            first_name: form.querySelector("#detail-first-name")?.value || "",
+            last_name: form.querySelector("#detail-last-name")?.value || "",
+            email: form.querySelector("#detail-email")?.value || "",
+            phone_number: form.querySelector("#detail-phone-number")?.value || "",
+            is_active: form.querySelector("#detail-is-active")?.checked || false,
+            role: form.querySelector("#detail-role")?.value || "",
+            permission_groups: $("#detail-permission-groups").val() || []
+          };
+        }
+
+        saveButton.addEventListener("click", async function () {
+          clearFeedback();
+          saveButton.disabled = true;
+          saveButton.textContent = "{% trans 'Saving...' %}";
+
+          try {
+            const response = await fetch(form.dataset.saveUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+                "X-Requested-With": "XMLHttpRequest"
+              },
+              body: JSON.stringify(getPayload())
+            });
+
+            const payload = await response.json().catch(function () {
+              return {};
+            });
+
+            if (!response.ok) {
+              setFeedback(payload.detail || flattenErrors(payload.errors) || "{% trans 'Unable to save user details.' %}", "error");
+              return;
+            }
+
+            setFeedback(payload.detail || "{% trans 'User details saved successfully.' %}", "success");
+            if (payload.redirect_url) {
+              window.location.href = payload.redirect_url;
+            }
+          } catch (error) {
+            setFeedback("{% trans 'Unable to save user details.' %}", "error");
+          } finally {
+            saveButton.disabled = {% if not can_update_detail %}true{% else %}false{% endif %};
+            saveButton.textContent = originalSaveLabel;
+          }
+        });
+
+        form.addEventListener("reset", function () {
+          clearFeedback();
+          window.setTimeout(function () {
+            $("#detail-role").trigger("change.select2");
+            $("#detail-permission-groups").trigger("change.select2");
+          }, 0);
         });
       });
     })();

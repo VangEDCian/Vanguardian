@@ -1,12 +1,11 @@
 from django.contrib.auth.models import Group
-from django.db import DatabaseError
 from django.db.models import Q
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
 from apps.identity.application.queries.user_filters import IdentityUserFilterQueryService
-from apps.identity.models import Role, User
+from apps.identity.models import User
 
 
 class IdentityUserNotFoundError(Exception):
@@ -74,6 +73,8 @@ class IdentityUserDirectoryQueryService:
             )
 
         user_rows = [self._build_table_row(user) for user in users_queryset]
+        filter_options = self._build_filter_options()
+        selected_filter_label = self._get_selected_filter_label(normalized_filter_key)
 
         return {
             "users_table_headers": self.users_table_headers,
@@ -87,10 +88,19 @@ class IdentityUserDirectoryQueryService:
             ),
             "users_total": len(user_rows),
             "users_empty_text": _("No users found matching your criteria."),
-            "users_filters": self._build_filter_options(),
+            "users_filters": filter_options,
             "user_selected_filter": normalized_filter_key,
-            "user_selected_filter_label": self._get_selected_filter_label(normalized_filter_key),
+            "user_selected_filter_label": selected_filter_label,
             "user_search_query": normalized_search_query,
+            "users_table_toolbar": self._build_table_toolbar(
+                total=len(user_rows),
+                search_query=normalized_search_query,
+                filter_key=normalized_filter_key,
+                sort_key=normalized_sort_key,
+                sort_direction=normalized_sort_direction,
+                filters=filter_options,
+                selected_filter_label=selected_filter_label,
+            ),
         }
 
     def get_user_detail(self, *, user_id):
@@ -101,12 +111,14 @@ class IdentityUserDirectoryQueryService:
         explicit_display_name = getattr(user, "display_name", "").strip()
         full_name = user.get_full_name().strip()
         display_name = explicit_display_name or full_name or user.get_username()
-        role_label, role_tone = self._get_role_metadata(user)
-        permission_groups = [group.name for group in user.groups.order_by("name")]
+        role_key, role_label, role_tone = self._get_role_metadata(user)
+        permission_group_records = list(user.groups.order_by("name"))
+        permission_groups = [group.name for group in permission_group_records]
 
         return {
             "layout_breadcrumb_label": user.get_username(),
             "detail_user": {
+                "id": user.pk,
                 "username": user.get_username(),
                 "first_name": user.first_name,
                 "last_name": user.last_name,
@@ -115,12 +127,14 @@ class IdentityUserDirectoryQueryService:
                 "email_value": user.email or "",
                 "phone_number": getattr(user, "phone_number", "") or "—",
                 "phone_number_value": getattr(user, "phone_number", "") or "",
+                "role_key": role_key,
                 "role": role_label,
                 "role_tone": role_tone,
-                "role_options": self._build_role_options(role_label),
-                "selected_role": role_label,
+                "role_options": self._build_role_options(role_key),
+                "selected_role": role_key,
                 "permission_groups": permission_groups,
-                "permission_group_options": self._build_permission_group_options(permission_groups),
+                "permission_group_options": self._build_permission_group_options(permission_group_records),
+                "is_active": user.is_active,
                 "status": _("Active") if user.is_active else _("Inactive"),
                 "status_tone": "active" if user.is_active else "inactive",
                 "date_joined": date_format(user.date_joined, "d-M-Y") if user.date_joined else "—",
@@ -128,6 +142,7 @@ class IdentityUserDirectoryQueryService:
                 "last_login": date_format(user.last_login, "d-M-Y H:i") if user.last_login else "—",
                 "last_login_value": date_format(user.last_login, "d-M-Y H:i") if user.last_login else "",
                 "back_url": reverse("identity:users"),
+                "update_url": reverse("identity:user_detail", kwargs={"user_id": user.pk}),
             },
         }
 
@@ -135,7 +150,7 @@ class IdentityUserDirectoryQueryService:
         explicit_display_name = getattr(user, "display_name", "").strip()
         full_name = user.get_full_name().strip()
         display_name = explicit_display_name or full_name or user.get_username()
-        role_label, role_tone = self._get_role_metadata(user)
+        __, role_label, role_tone = self._get_role_metadata(user)
 
         return {
             "selection_value": user.pk,
@@ -183,6 +198,51 @@ class IdentityUserDirectoryQueryService:
         prefix = "-" if sort_direction == "desc" else ""
         return tuple(f"{prefix}{field_name}" for field_name in self.users_sort_map[sort_key])
 
+    def _build_table_toolbar(
+        self,
+        *,
+        total,
+        search_query,
+        filter_key,
+        sort_key,
+        sort_direction,
+        filters,
+        selected_filter_label,
+    ):
+        return {
+            "filter": {
+                "id": "user-filter",
+                "name": "filter",
+                "label": _("Filter:"),
+                "aria_label": _("Filter users"),
+                "display_text": selected_filter_label,
+                "options": filters,
+                "select_wrapper_class": "common-select--filter",
+                "hidden_fields": self._build_hidden_fields(
+                    q=search_query,
+                    sort=sort_key,
+                    direction=sort_direction,
+                ),
+            },
+            "secondary_search": None,
+            "summary": {
+                "label": _("Total Users"),
+                "value": total,
+            },
+            "search": {
+                "name": "q",
+                "value": search_query,
+                "placeholder": _("Search users..."),
+                "aria_label": _("Search users"),
+                "show_icon": True,
+                "hidden_fields": self._build_hidden_fields(
+                    filter=filter_key,
+                    sort=sort_key,
+                    direction=sort_direction,
+                ),
+            },
+        }
+
     def _build_filter_options(self):
         options = [IdentityUserFilterQueryService().build_option()]
         options.extend(
@@ -215,49 +275,42 @@ class IdentityUserDirectoryQueryService:
         return params
 
     @staticmethod
-    def _get_role_metadata(user):
-        if user.is_superuser:
-            return _("Administrator"), "admin"
-        if user.is_staff:
-            return _("Staff"), "staff"
-        return _("User"), "user"
+    def _build_hidden_fields(**params):
+        return [{"name": name, "value": value} for name, value in params.items() if value not in (None, "")]
 
     @staticmethod
-    def _build_role_options(selected_role):
-        try:
-            role_names = list(Role.objects.order_by("name").values_list("name", flat=True))
-        except DatabaseError:
-            role_names = []
+    def _get_role_metadata(user):
+        if user.is_superuser:
+            return "administrator", _("Administrator"), "admin"
+        if user.is_staff:
+            return "staff", _("Staff"), "staff"
+        return "user", _("User"), "user"
 
-        if selected_role and selected_role not in role_names:
-            role_names.insert(0, selected_role)
-        if not role_names:
-            role_names = [selected_role]
-
+    @staticmethod
+    def _build_role_options(selected_role_key):
         return [
             {
-                "value": role_name,
-                "label": role_name,
-                "selected": role_name == selected_role,
+                "value": role_key,
+                "label": role_label,
+                "selected": role_key == selected_role_key,
             }
-            for role_name in role_names
-            if role_name
+            for role_key, role_label in (
+                ("administrator", _("Administrator")),
+                ("staff", _("Staff")),
+                ("user", _("User")),
+            )
         ]
 
     @staticmethod
     def _build_permission_group_options(selected_permission_groups):
-        selected_group_names = list(selected_permission_groups)
-        group_names = list(Group.objects.order_by("name").values_list("name", flat=True))
-
-        for selected_group_name in selected_group_names:
-            if selected_group_name not in group_names:
-                group_names.append(selected_group_name)
+        selected_group_ids = {str(group.pk) for group in selected_permission_groups}
+        group_records = list(Group.objects.order_by("name"))
 
         return [
             {
-                "value": group_name,
-                "label": group_name,
-                "selected": group_name in selected_group_names,
+                "value": str(group.pk),
+                "label": group.name,
+                "selected": str(group.pk) in selected_group_ids,
             }
-            for group_name in group_names
+            for group in group_records
         ]

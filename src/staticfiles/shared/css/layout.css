@@ -627,6 +627,10 @@
   padding: 0.25rem 0.5rem;
 }
 
+.entity-table__search--inline {
+  margin-left: 0;
+}
+
 .entity-table__search input {
   width: 140px;
   max-width: 100%;

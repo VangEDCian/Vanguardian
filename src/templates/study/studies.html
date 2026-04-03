@@ -15,61 +15,7 @@
 
 {% block dashboard_content %}
 <section class="entity-table-panel">
-
-  <div class="entity-table__toolbar">
-    {% if can_filter_status %}
-    <form method="get" class="entity-table__filter">
-      {% if can_search and study_search_query %}<input type="hidden" name="q" value="{{ study_search_query }}">{% endif %}
-      {% if can_filter_code and study_code_filter %}<input type="hidden" name="code" value="{{ study_code_filter }}">{% endif %}
-      {% if studies_table_sort_key %}<input type="hidden" name="sort" value="{{ studies_table_sort_key }}">{% endif %}
-      {% if studies_table_sort_direction %}<input type="hidden" name="direction" value="{{ studies_table_sort_direction }}">{% endif %}
-      <label for="study-filter" class="entity-table__filter-label">{% trans "Filter:" %}</label>
-      {% trans "Filter studies" as filter_studies_aria_label %}
-      {% include "shared/components/_common_select.html" with select_mode="dropdown" select_id="study-filter" select_name="filter" select_wrapper_class="common-select--filter" select_display_text=study_selected_filter_label select_options=studies_filters select_aria_label=filter_studies_aria_label %}
-    </form>
-    {% endif %}
-
-    {% if can_filter_code %}
-    <form method="get" class="entity-table__search" style="margin-left: 0px;">
-      {% if can_filter_status and study_selected_filter %}<input type="hidden" name="filter" value="{{ study_selected_filter }}">{% endif %}
-      {% if can_search and study_search_query %}<input type="hidden" name="q" value="{{ study_search_query }}">{% endif %}
-      {% if studies_table_sort_key %}<input type="hidden" name="sort" value="{{ studies_table_sort_key }}">{% endif %}
-      {% if studies_table_sort_direction %}<input type="hidden" name="direction" value="{{ studies_table_sort_direction }}">{% endif %}
-      <input
-        type="search"
-        name="code"
-        value="{{ study_code_filter }}"
-        placeholder="{% trans 'Filter by code...' %}"
-        aria-label="{% trans 'Filter studies by code' %}"
-      >
-    </form>
-    {% endif %}
-
-    <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
-
-    <div class="entity-table__summary">
-      {% trans "Total" %}: <strong>{{ studies_total }}</strong>
-    </div>
-
-    {% if can_search %}
-    <form method="get" class="entity-table__search">
-      {% if can_filter_status and study_selected_filter %}<input type="hidden" name="filter" value="{{ study_selected_filter }}">{% endif %}
-      {% if studies_table_sort_key %}<input type="hidden" name="sort" value="{{ studies_table_sort_key }}">{% endif %}
-      {% if studies_table_sort_direction %}<input type="hidden" name="direction" value="{{ studies_table_sort_direction }}">{% endif %}
-      {% if can_filter_code and study_code_filter %}<input type="hidden" name="code" value="{{ study_code_filter }}">{% endif %}
-      <span class="entity-table__search-icon" aria-hidden="true">
-        <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
-      </span>
-      <input
-        type="search"
-        name="q"
-        value="{{ study_search_query }}"
-        placeholder="{% trans 'Search by name...' %}"
-        aria-label="{% trans 'Search studies by name' %}"
-      >
-    </form>
-    {% endif %}
-  </div>
+  {% include "shared/components/_entity_table_toolbar.html" with toolbar=studies_table_toolbar %}
 
   {% include "shared/components/_common_table.html" with headers=studies_table_headers rows=studies_table_rows empty_text=studies_empty_text sortable_columns=studies_table_sortable_columns sort_key=studies_table_sort_key sort_direction=studies_table_sort_direction sort_params=studies_table_sort_params enable_detail_click=True %}
 
