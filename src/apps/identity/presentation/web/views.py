@@ -24,7 +24,10 @@ from apps.identity.application import (
     IdentityUserFilterInactiveQueryService,
     IdentityUserNotFoundError,
     IdentityUserPhoneNumberAlreadyExistsError,
+    IdentityUserRestoreDataNotFoundError,
     IdentityUsernameAlreadyExistsError,
+    RestoreIdentityUserCommand,
+    RestoreIdentityUserService,
     UpdateIdentityUserDetailCommand,
     UpdateIdentityUserDetailService,
     serialize_identity_user_snapshot,
@@ -219,8 +222,10 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
     user_detail_form_class = IdentityUserDetailForm
     update_user_detail_service_class = UpdateIdentityUserDetailService
     delete_user_service_class = DeleteIdentityUserService
+    restore_user_service_class = RestoreIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService
     detail_view_model = None
+    include_deleted = False
 
     def get_user_directory_query_service(self):
         return self.user_directory_query_service_class()
@@ -246,13 +251,21 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
     def get_delete_user_service(self):
         return self.delete_user_service_class()
 
+    def get_restore_user_service(self):
+        return self.restore_user_service_class()
+
     def get_identity_user_audit_service(self):
         return self.identity_user_audit_service_class()
 
     def dispatch(self, request, *args, **kwargs):
+        self.include_deleted = self._include_deleted_users(request)
+        if self.include_deleted and not request.user.is_superuser:
+            raise PermissionDenied
+
         try:
             self.detail_view_model = self.get_user_directory_query_service().get_user_detail(
-                user_id=kwargs["user_id"]
+                user_id=kwargs["user_id"],
+                include_deleted=self.include_deleted,
             )
         except IdentityUserNotFoundError as exc:
             raise Http404 from exc
@@ -278,7 +291,9 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
             context["can_update_detail"] = self._can_update_detail(self.request.user)
             context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
             context["can_delete_user"] = self._can_delete_user(self.request.user)
+            context["can_restore_user"] = self._can_restore_user(self.request.user)
             context["delete_url"] = reverse("identity:user_delete", kwargs={"user_id": self.detail_view_model["detail_user"]["id"]})
+            context["restore_url"] = reverse("identity:user_restore", kwargs={"user_id": self.detail_view_model["detail_user"]["id"]})
         return context
 
     def put(self, request, *args, **kwargs):
@@ -345,15 +360,35 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
 
     def _can_update_detail(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
-        return request_user.is_superuser and request_user.pk != detail_user_id
+        return (
+            request_user.is_superuser
+            and request_user.pk != detail_user_id
+            and not self.detail_view_model["detail_user"]["is_deleted"]
+        )
 
     def _can_delete_user(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
-        return request_user.is_superuser and request_user.pk != detail_user_id
+        return (
+            request_user.is_superuser
+            and request_user.pk != detail_user_id
+            and not self.detail_view_model["detail_user"]["is_deleted"]
+        )
+
+    def _can_restore_user(self, request_user):
+        detail_user_id = self.detail_view_model["detail_user"]["id"]
+        return (
+            request_user.is_superuser
+            and request_user.pk != detail_user_id
+            and self.detail_view_model["detail_user"]["is_deleted"]
+        )
 
     def _can_manage_permissions(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
-        return request_user.is_superuser and request_user.pk != detail_user_id
+        return (
+            request_user.is_superuser
+            and request_user.pk != detail_user_id
+            and not self.detail_view_model["detail_user"]["is_deleted"]
+        )
 
     @staticmethod
     def _parse_request_payload(request):
@@ -364,6 +399,10 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
             return json.loads(request.body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             return None
+
+    @staticmethod
+    def _include_deleted_users(request):
+        return (request.GET.get("include_deleted") or "").strip().lower() in {"1", "true", "yes"}
 
 
 def target_user_role_key(user):
@@ -404,4 +443,42 @@ class IdentityUserDeleteView(LoginRequiredMixin, View):
             user_id=target_user.pk,
             before_data=before_data,
         )
-        return redirect(reverse("identity:users"))
+        return redirect(f"{reverse('identity:user_detail', kwargs={'user_id': target_user.pk})}?include_deleted=1")
+
+
+class IdentityUserRestoreView(LoginRequiredMixin, View):
+    restore_user_service_class = RestoreIdentityUserService
+    identity_user_audit_service_class = IdentityUserAuditService
+
+    def get_restore_user_service(self):
+        return self.restore_user_service_class()
+
+    def get_identity_user_audit_service(self):
+        return self.identity_user_audit_service_class()
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_superuser or request.user.pk == kwargs["user_id"]:
+            raise PermissionDenied
+
+        target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()
+        if target_user is None:
+            raise Http404
+
+        before_data = serialize_identity_user_snapshot(target_user)
+
+        try:
+            restored_user = self.get_restore_user_service().execute(
+                RestoreIdentityUserCommand(
+                    user_id=target_user.pk,
+                    actor_user_id=request.user.pk,
+                )
+            )
+        except (IdentityUserNotFoundError, IdentityUserRestoreDataNotFoundError) as exc:
+            raise Http404 from exc
+
+        self.get_identity_user_audit_service().record_restored(
+            request=request,
+            user=restored_user,
+            before_data=before_data,
+        )
+        return redirect(reverse("identity:user_detail", kwargs={"user_id": restored_user.pk}))

@@ -4,6 +4,7 @@ class AuditEventAction:
     IDENTITY_LOGIN_FAILED = "identity.login.failed"
     IDENTITY_USER_UPDATED = "identity.user.updated"
     IDENTITY_USER_DELETED = "identity.user.deleted"
+    IDENTITY_USER_RESTORED = "identity.user.restored"
 
     STUDY_CREATED = "study.created"
     STUDY_UPDATED = "study.updated"

@@ -7,9 +7,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.identity.application.queries.user_filters import IdentityUserFilterQueryService
 from apps.identity.models import User
 
-DELETED_USERNAME_PREFIX = "deleted-user-"
-
-
 class IdentityUserNotFoundError(Exception):
     pass
 
@@ -59,8 +56,8 @@ class IdentityUserDirectoryQueryService:
         if normalized_sort_key not in self.users_sort_map:
             normalized_sort_key = "username"
 
-        users_queryset = User.objects.exclude(
-            username__startswith=DELETED_USERNAME_PREFIX
+        users_queryset = User.objects.filter(
+            deleted=False
         ).order_by(*self._build_order_by(normalized_sort_key, normalized_sort_direction))
 
         active_filter_query_service = self._get_active_filter_query_service(normalized_filter_key)
@@ -107,12 +104,16 @@ class IdentityUserDirectoryQueryService:
             ),
         }
 
-    def get_user_detail(self, *, user_id):
-        user = User.objects.prefetch_related("groups").exclude(
-            username__startswith=DELETED_USERNAME_PREFIX
-        ).filter(pk=user_id).first()
+    def get_user_detail(self, *, user_id, include_deleted=False):
+        user_queryset = User.objects.prefetch_related("groups").filter(pk=user_id)
+        if not include_deleted:
+            user_queryset = user_queryset.filter(deleted=False)
+
+        user = user_queryset.first()
         if user is None:
             raise IdentityUserNotFoundError(user_id)
+
+        user_is_deleted = bool(user.deleted)
 
         explicit_display_name = getattr(user, "display_name", "").strip()
         full_name = user.get_full_name().strip()
@@ -159,6 +160,8 @@ class IdentityUserDirectoryQueryService:
                 "last_login_value": date_format(user.last_login, "d-M-Y H:i") if user.last_login else "",
                 "back_url": reverse("identity:users"),
                 "update_url": reverse("identity:user_detail", kwargs={"user_id": user.pk}),
+                "restore_url": reverse("identity:user_restore", kwargs={"user_id": user.pk}),
+                "is_deleted": user_is_deleted,
             },
         }
 
