@@ -21,7 +21,6 @@ from apps.study.application import (
     StudyDirectoryQueryService,
     StudyFilterActiveQueryService,
     StudyFilterInactiveQueryService,
-    StudyHistoryQueryService,
     StudyNotFoundError,
     ToggleStudyStatusCommand,
     ToggleStudyStatusService,
@@ -115,7 +114,6 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
     template_name = "study/study_detail.html"
     layout_nav_key = "STUDIES"
     study_directory_query_service_class = StudyDirectoryQueryService
-    study_history_query_service_class = StudyHistoryQueryService
     update_study_service_class = UpdateStudyService
     study_audit_service_class = StudyAuditService
     _detail_view_model = None
@@ -123,9 +121,6 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
 
     def get_study_directory_query_service(self):
         return self.study_directory_query_service_class()
-
-    def get_study_history_query_service(self):
-        return self.study_history_query_service_class()
 
     def get_update_study_service(self):
         return self.update_study_service_class()
@@ -166,23 +161,15 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         study_id = self._detail_view_model["detail_study"]["id"]
-        can_view_history = self.request.user.has_perm("study.view_study_history")
-
-        # If the user has no history permission but requests the history tab,
-        # silently fall back to the info tab rather than raising a 403.
-        requested_tab = self.request.GET.get("tab", "info")
-        active_tab = requested_tab if (requested_tab != "history" or can_view_history) else "info"
 
         user = self.request.user
         can_toggle_status = _can_change_study_status(user)
-        can_update_field_code = user.has_perm("study.update_study_field_code")
         can_update_field_name = user.has_perm("study.update_study_field_name")
         can_update_field_sponsor = user.has_perm("study.update_study_field_sponsor")
         can_update_field_dates = user.has_perm("study.update_study_field_dates")
         can_update_field_description = user.has_perm("study.update_study_field_description")
         can_update_detail = any(
             (
-                can_update_field_code,
                 can_update_field_name,
                 can_update_field_sponsor,
                 can_update_field_dates,
@@ -208,8 +195,6 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
                 }
             ),
         )
-        context["active_tab"] = active_tab
-        context["can_view_history"] = can_view_history
         context["can_toggle_status"] = can_toggle_status
         context["can_update_detail"] = can_update_detail
         context["can_delete_study"] = user.has_perm("study.delete_study")
@@ -221,16 +206,11 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
         context["can_view_field_sponsor"] = user.has_perm("study.view_study_field_sponsor")
         context["can_view_field_dates"] = user.has_perm("study.view_study_field_dates")
         context["can_view_field_description"] = user.has_perm("study.view_study_field_description")
-        context["can_update_field_code"] = can_update_field_code
+        context["can_update_field_code"] = False
         context["can_update_field_name"] = can_update_field_name
         context["can_update_field_sponsor"] = can_update_field_sponsor
         context["can_update_field_dates"] = can_update_field_dates
         context["can_update_field_description"] = can_update_field_description
-
-        if active_tab == "history" and can_view_history:
-            context.update(
-                self.get_study_history_query_service().list_events(study_id=study_id)
-            )
 
         return context
 
@@ -246,7 +226,7 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
 
         command = UpdateStudyCommand(
             study_id=self._study.pk,
-            code=form.cleaned_data["code"] if request.user.has_perm("study.update_study_field_code") else self._study.code,
+            code=self._study.code,
             name=form.cleaned_data["name"] if request.user.has_perm("study.update_study_field_name") else self._study.name,
             sponsor=form.cleaned_data["sponsor"] if request.user.has_perm("study.update_study_field_sponsor") else self._study.sponsor,
             description=form.cleaned_data["description"] if request.user.has_perm("study.update_study_field_description") else self._study.description,
@@ -276,7 +256,6 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
     def _can_update_detail(self, request_user):
         return any(
             (
-                request_user.has_perm("study.update_study_field_code"),
                 request_user.has_perm("study.update_study_field_name"),
                 request_user.has_perm("study.update_study_field_sponsor"),
                 request_user.has_perm("study.update_study_field_dates"),
