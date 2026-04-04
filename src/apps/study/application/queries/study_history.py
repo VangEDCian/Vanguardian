@@ -11,6 +11,7 @@ class StudyHistoryQueryService:
         AuditEventAction.STUDY_CREATED: _("Created"),
         AuditEventAction.STUDY_UPDATED: _("Updated"),
         AuditEventAction.STUDY_STATUS_CHANGED: _("Status changed"),
+        AuditEventAction.STUDY_DELETED: _("Deleted"),
     }
 
     def list_events(self, *, study_id):

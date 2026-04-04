@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from django.test import SimpleTestCase
 
 from apps.study.application.commands.create_study import CreateStudyCommand, CreateStudyService
+from apps.study.application.commands.delete_study import DeleteStudyCommand, DeleteStudyService
 from apps.study.application.commands.exceptions import StudyCodeAlreadyExistsError, StudyDateRangeError
 from apps.study.application.commands.toggle_study_status import ToggleStudyStatusCommand, ToggleStudyStatusService
 from apps.study.application.commands.update_study import UpdateStudyCommand, UpdateStudyService
@@ -215,3 +216,29 @@ class ToggleStudyStatusServiceTests(SimpleTestCase):
 
         self.assertEqual(study.updated_by_id, 42)
         self.assertIsNotNone(study.updated_at)
+
+
+class DeleteStudyServiceTests(SimpleTestCase):
+
+    def _make_command(self, study_id=1, actor_user_id=1):
+        return DeleteStudyCommand(study_id=study_id, actor_user_id=actor_user_id)
+
+    @patch("apps.study.application.commands.delete_study.Study")
+    def test_marks_study_deleted_and_inactive(self, mock_study_cls):
+        study = _make_study(pk=1, is_active=True, deleted=False)
+        mock_study_cls.objects.filter.return_value.first.return_value = study
+
+        result = DeleteStudyService().execute(self._make_command(actor_user_id=42))
+
+        self.assertTrue(result.deleted)
+        self.assertFalse(result.is_active)
+        self.assertEqual(result.updated_by_id, 42)
+        self.assertIsNotNone(result.updated_at)
+        study.save.assert_called_once()
+
+    @patch("apps.study.application.commands.delete_study.Study")
+    def test_raises_when_study_not_found(self, mock_study_cls):
+        mock_study_cls.objects.filter.return_value.first.return_value = None
+
+        with self.assertRaises(StudyNotFoundError):
+            DeleteStudyService().execute(self._make_command(study_id=999))

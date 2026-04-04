@@ -3,6 +3,10 @@ from apps.identity.application.commands.create_user import (
     CreateIdentityUserService,
     IdentityUsernameAlreadyExistsError,
 )
+from apps.identity.application.commands.delete_user import (
+    DeleteIdentityUserCommand,
+    DeleteIdentityUserService,
+)
 from apps.identity.application.commands.update_user_detail import (
     IdentityUserEmailAlreadyExistsError,
     IdentityUserPhoneNumberAlreadyExistsError,
@@ -16,6 +20,8 @@ __all__ = [
     "IdentityUsernameAlreadyExistsError",
     "CreateIdentityUserCommand",
     "CreateIdentityUserService",
+    "DeleteIdentityUserCommand",
+    "DeleteIdentityUserService",
     "UpdateIdentityUserDetailCommand",
     "UpdateIdentityUserDetailService",
 ]

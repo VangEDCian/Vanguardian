@@ -13,6 +13,8 @@ from apps.shared.views.generic import AuthenticateTemplateView
 from apps.study.application import (
     CreateStudyCommand,
     CreateStudyService,
+    DeleteStudyCommand,
+    DeleteStudyService,
     StudyAuditService,
     StudyCodeAlreadyExistsError,
     StudyDateRangeError,
@@ -114,7 +116,10 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
     layout_nav_key = "STUDIES"
     study_directory_query_service_class = StudyDirectoryQueryService
     study_history_query_service_class = StudyHistoryQueryService
+    update_study_service_class = UpdateStudyService
+    study_audit_service_class = StudyAuditService
     _detail_view_model = None
+    _study = None
 
     def get_study_directory_query_service(self):
         return self.study_directory_query_service_class()
@@ -122,7 +127,17 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
     def get_study_history_query_service(self):
         return self.study_history_query_service_class()
 
+    def get_update_study_service(self):
+        return self.update_study_service_class()
+
+    def get_study_audit_service(self):
+        return self.study_audit_service_class()
+
     def dispatch(self, request, *args, **kwargs):
+        self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
+        if self._study is None:
+            raise Http404
+
         try:
             self._detail_view_model = self.get_study_directory_query_service().get_study_detail(
                 study_id=kwargs["study_id"]
@@ -140,6 +155,14 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
             return super().get_layout_breadcrumb_label()
         return self._detail_view_model["layout_breadcrumb_label"]
 
+    def get_layout_show_breadcrumb_trail(self):
+        return False
+
+    def get_layout_detail_meta_items(self):
+        if self._detail_view_model is None:
+            return super().get_layout_detail_meta_items()
+        return self._detail_view_model.get("layout_detail_meta_items", ())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         study_id = self._detail_view_model["detail_study"]["id"]
@@ -150,13 +173,47 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
         requested_tab = self.request.GET.get("tab", "info")
         active_tab = requested_tab if (requested_tab != "history" or can_view_history) else "info"
 
+        user = self.request.user
+        can_toggle_status = _can_change_study_status(user)
+        can_update_field_code = user.has_perm("study.update_study_field_code")
+        can_update_field_name = user.has_perm("study.update_study_field_name")
+        can_update_field_sponsor = user.has_perm("study.update_study_field_sponsor")
+        can_update_field_dates = user.has_perm("study.update_study_field_dates")
+        can_update_field_description = user.has_perm("study.update_study_field_description")
+        can_update_detail = any(
+            (
+                can_update_field_code,
+                can_update_field_name,
+                can_update_field_sponsor,
+                can_update_field_dates,
+                can_update_field_description,
+                can_toggle_status,
+            )
+        )
+
         if self._detail_view_model is not None:
             context["detail_study"] = self._detail_view_model["detail_study"]
 
-        user = self.request.user
+        context.setdefault(
+            "form",
+            StudyForm(
+                initial={
+                    "code": self._study.code,
+                    "name": self._study.name,
+                    "sponsor": self._study.sponsor,
+                    "description": self._study.description,
+                    "start_date": self._study.start_date,
+                    "end_date": self._study.end_date,
+                    "is_active": self._study.is_active,
+                }
+            ),
+        )
         context["active_tab"] = active_tab
         context["can_view_history"] = can_view_history
-        context["can_toggle_status"] = _can_change_study_status(user)
+        context["can_toggle_status"] = can_toggle_status
+        context["can_update_detail"] = can_update_detail
+        context["can_delete_study"] = user.has_perm("study.delete_study")
+        context["delete_url"] = reverse("study:study_delete", kwargs={"study_id": study_id})
 
         # Field-level view permissions
         context["can_view_field_code"] = user.has_perm("study.view_study_field_code")
@@ -164,6 +221,11 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
         context["can_view_field_sponsor"] = user.has_perm("study.view_study_field_sponsor")
         context["can_view_field_dates"] = user.has_perm("study.view_study_field_dates")
         context["can_view_field_description"] = user.has_perm("study.view_study_field_description")
+        context["can_update_field_code"] = can_update_field_code
+        context["can_update_field_name"] = can_update_field_name
+        context["can_update_field_sponsor"] = can_update_field_sponsor
+        context["can_update_field_dates"] = can_update_field_dates
+        context["can_update_field_description"] = can_update_field_description
 
         if active_tab == "history" and can_view_history:
             context.update(
@@ -171,6 +233,57 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
             )
 
         return context
+
+    def post(self, request, *args, **kwargs):
+        if not self._can_update_detail(request.user):
+            raise PermissionDenied
+
+        form = StudyForm(request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+
+        before_data = _serialize_study_snapshot(self._study)
+
+        command = UpdateStudyCommand(
+            study_id=self._study.pk,
+            code=form.cleaned_data["code"] if request.user.has_perm("study.update_study_field_code") else self._study.code,
+            name=form.cleaned_data["name"] if request.user.has_perm("study.update_study_field_name") else self._study.name,
+            sponsor=form.cleaned_data["sponsor"] if request.user.has_perm("study.update_study_field_sponsor") else self._study.sponsor,
+            description=form.cleaned_data["description"] if request.user.has_perm("study.update_study_field_description") else self._study.description,
+            start_date=form.cleaned_data.get("start_date") if request.user.has_perm("study.update_study_field_dates") else self._study.start_date,
+            end_date=form.cleaned_data.get("end_date") if request.user.has_perm("study.update_study_field_dates") else self._study.end_date,
+            is_active=form.cleaned_data.get("is_active", False) if _can_change_study_status(request.user) else self._study.is_active,
+            actor_user_id=request.user.pk,
+        )
+
+        try:
+            updated_study = self.get_update_study_service().execute(command)
+        except StudyCodeAlreadyExistsError:
+            form.add_error("code", _("This study code already exists."))
+            return self.render_to_response(self.get_context_data(form=form))
+        except StudyDateRangeError:
+            form.add_error("end_date", _("End date must be on or after start date."))
+            return self.render_to_response(self.get_context_data(form=form))
+
+        self.get_study_audit_service().record_updated(
+            request=request,
+            study=updated_study,
+            before_data=before_data,
+        )
+
+        return redirect(reverse("study:study_detail", kwargs={"study_id": self._study.pk}))
+
+    def _can_update_detail(self, request_user):
+        return any(
+            (
+                request_user.has_perm("study.update_study_field_code"),
+                request_user.has_perm("study.update_study_field_name"),
+                request_user.has_perm("study.update_study_field_sponsor"),
+                request_user.has_perm("study.update_study_field_dates"),
+                request_user.has_perm("study.update_study_field_description"),
+                _can_change_study_status(request_user),
+            )
+        )
 
 
 class StudyCreateView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
@@ -376,3 +489,38 @@ class StudyToggleStatusView(LoginRequiredMixin, PermissionRequiredMixin, View):
         self.get_study_audit_service().record_status_changed(request=request, study=study)
 
         return redirect(reverse("study:study_detail", kwargs={"study_id": study_id}))
+
+
+class StudyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "study.delete_study"
+    raise_exception = True
+    delete_study_service_class = DeleteStudyService
+    study_audit_service_class = StudyAuditService
+
+    def get_delete_study_service(self):
+        return self.delete_study_service_class()
+
+    def get_study_audit_service(self):
+        return self.study_audit_service_class()
+
+    def post(self, request, *_args, **kwargs):
+        study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
+        if study is None:
+            raise Http404
+
+        if not _user_has_study_access(request.user, study.pk):
+            raise PermissionDenied
+
+        before_data = _serialize_study_snapshot(study)
+        deleted_study = self.get_delete_study_service().execute(
+            DeleteStudyCommand(
+                study_id=study.pk,
+                actor_user_id=request.user.pk,
+            )
+        )
+        self.get_study_audit_service().record_deleted(
+            request=request,
+            study=deleted_study,
+            before_data=before_data,
+        )
+        return redirect(reverse("study:study_list"))

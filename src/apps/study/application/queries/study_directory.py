@@ -132,6 +132,15 @@ class StudyDirectoryQueryService:
 
         return {
             "layout_breadcrumb_label": study.code,
+            "layout_detail_meta_items": (
+                {
+                    "label": _("Study Code"),
+                    "value": study.code,
+                },
+                {
+                    "value": _("Active") if study.is_active else _("Inactive"),
+                },
+            ),
             "detail_study": {
                 "id": study.pk,
                 "code": study.code,

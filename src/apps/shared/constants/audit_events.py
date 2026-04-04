@@ -3,10 +3,12 @@ class AuditEventAction:
     IDENTITY_LOGIN_SUCCEEDED = "identity.login.succeeded"
     IDENTITY_LOGIN_FAILED = "identity.login.failed"
     IDENTITY_USER_UPDATED = "identity.user.updated"
+    IDENTITY_USER_DELETED = "identity.user.deleted"
 
     STUDY_CREATED = "study.created"
     STUDY_UPDATED = "study.updated"
     STUDY_STATUS_CHANGED = "study.status_changed"
+    STUDY_DELETED = "study.deleted"
 
 
 class AuditEventObjectType:

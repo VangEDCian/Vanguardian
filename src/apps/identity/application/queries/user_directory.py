@@ -7,6 +7,8 @@ from django.utils.translation import gettext_lazy as _
 from apps.identity.application.queries.user_filters import IdentityUserFilterQueryService
 from apps.identity.models import User
 
+DELETED_USERNAME_PREFIX = "deleted-user-"
+
 
 class IdentityUserNotFoundError(Exception):
     pass
@@ -57,7 +59,9 @@ class IdentityUserDirectoryQueryService:
         if normalized_sort_key not in self.users_sort_map:
             normalized_sort_key = "username"
 
-        users_queryset = User.objects.order_by(*self._build_order_by(normalized_sort_key, normalized_sort_direction))
+        users_queryset = User.objects.exclude(
+            username__startswith=DELETED_USERNAME_PREFIX
+        ).order_by(*self._build_order_by(normalized_sort_key, normalized_sort_direction))
 
         active_filter_query_service = self._get_active_filter_query_service(normalized_filter_key)
         if active_filter_query_service is not None:
@@ -104,7 +108,9 @@ class IdentityUserDirectoryQueryService:
         }
 
     def get_user_detail(self, *, user_id):
-        user = User.objects.prefetch_related("groups").filter(pk=user_id).first()
+        user = User.objects.prefetch_related("groups").exclude(
+            username__startswith=DELETED_USERNAME_PREFIX
+        ).filter(pk=user_id).first()
         if user is None:
             raise IdentityUserNotFoundError(user_id)
 
@@ -117,6 +123,16 @@ class IdentityUserDirectoryQueryService:
 
         return {
             "layout_breadcrumb_label": user.get_username(),
+            "layout_detail_meta_items": (
+                {
+                    "label": _("Username"),
+                    "value": user.get_username(),
+                },
+                {
+                    "label": _("Display name"),
+                    "value": display_name,
+                },
+            ),
             "detail_user": {
                 "id": user.pk,
                 "username": user.get_username(),

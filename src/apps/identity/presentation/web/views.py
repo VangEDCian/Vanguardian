@@ -14,6 +14,8 @@ from django.contrib.auth.models import Group
 from apps.identity.application import (
     CreateIdentityUserCommand,
     CreateIdentityUserService,
+    DeleteIdentityUserCommand,
+    DeleteIdentityUserService,
     IdentityUserAuditService,
     IdentityUserEmailAlreadyExistsError,
     IdentityLoginAuditService,
@@ -216,6 +218,7 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
     user_directory_query_service_class = IdentityUserDirectoryQueryService
     user_detail_form_class = IdentityUserDetailForm
     update_user_detail_service_class = UpdateIdentityUserDetailService
+    delete_user_service_class = DeleteIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService
     detail_view_model = None
 
@@ -240,6 +243,9 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
     def get_update_user_detail_service(self):
         return self.update_user_detail_service_class()
 
+    def get_delete_user_service(self):
+        return self.delete_user_service_class()
+
     def get_identity_user_audit_service(self):
         return self.identity_user_audit_service_class()
 
@@ -257,12 +263,22 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
             return super().get_layout_breadcrumb_label()
         return self.detail_view_model["layout_breadcrumb_label"]
 
+    def get_layout_show_breadcrumb_trail(self):
+        return False
+
+    def get_layout_detail_meta_items(self):
+        if self.detail_view_model is None:
+            return super().get_layout_detail_meta_items()
+        return self.detail_view_model.get("layout_detail_meta_items", ())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.detail_view_model is not None:
             context["detail_user"] = self.detail_view_model["detail_user"]
             context["can_update_detail"] = self._can_update_detail(self.request.user)
             context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
+            context["can_delete_user"] = self._can_delete_user(self.request.user)
+            context["delete_url"] = reverse("identity:user_delete", kwargs={"user_id": self.detail_view_model["detail_user"]["id"]})
         return context
 
     def put(self, request, *args, **kwargs):
@@ -329,11 +345,15 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
 
     def _can_update_detail(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
-        return request_user.is_superuser or request_user.pk == detail_user_id
+        return request_user.is_superuser and request_user.pk != detail_user_id
 
-    @staticmethod
-    def _can_manage_permissions(request_user):
-        return request_user.is_superuser
+    def _can_delete_user(self, request_user):
+        detail_user_id = self.detail_view_model["detail_user"]["id"]
+        return request_user.is_superuser and request_user.pk != detail_user_id
+
+    def _can_manage_permissions(self, request_user):
+        detail_user_id = self.detail_view_model["detail_user"]["id"]
+        return request_user.is_superuser and request_user.pk != detail_user_id
 
     @staticmethod
     def _parse_request_payload(request):
@@ -352,3 +372,36 @@ def target_user_role_key(user):
     if user.is_staff:
         return "staff"
     return "user"
+
+
+class IdentityUserDeleteView(LoginRequiredMixin, View):
+    delete_user_service_class = DeleteIdentityUserService
+    identity_user_audit_service_class = IdentityUserAuditService
+
+    def get_delete_user_service(self):
+        return self.delete_user_service_class()
+
+    def get_identity_user_audit_service(self):
+        return self.identity_user_audit_service_class()
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_superuser or request.user.pk == kwargs["user_id"]:
+            raise PermissionDenied
+
+        target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()
+        if target_user is None:
+            raise Http404
+
+        before_data = serialize_identity_user_snapshot(target_user)
+        self.get_delete_user_service().execute(
+            DeleteIdentityUserCommand(
+                user_id=target_user.pk,
+                actor_user_id=request.user.pk,
+            )
+        )
+        self.get_identity_user_audit_service().record_deleted(
+            request=request,
+            user_id=target_user.pk,
+            before_data=before_data,
+        )
+        return redirect(reverse("identity:users"))

@@ -9,6 +9,7 @@ from apps.identity.presentation.web.views import (
     IdentityLoginView,
     IdentityLogoutView,
     IdentityUserCreateView,
+    IdentityUserDeleteView,
     IdentityUserDetailView,
     IdentityUsersView,
 )
@@ -22,6 +23,7 @@ urlpatterns = [
     path("users", IdentityUsersView.as_view(), name="users"),
     path("users/create", IdentityUserCreateView.as_view(), name="user_create"),
     path("users/<int:user_id>", IdentityUserDetailView.as_view(), name="user_detail"),
+    path("users/<int:user_id>/delete", IdentityUserDeleteView.as_view(), name="user_delete"),
     path(
         "forgot-password/",
         auth_views.PasswordResetView.as_view(
