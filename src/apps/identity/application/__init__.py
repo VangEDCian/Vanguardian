@@ -1,6 +1,8 @@
 from apps.identity.application.commands import (
     CreateIdentityUserCommand,
     CreateIdentityUserService,
+    DeleteIdentityUserCommand,
+    DeleteIdentityUserService,
     IdentityUserEmailAlreadyExistsError,
     IdentityUserPhoneNumberAlreadyExistsError,
     IdentityUsernameAlreadyExistsError,
@@ -31,6 +33,8 @@ __all__ = [
     "IdentityUsernameAlreadyExistsError",
     "CreateIdentityUserCommand",
     "CreateIdentityUserService",
+    "DeleteIdentityUserCommand",
+    "DeleteIdentityUserService",
     "UpdateIdentityUserDetailCommand",
     "UpdateIdentityUserDetailService",
     "serialize_identity_user_snapshot",

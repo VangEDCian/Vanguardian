@@ -31,12 +31,12 @@
             </span>
             <span>{% trans "SITES" %}</span>
           </button>
-          <button type="button" class="top-nav__item{% if layout_nav_key == 'PROJECT' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'PROJECT' %}">
+          {% comment %} <button type="button" class="top-nav__item{% if layout_nav_key == 'PROJECT' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'PROJECT' %}">
             <span class="top-nav__icon" aria-hidden="true">
               <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/project.svg' %}')"></span>
             </span>
             <span>{% trans "PROJECT" %}</span>
-          </button>
+          </button> {% endcomment %}
           <a href="{% url 'study:study_list' %}" class="top-nav__item{% if layout_nav_key == 'STUDIES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'STUDIES' %}">
             <span class="top-nav__icon" aria-hidden="true">
               <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/project.svg' %}')"></span>
@@ -96,17 +96,22 @@
 
     <div class="dashboard-breadcrumb">
       {% block dashboard_breadcrumb_prefix %}{% endblock %}
-      <span data-breadcrumb-study>{% trans "REACT-AF Training" %}</span>
-      <span aria-hidden="true">›</span>
-      <span data-breadcrumb-site>100-JHU1</span>
-      <span aria-hidden="true">›</span>
-      <strong data-breadcrumb-active>
-        {% if layout_breadcrumb_label %}
-        {{ layout_breadcrumb_label }}
-        {% else %}
-        {% trans "DASHBOARD" %}
-        {% endif %}
-      </strong>
+      {% if layout_show_breadcrumb_trail %}
+        <div class="dashboard-breadcrumb__trail">
+          <span data-breadcrumb-study>{% trans "REACT-AF Training" %}</span>
+          <span aria-hidden="true">›</span>
+          <span data-breadcrumb-site>100-JHU1</span>
+          <span aria-hidden="true">›</span>
+          <strong data-breadcrumb-active>
+            {% if layout_breadcrumb_label %}
+            {{ layout_breadcrumb_label }}
+            {% else %}
+            {% trans "DASHBOARD" %}
+            {% endif %}
+          </strong>
+        </div>
+      {% endif %}
+      {% render_layout_detail_meta %}
     </div>
 
     <main class="dashboard-main">

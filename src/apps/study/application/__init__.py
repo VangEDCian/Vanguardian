@@ -1,4 +1,5 @@
 from apps.study.application.commands.create_study import CreateStudyCommand, CreateStudyService
+from apps.study.application.commands.delete_study import DeleteStudyCommand, DeleteStudyService
 from apps.study.application.commands.exceptions import StudyCodeAlreadyExistsError, StudyDateRangeError
 from apps.study.application.commands.toggle_study_status import ToggleStudyStatusCommand, ToggleStudyStatusService
 from apps.study.application.commands.update_study import UpdateStudyCommand, UpdateStudyService
@@ -22,6 +23,8 @@ __all__ = [
     # commands
     "CreateStudyCommand",
     "CreateStudyService",
+    "DeleteStudyCommand",
+    "DeleteStudyService",
     "UpdateStudyCommand",
     "UpdateStudyService",
     "ToggleStudyStatusCommand",

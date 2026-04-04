@@ -49,3 +49,13 @@ class StudyAuditService:
             before_data={"is_active": not study.is_active},
             after_data={"is_active": study.is_active},
         )
+
+    def record_deleted(self, *, request, study, before_data):
+        self.audit_context_adapter.record_event(
+            action=AuditEventAction.STUDY_DELETED,
+            object_type=AuditEventObjectType.STUDY,
+            object_id=str(study.pk),
+            request=request,
+            before_data=before_data,
+            after_data={**before_data, "deleted": True, "is_active": False},
+        )

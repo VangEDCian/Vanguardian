@@ -47,6 +47,17 @@ class IdentityUserAuditService:
             after_data=serialize_identity_user_snapshot(user),
         )
 
+    def record_deleted(self, *, request, user_id, before_data):
+        self.audit_context_adapter.record_event(
+            action=AuditEventAction.IDENTITY_USER_DELETED,
+            object_type=AuditEventObjectType.IDENTITY_USER,
+            object_id=str(user_id),
+            request=request,
+            user_id=user_id,
+            before_data=before_data,
+            after_data={**before_data, "deleted": True, "is_active": False},
+        )
+
 
 def _get_role_metadata(user):
     if user.is_superuser:

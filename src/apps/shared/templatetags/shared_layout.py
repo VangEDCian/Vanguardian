@@ -14,3 +14,10 @@ def require_authenticate_template_view(context):
         )
 
     return ""
+
+
+@register.inclusion_tag("shared/components/_layout_detail_meta.html", takes_context=True)
+def render_layout_detail_meta(context):
+    return {
+        "layout_detail_meta_items": context.get("layout_detail_meta_items") or (),
+    }

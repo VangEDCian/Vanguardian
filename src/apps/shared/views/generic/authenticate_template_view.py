@@ -15,6 +15,8 @@ class AuthenticateTemplateView(TemplateView):
         context["auth_user"] = self.get_auth_user_context()
         context["layout_nav_key"] = self.get_layout_nav_key()
         context["layout_breadcrumb_label"] = self.get_layout_breadcrumb_label()
+        context["layout_show_breadcrumb_trail"] = self.get_layout_show_breadcrumb_trail()
+        context["layout_detail_meta_items"] = self.get_layout_detail_meta_items()
         return context
 
     def get_auth_user(self):
@@ -59,3 +61,9 @@ class AuthenticateTemplateView(TemplateView):
 
     def get_layout_breadcrumb_label(self):
         return self.layout_breadcrumb_label
+
+    def get_layout_show_breadcrumb_trail(self):
+        return True
+
+    def get_layout_detail_meta_items(self):
+        return ()
