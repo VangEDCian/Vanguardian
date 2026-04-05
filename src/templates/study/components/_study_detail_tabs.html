@@ -1,0 +1,10 @@
+{% load i18n %}
+
+<nav class="entity-detail-tabs" aria-label="{% trans 'Study sections' %}">
+  <a href="{% url 'study:study_detail' study_id=detail_study.id %}" class="entity-detail-tabs__item{% if study_active_tab == 'settings' %} is-active{% endif %}">
+    <span class="entity-detail-tabs__label">{% trans "Study settings" %}</span>
+  </a>
+  <a href="{% url 'study:study_crf_templates' study_id=detail_study.id %}" class="entity-detail-tabs__item{% if study_active_tab == 'crf_templates' %} is-active{% endif %}">
+    <span class="entity-detail-tabs__label">{% trans "Data collection case report forms" %}</span>
+  </a>
+</nav>
