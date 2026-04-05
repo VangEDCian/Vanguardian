@@ -36,3 +36,7 @@
 .old-textbox--error:focus {
   border-bottom-color: #c62828;
 }
+
+input[type="date" i] {
+  font-family: var(--font-sans);
+}

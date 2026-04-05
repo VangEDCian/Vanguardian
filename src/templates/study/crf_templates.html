@@ -1,0 +1,28 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{{ detail_study.code }} | {% trans "CRF Templates | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Studies" %}</a>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  {% include "study/components/_study_detail_tabs.html" with study_active_tab="crf_templates" %}
+
+  {% include "shared/components/_entity_table_toolbar.html" with toolbar=crf_templates_table_toolbar %}
+
+  {% include "shared/components/_common_table.html" with headers=crf_templates_table_headers rows=crf_templates_table_rows empty_text=crf_templates_empty_text sortable_columns=crf_templates_table_sortable_columns sort_key=crf_templates_table_sort_key sort_direction=crf_templates_table_sort_direction sort_params=crf_templates_table_sort_params %}
+</section>
+{% endblock %}

@@ -271,7 +271,7 @@
   color: #444;
 }
 
-.dashboard-breadcrumb__detail-meta::before{
+.dashboard-breadcrumb__detail-meta::before {
   content: "|";
   color: #b8b8b8;
 }
@@ -769,9 +769,9 @@
   display: flex;
   align-items: flex-end;
   gap: 0;
-  overflow-x: auto;
+  /* overflow-x: auto; */
   border-bottom: 1px solid #9ea9b6;
-  background: #cfd8e2;
+  background: #f1f1f1;
   padding: 0 12px;
   scrollbar-width: thin;
 }
@@ -781,9 +781,9 @@
   align-items: center;
   gap: 6px;
   margin-top: 4px;
-  margin-right: 2px;
+  margin-right: 1px;
   padding: 6px 18px 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #555;
   text-decoration: none;
@@ -795,6 +795,7 @@
   white-space: nowrap;
   position: relative;
   top: 1px;
+  cursor: pointer;
 }
 
 .entity-detail-tabs__label {

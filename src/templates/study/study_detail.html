@@ -20,11 +20,7 @@
     {% csrf_token %}
 
     {# ── Tab bar ─────────────────────────────────────────────────────────── #}
-    <nav class="entity-detail-tabs" aria-label="{% trans 'Study sections' %}">
-      <span class="entity-detail-tabs__item is-active">
-        <span class="entity-detail-tabs__label">{% trans "STUDY" %}</span>
-      </span>
-    </nav>
+    {% include "study/components/_study_detail_tabs.html" with study_active_tab="settings" %}
 
     {# ── Tab: Info ───────────────────────────────────────────────────────── #}
     <div class="user-detail-form__content">
