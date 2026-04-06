@@ -1,0 +1,45 @@
+{% extends "shared/_layout.html" %}
+{% load i18n %}
+
+{% block title %}{{ site.code }} | {% trans "Sites | Vanguardian" %}{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Sites" %}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <div class="entity-table__toolbar">
+    <div class="entity-table__summary"><strong>{{ site.code }}</strong></div>
+  </div>
+
+  <div class="user-detail-section__body" style="padding:12px 16px;">
+    <p><strong>{% trans "Code" %}:</strong> {{ site.code }}</p>
+    <p><strong>{% trans "Name" %}:</strong> {{ site.name }}</p>
+    <p><strong>{% trans "Investigator" %}:</strong> {{ site.investigator|default:"-" }}</p>
+    <p><strong>{% trans "Study" %}:</strong> {{ site.study.code }} - {{ site.study.name }}</p>
+    <p><strong>{% trans "Status" %}:</strong> {% if site.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}</p>
+  </div>
+
+  <div class="entity-table__footer entity-table__footer--actions">
+    {% if perms.site.view_site_membership_list %}
+      <a href="{% url 'study:membership_list' site_id=site.id %}"
+         class="entity-table__footer-button entity-table__footer-button--secondary">
+        {% trans "Members" %}
+      </a>
+    {% endif %}
+    {% if perms.site.update_site %}
+      <a href="{{ edit_url }}" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Edit" %}</a>
+    {% endif %}
+    {% if perms.site.delete_site %}
+      <form method="post" action="{{ delete_url }}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="entity-table__footer-button entity-table__footer-button--secondary" onclick="return confirm('{% trans "Delete this site?" %}')">{% trans "Delete" %}</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+

@@ -73,3 +73,5 @@ docker-compose.override.yml
 AGENT.md
 
 *.dbml
+.github/AGENTS.md
+node_modules

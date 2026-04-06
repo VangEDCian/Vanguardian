@@ -4,6 +4,7 @@ from apps.study.application.commands.exceptions import StudyCodeAlreadyExistsErr
 from apps.study.application.commands.toggle_study_status import ToggleStudyStatusCommand, ToggleStudyStatusService
 from apps.study.application.commands.update_study import UpdateStudyCommand, UpdateStudyService
 from apps.study.application.queries.study_crf_template_directory import StudyCrfTemplateDirectoryQueryService
+from apps.study.application.queries.study_event_definition_directory import StudyEventDefinitionDirectoryQueryService
 from apps.study.application.queries.study_directory import (
     StudyDirectoryQueryService,
     StudyNotFoundError,
@@ -19,6 +20,7 @@ __all__ = [
     # query
     "StudyDirectoryQueryService",
     "StudyCrfTemplateDirectoryQueryService",
+    "StudyEventDefinitionDirectoryQueryService",
     "StudyFilterActiveQueryService",
     "StudyFilterInactiveQueryService",
     "StudyHistoryQueryService",

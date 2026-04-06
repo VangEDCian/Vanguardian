@@ -25,12 +25,12 @@
             </span>
             <span>{% trans "SUBJECTS" %}</span>
           </button>
-          <button type="button" class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'SITES' %}">
+          <a href="{% url 'study:site_list' %}" class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'SITES' %}">
             <span class="top-nav__icon" aria-hidden="true">
               <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
             </span>
             <span>{% trans "SITES" %}</span>
-          </button>
+          </a>
           {% comment %} <button type="button" class="top-nav__item{% if layout_nav_key == 'PROJECT' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'PROJECT' %}">
             <span class="top-nav__icon" aria-hidden="true">
               <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/project.svg' %}')"></span>

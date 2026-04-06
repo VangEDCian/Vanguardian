@@ -1,0 +1,40 @@
+{% extends "shared/_layout.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Member" %} | {{ site.code }} | {% trans "Sites | Vanguardian" %}{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Members" %}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <div class="entity-table__toolbar">
+    <div class="entity-table__summary">
+      <strong>{{ membership.user.username }}</strong>
+    </div>
+  </div>
+
+  <div class="user-detail-section__body" style="padding:12px 16px;">
+    <p><strong>{% trans "Username" %}:</strong> {{ membership.user.username }}</p>
+    <p><strong>{% trans "Full Name" %}:</strong> {{ membership.user.get_full_name|default:"-" }}</p>
+    <p><strong>{% trans "Site" %}:</strong> {{ site.code }} — {{ site.name }}</p>
+    <p><strong>{% trans "Study" %}:</strong> {{ membership.study.code }}</p>
+  </div>
+
+  <div class="entity-table__footer entity-table__footer--actions">
+    {% if perms.site.delete_site_membership %}
+      <form method="post" action="{{ delete_url }}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit"
+                class="entity-table__footer-button entity-table__footer-button--secondary"
+                onclick="return confirm('{% trans "Remove this member?" %}')">
+          {% trans "Remove" %}
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
