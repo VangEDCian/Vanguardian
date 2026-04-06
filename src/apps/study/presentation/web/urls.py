@@ -3,6 +3,7 @@ from django.urls import path, include
 from apps.study.presentation.web.views import (
     StudyCreateView,
     StudyCrfTemplateListView,
+    StudyEventDefinitionListView,
     StudyDeleteView,
     StudyDetailView,
     StudyListView,
@@ -18,7 +19,8 @@ urlpatterns = [
     path("studies", StudyListView.as_view(), name="study_list"),
     path("studies/new", StudyCreateView.as_view(), name="study_create"),
     path("studies/<int:study_id>", StudyDetailView.as_view(), name="study_detail"),
-    path("studies/<int:study_id>/crf-templates", StudyCrfTemplateListView.as_view(), name="study_crf_templates"),
+    path("studies/<int:study_id>/crftemplates", StudyCrfTemplateListView.as_view(), name="study_crf_templates"),
+    path("studies/<int:study_id>/eventdefinitions", StudyEventDefinitionListView.as_view(), name="study_event_definitions"),
     path("studies/<int:study_id>/delete", StudyDeleteView.as_view(), name="study_delete"),
     path("studies/<int:study_id>/edit", StudyUpdateView.as_view(), name="study_update"),
     path("studies/<int:study_id>/toggle-status", StudyToggleStatusView.as_view(), name="study_toggle_status"),

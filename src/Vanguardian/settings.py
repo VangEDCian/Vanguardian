@@ -53,6 +53,7 @@ X_INSTALLED_APPS = [
     "apps.identity.apps.IdentityConfig",
     "apps.dashboard.apps.DashboardConfig",
     "apps.study.apps.StudyConfig",
+    "apps.crf.apps.CrfConfig",
 ]
 
 INSTALLED_APPS = [
@@ -175,6 +176,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     BASE_DIR / "staticfiles",
+    BASE_DIR / "node_modules",
 ]
 STATIC_ROOT = BASE_DIR.parent / "static"
 

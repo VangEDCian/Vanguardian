@@ -10,6 +10,7 @@
   const breadcrumbSite = shell.querySelector("[data-breadcrumb-site]");
 
   const dropdowns = Array.from(shell.querySelectorAll("[data-dropdown]"));
+  const horizontalDragScrollAreas = Array.from(shell.querySelectorAll("[data-horizontal-drag-scroll]"));
   const avatarMenu = shell.querySelector("[data-avatar-menu]");
   const avatarTrigger = avatarMenu?.querySelector("[data-avatar-trigger]");
   const avatarPanel = avatarMenu?.querySelector("[data-avatar-panel]");
@@ -84,6 +85,47 @@
         }
       });
     });
+  });
+
+
+  horizontalDragScrollAreas.forEach((area) => {
+    let isDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    area.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      isDragging = true;
+      startX = event.pageX;
+      startScrollLeft = area.scrollLeft;
+      area.classList.add("is-dragging");
+    });
+
+    area.addEventListener("mousemove", (event) => {
+      if (!isDragging) {
+        return;
+      }
+      event.preventDefault();
+      const deltaX = event.pageX - startX;
+      area.scrollLeft = startScrollLeft - deltaX;
+    });
+
+    ["mouseleave", "mouseup"].forEach((eventName) => {
+      area.addEventListener(eventName, () => {
+        isDragging = false;
+        area.classList.remove("is-dragging");
+      });
+    });
+
+    area.addEventListener("wheel", (event) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+        return;
+      }
+      event.preventDefault();
+      area.scrollLeft += event.deltaY;
+    }, { passive: false });
   });
 
   if (avatarTrigger && avatarPanel) {

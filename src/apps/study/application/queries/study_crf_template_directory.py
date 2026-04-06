@@ -2,7 +2,7 @@ from django.db.models import Q
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
-from apps.study.infrastructure.persistence.models import CrfTemplate
+from apps.crf.models import CrfTemplate
 
 
 class StudyCrfTemplateDirectoryQueryService:

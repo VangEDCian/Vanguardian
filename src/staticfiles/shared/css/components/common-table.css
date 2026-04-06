@@ -145,6 +145,7 @@
 }
 
 .entity-table__select-column {
+  width: 0;
   text-align: center;
 }
 
