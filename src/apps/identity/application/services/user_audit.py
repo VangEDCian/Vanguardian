@@ -58,6 +58,17 @@ class IdentityUserAuditService:
             after_data={**before_data, "deleted": True, "is_active": False},
         )
 
+    def record_restored(self, *, request, user, before_data):
+        self.audit_context_adapter.record_event(
+            action=AuditEventAction.IDENTITY_USER_RESTORED,
+            object_type=AuditEventObjectType.IDENTITY_USER,
+            object_id=str(user.pk),
+            request=request,
+            user_id=user.pk,
+            before_data=before_data,
+            after_data=serialize_identity_user_snapshot(user),
+        )
+
 
 def _get_role_metadata(user):
     if user.is_superuser:

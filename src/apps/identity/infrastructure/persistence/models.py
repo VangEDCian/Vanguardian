@@ -9,6 +9,7 @@ class User(AbstractUser):
     """
 
     email = models.EmailField(blank=True, null=True, unique=True)
+    deleted = models.BooleanField(default=False)
     display_name = models.CharField(max_length=255, blank=True, default="")
     phone_number = models.CharField(max_length=32, blank=True, null=True, unique=True)
 
