@@ -14,8 +14,23 @@
     );
   }
 
+  function getDetailHref(row) {
+    const explicitHref =
+      row.getAttribute("data-detail-href") || row.dataset.detailHref || "";
+    if (explicitHref) {
+      return explicitHref;
+    }
+
+    const firstLink = row.querySelector("a[href]");
+    if (firstLink instanceof HTMLAnchorElement) {
+      return firstLink.href;
+    }
+
+    return "";
+  }
+
   tables.forEach((table) => {
-    const enableDetailClick = table.dataset.enableDetailClick === "true";
+    const enableDetailClick = table.dataset.enableDetailClick !== "false";
     const sortHeaders = Array.from(table.querySelectorAll("[data-sort-header]"));
     const rows = Array.from(table.querySelectorAll("[data-selectable-row]"));
 
@@ -50,8 +65,6 @@
         return;
       }
 
-      const detailHref = row.dataset.detailHref || "";
-
       syncRowSelection(row, checkbox);
 
       checkbox.addEventListener("change", () => {
@@ -79,6 +92,7 @@
           return;
         }
 
+        const detailHref = getDetailHref(row);
         if (enableDetailClick && detailHref) {
           window.location.href = detailHref;
         }
