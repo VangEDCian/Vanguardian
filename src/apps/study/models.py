@@ -6,6 +6,8 @@ from apps.study.infrastructure.persistence.models import (
     CrfPageTemplate,
     CrfTemplate,
     Study,
+    Site,
+    SiteMembership,
 )
 
 __all__ = [
@@ -16,4 +18,6 @@ __all__ = [
     "CrfFieldDefinition",
     "CrfFieldUiConfig",
     "CrfFieldValidationRule",
+    "Site",
+    "SiteMembership",
 ]
