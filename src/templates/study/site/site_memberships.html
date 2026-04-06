@@ -1,0 +1,49 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Members" %} | {{ site.code }} | {% trans "Sites | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {{ site.code }}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <div class="entity-table__toolbar">
+    <div class="entity-table__summary">
+      {% trans "Total" %}: <strong>{{ memberships_total }}</strong>
+    </div>
+  </div>
+
+  {% include "shared/components/_common_table.html" with
+      headers=membership_table_headers
+      rows=membership_table_rows
+      empty_text=memberships_empty_text
+      sortable_columns=membership_table_sortable_columns
+      sort_key=membership_table_sort_key
+      sort_direction=membership_table_sort_direction
+      sort_params=membership_table_sort_params
+      enable_detail_click=True
+  %}
+
+  {% if perms.site.create_site_membership %}
+    <div class="entity-table__footer entity-table__footer--actions">
+      <a href="{% url 'study:membership_create' site_id=site.id %}"
+         class="entity-table__footer-button entity-table__footer-button--primary">
+        {% trans "Add Member" %}
+      </a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

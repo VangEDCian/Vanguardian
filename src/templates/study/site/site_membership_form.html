@@ -1,0 +1,55 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Add Member" %} | {{ site.code }} | {% trans "Sites | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}">
+  <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}">
+{% endblock %}
+
+{% block dashboard_breadcrumb_prefix %}
+  <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Members" %}</a>
+  <span aria-hidden="true">›</span>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <div class="entity-table__toolbar">
+    <div class="entity-table__summary"><strong>{{ form_title }}</strong></div>
+  </div>
+
+  <form method="post" class="user-detail-form">
+    {% csrf_token %}
+    <div class="user-detail-form__content">
+      <section class="user-detail-section">
+        <h2 class="user-detail-section__title">{% trans "MEMBERSHIP INFO" %}</h2>
+        <div class="user-detail-section__body">
+          <div class="user-detail-inline-row">
+            <div class="user-detail-inline-field">
+              <label class="user-detail-inline-field__label" for="{{ form.user_id.id_for_label }}">{{ form.user_id.label }}:</label>
+              <div class="user-detail-inline-field__control-wrap">
+                <select id="{{ form.user_id.id_for_label }}" name="{{ form.user_id.html_name }}"
+                        class="old-textbox{% if form.user_id.errors %} old-textbox--error{% endif %}"
+                        style="width:100%;">
+                  {% for value, label in form.user_id.field.choices %}
+                    <option value="{{ value }}" {% if form.user_id.value|stringformat:'s' == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% for error in form.user_id.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="entity-table__footer entity-table__footer--actions">
+      <button type="submit" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Save" %}</button>
+      <a href="{{ back_url }}" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Cancel" %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}
+

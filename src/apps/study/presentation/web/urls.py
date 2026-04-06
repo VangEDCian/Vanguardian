@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 
 from apps.study.presentation.web.views import (
     StudyCreateView,
@@ -12,6 +12,8 @@ from apps.study.presentation.web.views import (
 app_name = "study"
 
 urlpatterns = [
+    path("studies/sites/", include("apps.study.presentation.web.site.urls")),
+
     path("studies", StudyListView.as_view(), name="study_list"),
     path("studies/new", StudyCreateView.as_view(), name="study_create"),
     path("studies/<int:study_id>", StudyDetailView.as_view(), name="study_detail"),

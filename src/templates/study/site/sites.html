@@ -1,0 +1,42 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% load render_table from django_tables2 %}
+
+{% block title %}{% trans "Sites | Vanguardian" %}{% endblock %}
+
+{% block extra_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+{% endblock %}
+
+{% block dashboard_content %}
+<section class="entity-table-panel">
+  <form method="get" class="row g-2 mb-3" style="margin-top: 1rem;">
+    {% for field in filter.form %}
+        <div class="col-md-3">
+            {{ field.label_tag }}
+            {{ field }}
+        </div>
+    {% endfor %}
+    <div class="col-md-12">
+        <button class="btn btn-primary">Filter</button>
+    </div>
+  </form>
+  {% render_table table %}
+
+  {% if perms.site.create_site %}
+    <div class="entity-table__footer entity-table__footer--actions">
+      <a href="{% url 'study:site_create' %}"
+         class="entity-table__footer-button entity-table__footer-button--primary">
+        {% trans "Add New Site" %}
+      </a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

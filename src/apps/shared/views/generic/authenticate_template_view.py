@@ -1,14 +1,17 @@
+from django.http import HttpRequest
 from django.views.generic import TemplateView
+from django.views.generic.base import ContextMixin
 
 
-class AuthenticateTemplateView(TemplateView):
+class AuthenticateTemplateContextMixin(ContextMixin):
     """
-    Shared template base that always exposes a stable user payload for layout
+    Shared context mixin that always exposes a stable user payload for layout
     rendering and future template helpers.
     """
 
     layout_nav_key = ""
     layout_breadcrumb_label = ""
+    request: HttpRequest
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -67,3 +70,7 @@ class AuthenticateTemplateView(TemplateView):
 
     def get_layout_detail_meta_items(self):
         return ()
+
+
+class AuthenticateTemplateView(AuthenticateTemplateContextMixin, TemplateView):
+    """Concrete template view that includes the shared authenticated layout context."""

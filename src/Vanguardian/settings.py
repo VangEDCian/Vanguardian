@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "django_filters",
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    "django_tables2",
 ] + X_INSTALLED_APPS
 
 MIDDLEWARE = [
@@ -106,15 +107,14 @@ ASGI_APPLICATION = "Vanguardian.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-__DEFAULT_DB_URL = "sqlite:///" + str(BASE_DIR / "db.sqlite3")
+_default_sqlite_url = f"sqlite:///{(BASE_DIR / 'db.sqlite3').resolve().as_posix()}"
 
 DATABASES = {
-    "default": env.db(
-        default=__DEFAULT_DB_URL,
-    ),
+    "default": env.db("DATABASE_URL", default=_default_sqlite_url),
 }
 
-_cache_url = env("CACHE_URL", default="locmemcache://")
+_raw_cache_url = env("CACHE_URL", default="")
+_cache_url = (_raw_cache_url or "").strip() or "locmemcache://"
 if _cache_url.startswith("memcache://"):
     # django-environ maps memcache:// to the legacy MemcachedCache backend,
     # which is removed in Django 6. Use the supported backend explicitly.
@@ -186,3 +186,14 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/login/"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+#
+# Django Tables 2
+#
+DJANGO_TABLES2_TEMPLATE = "django_tables2/bootstrap5.html"
+DJANGO_TABLES2_TABLE_ATTRS = {
+    'class': 'table table-responsive table-bordered align-middle caption-top',
+    'thead': {
+        'class': 'table-light',
+    },
+}
