@@ -190,10 +190,8 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 #
 # Django Tables 2
 #
-DJANGO_TABLES2_TEMPLATE = "django_tables2/bootstrap5.html"
+DJANGO_TABLES2_TEMPLATE = "shared/components/_common_tables2.html"
 DJANGO_TABLES2_TABLE_ATTRS = {
-    'class': 'table table-responsive table-bordered align-middle caption-top',
-    'thead': {
-        'class': 'table-light',
-    },
+    "class": "entity-table",
+    "data-common-table": "true",
 }
