@@ -72,4 +72,5 @@ docker-compose.override.yml
 .codex
 AGENT.md
 
-*.dbml!/.github/AGENTS.md
+*.dbml
+.github/AGENTS.md
