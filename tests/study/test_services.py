@@ -3,6 +3,14 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
+from apps.study.application.commands.site import CreateSiteService, DeleteSiteService, UpdateSiteService
+from apps.study.application.commands.site_data import (
+    CreateSiteCommand,
+    DeleteSiteCommand,
+    SiteCodeAlreadyExistsError as SiteCommandCodeAlreadyExistsError,
+    SiteNotFoundError as SiteCommandNotFoundError,
+    UpdateSiteCommand,
+)
 from apps.study.application.commands.create_study import CreateStudyCommand, CreateStudyService
 from apps.study.application.commands.delete_study import DeleteStudyCommand, DeleteStudyService
 from apps.study.application.commands.exceptions import StudyCodeAlreadyExistsError, StudyDateRangeError
@@ -36,6 +44,28 @@ def _make_study(**kwargs):
     study.is_active = defaults["is_active"]
     study.deleted = defaults["deleted"]
     return study
+
+
+def _make_site(**kwargs):
+    defaults = {
+        "pk": 1,
+        "code": "SITE-001",
+        "name": "City Medical Center",
+        "investigator": "Dr. Jane Doe",
+        "study_id": 10,
+        "is_active": True,
+        "deleted": False,
+    }
+    defaults.update(kwargs)
+    site = MagicMock(**defaults)
+    site.pk = defaults["pk"]
+    site.code = defaults["code"]
+    site.name = defaults["name"]
+    site.investigator = defaults["investigator"]
+    site.study_id = defaults["study_id"]
+    site.is_active = defaults["is_active"]
+    site.deleted = defaults["deleted"]
+    return site
 
 
 class CreateStudyServiceTests(SimpleTestCase):
@@ -242,3 +272,108 @@ class DeleteStudyServiceTests(SimpleTestCase):
 
         with self.assertRaises(StudyNotFoundError):
             DeleteStudyService().execute(self._make_command(study_id=999))
+
+
+class CreateSiteServiceTests(SimpleTestCase):
+
+    def _make_command(self, **overrides):
+        defaults = dict(
+            code="SITE-001",
+            name="City Medical Center",
+            investigator="Dr. Jane Doe",
+            study_id=10,
+            is_active=True,
+            actor_user_id=1,
+        )
+        defaults.update(overrides)
+        return CreateSiteCommand(**defaults)
+
+    @patch("apps.study.application.commands.site.Site")
+    def test_creates_site_successfully(self, mock_site_cls):
+        mock_site_cls.objects.filter.return_value.exists.return_value = False
+        mock_site_cls.objects.create.return_value = _make_site()
+
+        result = CreateSiteService().execute(self._make_command())
+
+        mock_site_cls.objects.create.assert_called_once()
+        self.assertIsNotNone(result)
+
+    @patch("apps.study.application.commands.site.Site")
+    def test_raises_when_code_already_exists_in_study(self, mock_site_cls):
+        mock_site_cls.objects.filter.return_value.exists.return_value = True
+
+        with self.assertRaises(SiteCommandCodeAlreadyExistsError):
+            CreateSiteService().execute(self._make_command(code="SITE-001"))
+
+
+class UpdateSiteServiceTests(SimpleTestCase):
+
+    def _make_command(self, **overrides):
+        defaults = dict(
+            site_id=1,
+            code="SITE-001",
+            name="Updated Site",
+            investigator="Dr. John Doe",
+            study_id=10,
+            is_active=False,
+            actor_user_id=1,
+        )
+        defaults.update(overrides)
+        return UpdateSiteCommand(**defaults)
+
+    @patch("apps.study.application.commands.site.Site")
+    def test_updates_site_successfully(self, mock_site_cls):
+        existing = _make_site(pk=1)
+        mock_site_cls.objects.filter.return_value.first.return_value = existing
+        mock_site_cls.objects.filter.return_value.exclude.return_value.exists.return_value = False
+
+        result = UpdateSiteService().execute(self._make_command())
+
+        self.assertEqual(existing.name, "Updated Site")
+        self.assertEqual(existing.investigator, "Dr. John Doe")
+        self.assertFalse(existing.is_active)
+        existing.save.assert_called_once()
+        self.assertEqual(result, existing)
+
+    @patch("apps.study.application.commands.site.Site")
+    def test_raises_when_site_not_found(self, mock_site_cls):
+        mock_site_cls.objects.filter.return_value.first.return_value = None
+
+        with self.assertRaises(SiteCommandNotFoundError):
+            UpdateSiteService().execute(self._make_command(site_id=999))
+
+    @patch("apps.study.application.commands.site.Site")
+    def test_raises_when_code_taken_by_another_site(self, mock_site_cls):
+        existing = _make_site(pk=1)
+        mock_site_cls.objects.filter.return_value.first.return_value = existing
+        mock_site_cls.objects.filter.return_value.exclude.return_value.exists.return_value = True
+
+        with self.assertRaises(SiteCommandCodeAlreadyExistsError):
+            UpdateSiteService().execute(self._make_command(code="TAKEN"))
+
+
+class DeleteSiteServiceTests(SimpleTestCase):
+
+    def _make_command(self, site_id=1, actor_user_id=1):
+        return DeleteSiteCommand(site_id=site_id, actor_user_id=actor_user_id)
+
+    @patch("apps.study.application.commands.site.Site")
+    def test_marks_site_deleted_and_inactive(self, mock_site_cls):
+        site = _make_site(pk=1, is_active=True, deleted=False)
+        mock_site_cls.objects.filter.return_value.first.return_value = site
+
+        result = DeleteSiteService().execute(self._make_command(actor_user_id=42))
+
+        self.assertTrue(result.deleted)
+        self.assertFalse(result.is_active)
+        self.assertEqual(result.updated_by_id, 42)
+        self.assertIsNotNone(result.updated_at)
+        site.save.assert_called_once()
+
+    @patch("apps.study.application.commands.site.Site")
+    def test_raises_when_site_not_found(self, mock_site_cls):
+        mock_site_cls.objects.filter.return_value.first.return_value = None
+
+        with self.assertRaises(SiteCommandNotFoundError):
+            DeleteSiteService().execute(self._make_command(site_id=999))
+

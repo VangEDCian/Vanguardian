@@ -1,12 +1,7 @@
 import datetime
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
-from django.shortcuts import redirect
-from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
-from django.views import View
+from django.contrib.auth.decorators import permission_required
+from django.utils.decorators import method_decorator
 
 from apps.identity.infrastructure.persistence.models import StudyMembership
 from apps.shared.views.generic import AuthenticateTemplateView
@@ -29,7 +24,36 @@ from apps.study.application import (
     UpdateStudyService,
 )
 from apps.study.infrastructure.persistence.models import Study
-from apps.study.presentation.web.forms import StudyForm
+from apps.study.presentation.web.forms import StudyForm, SiteForm
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
+from django.views import View
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django_filters.views import FilterView
+from django_tables2 import SingleTableMixin
+
+from .tables import SiteListTable
+from apps.study.application.queries.site_filter import SitesFilter
+from apps.study.infrastructure.persistence.models import Site
+from apps.shared.views.generic.authenticate_template_view import AuthenticateTemplateContextMixin
+from apps.study.application.commands.site import (
+    CreateSiteService,
+    UpdateSiteService,
+    DeleteSiteService,
+)
+from apps.study.application.commands.site_data import (
+    CreateSiteCommand,
+    UpdateSiteCommand,
+    DeleteSiteCommand,
+    SiteCodeAlreadyExistsError,
+    SiteNotFoundError,
+)
+from apps.study.application.queries.site_directory import StudySiteDirectoryQueryService
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -80,7 +104,7 @@ class StudyListView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTem
 
     def get_study_directory_query_service(self):
         return self.study_directory_query_service_class(
-            registered_filter_query_service_classes=self.registered_filter_query_service_classes
+            registered_filter_query_service_classes=self.registered_filter_query_service_classes,
         )
 
     def get_context_data(self, **kwargs):
@@ -101,7 +125,7 @@ class StudyListView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTem
                 can_search=can_search,
                 can_filter_code=can_filter_code,
                 can_filter_status=can_filter_status,
-            )
+            ),
         )
         context["can_search"] = can_search
         context["can_filter_code"] = can_filter_code
@@ -140,7 +164,7 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
 
         try:
             self._detail_view_model = self.get_study_directory_query_service().get_study_detail(
-                study_id=kwargs["study_id"]
+                study_id=kwargs["study_id"],
             )
         except StudyNotFoundError as exc:
             raise Http404 from exc
@@ -188,7 +212,7 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
                 can_update_field_dates,
                 can_update_field_description,
                 can_toggle_status,
-            )
+            ),
         )
 
         if self._detail_view_model is not None:
@@ -205,7 +229,7 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
                     "start_date": self._study.start_date,
                     "end_date": self._study.end_date,
                     "is_active": self._study.is_active,
-                }
+                },
             ),
         )
         context["active_tab"] = active_tab
@@ -229,7 +253,7 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
 
         if active_tab == "history" and can_view_history:
             context.update(
-                self.get_study_history_query_service().list_events(study_id=study_id)
+                self.get_study_history_query_service().list_events(study_id=study_id),
             )
 
         return context
@@ -246,13 +270,27 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
 
         command = UpdateStudyCommand(
             study_id=self._study.pk,
-            code=form.cleaned_data["code"] if request.user.has_perm("study.update_study_field_code") else self._study.code,
-            name=form.cleaned_data["name"] if request.user.has_perm("study.update_study_field_name") else self._study.name,
-            sponsor=form.cleaned_data["sponsor"] if request.user.has_perm("study.update_study_field_sponsor") else self._study.sponsor,
-            description=form.cleaned_data["description"] if request.user.has_perm("study.update_study_field_description") else self._study.description,
-            start_date=form.cleaned_data.get("start_date") if request.user.has_perm("study.update_study_field_dates") else self._study.start_date,
-            end_date=form.cleaned_data.get("end_date") if request.user.has_perm("study.update_study_field_dates") else self._study.end_date,
-            is_active=form.cleaned_data.get("is_active", False) if _can_change_study_status(request.user) else self._study.is_active,
+            code=form.cleaned_data["code"] if request.user.has_perm(
+                "study.update_study_field_code",
+            ) else self._study.code,
+            name=form.cleaned_data["name"] if request.user.has_perm(
+                "study.update_study_field_name",
+            ) else self._study.name,
+            sponsor=form.cleaned_data["sponsor"] if request.user.has_perm(
+                "study.update_study_field_sponsor",
+            ) else self._study.sponsor,
+            description=form.cleaned_data["description"] if request.user.has_perm(
+                "study.update_study_field_description",
+            ) else self._study.description,
+            start_date=form.cleaned_data.get("start_date") if request.user.has_perm(
+                "study.update_study_field_dates",
+            ) else self._study.start_date,
+            end_date=form.cleaned_data.get("end_date") if request.user.has_perm(
+                "study.update_study_field_dates",
+            ) else self._study.end_date,
+            is_active=form.cleaned_data.get("is_active", False) if _can_change_study_status(
+                request.user,
+            ) else self._study.is_active,
             actor_user_id=request.user.pk,
         )
 
@@ -282,7 +320,7 @@ class StudyDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
                 request_user.has_perm("study.update_study_field_dates"),
                 request_user.has_perm("study.update_study_field_description"),
                 _can_change_study_status(request_user),
-            )
+            ),
         )
 
 
@@ -389,15 +427,19 @@ class StudyUpdateView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.setdefault("form", StudyForm(initial={
-            "code": self._study.code,
-            "name": self._study.name,
-            "sponsor": self._study.sponsor,
-            "description": self._study.description,
-            "start_date": self._study.start_date,
-            "end_date": self._study.end_date,
-            "is_active": self._study.is_active,
-        }))
+        context.setdefault(
+            "form", StudyForm(
+                initial={
+                    "code": self._study.code,
+                    "name": self._study.name,
+                    "sponsor": self._study.sponsor,
+                    "description": self._study.description,
+                    "start_date": self._study.start_date,
+                    "end_date": self._study.end_date,
+                    "is_active": self._study.is_active,
+                },
+            ),
+        )
         user = self.request.user
         context["form_action"] = reverse("study:study_update", kwargs={"study_id": self._study.pk})
         context["form_title"] = self._study.code
@@ -410,7 +452,9 @@ class StudyUpdateView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateT
         context["can_update_field_name"] = user.has_perm("study.update_study_field_name")
         context["can_update_field_sponsor"] = user.has_perm("study.update_study_field_sponsor")
         context["can_update_field_dates"] = user.has_perm("study.update_study_field_dates")
-        context["can_update_field_description"] = user.has_perm("study.update_study_field_description")
+        context["can_update_field_description"] = user.has_perm(
+            "study.update_study_field_description",
+        )
         return context
 
     def post(self, request, *args, **kwargs):
@@ -516,7 +560,7 @@ class StudyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
             DeleteStudyCommand(
                 study_id=study.pk,
                 actor_user_id=request.user.pk,
-            )
+            ),
         )
         self.get_study_audit_service().record_deleted(
             request=request,
@@ -524,3 +568,202 @@ class StudyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
             before_data=before_data,
         )
         return redirect(reverse("study:study_list"))
+
+
+#
+# Site
+#
+class SiteListView(
+    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
+    SingleTableMixin, FilterView, ListView,
+):
+    permission_required = "site.view_site_list"
+    raise_exception = True
+    layout_nav_key = "SITES"
+    layout_breadcrumb_label = _("SITES")
+
+    model = Site
+    template_name = "study/site_list.html"
+    table_class = SiteListTable
+    filterset_class = SitesFilter
+    paginate_by = 10
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted=False)
+
+
+class SiteDetailView(LoginRequiredMixin, AuthenticateTemplateContextMixin, DetailView):
+    layout_nav_key = "SITES"
+    layout_breadcrumb_label = _("SITES")
+    template_name = "study/site_detail.html"
+
+    pk_url_kwarg = 'site_id'
+    model = Site
+
+    def get_layout_breadcrumb_label(self):
+        if self.object:
+            return self.object.code
+        return super().get_layout_breadcrumb_label()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        studies = StudySiteDirectoryQueryService.get_active_studies(self.request.user)
+        choices = StudySiteDirectoryQueryService.study_choices(studies)
+
+        form = kwargs.get("form")
+        if form is None:
+            form = SiteForm(
+                study_choices=choices,
+                initial={
+                    "code": self.object.code,
+                    "name": self.object.name,
+                    "investigator": self.object.investigator or "",
+                    "study_id": str(self.object.study_id),
+                    "is_active": self.object.is_active,
+                },
+            )
+
+        selected_id = form.data.get("study_id") if form.is_bound else self.object.study_id
+
+        context["site"] = self.object
+        context["form"] = form
+        context["study_options"] = StudySiteDirectoryQueryService.build_site_study_options(
+            studies, selected_id,
+        )
+        context["back_url"] = reverse("study:site_list")
+        context["update_url"] = reverse("study:site_detail", kwargs={"site_id": self.object.pk})
+        context["delete_url"] = reverse("study:site_delete", kwargs={"site_id": self.object.pk})
+        context["can_update_site"] = self.request.user.has_perm("site.update_site")
+        context["can_delete_site"] = self.request.user.has_perm("site.delete_site")
+        return context
+
+    def get_object(self, *args, **kwargs):
+        instance = super().get_object(*args, **kwargs)
+        if instance and instance.deleted is False:
+            return instance
+        raise Http404
+
+    @method_decorator(permission_required('site.view_site_detail', raise_exception=True))
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @method_decorator(permission_required('site.view_site_detail', raise_exception=True))
+    def post(self, request, *args, **kwargs):
+        if not request.user.has_perm("site.update_site"):
+            raise PermissionDenied
+
+        self.object = self.get_object()
+        site = self.object
+        studies = StudySiteDirectoryQueryService.get_active_studies(
+            request.user,
+        )
+        form = SiteForm(
+            request.POST,
+            study_choices=StudySiteDirectoryQueryService.study_choices(
+                studies,
+            ),
+        )
+
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+
+        try:
+            UpdateSiteService().execute(
+                UpdateSiteCommand(
+                    site_id=site.pk,
+                    code=form.cleaned_data["code"],
+                    name=form.cleaned_data["name"],
+                    investigator=form.cleaned_data.get("investigator") or "",
+                    study_id=form.cleaned_data["study_id"],
+                    is_active=form.cleaned_data.get("is_active", False),
+                    actor_user_id=request.user.pk,
+                ),
+            )
+        except SiteCodeAlreadyExistsError:
+            form.add_error("code", _("This site code already exists in the selected study."))
+            return self.render_to_response(self.get_context_data(form=form))
+
+        return redirect(reverse("study:site_detail", kwargs={"site_id": site.pk}))
+
+
+class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView):
+    layout_nav_key = "SITES"
+    layout_breadcrumb_label = _("NEW SITE")
+    template_name = "study/site_create.html"
+
+    def _get_studies(self):
+        return StudySiteDirectoryQueryService.get_active_studies(
+            self.request.user,
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        studies = self._get_studies()
+        choices = StudySiteDirectoryQueryService.study_choices(studies)
+
+        form = kwargs.get("form")
+        if form is None:
+            form = SiteForm(study_choices=choices)
+
+        selected_id = form.data.get("study_id") if form.is_bound else None
+
+        context["form"] = form
+        context["study_options"] = StudySiteDirectoryQueryService.build_site_study_options(
+            studies, selected_id,
+        )
+        context["back_url"] = reverse("study:site_list")
+        context["create_url"] = reverse("study:site_create")
+        return context
+
+    @method_decorator(permission_required('site.create_site', raise_exception=True))
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @method_decorator(permission_required('site.create_site', raise_exception=True))
+    def post(self, request, *args, **kwargs):
+        studies = self._get_studies()
+        form = SiteForm(
+            request.POST,
+            study_choices=StudySiteDirectoryQueryService.study_choices(
+                studies,
+            ),
+        )
+
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+
+        try:
+            site = CreateSiteService().execute(
+                CreateSiteCommand(
+                    code=form.cleaned_data["code"],
+                    name=form.cleaned_data["name"],
+                    investigator=form.cleaned_data.get("investigator") or "",
+                    study_id=form.cleaned_data["study_id"],
+                    is_active=form.cleaned_data.get("is_active", True),
+                    actor_user_id=request.user.pk,
+                ),
+            )
+        except SiteCodeAlreadyExistsError:
+            form.add_error("code", _("This site code already exists in the selected study."))
+            return self.render_to_response(self.get_context_data(form=form))
+
+        return redirect(reverse("study:site_detail", kwargs={"site_id": site.pk}))
+
+
+class SiteDeleteView(LoginRequiredMixin, View):
+    @method_decorator(permission_required('site.delete_site', raise_exception=True))
+    def post(self, request, *args, **kwargs):
+        site = Site.objects.filter(pk=kwargs["site_id"], deleted=False).first()
+        if site is None:
+            raise Http404
+        if not _user_has_study_access(request.user, site.study_id):
+            raise PermissionDenied
+
+        try:
+            DeleteSiteService().execute(
+                DeleteSiteCommand(site_id=site.pk, actor_user_id=request.user.pk),
+            )
+        except SiteNotFoundError:
+            raise Http404
+
+        return redirect(reverse("study:site_list"))

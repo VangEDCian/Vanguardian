@@ -17,6 +17,9 @@ class Study(models.Model):
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)
 
+    def __str__(self):
+        return self.name
+
     class Meta:
         db_table = "study_study"
         managed = False
