@@ -9,9 +9,17 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
+from django.views.generic import ListView, DetailView
+
+from django_filters.views import FilterView
+
+from django_tables2 import SingleTableMixin
 
 from apps.identity.infrastructure.persistence.models import StudyMembership
+
 from apps.shared.views.generic import AuthenticateTemplateView
+from apps.shared.views.generic.authenticate_template_view import AuthenticateTemplateContextMixin
+
 from apps.study.application import (
     CreateStudyCommand,
     CreateStudyService,
@@ -33,21 +41,9 @@ from apps.study.application import (
 )
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import StudyForm, SiteForm
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
-from django.shortcuts import redirect
-from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
-from django.views import View
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from django_filters.views import FilterView
-from django_tables2 import SingleTableMixin
-
-from .tables import SiteListTable
+from apps.study.presentation.web.tables import SiteListTable
 from apps.study.application.queries.site_filter import SitesFilter
 from apps.study.infrastructure.persistence.models import Site
-from apps.shared.views.generic.authenticate_template_view import AuthenticateTemplateContextMixin
 from apps.study.application.commands.site import (
     CreateSiteService,
     UpdateSiteService,
