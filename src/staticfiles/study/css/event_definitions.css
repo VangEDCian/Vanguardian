@@ -1,0 +1,42 @@
+.event-definitions-diagram-panel {
+  margin: 14px 16px 0;
+  padding: 14px 16px 16px;
+  background: #fff;
+  border: 1px solid #d7dde4;
+  border-radius: 8px;
+}
+
+.event-definitions-diagram-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.event-definitions-diagram-panel__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e2b36;
+}
+
+.event-definitions-diagram-panel__note {
+  color: #607080;
+  font-size: 12px;
+}
+
+.event-definitions-diagram {
+  width: 100%;
+  height: 360px;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f5f9fc 100%);
+}
+
+.event-definitions-diagram--empty {
+  display: grid;
+  place-items: center;
+  color: #7b8a97;
+  font-size: 13px;
+}

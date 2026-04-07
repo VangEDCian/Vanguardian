@@ -175,6 +175,10 @@
           <button type="button" class="entity-table__footer-button entity-table__footer-button--danger" data-modal-open="modal-delete-user">
             {% trans 'Delete' %}
           </button>
+        {% elif can_restore_user %}
+          <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-modal-open="modal-restore-user">
+            {% trans 'Restore' %}
+          </button>
         {% endif %}
       </div>
     </form>
@@ -182,8 +186,13 @@
   {% if can_delete_user %}
     {% trans "Delete User" as modal_title %}
     {% trans "Delete" as modal_confirm %}
-    {% blocktrans with username=detail_user.username asvar modal_message %}Are you sure you want to delete <strong>{{ username }}</strong>? This action cannot be undone.{% endblocktrans %}
+    {% blocktrans with username=detail_user.username asvar modal_message %}Are you sure you want to delete <strong>{{ username }}</strong>? You can restore this user later.{% endblocktrans %}
     {% include "shared/components/modal-confirm.html" with modal_id="modal-delete-user" modal_variant="danger" modal_title=modal_title modal_message=modal_message modal_confirm_label=modal_confirm form_action=delete_url %}
+  {% elif can_restore_user %}
+    {% trans "Restore User" as modal_title %}
+    {% trans "Restore" as modal_confirm %}
+    {% blocktrans with username=detail_user.username asvar modal_message %}Restore <strong>{{ username }}</strong> and re-apply the last saved role, status, and permission groups?{% endblocktrans %}
+    {% include "shared/components/modal-confirm.html" with modal_id="modal-restore-user" modal_variant="primary" modal_title=modal_title modal_message=modal_message modal_confirm_label=modal_confirm form_action=restore_url %}
   {% endif %}
 {% endblock %}
 

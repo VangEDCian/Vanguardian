@@ -20,25 +20,9 @@
     {% csrf_token %}
 
     {# ── Tab bar ─────────────────────────────────────────────────────────── #}
-    <nav class="entity-detail-tabs" aria-label="{% trans 'Study sections' %}">
-      <a
-        href="?tab=info"
-        class="entity-detail-tabs__item{% if active_tab == 'info' or not active_tab %} is-active{% endif %}"
-      >
-        <span class="entity-detail-tabs__label">{% trans "Info" %}</span>
-      </a>
-      {% if can_view_history %}
-      <a
-        href="?tab=history"
-        class="entity-detail-tabs__item{% if active_tab == 'history' %} is-active{% endif %}"
-      >
-        <span class="entity-detail-tabs__label">{% trans "History" %}</span>
-      </a>
-      {% endif %}
-    </nav>
+    {% include "study/components/_study_detail_tabs.html" with study_active_tab="settings" %}
 
     {# ── Tab: Info ───────────────────────────────────────────────────────── #}
-    {% if active_tab == 'info' or not active_tab %}
     <div class="user-detail-form__content">
 
       <section class="user-detail-section">
@@ -50,11 +34,7 @@
             <div class="user-detail-inline-field">
               <label class="user-detail-inline-field__label" for="{{ form.code.id_for_label }}">{% trans "Code" %}:</label>
               <div class="user-detail-inline-field__control-wrap">
-                {% if can_update_field_code %}
-                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=form.code.value textbox_class=form.code.errors|yesno:"old-textbox--error," %}
-                {% else %}
-                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=form.code.value textbox_readonly='readonly' %}
-                {% endif %}
+                {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=form.code.value textbox_readonly='readonly' %}
                 {% for error in form.code.errors %}
                   <span class="user-detail-field__error">{{ error }}</span>
                 {% endfor %}
@@ -183,54 +163,7 @@
       </section>
 
     </div>
-    {% endif %}
 
-    {# ── Tab: History ────────────────────────────────────────────────────── #}
-    {% if active_tab == 'history' and can_view_history %}
-    <div class="entity-table__scroller">
-      {% if history_rows %}
-      <table class="entity-table">
-        <thead>
-          <tr>
-            <th style="width: 140px;">{% trans "DATE / TIME" %}</th>
-            <th style="width: 120px;">{% trans "ACTION" %}</th>
-            <th style="width: 140px;">{% trans "PERFORMED BY" %}</th>
-            <th>{% trans "CHANGES" %}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in history_rows %}
-          <tr>
-            <td class="entity-table__muted">{{ row.timestamp|date:"d-M-Y H:i" }}</td>
-            <td>{{ row.action_label }}</td>
-            <td>{{ row.actor }}</td>
-            <td>
-              {% if row.changes %}
-              <ul class="history-changes">
-                {% for change in row.changes %}
-                <li>
-                  <span class="history-changes__field">{{ change.field }}</span>
-                  <span class="history-changes__before">{{ change.before }}</span>
-                  &rarr;
-                  <span class="history-changes__after">{{ change.after }}</span>
-                </li>
-                {% endfor %}
-              </ul>
-              {% else %}
-              <span class="entity-table__muted">—</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="entity-table__empty">{{ history_empty_text }}</p>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    {% if active_tab == 'info' or not active_tab %}
     <div class="entity-table__footer entity-table__footer--actions">
       <button type="submit" class="entity-table__footer-button entity-table__footer-button--primary" {% if not can_update_detail %}disabled{% endif %}>
         {% trans "Save" %}
@@ -244,7 +177,6 @@
       </button>
       {% endif %}
     </div>
-    {% endif %}
   </form>
 
 </section>

@@ -15,8 +15,8 @@ def _build_study_select_options(user):
             ).values_list("study_id", flat=True)
             qs = qs.filter(pk__in=assigned_ids)
 
-        studies = qs.order_by("code").values("id", "code", "name")
-        return [{"value": str(s["id"]), "label": f"{s['code']} — {s['name']}"} for s in studies]
+        studies = qs.order_by("code").values("id", "code")
+        return [{"value": str(s["id"]), "label": s["code"]} for s in studies]
     except Exception:
         return []
 
