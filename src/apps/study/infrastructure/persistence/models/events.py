@@ -1,5 +1,11 @@
 from django.db import models
 
+from apps.core.choices import (
+    EventDefinitionTimingModeChoices,
+    EventDefinitionTypeChoices,
+    EventInstanceStatusChoices,
+)
+
 from .study import Study
 
 
@@ -14,14 +20,21 @@ class EventDefinition(models.Model):
         db_column="study_id",
         related_name="event_definitions",
     )
-    study_version_id = models.BigIntegerField()
+    study_version = models.CharField(max_length=20)
 
     code = models.CharField(max_length=64)
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
 
-    event_type = models.CharField(max_length=32)
-    timing_mode = models.CharField(max_length=32, default="scheduled")
+    event_type = models.CharField(
+        max_length=32,
+        choices=EventDefinitionTypeChoices.choices,
+    )
+    timing_mode = models.CharField(
+        max_length=32,
+        choices=EventDefinitionTimingModeChoices.choices,
+        default=EventDefinitionTimingModeChoices.SCHEDULED,
+    )
 
     sequence_no = models.IntegerField(default=1)
     phase_code = models.CharField(max_length=64, null=True, blank=True)
@@ -37,7 +50,12 @@ class EventDefinition(models.Model):
     window_before_days = models.IntegerField(null=True, blank=True)
     window_after_days = models.IntegerField(null=True, blank=True)
 
-    opens_after_status = models.CharField(max_length=64, null=True, blank=True)
+    opens_after_status = models.CharField(
+        max_length=64,
+        choices=EventInstanceStatusChoices.choices,
+        null=True,
+        blank=True,
+    )
 
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)
@@ -54,14 +72,14 @@ class EventDefinition(models.Model):
         )
         constraints = [
             models.UniqueConstraint(
-                fields=["study_version_id", "code"],
-                name="study_evtdef_ver_code_uniq",
+                fields=["study_version", "code"],
+                name="study_eventdefinition_version_code_uniq",
             )
         ]
         indexes = [
             models.Index(
-                fields=["study", "study_version_id", "sequence_no"],
-                name="study_evtdef_studyver_seq_idx",
+                fields=["study", "study_version", "sequence_no"],
+                name="study_eventdefinition_study_version_sequence_idx",
             )
         ]
         verbose_name = "study event definition"

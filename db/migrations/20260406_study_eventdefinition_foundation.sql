@@ -1,7 +1,6 @@
 -- Study event definition foundation schema.
 -- Creates the design-time event definition table based on the external DBML
--- in /home/trungthudo13/repositories/personal_vanguard_documents/db/dbdiagram.dbml
--- and mirrors the local db/dbdiagram.dbml mapping.
+-- in /home/trungthudo13/repositories/personal_vanguard_documents/db/dbdiagram.dbml.
 
 CREATE TABLE IF NOT EXISTS study_eventdefinition (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -10,7 +9,7 @@ CREATE TABLE IF NOT EXISTS study_eventdefinition (
     deleted TINYINT NOT NULL DEFAULT 0,
 
     study_id BIGINT NOT NULL,
-    study_version_id BIGINT NOT NULL,
+    study_version VARCHAR(20) NOT NULL,
 
     code VARCHAR(64) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -38,9 +37,9 @@ CREATE TABLE IF NOT EXISTS study_eventdefinition (
     created_by_id BIGINT NULL,
     updated_by_id BIGINT NULL,
 
-    CONSTRAINT study_evtdef_ver_code_uniq
-        UNIQUE (study_version_id, code),
+    CONSTRAINT study_eventdefinition_version_code_uniq
+        UNIQUE (study_version, code),
     CONSTRAINT fk_study_eventdefinition_study
         FOREIGN KEY (study_id) REFERENCES study_study (id),
-    INDEX study_evtdef_studyver_seq_idx (study_id, study_version_id, sequence_no)
+    INDEX study_eventdefinition_study_version_sequence_idx (study_id, study_version, sequence_no)
 );

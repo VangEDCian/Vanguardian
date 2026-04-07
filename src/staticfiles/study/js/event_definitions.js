@@ -45,7 +45,7 @@
       $(
         window.go.TextBlock,
         { font: "700 12px Segoe UI, sans-serif", stroke: "#1b2b34", margin: new window.go.Margin(0, 0, 4, 0) },
-        new window.go.Binding("text", "code", (code, data) => `${data.sequence}. ${code}`)
+        new window.go.Binding("text", "title")
       ),
       $(
         window.go.TextBlock,
