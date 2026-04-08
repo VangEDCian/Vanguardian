@@ -38,6 +38,7 @@ from apps.identity.presentation.web.forms import (
     IdentityUserDetailForm,
     StyledAuthenticationForm,
 )
+from apps.shared.application.services.cookies import CookiesService
 from apps.shared.views.generic import AuthenticateTemplateView
 
 
@@ -59,6 +60,7 @@ class IdentityLoginView(LoginView):
             user=authenticated_user,
             identifier=self._get_login_identifier(),
         )
+        CookiesService.reset_cookies(response=response)
         return response
 
     def form_invalid(self, form):
@@ -79,7 +81,9 @@ class IdentityLogoutView(View):
         return redirect("identity:login")
 
     def post(self, request, *args, **kwargs):
-        return self.get(request, *args, **kwargs)
+        response = self.get(request, *args, **kwargs)
+        CookiesService.reset_cookies(response=response)
+        return response
 
 
 class IdentityUsersView(LoginRequiredMixin, AuthenticateTemplateView):

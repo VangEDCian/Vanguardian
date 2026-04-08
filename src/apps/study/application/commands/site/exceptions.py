@@ -1,3 +1,0 @@
-class SiteCodeAlreadyExistsError(Exception):
-    pass
-

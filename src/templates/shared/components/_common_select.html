@@ -29,7 +29,8 @@
     {% for option in select_options %}
       <button
         type="{% if select_name %}submit{% else %}button{% endif %}"
-        {% if select_name %}name="{{ select_name }}" value="{{ option.value }}"{% endif %}
+        {% if select_name %}name="{{ select_name }}"{% endif %}
+        value="{{ option.value }}"
         data-dropdown-option
       >{{ option.label }}</button>
     {% endfor %}

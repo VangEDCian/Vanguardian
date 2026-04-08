@@ -347,6 +347,15 @@ msgstr "Vanguardian - Hướng dẫn đặt lại mật khẩu"
 msgid "STUDIES"
 msgstr "NGHIÊN CỨU"
 
+msgid "Choose a study first."
+msgstr "Phải chọn Nghiên cứu trước."
+
+msgid "Select study"
+msgstr "Chọn Nghiên cứu"
+
+msgid "Select site"
+msgstr "Chọn Điểm nghiên cứu"
+
 #. ==============================
 #. Module: Study
 #. Template: templates/study/studies.html
@@ -531,3 +540,13 @@ msgstr "Lọc theo mã..."
 
 msgid "Filter studies by code"
 msgstr "Lọc nghiên cứu theo mã"
+
+#
+# Feat: Study - Site
+#
+
+msgid "Enter search value..."
+msgstr "Nhập giá trị tìm kiếm..."
+
+msgid "All statuses"
+msgstr "Tất cả trạng thái"

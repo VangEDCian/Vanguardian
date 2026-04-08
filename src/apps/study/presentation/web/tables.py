@@ -1,6 +1,6 @@
 import django_tables2 as tables
+
 from django.templatetags.static import static
-from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
@@ -9,7 +9,7 @@ from apps.study.infrastructure.persistence.models import Site
 
 class SiteListTable(tables.Table):
     code = tables.Column(
-        linkify=("study:site_detail", {"site_id": tables.A("pk")}),
+        linkify=("study:site_detail", {"site_id": tables.A("pk"), 'study_id': tables.A("study_id")}),
         attrs={"td": {"class": "entity-table__primary is-detailed"}},
     )
     is_active = tables.Column(

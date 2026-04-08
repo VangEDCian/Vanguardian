@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from apps.shared.views.generic import AuthenticateTemplateView
+
 from apps.study.application import (
     CreateStudyCommand,
     CreateStudyService,
@@ -39,11 +40,19 @@ from apps.study.presentation.web.viewpackages.eventdefinitions import (
     StudyEventDefinitionImportTemplateView,
     StudyEventDefinitionListView,
 )
+from apps.study.presentation.web.viewpackages.site import (
+    SiteListView, SiteDetailView, SiteCreateView, SiteDeleteView,
+)
 
 __all__ = [
     "StudyEventDefinitionCreateView",
     "StudyEventDefinitionImportTemplateView",
     "StudyEventDefinitionListView",
+
+    "SiteListView",
+    "SiteDetailView",
+    "SiteCreateView",
+    "SiteDeleteView",
 ]
 
 # ---------------------------------------------------------------------------
