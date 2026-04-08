@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.choices import EventDefinitionTypeChoices
 from apps.study.models import EventDefinition
 
 
@@ -87,8 +88,8 @@ class StudyEventDefinitionDirectoryQueryService:
                     "column_class": "entity-table__primary",
                 },
                 self._build_text_cell(event_definition.name),
-                self._build_text_cell(event_definition.event_type),
-                self._build_text_cell(event_definition.timing_mode),
+                self._build_text_cell(event_definition.get_event_type_display()),
+                self._build_text_cell(event_definition.get_timing_mode_display()),
                 self._build_text_cell(str(event_definition.sequence_no)),
                 {
                     "kind": "state",
@@ -136,7 +137,10 @@ class StudyEventDefinitionDirectoryQueryService:
     def _build_diagram_nodes(self, event_definitions):
         nodes = []
         for event_definition in sorted(event_definitions, key=lambda item: (item.sequence_no, item.code)):
-            subtitle_parts = [event_definition.event_type, event_definition.timing_mode]
+            subtitle_parts = [
+                event_definition.get_event_type_display(),
+                event_definition.get_timing_mode_display(),
+            ]
             if event_definition.day_offset is not None:
                 subtitle_parts.append(f"Day {event_definition.day_offset}")
             if event_definition.is_repeating:
@@ -145,6 +149,7 @@ class StudyEventDefinitionDirectoryQueryService:
             nodes.append({
                 "key": event_definition.code,
                 "label": event_definition.name,
+                "title": f"{event_definition.sequence_no}. {event_definition.code}",
                 "code": event_definition.code,
                 "subtitle": " | ".join(str(part) for part in subtitle_parts if part),
                 "sequence": event_definition.sequence_no,
@@ -158,22 +163,23 @@ class StudyEventDefinitionDirectoryQueryService:
         event_by_code = {event_definition.code: event_definition for event_definition in event_definitions}
         links = []
 
-        for index, event_definition in enumerate(event_definitions):
-            if event_definition.anchor_event_code and event_definition.anchor_event_code in event_by_code:
-                links.append({
-                    "from": event_definition.anchor_event_code,
-                    "to": event_definition.code,
-                })
+        for event_definition in event_definitions:
+            if not event_definition.anchor_event_code:
                 continue
 
-            if index == 0:
+            if event_definition.anchor_event_code not in event_by_code:
                 continue
 
-            previous = event_definitions[index - 1]
-            links.append({
-                "from": previous.code,
+            link_data = {
+                "from": event_definition.anchor_event_code,
                 "to": event_definition.code,
-            })
+            }
+            if event_definition.opens_after_status:
+                link_data["label"] = _("After %(status)s") % {
+                    "status": event_definition.get_opens_after_status_display(),
+                }
+
+            links.append(link_data)
 
         return links
 
@@ -181,7 +187,7 @@ class StudyEventDefinitionDirectoryQueryService:
     def _get_node_fill(event_definition):
         if not event_definition.is_enabled:
             return "#eef1f4"
-        if event_definition.event_type == "common":
+        if event_definition.event_type == EventDefinitionTypeChoices.COMMON:
             return "#e8f4fb"
         return "#fdf2e2"
 

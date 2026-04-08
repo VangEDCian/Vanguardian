@@ -1,0 +1,15 @@
+{% load i18n %}
+
+<section class="event-definitions-diagram-panel">
+  <div class="event-definitions-diagram-panel__header">
+    <h2 class="event-definitions-diagram-panel__title">{{ event_definitions_diagram_title }}</h2>
+    <span class="event-definitions-diagram-panel__note">{{ event_definitions_diagram_note }}</span>
+  </div>
+  {{ event_definitions_diagram_nodes|json_script:"event-definitions-diagram-nodes" }}
+  {{ event_definitions_diagram_links|json_script:"event-definitions-diagram-links" }}
+  <div
+    id="event-definitions-diagram"
+    class="event-definitions-diagram"
+    aria-label="{{ event_definitions_diagram_aria_label }}"
+  ></div>
+</section>
