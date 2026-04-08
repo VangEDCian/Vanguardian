@@ -7,8 +7,12 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.shared.views.generic import AuthenticateTemplateView
 from apps.study.application import (
+    EventFormBindingImportDependencyError,
+    EventFormBindingImportFormatError,
     EventDefinitionImportDependencyError,
     EventDefinitionImportFormatError,
+    ImportStudyEventFormBindingsTemplateCommand,
+    ImportStudyEventFormBindingsTemplateService,
     ImportStudyEventDefinitionsTemplateCommand,
     ImportStudyEventDefinitionsTemplateService,
     StudyDirectoryQueryService,
@@ -16,8 +20,18 @@ from apps.study.application import (
     StudyNotFoundError,
 )
 from apps.study.infrastructure.persistence.models import Study
-from apps.study.presentation.web.forms import EventDefinitionImportTemplateForm
+from apps.study.presentation.web.forms import (
+    EventDefinitionImportTemplateForm,
+    EventFormBindingImportTemplateForm,
+)
 from apps.study.presentation.web.viewpackages._helpers import _user_has_study_access
+
+__all__ = [
+    "StudyEventDefinitionListView",
+    "StudyEventDefinitionCreateView",
+    "StudyEventDefinitionImportTemplateView",
+    "StudyEventFormBindingImportTemplateView",
+]
 
 
 class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
@@ -28,7 +42,9 @@ class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, 
     study_directory_query_service_class = StudyDirectoryQueryService
     study_event_definition_directory_query_service_class = StudyEventDefinitionDirectoryQueryService
     import_event_definitions_template_service_class = ImportStudyEventDefinitionsTemplateService
+    import_event_form_bindings_template_service_class = ImportStudyEventFormBindingsTemplateService
     expected_import_columns = ImportStudyEventDefinitionsTemplateService.expected_columns
+    expected_binding_import_columns = ImportStudyEventFormBindingsTemplateService.expected_columns
     _detail_view_model = None
     _study = None
 
@@ -40,6 +56,9 @@ class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, 
 
     def get_import_event_definitions_template_service(self):
         return self.import_event_definitions_template_service_class()
+
+    def get_import_event_form_bindings_template_service(self):
+        return self.import_event_form_bindings_template_service_class()
 
     def dispatch(self, request, *args, **kwargs):
         self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
@@ -83,11 +102,18 @@ class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, 
             )
         )
         context.setdefault("import_form", EventDefinitionImportTemplateForm())
+        context.setdefault("binding_import_form", EventFormBindingImportTemplateForm())
         context["expected_import_columns"] = self.expected_import_columns
+        context["expected_binding_import_columns"] = self.expected_binding_import_columns
         context["import_result"] = kwargs.get("import_result")
+        context["binding_import_result"] = kwargs.get("binding_import_result")
         context["import_modal_open"] = kwargs.get(
             "import_modal_open",
             self.request.GET.get("open_import_modal") == "1",
+        )
+        context["binding_import_modal_open"] = kwargs.get(
+            "binding_import_modal_open",
+            self.request.GET.get("open_binding_import_modal") == "1",
         )
         return context
 
@@ -115,12 +141,17 @@ class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, 
                 self.get_context_data(import_form=import_form, import_modal_open=True)
             )
 
-        return self.render_to_response(
-            self.get_context_data(
-                import_form=EventDefinitionImportTemplateForm(),
-                import_result=import_result,
-                import_modal_open=True,
+        if import_result.skipped_count > 0 or import_result.warnings:
+            return self.render_to_response(
+                self.get_context_data(
+                    import_form=EventDefinitionImportTemplateForm(),
+                    import_result=import_result,
+                    import_modal_open=True,
+                )
             )
+
+        return redirect(
+            reverse("study:study_event_definitions", kwargs={"study_id": self._study.pk})
         )
 
 
@@ -179,4 +210,58 @@ class StudyEventDefinitionImportTemplateView(StudyEventDefinitionListView):
     def get(self, request, *args, **kwargs):
         return redirect(
             reverse("study:study_event_definitions", kwargs={"study_id": self._study.pk}) + "?open_import_modal=1"
+        )
+
+
+class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
+    permission_required = "study.create_study_eventdefinition"
+    raise_exception = True
+
+    def get(self, request, *args, **kwargs):
+        return redirect(
+            reverse("study:study_event_definitions", kwargs={"study_id": self._study.pk}) + "?open_binding_import_modal=1"
+        )
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.has_perm("study.create_study_eventdefinition"):
+            raise PermissionDenied
+
+        binding_import_form = EventFormBindingImportTemplateForm(request.POST, request.FILES)
+        if not binding_import_form.is_valid():
+            return self.render_to_response(
+                self.get_context_data(
+                    binding_import_form=binding_import_form,
+                    binding_import_modal_open=True,
+                )
+            )
+
+        uploaded_file = binding_import_form.cleaned_data["import_file"]
+        command = ImportStudyEventFormBindingsTemplateCommand(
+            actor_user_id=request.user.pk,
+            study_id=self._study.pk,
+            file_name=uploaded_file.name,
+            file_content=uploaded_file.read(),
+        )
+        try:
+            binding_import_result = self.get_import_event_form_bindings_template_service().execute(command)
+        except (EventFormBindingImportDependencyError, EventFormBindingImportFormatError) as exc:
+            binding_import_form.add_error(None, str(exc))
+            return self.render_to_response(
+                self.get_context_data(
+                    binding_import_form=binding_import_form,
+                    binding_import_modal_open=True,
+                )
+            )
+
+        if binding_import_result.skipped_count > 0 or binding_import_result.warnings:
+            return self.render_to_response(
+                self.get_context_data(
+                    binding_import_form=EventFormBindingImportTemplateForm(),
+                    binding_import_result=binding_import_result,
+                    binding_import_modal_open=True,
+                )
+            )
+
+        return redirect(
+            reverse("study:study_event_definitions", kwargs={"study_id": self._study.pk})
         )

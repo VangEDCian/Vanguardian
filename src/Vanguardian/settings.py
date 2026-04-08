@@ -163,6 +163,8 @@ LOCALE_PATHS = [
     BASE_DIR / "locale",
 ]
 
+FORMAT_MODULE_PATH = "apps.shared.formats"
+
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
 USE_I18N = True

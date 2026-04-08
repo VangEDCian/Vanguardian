@@ -1,0 +1,2 @@
+DATE_FORMAT = "m/d/Y"
+DATETIME_FORMAT = "m/d/Y H:i"

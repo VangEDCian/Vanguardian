@@ -7,6 +7,7 @@ from apps.study.infrastructure.persistence.models import (
 __all__ = [
     "Study",
     "EventDefinition",
+    "EventFormBinding",
     "Site",
     "SiteMembership",
 ]
