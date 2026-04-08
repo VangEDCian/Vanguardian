@@ -10,10 +10,14 @@ from django.views import View
 
 from apps.shared.views.generic import AuthenticateTemplateView
 from apps.study.application import (
+    CrfTemplateImportDependencyError,
+    CrfTemplateImportFormatError,
     CreateStudyCommand,
     CreateStudyService,
     DeleteStudyCommand,
     DeleteStudyService,
+    ImportStudyCrfTemplatesTemplateCommand,
+    ImportStudyCrfTemplatesTemplateService,
     StudyAuditService,
     StudyCrfTemplateDirectoryQueryService,
     StudyCodeAlreadyExistsError,
@@ -28,7 +32,7 @@ from apps.study.application import (
     UpdateStudyService,
 )
 from apps.study.infrastructure.persistence.models import Study
-from apps.study.presentation.web.forms import StudyForm
+from apps.study.presentation.web.forms import CrfTemplateImportTemplateForm, StudyForm
 from apps.study.presentation.web.viewpackages._helpers import (
     _can_change_study_status,
     _serialize_study_snapshot,
@@ -36,14 +40,17 @@ from apps.study.presentation.web.viewpackages._helpers import (
 )
 from apps.study.presentation.web.viewpackages.eventdefinitions import (
     StudyEventDefinitionCreateView,
+    StudyEventFormBindingImportTemplateView,
     StudyEventDefinitionImportTemplateView,
     StudyEventDefinitionListView,
 )
 
 __all__ = [
     "StudyEventDefinitionCreateView",
+    "StudyEventFormBindingImportTemplateView",
     "StudyEventDefinitionImportTemplateView",
     "StudyEventDefinitionListView",
+    "StudyCrfTemplateImportTemplateView",
 ]
 
 # ---------------------------------------------------------------------------
@@ -288,6 +295,8 @@ class StudyCrfTemplateListView(
     study_crf_template_directory_query_service_class = (
         StudyCrfTemplateDirectoryQueryService
     )
+    import_crf_templates_template_service_class = ImportStudyCrfTemplatesTemplateService
+    expected_import_columns = ImportStudyCrfTemplatesTemplateService.expected_columns
     _detail_view_model = None
     _study = None
 
@@ -296,6 +305,9 @@ class StudyCrfTemplateListView(
 
     def get_study_crf_template_directory_query_service(self):
         return self.study_crf_template_directory_query_service_class()
+
+    def get_import_crf_templates_template_service(self):
+        return self.import_crf_templates_template_service_class()
 
     def dispatch(self, request, *args, **kwargs):
         self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
@@ -340,7 +352,58 @@ class StudyCrfTemplateListView(
                 sort_direction=self.request.GET.get("direction", "asc"),
             )
         )
+        context.setdefault("import_form", CrfTemplateImportTemplateForm())
+        context["expected_import_columns"] = self.expected_import_columns
+        context["import_result"] = kwargs.get("import_result")
+        context["import_modal_open"] = kwargs.get(
+            "import_modal_open",
+            self.request.GET.get("open_import_modal") == "1",
+        )
         return context
+
+    def post(self, request, *args, **kwargs):
+        import_form = CrfTemplateImportTemplateForm(request.POST, request.FILES)
+        if not import_form.is_valid():
+            return self.render_to_response(
+                self.get_context_data(import_form=import_form, import_modal_open=True)
+            )
+
+        uploaded_file = import_form.cleaned_data["import_file"]
+        command = ImportStudyCrfTemplatesTemplateCommand(
+            actor_user_id=request.user.pk,
+            study_id=self._study.pk,
+            file_name=uploaded_file.name,
+            file_content=uploaded_file.read(),
+        )
+        try:
+            import_result = self.get_import_crf_templates_template_service().execute(command)
+        except (CrfTemplateImportDependencyError, CrfTemplateImportFormatError) as exc:
+            import_form.add_error(None, str(exc))
+            return self.render_to_response(
+                self.get_context_data(import_form=import_form, import_modal_open=True)
+            )
+
+        if import_result.skipped_count == 0 and not import_result.warnings:
+            return redirect(
+                reverse("study:study_crf_templates", kwargs={"study_id": self._study.pk})
+            )
+
+        return self.render_to_response(
+            self.get_context_data(
+                import_form=CrfTemplateImportTemplateForm(),
+                import_result=import_result,
+                import_modal_open=True,
+            )
+        )
+
+
+class StudyCrfTemplateImportTemplateView(StudyCrfTemplateListView):
+    raise_exception = True
+
+    def get(self, request, *args, **kwargs):
+        return redirect(
+            reverse("study:study_crf_templates", kwargs={"study_id": self._study.pk}) + "?open_import_modal=1"
+        )
 
 
 class StudyCreateView(

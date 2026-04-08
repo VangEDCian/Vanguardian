@@ -1,0 +1,101 @@
+{% load i18n static %}
+<div
+  class="modal-backdrop{% if binding_import_modal_open %} is-open{% endif %}"
+  id="modal-import-eventformbindings"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-import-eventformbindings-title"
+>
+  <div class="modal modal--info modal--event-form-binding-import">
+    <form method="post" enctype="multipart/form-data" action="{% url 'study:study_event_form_binding_import' study_id=detail_study.id %}">
+      {% csrf_token %}
+
+      <div class="modal__header modal__header--left">
+        <div class="modal__icon" aria-hidden="true">i</div>
+        <h2 class="modal__title" id="modal-import-eventformbindings-title">{% trans "Binding Forms By Template" %}</h2>
+      </div>
+
+      <div class="modal__body modal__body--left modal__body--scrollable">
+        {% if binding_import_form.non_field_errors %}
+        <div class="event-form-binding-import-alert event-form-binding-import-alert--error">
+          {% for error in binding_import_form.non_field_errors %}
+          <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="event-form-binding-import-form">
+          <div class="event-form-binding-import-form__field">
+            <label for="{{ binding_import_form.import_file.id_for_label }}" class="event-form-binding-import-form__label">{{ binding_import_form.import_file.label }}</label>
+            {{ binding_import_form.import_file }}
+            {% if binding_import_form.import_file.errors %}
+            <div class="event-form-binding-import-form__errors">
+              {% for error in binding_import_form.import_file.errors %}
+              <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <p class="event-form-binding-import-form__help">{% trans "Accepted formats: .xlsx, .xls" %}</p>
+            <a
+              href="{% static 'study/templates/event_form_bindings_import_template.xlsx' %}"
+              class="event-form-binding-import-form__template-link"
+              download
+            >
+              {% trans "Download Template" %}
+            </a>
+          </div>
+        </div>
+
+        {% if binding_import_result %}
+        <section class="event-form-binding-import-result">
+          <div class="event-form-binding-import-result__summary">
+            <div class="event-form-binding-import-result__metric">
+              <strong>{{ binding_import_result.total_rows }}</strong>
+              <span>{% trans "Rows Parsed" %}</span>
+            </div>
+            <div class="event-form-binding-import-result__metric">
+              <strong>{{ binding_import_result.created_count }}</strong>
+              <span>{% trans "Created" %}</span>
+            </div>
+            <div class="event-form-binding-import-result__metric">
+              <strong>{{ binding_import_result.updated_count }}</strong>
+              <span>{% trans "Updated" %}</span>
+            </div>
+            <div class="event-form-binding-import-result__metric">
+              <strong>{{ binding_import_result.skipped_count }}</strong>
+              <span>{% trans "Skipped" %}</span>
+            </div>
+          </div>
+
+          {% if binding_import_result.warnings %}
+          <div class="event-form-binding-import-alert event-form-binding-import-alert--warning">
+            <strong>{% trans "Warnings" %}</strong>
+            <ul>
+              {% for warning in binding_import_result.warnings %}
+              <li>{{ warning }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+
+          {% if binding_import_result.issues %}
+          <div class="event-form-binding-import-alert event-form-binding-import-alert--error">
+            <strong>{% trans "Skipped Rows" %}</strong>
+            <ul>
+              {% for issue in binding_import_result.issues %}
+              <li>{% blocktrans with row_number=issue.row_number event_code=issue.event_code form_code=issue.form_code reason=issue.reason %}Row {{ row_number }} (event: {{ event_code }}, form: {{ form_code }}): {{ reason }}{% endblocktrans %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+        </section>
+        {% endif %}
+      </div>
+
+      <div class="modal__footer modal__footer--end">
+        <button type="button" class="modal__cancel" data-modal-close="modal-import-eventformbindings">{% trans "Cancel" %}</button>
+        <button type="submit" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Import File" %}</button>
+      </div>
+    </form>
+  </div>
+</div>

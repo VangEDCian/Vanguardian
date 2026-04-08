@@ -79,7 +79,7 @@ class StudyCrfTemplateDirectoryQueryService:
                     "value": _("Active") if crf_template.is_active else _("Inactive"),
                     "tone": "active" if crf_template.is_active else "inactive",
                 },
-                self._build_text_cell(date_format(crf_template.updated_at, "d-M-Y H:i") if crf_template.updated_at else ""),
+                self._build_text_cell(date_format(crf_template.updated_at, "DATETIME_FORMAT") if crf_template.updated_at else ""),
             ],
         }
 

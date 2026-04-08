@@ -5,6 +5,7 @@ from apps.core.choices import (
     EventDefinitionTypeChoices,
     EventInstanceStatusChoices,
 )
+from apps.shared.constants import EventFormEntryModeChoices
 
 from .study import Study
 
@@ -84,3 +85,66 @@ class EventDefinition(models.Model):
         ]
         verbose_name = "study event definition"
         verbose_name_plural = "study event definitions"
+
+
+class EventFormBinding(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="event_form_bindings",
+    )
+    study_version = models.CharField(max_length=20)
+
+    event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="event_definition_id",
+        related_name="form_bindings",
+    )
+    form_definition = models.ForeignKey(
+        "crf.CrfTemplate",
+        on_delete=models.DO_NOTHING,
+        db_column="form_definition_id",
+        related_name="event_form_bindings",
+    )
+
+    display_order = models.IntegerField(default=1)
+
+    is_required = models.BooleanField(default=True)
+    is_enabled = models.BooleanField(default=True)
+    is_repeatable_within_event = models.BooleanField(default=False)
+
+    role_scope = models.CharField(max_length=64, null=True, blank=True)
+    entry_mode = models.CharField(
+        max_length=32,
+        choices=EventFormEntryModeChoices.choices,
+        null=True,
+        blank=True,
+    )
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventformbinding"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event_definition", "form_definition"],
+                name="study_eventformbinding_event_form_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["event_definition", "display_order"],
+                name="study_eventformbinding_event_display_order_idx",
+            )
+        ]
+        verbose_name = "study event form binding"
+        verbose_name_plural = "study event form bindings"
