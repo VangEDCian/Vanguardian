@@ -11,6 +11,7 @@ from django.views.generic import DetailView, ListView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
+from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateView, AuthenticateTemplateContextMixin
 from apps.study.application.commands.site import (
     DeleteSiteService, CreateSiteService,
@@ -63,6 +64,15 @@ class SiteListView(
 
     def get_queryset(self):
         return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
+
+    def get(self, request, *args, **kwargs):
+        path_study_id = self.get_study_id()
+        cookie_study_id = StudyDropdownHandler(request=request).get_cookie_value(parse_to_int=True)
+        if path_study_id and cookie_study_id:
+            if path_study_id == cookie_study_id:
+                return super().get(request, *args, **kwargs)
+            return redirect(reverse("study:site_list", kwargs={'study_id': cookie_study_id}))
+        return redirect(reverse('dashboard:main'))
 
 
 class SiteDetailView(
