@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS study_site_membership (
     created_by_id   BIGINT   NULL,
     updated_by_id   BIGINT   NULL,
 
-    CONSTRAINT study_site_membership_user_study_site_uniq
+    CONSTRAINT site_mship_usr_study_site_uq
         UNIQUE (user_id, study_id, site_id),
 
-    INDEX study_site_membership_study_site_user_idx (study_id, site_id, user_id)
+    INDEX site_mship_study_site_user_idx (study_id, site_id, user_id)
 );

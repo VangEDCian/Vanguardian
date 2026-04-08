@@ -35,5 +35,5 @@ CREATE TABLE IF NOT EXISTS study_eventformbinding (
         FOREIGN KEY (event_definition_id) REFERENCES study_eventdefinition (id),
     CONSTRAINT fk_study_eventformbinding_form_definition
         FOREIGN KEY (form_definition_id) REFERENCES crf_crftemplate (id),
-    INDEX study_eventformbinding_event_display_order_idx (event_definition_id, display_order)
+    INDEX study_evtbind_evt_order_idx (event_definition_id, display_order)
 );

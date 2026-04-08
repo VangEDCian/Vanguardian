@@ -42,5 +42,5 @@ CREATE TABLE IF NOT EXISTS study_site (
         FOREIGN KEY (study_id) REFERENCES study_study (id),
     INDEX study_study_deleted_idx (deleted),
     INDEX study_study_created_by_id_idx (created_by_id),
-    INDEX study_study_deleted_created_by_id_idx (study_id, deleted, created_by_id)
+    INDEX site_study_del_creator_idx (study_id, deleted, created_by_id)
 );

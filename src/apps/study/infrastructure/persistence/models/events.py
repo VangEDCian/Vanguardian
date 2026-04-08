@@ -80,7 +80,7 @@ class EventDefinition(models.Model):
         indexes = [
             models.Index(
                 fields=["study", "study_version", "sequence_no"],
-                name="study_eventdefinition_study_version_sequence_idx",
+                name="study_evtdef_ver_seq_idx",
             )
         ]
         verbose_name = "study event definition"
@@ -143,7 +143,7 @@ class EventFormBinding(models.Model):
         indexes = [
             models.Index(
                 fields=["event_definition", "display_order"],
-                name="study_eventformbinding_event_display_order_idx",
+                name="study_evtbind_evt_order_idx",
             )
         ]
         verbose_name = "study event form binding"
