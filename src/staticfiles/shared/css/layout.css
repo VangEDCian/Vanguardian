@@ -837,6 +837,7 @@
 .entity-detail-tabs__item:hover {
   background: #c7d1dc;
   color: #2f3a45;
+  z-index: 2;
 }
 
 .entity-detail-tabs__item.is-active {

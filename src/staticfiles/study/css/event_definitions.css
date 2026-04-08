@@ -79,7 +79,7 @@
 
 .event-definition-import-form input[type="file"] {
   display: block;
-  width: 100%;
+  /* width: 100%; */
   max-width: 420px;
   padding: 10px 12px;
   border: 1px solid #d9e2ec;
