@@ -4,5 +4,7 @@ from apps.shared.constants.entry_modes import EventFormEntryModeChoices
 __all__ = [
     "AuditEventAction",
     "AuditEventObjectType",
+    "AuditEventActionEnum",
+    "AuditEventObjectTypeEnum",
     "EventFormEntryModeChoices",
 ]

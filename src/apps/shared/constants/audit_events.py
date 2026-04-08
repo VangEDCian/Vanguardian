@@ -1,3 +1,6 @@
+import enum
+
+
 class AuditEventAction:
     IDENTITY_USER_CREATED = "identity.user.created"
     IDENTITY_LOGIN_SUCCEEDED = "identity.login.succeeded"
@@ -17,3 +20,13 @@ class AuditEventObjectType:
     IDENTITY_LOGIN_ATTEMPT = "identity.login_attempt"
 
     STUDY = "study"
+
+
+class AuditEventActionEnum(enum.Enum):
+    STUDY_SITE_CREATED = "study.site.created"
+    STUDY_SITE_UPDATED = "study.site.updated"
+    STUDY_SITE_DELETED = "study.site.deleted"
+
+
+class AuditEventObjectTypeEnum(enum.Enum):
+    STUDY_SITE = "study.site"

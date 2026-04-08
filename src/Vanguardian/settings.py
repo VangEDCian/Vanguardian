@@ -108,7 +108,7 @@ ASGI_APPLICATION = "Vanguardian.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-_default_sqlite_url = f"sqlite:///{(BASE_DIR / 'db.sqlite3').resolve().as_posix()}"
+_default_sqlite_url = f"sqlite:///{(BASE_DIR / 'db.sqlite3')}"
 
 DATABASES = {
     "default": env.db("DATABASE_URL", default=_default_sqlite_url),

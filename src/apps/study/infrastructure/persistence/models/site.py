@@ -21,7 +21,7 @@ class Site(models.Model):
     class Meta:
         db_table = "study_site"
         managed = False
-        ordering = ('name',)
+        ordering = ('id',)
         default_permissions = ()
         permissions = (
             ("view_site_list", "Can view site list"),

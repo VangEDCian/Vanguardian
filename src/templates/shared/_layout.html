@@ -25,12 +25,28 @@
             </span>
             <span>{% trans "SUBJECTS" %}</span>
           </button>
-          <a href="{% url 'study:site_list' %}" class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'SITES' %}">
-            <span class="top-nav__icon" aria-hidden="true">
-              <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
-            </span>
-            <span>{% trans "SITES" %}</span>
-          </a>
+
+          {% if shared_study_selected_id %}
+            <a href="{% url 'study:site_list' study_id=shared_study_selected_id %}" class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'SITES' %}">
+              <span class="top-nav__icon" aria-hidden="true">
+                <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
+              </span>
+              <span>{% trans "SITES" %}</span>
+            </a>
+          {% else %}
+            <button
+                    onclick="alert(`{% trans 'Choose a study first.' %}`)"
+                    title="{% trans 'Choose a study first.' %}"
+                    class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}"
+                    data-nav-label="{% trans 'SITES' %}"
+            >
+              <span class="top-nav__icon" aria-hidden="true">
+                <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
+              </span>
+              <span>{% trans "SITES" %}</span>
+            </button>
+          {% endif %}
+
           {% comment %} <button type="button" class="top-nav__item{% if layout_nav_key == 'PROJECT' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'PROJECT' %}">
             <span class="top-nav__icon" aria-hidden="true">
               <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/project.svg' %}')"></span>
@@ -59,10 +75,12 @@
 
         <div class="top-nav__controls">
           {% trans "Select study" as select_study_aria_label %}
-          {% include "shared/components/_common_select.html" with select_mode="dropdown" select_wrapper_class="common-select--top-nav" select_display_text=shared_study_select_default select_options=shared_study_select_options select_aria_label=select_study_aria_label %}
+          {% include "shared/components/_common_select.html" with select_mode="dropdown" select_wrapper_class="common-select--top-nav common-select--study" select_display_text=shared_study_select_default select_options=shared_study_select_options select_aria_label=select_study_aria_label %}
+          <input type="hidden" id="idx-comment-select---cookies-key--study" value="{{ shared_study_cookies_key }}" hidden />
 
           {% trans "Select site" as select_site_aria_label %}
           {% include "shared/components/_common_select.html" with select_mode="dropdown" select_wrapper_class="common-select--top-nav common-select--site" select_display_text=shared_site_select_default select_options=shared_site_select_options select_aria_label=select_site_aria_label %}
+          <input type="hidden" id="idx-comment-select---cookies-key--site" value="{{ shared_site_cookies_key }}" hidden />
 
           <span class="top-nav__divider" aria-hidden="true"></span>
 

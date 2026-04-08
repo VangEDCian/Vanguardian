@@ -50,3 +50,4 @@ class Study(models.Model):
         ]
         verbose_name = "study"
         verbose_name_plural = "studies"
+        ordering = ('id',)
