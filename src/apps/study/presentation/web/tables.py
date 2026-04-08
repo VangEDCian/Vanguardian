@@ -9,7 +9,7 @@ from apps.study.infrastructure.persistence.models import Site
 
 class SiteListTable(tables.Table):
     code = tables.Column(
-        linkify=("study:site_detail", {"site_id": tables.A("pk")}),
+        linkify=("study:site_detail", {"site_id": tables.A("pk"), 'study_id': tables.A("study_id")}),
         attrs={"td": {"class": "entity-table__primary is-detailed"}},
     )
     is_active = tables.Column(

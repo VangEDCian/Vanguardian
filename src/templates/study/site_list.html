@@ -5,27 +5,33 @@
 {% block title %}{% trans "Sites | Vanguardian" %}{% endblock %}
 
 {% block dashboard_content %}
-<section class="entity-table-panel">
-  <form method="get" class="row g-2 mb-3" style="margin-top: 1rem;">
-    {% for field in filter.form %}
-        <div class="col-md-3">
-            {{ field.label_tag }}
+  <section class="entity-table-panel">
+    <form
+            method="get"
+            class="row g-2 mb-3"
+            style="display: flex;flex-wrap: wrap;gap: 10px;padding: 10px 5px;"
+    >
+      <div style="flex: auto; display: flex; flex-wrap: wrap;gap: 10px;">
+        {% for field in filter.form %}
+          <div style="display: flex; flex-direction: column;gap: 5px;">
             {{ field }}
-        </div>
-    {% endfor %}
-    <div class="col-md-12">
-        <button class="btn btn-primary">Filter</button>
-    </div>
-  </form>
-  {% render_table table %}
+          </div>
+        {% endfor %}
+      </div>
+      <div style="width: auto;display: flex; flex-direction: row;gap: 5px;">
+        <input type="reset" value="Reset"/>
+        <input type="submit" value="Submit"/>
+      </div>
+    </form>
+    {% render_table table %}
 
-  {% if perms.site.create_site %}
-    <div class="entity-table__footer entity-table__footer--actions">
-      <a href="{% url 'study:site_create' %}"
-         class="entity-table__footer-button entity-table__footer-button--primary">
-        {% trans "Add New Site" %}
-      </a>
-    </div>
-  {% endif %}
-</section>
+    {% if perms.site.create_site %}
+      <div class="entity-table__footer entity-table__footer--actions">
+        <a href="{% url 'study:site_create' study_id=shared_study_selected_id %}"
+           class="entity-table__footer-button entity-table__footer-button--primary">
+          {% trans "Add New Site" %}
+        </a>
+      </div>
+    {% endif %}
+  </section>
 {% endblock %}

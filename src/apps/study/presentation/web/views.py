@@ -39,6 +39,7 @@ from apps.study.application import (
     UpdateStudyCommand,
     UpdateStudyService,
 )
+from apps.study.application.services.site_audit import SiteAuditService
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import StudyForm, SiteForm
 from apps.study.presentation.web.tables import SiteListTable
@@ -657,9 +658,24 @@ class StudyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 #
 # Site
 #
+class SiteAbstractVerifyStudy(View):
+    study_obj: Study | None = None
+
+    def get_study_id(self):
+        return self.kwargs["study_id"]
+
+    def dispatch(self, request, *args, **kwargs):
+        study_id = self.get_study_id()
+        self.study_obj = StudySiteDirectoryQueryService.get_study_id(study_id=study_id)
+        if self.study_obj:
+            return super().dispatch(request, *args, **kwargs)
+        raise Http404
+
+
 class SiteListView(
     LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
     SingleTableMixin, FilterView, ListView,
+    SiteAbstractVerifyStudy,
 ):
     permission_required = "site.view_site_list"
     raise_exception = True
@@ -672,17 +688,24 @@ class SiteListView(
     filterset_class = SitesFilter
     paginate_by = 10
 
+    study_obj: Study = None
+
     def get_queryset(self):
-        return super().get_queryset().filter(deleted=False)
+        return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
 
 
-class SiteDetailView(LoginRequiredMixin, AuthenticateTemplateContextMixin, DetailView):
+class SiteDetailView(
+    LoginRequiredMixin, AuthenticateTemplateContextMixin, DetailView, SiteAbstractVerifyStudy,
+):
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("SITES")
     template_name = "study/site_detail.html"
 
     pk_url_kwarg = 'site_id'
     model = Site
+
+    def get_queryset(self):
+        return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
 
     def get_layout_breadcrumb_label(self):
         if self.object:
@@ -714,15 +737,21 @@ class SiteDetailView(LoginRequiredMixin, AuthenticateTemplateContextMixin, Detai
         context["study_options"] = StudySiteDirectoryQueryService.build_site_study_options(
             studies, selected_id,
         )
-        context["back_url"] = reverse("study:site_list")
-        context["update_url"] = reverse("study:site_detail", kwargs={"site_id": self.object.pk})
-        context["delete_url"] = reverse("study:site_delete", kwargs={"site_id": self.object.pk})
+        context["back_url"] = reverse("study:site_list", kwargs={'study_id': self.get_study_id()})
+        context["update_url"] = reverse(
+            "study:site_detail",
+            kwargs={"site_id": self.object.pk, 'study_id': self.get_study_id()},
+        )
+        context["delete_url"] = reverse(
+            "study:site_delete",
+            kwargs={"site_id": self.object.pk, 'study_id': self.get_study_id()},
+        )
         context["can_update_site"] = self.request.user.has_perm("site.update_site")
         context["can_delete_site"] = self.request.user.has_perm("site.delete_site")
         return context
 
     def get_object(self, *args, **kwargs):
-        instance = super().get_object(*args, **kwargs)
+        instance: Site | None = super().get_object(*args, **kwargs)
         if instance and instance.deleted is False:
             return instance
         raise Http404
@@ -736,8 +765,7 @@ class SiteDetailView(LoginRequiredMixin, AuthenticateTemplateContextMixin, Detai
         if not request.user.has_perm("site.update_site"):
             raise PermissionDenied
 
-        self.object = self.get_object()
-        site = self.object
+        site = self.get_object()
         studies = StudySiteDirectoryQueryService.get_active_studies(
             request.user,
         )
@@ -750,6 +778,9 @@ class SiteDetailView(LoginRequiredMixin, AuthenticateTemplateContextMixin, Detai
 
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
+
+        # snapshot before change
+        snapshot_before_data = StudySiteDirectoryQueryService.snapshot_site_obj(site=site)
 
         try:
             UpdateSiteService().execute(
@@ -767,10 +798,21 @@ class SiteDetailView(LoginRequiredMixin, AuthenticateTemplateContextMixin, Detai
             form.add_error("code", _("This site code already exists in the selected study."))
             return self.render_to_response(self.get_context_data(form=form))
 
-        return redirect(reverse("study:site_detail", kwargs={"site_id": site.pk}))
+        # snapshot after change
+        SiteAuditService(request=request).record_updated(
+            object_id=site.id,
+            before_data=snapshot_before_data,
+            after_data=StudySiteDirectoryQueryService.snapshot_site_obj(site=site),
+        )
+
+        return redirect(
+            reverse(
+                "study:site_detail", kwargs={"site_id": site.pk, 'study_id': self.get_study_id()},
+            ),
+        )
 
 
-class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView):
+class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractVerifyStudy):
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("NEW SITE")
     template_name = "study/site_create.html"
@@ -795,8 +837,10 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView):
         context["study_options"] = StudySiteDirectoryQueryService.build_site_study_options(
             studies, selected_id,
         )
-        context["back_url"] = reverse("study:site_list")
-        context["create_url"] = reverse("study:site_create")
+        context["back_url"] = reverse("study:site_list", kwargs={'study_id': self.get_study_id()})
+        context["create_url"] = reverse(
+            "study:site_create", kwargs={'study_id': self.get_study_id()},
+        )
         return context
 
     @method_decorator(permission_required('site.create_site', raise_exception=True))
@@ -831,17 +875,35 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView):
             form.add_error("code", _("This site code already exists in the selected study."))
             return self.render_to_response(self.get_context_data(form=form))
 
-        return redirect(reverse("study:site_detail", kwargs={"site_id": site.pk}))
+        SiteAuditService(request=request).record_created(
+            object_id=site.id,
+            after_data=StudySiteDirectoryQueryService.snapshot_site_obj(site),
+        )
+
+        return redirect(
+            reverse(
+                "study:site_detail", kwargs={"site_id": site.pk, 'study_id': self.get_study_id()},
+            ),
+        )
 
 
-class SiteDeleteView(LoginRequiredMixin, View):
+class SiteDeleteView(LoginRequiredMixin, DetailView, SiteAbstractVerifyStudy):
+    pk_url_kwarg = 'site_id'
+    model = Site
+
+    def get_queryset(self):
+        return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
+
     @method_decorator(permission_required('site.delete_site', raise_exception=True))
     def post(self, request, *args, **kwargs):
-        site = Site.objects.filter(pk=kwargs["site_id"], deleted=False).first()
-        if site is None:
+        site: Site | None = self.get_object()
+        if not site:
             raise Http404
-        if not _user_has_study_access(request.user, site.study_id):
+        if not _user_has_study_access(request.user, self.get_study_id()):
             raise PermissionDenied
+
+        # snapshot before destroy
+        snapshot_before_data = StudySiteDirectoryQueryService.snapshot_site_obj(site=site)
 
         try:
             DeleteSiteService().execute(
@@ -850,4 +912,10 @@ class SiteDeleteView(LoginRequiredMixin, View):
         except SiteNotFoundError:
             raise Http404
 
-        return redirect(reverse("study:site_list"))
+        # snapshot after change
+        SiteAuditService(request=request).record_deleted(
+            object_id=site.id,
+            before_data=snapshot_before_data,
+        )
+
+        return redirect(reverse("study:site_list", kwargs={'study_id': self.get_study_id()}))

@@ -161,3 +161,33 @@
     }
   });
 })();
+
+
+(function () {
+  const setCookie = (name, value, days = null) => {
+    let expires = "";
+    if (days) {
+      const date = new Date();
+      date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+      expires = "; expires=" + date.toUTCString();
+    }
+    // encodeURIComponent handles special characters like semicolons or spaces
+    document.cookie = encodeURIComponent(name) + "=" + encodeURIComponent(value) + expires + "; path=/; SameSite=Lax";
+  }
+
+  const cookiesKeyStudy = document.getElementById('idx-comment-select---cookies-key--study').value;
+  document.querySelectorAll('.common-select--study button[data-dropdown-option]').forEach((node, index) => {
+    node.addEventListener('click', (event) => {
+      setCookie(cookiesKeyStudy, node.getAttribute("value"));
+      window.location.reload();
+    })
+  });
+
+  const cookiesKeySite = document.getElementById('idx-comment-select---cookies-key--site').value;
+  document.querySelectorAll('.common-select--site button[data-dropdown-option]').forEach((node, index) => {
+    node.addEventListener('click', (event) => {
+      setCookie(cookiesKeySite, node.getAttribute("value"));
+      window.location.reload();
+    })
+  });
+})();

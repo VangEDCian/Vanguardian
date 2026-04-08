@@ -1,5 +1,7 @@
+from django.core import serializers
+
 from apps.identity.infrastructure.persistence.models import StudyMembership
-from apps.study.infrastructure.persistence.models import Study
+from apps.study.infrastructure.persistence.models import Study, Site
 
 
 class StudySiteDirectoryQueryService:
@@ -28,3 +30,15 @@ class StudySiteDirectoryQueryService:
             }
             for s in studies
         ]
+
+    @classmethod
+    def get_study_id(cls, study_id) -> Study | None:
+        if study_id:
+            return Study.objects.filter(pk=study_id, deleted=False).first()
+        return None
+
+    @classmethod
+    def snapshot_site_obj(cls, site: Site, refresh_from_db: bool = False) -> str:
+        if refresh_from_db:
+            site.refresh_from_db()
+        return serializers.serialize("json", [site])

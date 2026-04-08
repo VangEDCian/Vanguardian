@@ -1,9 +1,14 @@
-import django_filters
+__all__ = [
+    'SitesFilter',
+]
 
+from apps.shared.application.queries.shared_filters import SharedIsActiveFilter, SharedSearchFilter
 from apps.study.infrastructure.persistence.models import Site
 
 
-class SitesFilter(django_filters.FilterSet):
+class SitesFilter(SharedIsActiveFilter, SharedSearchFilter):
+    SEARCH_FIELDS = ("name", "code")
+
     class Meta:
         model = Site
-        fields = ('study', 'is_active')
+        fields = ('is_active', 'search',)

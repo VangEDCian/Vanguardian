@@ -34,7 +34,7 @@ urlpatterns = [
 
 urlpatterns += [
     path(
-        "studies/sites/", include(
+        "studies/<int:study_id>/sites/", include(
             [
                 path("", SiteListView.as_view(), name="site_list"),
                 path("new", SiteCreateView.as_view(), name="site_create"),
