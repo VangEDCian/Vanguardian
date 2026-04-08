@@ -1,9 +1,11 @@
 from .study import Study
-from .events import EventDefinition
+from .events import EventDefinition, EventFormBinding
 from .site import Site, SiteMembership
 
 __all__ = [
-    'Study',
-    'EventDefinition',
-    'Site', 'SiteMembership',
+    "Study",
+    "EventDefinition",
+    "EventFormBinding",
+    "Site",
+    "SiteMembership",
 ]

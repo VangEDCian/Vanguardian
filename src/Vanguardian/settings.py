@@ -176,10 +176,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [
-    BASE_DIR / "staticfiles",
-    BASE_DIR / "node_modules",
-]
+STATICFILES_DIRS = [BASE_DIR / "staticfiles"]
+if (BASE_DIR / "node_modules").exists():
+    STATICFILES_DIRS.append(BASE_DIR / "node_modules")
 STATIC_ROOT = BASE_DIR.parent / "static"
 
 AUTH_USER_MODEL = "identity.User"

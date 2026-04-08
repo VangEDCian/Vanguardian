@@ -44,6 +44,8 @@ def _make_user(**kwargs):
 
 
 class DeleteIdentityUserServiceTests(SimpleTestCase):
+    databases = {"default"}
+
     @patch("apps.identity.application.commands.delete_user.User")
     def test_marks_user_deleted_without_overwriting_profile(self, mock_user_cls):
         user = _make_user(pk=7)
@@ -77,6 +79,8 @@ class DeleteIdentityUserServiceTests(SimpleTestCase):
 
 
 class RestoreIdentityUserServiceTests(SimpleTestCase):
+    databases = {"default"}
+
     @patch("apps.identity.application.commands.delete_user.AuditEvent")
     @patch("apps.identity.application.commands.delete_user.User")
     @patch("apps.identity.application.commands.delete_user.Group")

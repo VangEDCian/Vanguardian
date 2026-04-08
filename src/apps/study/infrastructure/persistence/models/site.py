@@ -36,7 +36,7 @@ class Site(models.Model):
             models.Index(fields=["created_by_id"], name="study_study_created_by_id_idx"),
             models.Index(
                 fields=["study_id", "deleted", "created_by_id"],
-                name="study_study_deleted_created_by_id_idx",
+                name="site_study_del_creator_idx",
             ),
         ]
         verbose_name = "site"
@@ -83,11 +83,11 @@ class SiteMembership(models.Model):
         indexes = [
             models.Index(
                 fields=["study_id", "site_id", "user_id"],
-                name="study_site_membership_study_site_user_idx",
+                name="site_mship_study_site_user_idx",
             ),
             models.Index(
                 fields=["user_id", "study_id", "site_id"],
-                name="study_site_membership_user_study_site_uniq",
+                name="site_mship_usr_study_site_uq",
             ),
         ]
         verbose_name = "site membership"

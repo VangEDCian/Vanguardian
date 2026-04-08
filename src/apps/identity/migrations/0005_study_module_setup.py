@@ -69,8 +69,18 @@ DATA_MANAGER_PERMS = [
 # ---------------------------------------------------------------------------
 
 def seed_roles_and_permissions(apps, schema_editor):
-    # Import real model classes: safe because these are managed=False (schema fixed).
-    from apps.identity.infrastructure.persistence.models import Role, RolePermission
+    available_tables = set(schema_editor.connection.introspection.table_names())
+    required_tables = {
+        "identity_role",
+        "identity_role_permissions",
+        "auth_permission",
+        "django_content_type",
+    }
+    if not required_tables.issubset(available_tables):
+        return
+
+    Role = apps.get_model("identity", "Role")
+    RolePermission = apps.get_model("identity", "RolePermission")
 
     administrator, _ = Role.objects.get_or_create(
         name="Administrator",
@@ -94,7 +104,11 @@ def seed_roles_and_permissions(apps, schema_editor):
 
 
 def unseed_roles_and_permissions(apps, schema_editor):
-    from apps.identity.infrastructure.persistence.models import Role
+    available_tables = set(schema_editor.connection.introspection.table_names())
+    if "identity_role" not in available_tables:
+        return
+
+    Role = apps.get_model("identity", "Role")
     Role.objects.filter(name__in=["Administrator", "Data Manager"]).delete()
 
 

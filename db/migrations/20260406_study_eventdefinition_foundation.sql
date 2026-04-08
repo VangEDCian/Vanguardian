@@ -41,5 +41,5 @@ CREATE TABLE IF NOT EXISTS study_eventdefinition (
         UNIQUE (study_version, code),
     CONSTRAINT fk_study_eventdefinition_study
         FOREIGN KEY (study_id) REFERENCES study_study (id),
-    INDEX study_eventdefinition_study_version_sequence_idx (study_id, study_version, sequence_no)
+    INDEX study_evtdef_ver_seq_idx (study_id, study_version, sequence_no)
 );
