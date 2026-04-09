@@ -58,7 +58,7 @@ class SiteListView(
     template_name = "study/site_list.html"
     table_class = SiteListTable
     filterset_class = SitesFilter
-    paginate_by = 10
+    paginate_by = 2
 
     study_obj: Study = None
 

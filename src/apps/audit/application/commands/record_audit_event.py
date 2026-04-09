@@ -26,9 +26,9 @@ class RecordAuditEventService:
     def execute(self, command: RecordAuditEventCommand):
         actor_id = command.actor_user_id or command.user_id
         return self.repository.create(
-            action=command.action.strip(),
-            object_type=command.object_type.strip(),
-            object_id=str(command.object_id).strip(),
+            action=self._normalize_text(command.action),
+            object_type=self._normalize_text(command.object_type),
+            object_id=self._normalize_text(command.object_id),
             before_data=self._serialize_payload(command.before_data),
             after_data=self._serialize_payload(command.after_data),
             ip_address=(command.ip_address or "")[:39] or None,
@@ -45,3 +45,13 @@ class RecordAuditEventService:
         if isinstance(payload, str):
             return payload
         return json.dumps(payload, ensure_ascii=True, default=str, sort_keys=True)
+
+    @staticmethod
+    def _normalize_text(value) -> str:
+        if value is None:
+            return ""
+        # Accept enum values passed in from domain services.
+        enum_value = getattr(value, "value", None)
+        if enum_value is not None:
+            value = enum_value
+        return str(value).strip()
