@@ -130,6 +130,7 @@ class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, 
         uploaded_file = import_form.cleaned_data["import_file"]
         command = ImportStudyEventDefinitionsTemplateCommand(
             actor_user_id=request.user.pk,
+            study_id=self._study.pk,
             file_name=uploaded_file.name,
             file_content=uploaded_file.read(),
         )

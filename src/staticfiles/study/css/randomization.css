@@ -1,0 +1,66 @@
+.randomization-overview {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.randomization-section {
+  background: #fff;
+  border-bottom: 1px solid #d7dde4;
+}
+
+.randomization-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 16px 0;
+}
+
+.randomization-section__title-group {
+  display: grid;
+  gap: 4px;
+}
+
+.randomization-section__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e2b36;
+}
+
+.randomization-section__description {
+  margin: 0;
+  color: #607080;
+  font-size: 12px;
+}
+
+.randomization-section__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #cfe2ef;
+  border-radius: 999px;
+  background: #f4f9fc;
+  color: #1e88b9;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.randomization-section .entity-table__scroller {
+  padding-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .randomization-section__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .randomization-section__count {
+    align-self: flex-start;
+  }
+}

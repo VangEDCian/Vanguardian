@@ -28,11 +28,7 @@
               <div class="user-detail-inline-field">
                 <label class="user-detail-inline-field__label" for="{{ form.code.id_for_label }}">{% trans "Code" %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
-                  {% if can_update_site %}
-                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=form.code.value textbox_class=form.code.errors|yesno:"old-textbox--error," %}
-                  {% else %}
-                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=form.code.value textbox_readonly='readonly' %}
-                  {% endif %}
+                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=site.code textbox_readonly='readonly' %}
                   {% for error in form.code.errors %}
                     <span class="user-detail-field__error">{{ error }}</span>
                   {% endfor %}
@@ -71,11 +67,7 @@
                 <label class="user-detail-inline-field__label" for="{{ form.study_id.id_for_label }}">{% trans "Study" %}:</label>
                 <div class="user-detail-inline-field__control-wrap">
                   {% trans "Select study" as select_study_placeholder %}
-                  {% if can_update_site %}
-                    {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.study_id.id_for_label select_name=form.study_id.html_name select_options=study_options select_placeholder=select_study_placeholder %}
-                  {% else %}
-                    {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.study_id.id_for_label select_name=form.study_id.html_name select_options=study_options select_placeholder=select_study_placeholder select_disabled='disabled' %}
-                  {% endif %}
+                  {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.study_id.id_for_label select_name=form.study_id.html_name select_options=study_options select_placeholder=select_study_placeholder select_disabled='disabled' %}
                   {% for error in form.study_id.errors %}
                     <span class="user-detail-field__error">{{ error }}</span>
                   {% endfor %}
@@ -145,5 +137,4 @@
     })();
   </script>
 {% endblock %}
-
 

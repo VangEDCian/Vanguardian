@@ -70,11 +70,11 @@ class ImportStudyEventFormBindingsTemplateService:
         "single": EventFormEntryModeChoices.SINGLE,
         "double entry": EventFormEntryModeChoices.DOUBLE_ENTRY,
         "double_entry": EventFormEntryModeChoices.DOUBLE_ENTRY,
-        "review only": EventFormEntryModeChoices.REVIEW_ONLY,
-        "review_only": EventFormEntryModeChoices.REVIEW_ONLY,
-        "verification": EventFormEntryModeChoices.VERIFICATION,
-        "query response": EventFormEntryModeChoices.QUERY_RESPONSE,
-        "query_response": EventFormEntryModeChoices.QUERY_RESPONSE,
+        # "review only": EventFormEntryModeChoices.REVIEW_ONLY,
+        # "review_only": EventFormEntryModeChoices.REVIEW_ONLY,
+        # "verification": EventFormEntryModeChoices.VERIFICATION,
+        # "query response": EventFormEntryModeChoices.QUERY_RESPONSE,
+        # "query_response": EventFormEntryModeChoices.QUERY_RESPONSE,
     }
 
     def execute(self, command: ImportStudyEventFormBindingsTemplateCommand) -> ImportStudyEventFormBindingsTemplateResult:

@@ -35,13 +35,28 @@ class SiteForm(forms.Form):
         label=_("Active"),
     )
 
-    def __init__(self, *args, study_choices=(), **kwargs):
+    def __init__(self, *args, study_choices=(), fixed_study_id=None, fixed_code=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fixed_study_id = fixed_study_id
+        self.fixed_code = fixed_code
         self.fields["study_id"].choices = [
             (str(study_id), study_label) for study_id, study_label in study_choices
         ]
+        if self.fixed_study_id is not None:
+            self.fields["study_id"].required = False
+            self.fields["study_id"].initial = str(self.fixed_study_id)
+        if self.fixed_code is not None:
+            self.fields["code"].required = False
+            self.fields["code"].initial = self.fixed_code
+
+    def clean_code(self):
+        if self.fixed_code is not None:
+            return self.fixed_code
+        return self.cleaned_data["code"].strip()
 
     def clean_study_id(self):
+        if self.fixed_study_id is not None:
+            return int(self.fixed_study_id)
         return int(self.cleaned_data["study_id"])
 
 

@@ -5,10 +5,8 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
   <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}" />
   <link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}" />
-  <link rel="stylesheet" href="{% static 'shared/css/components/_old_select2_single_choice.css' %}" />
   <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}" />
 {% endblock %}
 
@@ -82,29 +80,6 @@
                 </div>
               </div>
               <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.study_id.id_for_label }}">{{ form.study_id.label }}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% trans "Select study" as select_study_placeholder %}
-                  <select
-                    id="{{ form.study_id.id_for_label }}"
-                    name="{{ form.study_id.html_name }}"
-                    class="old-select2-single-choice"
-                    data-placeholder="{{ select_study_placeholder }}"
-                  >
-                    <option value=""></option>
-                    {% for option in study_options %}
-                      <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
-                    {% endfor %}
-                  </select>
-                  {% for error in form.study_id.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field">
                 <span class="user-detail-inline-field__label">{{ form.is_active.label }}:</span>
                 <div class="user-detail-inline-field__control-wrap">
                   <div class="user-detail-inline-field__display user-detail-field__status-toggle">
@@ -134,24 +109,4 @@
       </div>
     </form>
   </section>
-{% endblock %}
-
-{% block extra_js %}
-  {{ block.super }}
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-  <script>
-    (function () {
-      const $ = window.jQuery;
-      if (!$ || !$.fn.select2) { return; }
-      $(function () {
-        $(".old-select2-single-choice").select2({
-          width: "100%",
-          placeholder: function () {
-            return $(this).data("placeholder") || "";
-          }
-        });
-      });
-    })();
-  </script>
 {% endblock %}
