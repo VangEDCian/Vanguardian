@@ -75,3 +75,4 @@ AGENT.md
 *.dbml
 .github/AGENTS.md
 node_modules
+.well-known/

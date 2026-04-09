@@ -1,0 +1,220 @@
+from django.utils.formats import date_format
+from django.utils.translation import gettext_lazy as _
+
+from apps.study.models import (
+    RandomizationArm,
+    RandomizationEligibility,
+    RandomizationScheme,
+    RandomizationSlot,
+)
+
+
+class StudyRandomizationDirectoryQueryService:
+    randomization_scheme_headers = (
+        {"label": _("CODE")},
+        {"label": _("NAME")},
+        {"label": _("TYPE")},
+        {"label": _("TARGET TOTAL")},
+        {"label": _("ELIGIBILITY RULE")},
+        {"label": _("STATUS")},
+        {"label": _("EFFECTIVE FROM")},
+    )
+    randomization_arm_headers = (
+        {"label": _("SCHEME")},
+        {"label": _("ARM CODE")},
+        {"label": _("ARM NAME")},
+        {"label": _("TARGET COUNT")},
+        {"label": _("CURRENT COUNT")},
+        {"label": _("ORDER")},
+        {"label": _("ACTIVE")},
+    )
+    randomization_slot_headers = (
+        {"label": _("SCHEME")},
+        {"label": _("SEQUENCE")},
+        {"label": _("ARM")},
+        {"label": _("STATUS")},
+        {"label": _("BLOCK")},
+        {"label": _("SUBJECT ID")},
+        {"label": _("ASSIGNED AT")},
+    )
+    randomization_eligibility_headers = (
+        {"label": _("SCHEME")},
+        {"label": _("SUBJECT ID")},
+        {"label": _("ELIGIBLE")},
+        {"label": _("EVALUATED AT")},
+        {"label": _("REASON CODE")},
+        {"label": _("SCREENING STATUS")},
+    )
+
+    def get_overview(self, *, study_id):
+        schemes = list(
+            RandomizationScheme.objects.filter(
+                study_id=study_id,
+                deleted=False,
+            ).order_by("code")
+        )
+        arms = list(
+            RandomizationArm.objects.select_related("scheme")
+            .filter(
+                scheme__study_id=study_id,
+                scheme__deleted=False,
+                deleted=False,
+            )
+            .order_by("scheme__code", "display_order", "arm_code")
+        )
+        slots = list(
+            RandomizationSlot.objects.select_related("scheme", "arm")
+            .filter(
+                scheme__study_id=study_id,
+                scheme__deleted=False,
+                deleted=False,
+            )
+            .order_by("scheme__code", "sequence_no", "id")
+        )
+        eligibilities = list(
+            RandomizationEligibility.objects.select_related("scheme")
+            .filter(
+                study_id=study_id,
+                deleted=False,
+            )
+            .order_by("-evaluated_at", "scheme__code", "subject_id")
+        )
+
+        return {
+            "randomization_scheme_headers": self.randomization_scheme_headers,
+            "randomization_scheme_rows": [
+                self._build_scheme_row(scheme) for scheme in schemes
+            ],
+            "randomization_scheme_total": len(schemes),
+            "randomization_scheme_empty_text": _(
+                "No randomization schemes have been configured for this study."
+            ),
+            "randomization_arm_headers": self.randomization_arm_headers,
+            "randomization_arm_rows": [self._build_arm_row(arm) for arm in arms],
+            "randomization_arm_total": len(arms),
+            "randomization_arm_empty_text": _(
+                "No randomization arms have been configured for this study."
+            ),
+            "randomization_slot_headers": self.randomization_slot_headers,
+            "randomization_slot_rows": [self._build_slot_row(slot) for slot in slots],
+            "randomization_slot_total": len(slots),
+            "randomization_slot_empty_text": _(
+                "No randomization slots have been configured for this study."
+            ),
+            "randomization_eligibility_headers": self.randomization_eligibility_headers,
+            "randomization_eligibility_rows": [
+                self._build_eligibility_row(eligibility)
+                for eligibility in eligibilities
+            ],
+            "randomization_eligibility_total": len(eligibilities),
+            "randomization_eligibility_empty_text": _(
+                "No eligibility policy records have been captured for this study."
+            ),
+        }
+
+    def _build_scheme_row(self, scheme):
+        return {
+            "selection_value": scheme.pk,
+            "cells": [
+                {
+                    "kind": "text",
+                    "value": scheme.code,
+                    "column_class": "entity-table__primary",
+                },
+                self._build_text_cell(scheme.name),
+                self._build_text_cell(
+                    self._humanize_choice_value(scheme.randomization_type)
+                ),
+                self._build_text_cell(str(scheme.target_randomized_total)),
+                self._build_text_cell(scheme.eligibility_rule_code),
+                self._build_text_cell(self._humanize_choice_value(scheme.status)),
+                self._build_text_cell(
+                    date_format(scheme.effective_from, "DATETIME_FORMAT")
+                    if scheme.effective_from
+                    else ""
+                ),
+            ],
+        }
+
+    def _build_arm_row(self, arm):
+        return {
+            "selection_value": arm.pk,
+            "cells": [
+                self._build_text_cell(arm.scheme.code if arm.scheme_id else ""),
+                {
+                    "kind": "text",
+                    "value": arm.arm_code,
+                    "column_class": "entity-table__primary",
+                },
+                self._build_text_cell(arm.arm_name),
+                self._build_text_cell(str(arm.target_count)),
+                self._build_text_cell(str(arm.current_count)),
+                self._build_text_cell(str(arm.display_order)),
+                {
+                    "kind": "state",
+                    "value": _("Active") if arm.is_active else _("Inactive"),
+                    "tone": "active" if arm.is_active else "inactive",
+                },
+            ],
+        }
+
+    def _build_slot_row(self, slot):
+        return {
+            "selection_value": slot.pk,
+            "cells": [
+                self._build_text_cell(slot.scheme.code if slot.scheme_id else ""),
+                self._build_text_cell(str(slot.sequence_no)),
+                self._build_text_cell(slot.arm.arm_code if slot.arm_id else ""),
+                self._build_text_cell(self._humanize_choice_value(slot.status)),
+                self._build_text_cell(
+                    str(slot.block_no) if slot.block_no is not None else ""
+                ),
+                self._build_text_cell(
+                    str(slot.assigned_subject_id)
+                    if slot.assigned_subject_id is not None
+                    else ""
+                ),
+                self._build_text_cell(
+                    date_format(slot.assigned_at, "DATETIME_FORMAT")
+                    if slot.assigned_at
+                    else ""
+                ),
+            ],
+        }
+
+    def _build_eligibility_row(self, eligibility):
+        return {
+            "selection_value": eligibility.pk,
+            "cells": [
+                self._build_text_cell(
+                    eligibility.scheme.code if eligibility.scheme_id else ""
+                ),
+                self._build_text_cell(str(eligibility.subject_id)),
+                {
+                    "kind": "state",
+                    "value": _("Eligible")
+                    if eligibility.is_eligible
+                    else _("Ineligible"),
+                    "tone": "active" if eligibility.is_eligible else "inactive",
+                },
+                self._build_text_cell(
+                    date_format(eligibility.evaluated_at, "DATETIME_FORMAT")
+                    if eligibility.evaluated_at
+                    else ""
+                ),
+                self._build_text_cell(eligibility.reason_code),
+                self._build_text_cell(eligibility.screening_status_snapshot),
+            ],
+        }
+
+    @staticmethod
+    def _build_text_cell(value):
+        if value not in (None, ""):
+            return {"kind": "text", "value": value}
+        return {"kind": "muted", "value": "—"}
+
+    @staticmethod
+    def _humanize_choice_value(value):
+        if not value:
+            return ""
+        return str(value).replace("_", " ").replace("-", " ").title()

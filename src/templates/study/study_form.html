@@ -1,5 +1,5 @@
 {% extends "shared/_layout.html" %}
-{% load i18n static %}
+{% load i18n static shared_layout %}
 
 {% block title %}{{ form_title }} | {% trans "Studies | Vanguardian" %}{% endblock %}
 
@@ -101,15 +101,7 @@
                 {{ form.start_date.label }}:
               </label>
               <div class="user-detail-inline-field__control-wrap">
-                <input
-                  type="date"
-                  id="{{ form.start_date.id_for_label }}"
-                  name="{{ form.start_date.html_name }}"
-                  value="{{ form.start_date.value|date:'Y-m-d'|default:'' }}"
-                  class="old-textbox{% if form.start_date.errors %} old-textbox--error{% endif %}"
-                  {% if start_date_min %}min="{{ start_date_min }}"{% endif %}
-                  style="width:100%;"
-                >
+                {% include 'shared/components/_common_date.html' with picker_id=form.start_date.id_for_label picker_name=form.start_date.html_name picker_value=form.start_date.value|shared_picker_value:'DATE_FORMAT' picker_class=form.start_date.errors|yesno:"old-textbox--error," picker_min=start_date_min %}
                 {% for error in form.start_date.errors %}
                   <span class="user-detail-field__error">{{ error }}</span>
                 {% endfor %}
@@ -120,14 +112,7 @@
                 {{ form.end_date.label }}:
               </label>
               <div class="user-detail-inline-field__control-wrap">
-                <input
-                  type="date"
-                  id="{{ form.end_date.id_for_label }}"
-                  name="{{ form.end_date.html_name }}"
-                  value="{{ form.end_date.value|date:'Y-m-d'|default:'' }}"
-                  class="old-textbox{% if form.end_date.errors %} old-textbox--error{% endif %}"
-                  style="width:100%;"
-                >
+                {% include 'shared/components/_common_date.html' with picker_id=form.end_date.id_for_label picker_name=form.end_date.html_name picker_value=form.end_date.value|shared_picker_value:'DATE_FORMAT' picker_class=form.end_date.errors|yesno:"old-textbox--error," %}
                 {% for error in form.end_date.errors %}
                   <span class="user-detail-field__error">{{ error }}</span>
                 {% endfor %}
@@ -179,14 +164,32 @@
     var endInput = document.getElementById("{{ form.end_date.id_for_label }}");
     if (!startInput || !endInput) return;
 
+    function parsePickerValue(input) {
+      if (!window.flatpickr || !input.value) return null;
+      return window.flatpickr.parseDate(
+        input.value,
+        input.dataset.flatpickrDateFormat || "Y-m-d"
+      );
+    }
+
     function syncEndMin() {
+      var endPicker = endInput._flatpickr || null;
       if (startInput.value) {
-        endInput.min = startInput.value;
-        if (endInput.value && endInput.value < startInput.value) {
+        if (endPicker) {
+          endPicker.set("minDate", startInput.value);
+        }
+        var startDate = parsePickerValue(startInput);
+        var endDate = parsePickerValue(endInput);
+        if (startDate && endDate && endDate < startDate) {
           endInput.value = "";
+          if (endPicker) {
+            endPicker.clear();
+          }
         }
       } else {
-        endInput.removeAttribute("min");
+        if (endPicker) {
+          endPicker.set("minDate", null);
+        }
       }
     }
 

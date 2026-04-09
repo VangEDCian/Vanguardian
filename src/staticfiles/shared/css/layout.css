@@ -247,6 +247,10 @@
   min-width: 0;
 }
 
+.dashboard-breadcrumb__prefix:empty + .dashboard-breadcrumb__trail {
+  display: none;
+}
+
 .dashboard-breadcrumb__back {
   color: #2196c4;
   font-weight: 600;

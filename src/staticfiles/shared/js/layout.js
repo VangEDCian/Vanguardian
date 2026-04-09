@@ -6,8 +6,6 @@
 
   const navItems = Array.from(shell.querySelectorAll("[data-nav-item]"));
   const breadcrumbActive = shell.querySelector("[data-breadcrumb-active]");
-  const breadcrumbStudy = shell.querySelector("[data-breadcrumb-study]");
-  const breadcrumbSite = shell.querySelector("[data-breadcrumb-site]");
 
   const dropdowns = Array.from(shell.querySelectorAll("[data-dropdown]"));
   const horizontalDragScrollAreas = Array.from(shell.querySelectorAll("[data-horizontal-drag-scroll]"));
@@ -75,14 +73,6 @@
         valueNode.textContent = option.textContent || "";
         trigger.setAttribute("aria-expanded", "false");
         menu.hidden = true;
-
-        // 0=study, 1=site
-        if (index === 0 && breadcrumbStudy) {
-          breadcrumbStudy.textContent = option.textContent || "";
-        }
-        if (index === 1 && breadcrumbSite) {
-          breadcrumbSite.textContent = option.textContent || "";
-        }
       });
     });
   });

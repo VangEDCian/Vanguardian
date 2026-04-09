@@ -102,6 +102,8 @@ class SiteDetailView(
         if form is None:
             form = SiteForm(
                 study_choices=choices,
+                fixed_code=self.object.code,
+                fixed_study_id=self.object.study_id,
                 initial={
                     "code": self.object.code,
                     "name": self.object.name,
@@ -111,12 +113,10 @@ class SiteDetailView(
                 },
             )
 
-        selected_id = form.data.get("study_id") if form.is_bound else self.object.study_id
-
         context["site"] = self.object
         context["form"] = form
         context["study_options"] = StudySiteDirectoryQueryService.build_site_study_options(
-            studies, selected_id,
+            studies, self.object.study_id,
         )
         context["back_url"] = reverse("study:site_list", kwargs={'study_id': self.get_study_id()})
         context["update_url"] = reverse(
@@ -155,6 +155,8 @@ class SiteDetailView(
             study_choices=StudySiteDirectoryQueryService.study_choices(
                 studies,
             ),
+            fixed_code=site.code,
+            fixed_study_id=site.study_id,
         )
 
         if not form.is_valid():
@@ -163,21 +165,15 @@ class SiteDetailView(
         # snapshot before change
         snapshot_before_data = StudySiteDirectoryQueryService.snapshot_site_obj(site=site)
 
-        try:
-            UpdateSiteService().execute(
-                UpdateSiteCommand(
-                    site_id=site.pk,
-                    code=form.cleaned_data["code"],
-                    name=form.cleaned_data["name"],
-                    investigator=form.cleaned_data.get("investigator") or "",
-                    study_id=form.cleaned_data["study_id"],
-                    is_active=form.cleaned_data.get("is_active", False),
-                    actor_user_id=request.user.pk,
-                ),
-            )
-        except SiteCodeAlreadyExistsError:
-            form.add_error("code", _("This site code already exists in the selected study."))
-            return self.render_to_response(self.get_context_data(form=form))
+        UpdateSiteService().execute(
+            UpdateSiteCommand(
+                site_id=site.pk,
+                name=form.cleaned_data["name"],
+                investigator=form.cleaned_data.get("investigator") or "",
+                is_active=form.cleaned_data.get("is_active", False),
+                actor_user_id=request.user.pk,
+            ),
+        )
 
         # snapshot after change
         SiteAuditService(request=request).record_updated(
@@ -203,24 +199,42 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractV
             self.request.user,
         )
 
+    def _get_selected_study_id(self):
+        cookie_study_id = StudyDropdownHandler(
+            request=self.request,
+        ).get_cookie_value(parse_to_int=True)
+        if cookie_study_id is not None:
+            return cookie_study_id
+        return self.get_study_id()
+
+    def _get_selected_study(self):
+        selected_study_id = self._get_selected_study_id()
+        if selected_study_id is None:
+            return None
+        return self._get_studies().filter(pk=selected_study_id).first()
+
+    def dispatch(self, request, *args, **kwargs):
+        selected_study_id = self._get_selected_study_id()
+        if selected_study_id is None:
+            raise Http404
+        if not _user_has_study_access(request.user, selected_study_id):
+            raise PermissionDenied
+        if self._get_selected_study() is None:
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        studies = self._get_studies()
-        choices = StudySiteDirectoryQueryService.study_choices(studies)
+        selected_study_id = self._get_selected_study_id()
 
         form = kwargs.get("form")
         if form is None:
-            form = SiteForm(study_choices=choices)
-
-        selected_id = form.data.get("study_id") if form.is_bound else None
+            form = SiteForm(fixed_study_id=selected_study_id)
 
         context["form"] = form
-        context["study_options"] = StudySiteDirectoryQueryService.build_site_study_options(
-            studies, selected_id,
-        )
-        context["back_url"] = reverse("study:site_list", kwargs={'study_id': self.get_study_id()})
+        context["back_url"] = reverse("study:site_list", kwargs={'study_id': selected_study_id})
         context["create_url"] = reverse(
-            "study:site_create", kwargs={'study_id': self.get_study_id()},
+            "study:site_create", kwargs={'study_id': selected_study_id},
         )
         return context
 
@@ -230,12 +244,15 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractV
 
     @method_decorator(permission_required('site.create_site', raise_exception=True))
     def post(self, request, *args, **kwargs):
-        studies = self._get_studies()
+        selected_study_id = self._get_selected_study_id()
+        if selected_study_id is None:
+            raise Http404
+        if self._get_selected_study() is None:
+            raise Http404
+
         form = SiteForm(
             request.POST,
-            study_choices=StudySiteDirectoryQueryService.study_choices(
-                studies,
-            ),
+            fixed_study_id=selected_study_id,
         )
 
         if not form.is_valid():
@@ -247,13 +264,13 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractV
                     code=form.cleaned_data["code"],
                     name=form.cleaned_data["name"],
                     investigator=form.cleaned_data.get("investigator") or "",
-                    study_id=form.cleaned_data["study_id"],
+                    study_id=selected_study_id,
                     is_active=form.cleaned_data.get("is_active", True),
                     actor_user_id=request.user.pk,
                 ),
             )
         except SiteCodeAlreadyExistsError:
-            form.add_error("code", _("This site code already exists in the selected study."))
+            form.add_error("code", _("This site code already exists in the current study."))
             return self.render_to_response(self.get_context_data(form=form))
 
         SiteAuditService(request=request).record_created(
@@ -263,7 +280,7 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractV
 
         return redirect(
             reverse(
-                "study:site_detail", kwargs={"site_id": site.pk, 'study_id': self.get_study_id()},
+                "study:site_detail", kwargs={"site_id": site.pk, 'study_id': selected_study_id},
             ),
         )
 

@@ -1,6 +1,8 @@
 from django import template
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.formats import date_format, get_format
 from django.utils.translation import gettext_lazy as _
+import datetime
 
 register = template.Library()
 
@@ -34,3 +36,20 @@ def render_event_definitions_diagram_panel(context):
         "event_definitions_diagram_nodes": context.get("event_definitions_diagram_nodes") or (),
         "event_definitions_diagram_links": context.get("event_definitions_diagram_links") or (),
     }
+
+
+@register.simple_tag
+def shared_locale_format(format_name):
+    resolved_format = get_format(format_name)
+    if isinstance(resolved_format, (list, tuple)):
+        return resolved_format[0] if resolved_format else ""
+    return resolved_format or ""
+
+
+@register.filter
+def shared_picker_value(value, format_name):
+    if value in (None, ""):
+        return ""
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return date_format(value, format_name)
+    return str(value)

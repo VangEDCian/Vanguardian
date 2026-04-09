@@ -26,6 +26,7 @@ from apps.study.application.commands.toggle_study_status import ToggleStudyStatu
 from apps.study.application.commands.update_study import UpdateStudyCommand, UpdateStudyService
 from apps.study.application.queries.study_crf_template_directory import StudyCrfTemplateDirectoryQueryService
 from apps.study.application.queries.study_event_definition_directory import StudyEventDefinitionDirectoryQueryService
+from apps.study.application.queries.study_randomization_directory import StudyRandomizationDirectoryQueryService
 from apps.study.application.queries.study_directory import (
     StudyDirectoryQueryService,
     StudyNotFoundError,
@@ -42,6 +43,7 @@ __all__ = [
     "StudyDirectoryQueryService",
     "StudyCrfTemplateDirectoryQueryService",
     "StudyEventDefinitionDirectoryQueryService",
+    "StudyRandomizationDirectoryQueryService",
     "StudyFilterActiveQueryService",
     "StudyFilterInactiveQueryService",
     "StudyHistoryQueryService",

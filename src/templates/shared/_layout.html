@@ -113,13 +113,9 @@
     </header>
 
     <div class="dashboard-breadcrumb">
-      {% block dashboard_breadcrumb_prefix %}{% endblock %}
+      <div class="dashboard-breadcrumb__prefix">{% block dashboard_breadcrumb_prefix %}{% endblock %}</div>
       {% if layout_show_breadcrumb_trail %}
         <div class="dashboard-breadcrumb__trail">
-          <span data-breadcrumb-study>{% trans "REACT-AF Training" %}</span>
-          <span aria-hidden="true">›</span>
-          <span data-breadcrumb-site>100-JHU1</span>
-          <span aria-hidden="true">›</span>
           <strong data-breadcrumb-active>
             {% if layout_breadcrumb_label %}
             {{ layout_breadcrumb_label }}

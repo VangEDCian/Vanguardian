@@ -10,4 +10,7 @@
   <a href="{% url 'study:study_event_definitions' study_id=detail_study.id %}" class="entity-detail-tabs__item{% if study_active_tab == 'event_definitions' %} is-active{% endif %}" draggable="false">
     <span class="entity-detail-tabs__label">{% trans "Event definitions" %}</span>
   </a>
+  <a href="{% url 'study:study_randomization' study_id=detail_study.id %}" class="entity-detail-tabs__item{% if study_active_tab == 'randomization' %} is-active{% endif %}" draggable="false">
+    <span class="entity-detail-tabs__label">{% trans "Randomization" %}</span>
+  </a>
 </nav>

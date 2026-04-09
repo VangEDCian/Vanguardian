@@ -50,9 +50,7 @@ class SiteNotFoundError(Exception):
 @dataclass(frozen=True)
 class UpdateSiteCommand:
     site_id: int
-    code: str
     name: str
     investigator: str
-    study_id: int
     is_active: bool
     actor_user_id: int
