@@ -13,6 +13,7 @@ from apps.identity.presentation.web.views import (
     IdentityUserDetailView,
     IdentityUserRestoreView,
     IdentityUsersView,
+    IdentityUserFirstLoginView,
 )
 
 app_name = "identity"
@@ -26,6 +27,10 @@ urlpatterns = [
     path("users/<int:user_id>", IdentityUserDetailView.as_view(), name="user_detail"),
     path("users/<int:user_id>/delete", IdentityUserDeleteView.as_view(), name="user_delete"),
     path("users/<int:user_id>/restore", IdentityUserRestoreView.as_view(), name="user_restore"),
+    path(
+        "first-login",
+        IdentityUserFirstLoginView.as_view(), name="first_login",
+    ),
     path(
         "forgot-password/",
         auth_views.PasswordResetView.as_view(

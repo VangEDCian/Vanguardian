@@ -380,6 +380,62 @@
   color: var(--warning-text);
 }
 
+.auth-account-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(33, 150, 196, 0.24);
+  background: linear-gradient(135deg, rgba(33, 150, 196, 0.12), rgba(33, 150, 196, 0.03));
+}
+
+.auth-account-banner__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 12px;
+  color: var(--primary-strong);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.auth-account-banner__icon .svg-icon {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.auth-account-banner__content {
+  display: grid;
+  gap: 3px;
+}
+
+.auth-account-banner__label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(35, 64, 81, 0.8);
+}
+
+.auth-account-banner__value {
+  margin: 0;
+  font-size: 1.03rem;
+  font-weight: 700;
+  color: #17394a;
+}
+
+.auth-account-banner__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
 .message-card {
   background: linear-gradient(180deg, rgba(33, 150, 196, 0.06), rgba(255, 255, 255, 0.8));
 }
@@ -517,5 +573,15 @@
 
   .auth-card__header h2 {
     font-size: 1.7rem;
+  }
+
+  .auth-account-banner {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .auth-account-banner__icon {
+    inline-size: 36px;
+    block-size: 36px;
   }
 }

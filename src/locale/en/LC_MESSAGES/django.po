@@ -339,6 +339,43 @@ msgstr "If you did not make this request, please ignore this email."
 msgid "Vanguardian - Password Reset Instructions"
 msgstr "Vanguardian - Password Reset Instructions"
 
+#. ==============================
+#. Module: Identity - User First Login
+#. ==============================
+
+msgid "Please enter a new password."
+msgstr "Please enter a new password."
+
+msgid "Please confirm your new password."
+msgstr "Please confirm your new password."
+
+msgid "The new password and confirmation do not match."
+msgstr "The new password and confirmation do not match."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/first_login.html
+#. ==============================
+msgid "First Login | Vanguardian"
+msgstr "First Login | Vanguardian"
+
+msgid "First Login"
+msgstr "First Login"
+
+msgid "Set up your password to continue using the system."
+msgstr "Set up your password to continue using the system."
+
+msgid "Set Password"
+msgstr "Set Password"
+
+msgid "Retype New Password"
+msgstr "Retype New Password"
+
+msgid "Retype new password"
+msgstr "Retype new password"
+
+msgid "Signed in account"
+msgstr "Signed in account"
 
 #. ==============================
 #. Module: Study

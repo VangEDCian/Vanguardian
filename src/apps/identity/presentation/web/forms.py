@@ -65,6 +65,8 @@ class IdentityUserDetailForm(forms.Form):
     is_active = forms.BooleanField(required=False)
     role = forms.ChoiceField(required=False)
     permission_groups = forms.MultipleChoiceField(required=False)
+    new_password = forms.CharField(max_length=128, required=False)
+    confirm_password = forms.CharField(max_length=128, required=False)
 
     def __init__(self, *args, role_choices=(), permission_group_choices=(), **kwargs):
         super().__init__(*args, **kwargs)
@@ -73,6 +75,23 @@ class IdentityUserDetailForm(forms.Form):
 
     def clean_phone_number(self):
         return (self.cleaned_data.get("phone_number") or "").strip()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_password = (cleaned_data.get("new_password") or "").strip()
+        confirm_password = (cleaned_data.get("confirm_password") or "").strip()
+
+        if new_password:
+            if new_password != confirm_password:
+                self.add_error("confirm_password", _("Passwords do not match."))
+            else:
+                try:
+                    validate_password(new_password)
+                except ValidationError as exc:
+                    self.add_error("new_password", exc)
+
+        cleaned_data["new_password"] = new_password or None
+        return cleaned_data
 
 
 class IdentityUserCreateForm(forms.Form):
@@ -112,3 +131,36 @@ class IdentityUserCreateForm(forms.Form):
                 self.add_error("password", exc)
 
         return cleaned_data
+
+
+class IdentityUserChangePasswordForm(forms.Form):
+    new_password = forms.CharField(min_length=8, max_length=100)
+    retype_new_password = forms.CharField(min_length=8, max_length=100)
+
+    def clean_new_password(self):
+        new_password = (self.cleaned_data.get("new_password") or "").strip()
+        if not new_password:
+            raise ValidationError(_("Please enter a new password."))
+        validate_password(new_password)
+        return new_password
+
+    def clean_retype_new_password(self):
+        retype_new_password = (self.cleaned_data.get("retype_new_password") or "").strip()
+        if not retype_new_password:
+            raise ValidationError(_("Please confirm your new password."))
+        validate_password(retype_new_password)
+        return retype_new_password
+
+    def clean(self):
+        cleaned_data: dict | None = super().clean()
+
+        if cleaned_data:
+            new_password = cleaned_data.get('new_password', None)
+            retype_new_password = cleaned_data.get('retype_new_password', None)
+
+            if new_password and retype_new_password:
+                if new_password != retype_new_password:
+                    raise ValidationError(_("The new password and confirmation do not match."))
+
+        return cleaned_data
+

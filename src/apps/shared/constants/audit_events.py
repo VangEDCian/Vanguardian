@@ -27,6 +27,10 @@ class AuditEventActionEnum(enum.Enum):
     STUDY_SITE_UPDATED = "study.site.updated"
     STUDY_SITE_DELETED = "study.site.deleted"
 
+    IDENTITY_USER_CHANGE_PASSWORD = "identity.user.change_password"
+    IDENTITY_USER_ADMIN_SET_PASSWORD = "identity.user.admin_set_password"
+
 
 class AuditEventObjectTypeEnum(enum.Enum):
     STUDY_SITE = "study.site"
+    IDENTITY_USER = "identity.user"

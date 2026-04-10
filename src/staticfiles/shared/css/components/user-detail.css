@@ -177,6 +177,26 @@
   cursor: pointer;
 }
 
+.user-detail-security-toggle {
+  margin-top: 8px;
+  margin-left: 130px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-detail-password-panel {
+  margin-top: 2px;
+}
+
+.user-detail-section__hint {
+  margin: 6px 0 0 130px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #5f6b76;
+  max-width: 56rem;
+}
+
 .user-detail-password-control {
   position: relative;
 }
@@ -226,6 +246,11 @@
 @media (max-width: 720px) {
   .user-detail-inline-row {
     grid-template-columns: 1fr;
+  }
+
+  .user-detail-security-toggle,
+  .user-detail-section__hint {
+    margin-left: 0;
   }
 
   .user-detail-inline-field,

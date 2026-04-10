@@ -1,5 +1,8 @@
 from apps.audit.public import AuditContextAdapter
-from apps.shared.constants import AuditEventAction, AuditEventObjectType
+from apps.shared.constants import (
+    AuditEventAction, AuditEventObjectType, AuditEventActionEnum,
+    AuditEventObjectTypeEnum,
+)
 
 
 def serialize_identity_user_snapshot(user):
@@ -67,6 +70,28 @@ class IdentityUserAuditService:
             user_id=user.pk,
             before_data=before_data,
             after_data=serialize_identity_user_snapshot(user),
+        )
+
+    def record_user_change_password(self, request, user):
+        self.audit_context_adapter.record_event(
+            action=AuditEventActionEnum.IDENTITY_USER_CHANGE_PASSWORD,
+            object_type=AuditEventObjectTypeEnum.IDENTITY_USER,
+            object_id=str(user.pk),
+            request=request,
+            user_id=user.pk,
+            before_data={},
+            after_data={},
+        )
+
+    def record_admin_set_password(self, *, request, user):
+        self.audit_context_adapter.record_event(
+            action=AuditEventActionEnum.IDENTITY_USER_ADMIN_SET_PASSWORD,
+            object_type=AuditEventObjectTypeEnum.IDENTITY_USER,
+            object_id=str(user.pk),
+            request=request,
+            user_id=user.pk,
+            before_data={},
+            after_data={},
         )
 
 

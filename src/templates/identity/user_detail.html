@@ -142,6 +142,42 @@
           </div>
         </section>
 
+        {% if can_update_detail %}
+          <section class="user-detail-section">
+            <h2 class="user-detail-section__title">{% trans 'SECURITY' %}</h2>
+            <div class="user-detail-section__body">
+              <div class="user-detail-security-toggle">
+                <input
+                  type="checkbox"
+                  id="detail-enable-password-change"
+                  class="user-detail-field__checkbox"
+                  data-user-detail-enable-password-change
+                >
+                <label for="detail-enable-password-change" class="user-detail-field__checkbox-label">
+                  {% trans 'Change password for this user' %}
+                </label>
+              </div>
+              <div class="user-detail-password-panel" hidden data-user-detail-password-panel>
+                <div class="user-detail-inline-row">
+                  <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label" for="detail-new-password">{% trans 'New Password' %}:</label>
+                    <div class="user-detail-inline-field__control-wrap">
+                      {% include 'shared/components/_old_textbox.html' with textbox_id='detail-new-password' textbox_name='new_password' textbox_type='password' textbox_autocomplete='new-password' textbox_disabled='disabled' %}
+                    </div>
+                  </div>
+                  <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label" for="detail-confirm-password">{% trans 'Confirm Password' %}:</label>
+                    <div class="user-detail-inline-field__control-wrap">
+                      {% include 'shared/components/_old_textbox.html' with textbox_id='detail-confirm-password' textbox_name='confirm_password' textbox_type='password' textbox_autocomplete='new-password' textbox_disabled='disabled' %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="user-detail-section__hint">{% trans 'Leave blank to keep the current password. Setting a new password will reset the user to the first-login flow on their next sign-in.' %}</p>
+            </div>
+          </section>
+        {% endif %}
+
         <section class="user-detail-section">
           <h2 class="user-detail-section__title">{% trans 'HISTORICAL' %}</h2>
           <div class="user-detail-section__body">
@@ -227,6 +263,10 @@
         const form = document.querySelector("[data-user-detail-form]");
         const saveButton = document.querySelector("[data-user-detail-save]");
         const feedback = document.querySelector("[data-user-detail-feedback]");
+        const enablePasswordChange = form?.querySelector("[data-user-detail-enable-password-change]");
+        const passwordPanel = form?.querySelector("[data-user-detail-password-panel]");
+        const newPasswordInput = form?.querySelector("#detail-new-password");
+        const confirmPasswordInput = form?.querySelector("#detail-confirm-password");
 
         if (!form || !saveButton) {
           return;
@@ -260,7 +300,7 @@
         }
 
         function getPayload() {
-          return {
+          const payload = {
             first_name: form.querySelector("#detail-first-name")?.value || "",
             last_name: form.querySelector("#detail-last-name")?.value || "",
             email: form.querySelector("#detail-email")?.value || "",
@@ -269,10 +309,85 @@
             role: form.querySelector("#detail-role")?.value || "",
             permission_groups: $("#detail-permission-groups").val() || []
           };
+
+          if (enablePasswordChange?.checked) {
+            payload.new_password = newPasswordInput?.value || "";
+            payload.confirm_password = confirmPasswordInput?.value || "";
+          }
+
+          return payload;
         }
+
+        function validatePasswordInputs() {
+          if (!enablePasswordChange?.checked) {
+            return true;
+          }
+
+          const newPwd = newPasswordInput?.value || "";
+          const confirmPwd = confirmPasswordInput?.value || "";
+
+          if (!newPwd.trim() || !confirmPwd.trim()) {
+            return false;
+          }
+
+          return true;
+        }
+
+        function updateSaveButtonState() {
+          const isValid = validatePasswordInputs();
+          saveButton.disabled = !isValid;
+        }
+
+        function syncPasswordChangeState() {
+          if (!passwordPanel) {
+            return;
+          }
+
+          const isEnabled = !!enablePasswordChange?.checked;
+          passwordPanel.hidden = !isEnabled;
+
+          if (newPasswordInput) {
+            newPasswordInput.disabled = !isEnabled;
+            if (!isEnabled) {
+              newPasswordInput.value = "";
+            }
+          }
+
+          if (confirmPasswordInput) {
+            confirmPasswordInput.disabled = !isEnabled;
+            if (!isEnabled) {
+              confirmPasswordInput.value = "";
+            }
+          }
+
+          updateSaveButtonState();
+        }
+
+        if (enablePasswordChange) {
+          enablePasswordChange.addEventListener("change", function () {
+            clearFeedback();
+            syncPasswordChangeState();
+          });
+        }
+
+        if (newPasswordInput) {
+          newPasswordInput.addEventListener("input", updateSaveButtonState);
+        }
+
+        if (confirmPasswordInput) {
+          confirmPasswordInput.addEventListener("input", updateSaveButtonState);
+        }
+
+        syncPasswordChangeState();
 
         saveButton.addEventListener("click", async function () {
           clearFeedback();
+
+          if (!validatePasswordInputs()) {
+            setFeedback("{% trans 'Please fill in both password fields to change the password.' %}", "error");
+            return;
+          }
+
           saveButton.disabled = true;
           saveButton.textContent = "{% trans 'Saving...' %}";
 
@@ -305,6 +420,7 @@
           } finally {
             saveButton.disabled = {% if not can_update_detail %}true{% else %}false{% endif %};
             saveButton.textContent = originalSaveLabel;
+            updateSaveButtonState();
           }
         });
 
@@ -313,6 +429,7 @@
           window.setTimeout(function () {
             $("#detail-role").trigger("change.select2");
             $("#detail-permission-groups").trigger("change.select2");
+            syncPasswordChangeState();
           }, 0);
         });
       });

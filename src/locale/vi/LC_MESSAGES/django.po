@@ -339,6 +339,45 @@ msgstr "Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email."
 msgid "Vanguardian - Password Reset Instructions"
 msgstr "Vanguardian - Hướng dẫn đặt lại mật khẩu"
 
+#. ==============================
+#. Module: Identity - User First Login
+#. ==============================
+
+msgid "Please enter a new password."
+msgstr "Vui lòng nhập mật khẩu mới."
+
+msgid "Please confirm your new password."
+msgstr "Vui lòng xác nhận mật khẩu mới."
+
+msgid "The new password and confirmation do not match."
+msgstr "Mật khẩu mới và mật khẩu xác nhận không khớp."
+
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/first_login.html
+#. ==============================
+msgid "First Login | Vanguardian"
+msgstr "Đăng nhập lần đầu | Vanguardian"
+
+msgid "First Login"
+msgstr "Đăng nhập lần đầu"
+
+msgid "Set up your password to continue using the system."
+msgstr "Thiết lập mật khẩu để tiếp tục sử dụng hệ thống."
+
+msgid "Set Password"
+msgstr "Thiết lập mật khẩu"
+
+
+msgid "Retype New Password"
+msgstr "Nhập lại mật khẩu mới"
+
+msgid "Retype new password"
+msgstr "Nhập lại mật khẩu mới"
+
+msgid "Signed in account"
+msgstr "Tài khoản đang đăng nhập"
 
 #. ==============================
 #. Module: Study
@@ -550,3 +589,83 @@ msgstr "Nhập giá trị tìm kiếm..."
 
 msgid "All statuses"
 msgstr "Tất cả trạng thái"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/user_detail.html
+#. ==============================
+msgid "SECURITY"
+msgstr "BẢO MẬT"
+
+msgid "Change password for this user"
+msgstr "Đổi mật khẩu cho người dùng này"
+
+msgid "Leave blank to keep the current password. Setting a new password will reset the user to the first-login flow on their next sign-in."
+msgstr "Để trống để giữ mật khẩu hiện tại. Đặt mật khẩu mới sẽ đưa người dùng quay lại luồng đăng nhập lần đầu tiên ở lần đăng nhập tiếp theo."
+
+msgid "HISTORICAL"
+msgstr "LỊCH SỬ"
+
+msgid "Joined Date"
+msgstr "Ngày tham gia"
+
+msgid "Last Login"
+msgstr "Lần đăng nhập cuối"
+
+msgid "Users | Vanguardian"
+msgstr "Người dùng | Vanguardian"
+
+msgid "Users"
+msgstr "Người dùng"
+
+msgid "NEW USER"
+msgstr "NGƯỜI DÙNG MỚI"
+
+msgid "Reset"
+msgstr "Làm mới"
+
+msgid "Delete"
+msgstr "Xóa"
+
+msgid "Restore"
+msgstr "Khôi phục"
+
+msgid "User details saved successfully."
+msgstr "Chi tiết người dùng đã được lưu thành công."
+
+msgid "Unable to save user details."
+msgstr "Không thể lưu chi tiết người dùng."
+
+msgid "Saving..."
+msgstr "Đang lưu..."
+
+msgid "Delete User"
+msgstr "Xóa người dùng"
+
+msgid "Are you sure you want to delete <strong>%(username)s</strong>? You can restore this user later."
+msgstr "Bạn có chắc muốn xóa <strong>%(username)s</strong>? Bạn có thể khôi phục người dùng này sau."
+
+msgid "Restore User"
+msgstr "Khôi phục người dùng"
+
+msgid "Restore <strong>%(username)s</strong> and re-apply the last saved role, status, and permission groups?"
+msgstr "Khôi phục <strong>%(username)s</strong> và áp dụng lại vai trò, trạng thái, và nhóm quyền đã lưu cuối cùng?"
+
+msgid "This username is already in use."
+msgstr "Tên đăng nhập này đã được sử dụng."
+
+msgid "This email address is already in use."
+msgstr "Địa chỉ email này đã được sử dụng."
+
+msgid "This phone number is already in use."
+msgstr "Số điện thoại này đã được sử dụng."
+
+msgid "Passwords do not match."
+msgstr "Mật khẩu không khớp."
+
+msgid "You do not have permission to update this user."
+msgstr "Bạn không có quyền cập nhật người dùng này."
+
+msgid "Please fill in both password fields to change the password."
+msgstr "Vui lòng điền đầy đủ cả hai trường mật khẩu để thay đổi mật khẩu."
+
