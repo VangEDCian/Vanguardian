@@ -27,6 +27,7 @@ class UpdateIdentityUserDetailCommand:
     role_key: str = "user"
     permission_group_ids: tuple[str, ...] = ()
     can_manage_permissions: bool = False
+    new_password: str | None = None
 
 
 class UpdateIdentityUserDetailService:
@@ -50,6 +51,10 @@ class UpdateIdentityUserDetailService:
 
         if command.can_manage_permissions:
             self._apply_role_flags(user, command.role_key)
+
+        if command.new_password:
+            user.set_password(command.new_password)
+            user.attempt_login = 0
 
         user.save()
 

@@ -1,5 +1,7 @@
 from django.db import DatabaseError
+from django.http import HttpResponseRedirect
 from django.shortcuts import render
+from django.urls import reverse
 
 from apps.identity.infrastructure.persistence.models import (
     StudyMembership,
@@ -49,3 +51,25 @@ class MembershipAccessMiddleware:
             return StudySiteMembership.objects.filter(user_id=user_id, deleted=False).exists()
         except DatabaseError:
             return False
+
+
+class CheckFirstLoginMiddleware:
+    EXCLUDES_PATH = [
+        reverse("identity:login"),
+        reverse("identity:change_password"),
+        reverse("identity:logout"),
+    ]
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if (
+                request.user.is_authenticated
+                and hasattr(request.user, "attempt_login")
+                and request.user.attempt_login <= 0
+                and request.path not in self.EXCLUDES_PATH
+        ):
+            return HttpResponseRedirect(reverse('identity:change_password'))
+        response = self.get_response(request)
+        return response

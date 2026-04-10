@@ -12,6 +12,7 @@ class User(AbstractUser):
     deleted = models.BooleanField(default=False)
     display_name = models.CharField(max_length=255, blank=True, default="")
     phone_number = models.CharField(max_length=32, blank=True, null=True, unique=True)
+    attempt_login  = models.SmallIntegerField(default=0)
 
     def save(self, *args, **kwargs):
         self.email = self._normalize_optional_identifier(self.email)
