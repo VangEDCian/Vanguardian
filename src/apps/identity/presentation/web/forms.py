@@ -4,8 +4,6 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
-from apps.identity.infrastructure.persistence.models import User
-
 
 class StyledAuthenticationForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
@@ -136,15 +134,8 @@ class IdentityUserCreateForm(forms.Form):
 
 
 class IdentityUserChangePasswordForm(forms.Form):
-    password = forms.CharField(min_length=1, max_length=100)
     new_password = forms.CharField(min_length=8, max_length=100)
     retype_new_password = forms.CharField(min_length=8, max_length=100)
-
-    def clean_password(self):
-        password = (self.cleaned_data.get("password") or "").strip()
-        if not password:
-            raise ValidationError(_("Current password is required."))
-        return password
 
     def clean_new_password(self):
         new_password = (self.cleaned_data.get("new_password") or "").strip()
@@ -164,22 +155,12 @@ class IdentityUserChangePasswordForm(forms.Form):
         cleaned_data: dict | None = super().clean()
 
         if cleaned_data:
-            password = cleaned_data.get('password', "")
             new_password = cleaned_data.get('new_password', None)
             retype_new_password = cleaned_data.get('retype_new_password', None)
 
-            if password and new_password and retype_new_password:
+            if new_password and retype_new_password:
                 if new_password != retype_new_password:
                     raise ValidationError(_("The new password and confirmation do not match."))
 
-                if new_password == password:
-                    raise ValidationError(_("Your new password must be different from the current password."))
-
-                if not (self.user and self.user.check_password(password)):
-                    raise ValidationError(_("Password is incorrect."))
-
         return cleaned_data
 
-    def __init__(self, user: User = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.user = user

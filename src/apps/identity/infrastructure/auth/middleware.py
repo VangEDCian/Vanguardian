@@ -56,7 +56,7 @@ class MembershipAccessMiddleware:
 class CheckFirstLoginMiddleware:
     EXCLUDES_PATH = [
         reverse("identity:login"),
-        reverse("identity:change_password"),
+        reverse("identity:first_login"),
         reverse("identity:logout"),
     ]
 
@@ -70,6 +70,6 @@ class CheckFirstLoginMiddleware:
                 and request.user.attempt_login <= 0
                 and request.path not in self.EXCLUDES_PATH
         ):
-            return HttpResponseRedirect(reverse('identity:change_password'))
+            return HttpResponseRedirect(reverse('identity:first_login'))
         response = self.get_response(request)
         return response

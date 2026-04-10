@@ -76,7 +76,7 @@ class IdentityLoginView(LoginView):
         ):
             # check first-login
             if authenticated_user.attempt_login <= 0:
-                return redirect(reverse('identity:change_password'))
+                return redirect(reverse('identity:first_login'))
 
             # increase attempt login number
             authenticated_user.attempt_login = F('attempt_login') + 1
@@ -525,8 +525,8 @@ class IdentityUserRestoreView(LoginRequiredMixin, View):
         return redirect(reverse("identity:user_detail", kwargs={"user_id": restored_user.pk}))
 
 
-class IdentityUserChangePasswordView(LoginRequiredMixin, TemplateView):
-    template_name = "identity/change_password.html"
+class IdentityUserFirstLoginView(LoginRequiredMixin, TemplateView):
+    template_name = "identity/first_login.html"
     success_url = reverse_lazy("dashboard:main")
 
     def get_account_identity(self):
@@ -538,17 +538,17 @@ class IdentityUserChangePasswordView(LoginRequiredMixin, TemplateView):
             or str(current_user.pk)
         )
 
-    def get_user_change_password_form(self, *args, **kwargs):
-        return IdentityUserChangePasswordForm(cast(User, self.request.user), *args, **kwargs)
+    def get_first_login_form(self, *args, **kwargs):
+        return IdentityUserChangePasswordForm(*args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.setdefault("form", self.get_user_change_password_form())
+        context.setdefault("form", self.get_first_login_form())
         context["account_identity"] = self.get_account_identity()
         return context
 
     def post(self, request, *args, **kwargs):
-        form = self.get_user_change_password_form(request.POST)
+        form = self.get_first_login_form(request.POST)
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
 
