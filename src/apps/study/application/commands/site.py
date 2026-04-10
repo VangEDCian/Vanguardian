@@ -98,24 +98,10 @@ class UpdateSiteService:
         site = Site.objects.filter(pk=command.site_id, deleted=False).first()
         if site is None:
             raise SiteNotFoundError(command.site_id)
-
-        self._validate_code_unique(command.study_id, command.code, exclude_id=command.site_id)
-
-        site.code = command.code.strip()
         site.name = command.name.strip()
         site.investigator = command.investigator.strip()
-        site.study_id = command.study_id
         site.is_active = command.is_active
         site.updated_at = timezone.now()
         site.updated_by_id = command.actor_user_id
         site.save()
         return site
-
-    @staticmethod
-    def _validate_code_unique(study_id, code, exclude_id):
-        if (
-                Site.objects.filter(study_id=study_id, code=code.strip(), deleted=False)
-                        .exclude(pk=exclude_id)
-                        .exists()
-        ):
-            raise SiteCodeAlreadyExistsError(code)

@@ -1,0 +1,11 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'flatpickr/dist/flatpickr.min.css' %}">
+<link rel="stylesheet" href="{% static 'shared/css/components/_common_flatpickr.css' %}">
+<link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}">
+<script src="{% static 'flatpickr/dist/flatpickr.min.js' %}"></script>
+<script src="{% static 'shared/js/components/_common_flatpickr.js' %}"></script>
+<script>
+  if (window.VanguardianCommonFlatpickrInit) {
+    window.VanguardianCommonFlatpickrInit();
+  }
+</script>

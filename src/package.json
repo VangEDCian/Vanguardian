@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "flatpickr": "^4.6.13",
     "gojs": "^3.1.8"
   }
 }

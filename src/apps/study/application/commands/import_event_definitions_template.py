@@ -9,12 +9,13 @@ from apps.core.choices import (
     EventDefinitionTypeChoices,
     EventInstanceStatusChoices,
 )
-from apps.study.infrastructure.persistence.models import EventDefinition, Study
+from apps.study.infrastructure.persistence.models import EventDefinition
 
 
 @dataclass(frozen=True)
 class ImportStudyEventDefinitionsTemplateCommand:
     actor_user_id: int
+    study_id: int
     file_name: str
     file_content: bytes
 
@@ -51,7 +52,6 @@ class EventDefinitionImportFormatError(EventDefinitionImportTemplateError):
 
 class ImportStudyEventDefinitionsTemplateService:
     expected_columns = (
-        "Study Code",
         "Study Version",
         "Code",
         "Name",
@@ -129,6 +129,7 @@ class ImportStudyEventDefinitionsTemplateService:
         for row_number, row_data in workbook_rows:
             try:
                 import_outcome = self._import_row(
+                    study_id=command.study_id,
                     row_data=row_data,
                     row_number=row_number,
                     actor_user_id=command.actor_user_id,
@@ -140,17 +141,6 @@ class ImportStudyEventDefinitionsTemplateService:
                         study_code=str(row_data.get("study_code", "") or ""),
                         code=str(row_data.get("code", "") or ""),
                         reason=str(exc),
-                    )
-                )
-                continue
-
-            if import_outcome is None:
-                issues.append(
-                    EventDefinitionImportIssue(
-                        row_number=row_number,
-                        study_code=str(row_data.get("study_code", "") or ""),
-                        code=str(row_data.get("code", "") or ""),
-                        reason="Study code was not found.",
                     )
                 )
                 continue
@@ -169,15 +159,7 @@ class ImportStudyEventDefinitionsTemplateService:
             warnings=(),
         )
 
-    def _import_row(self, *, row_data, row_number, actor_user_id):
-        study_code = self._as_text(row_data.get("study_code"))
-        if not study_code:
-            raise EventDefinitionImportFormatError("Study Code is required.")
-
-        study = Study.objects.filter(code=study_code, deleted=False).first()
-        if study is None:
-            return None
-
+    def _import_row(self, *, study_id, row_data, row_number, actor_user_id):
         study_version_input = self._as_text(row_data.get("study_version"))
         if not study_version_input:
             raise EventDefinitionImportFormatError("Study Version is required.")
@@ -185,7 +167,7 @@ class ImportStudyEventDefinitionsTemplateService:
             raise EventDefinitionImportFormatError("Study Version must be 20 characters or fewer.")
 
         study_version = self._resolve_study_version(
-            study_id=study.pk,
+            study_id=study_id,
             raw_study_version=study_version_input,
         )
 
@@ -230,7 +212,7 @@ class ImportStudyEventDefinitionsTemplateService:
 
         now = self._now()
         defaults = {
-            "study_id": study.pk,
+            "study_id": study_id,
             "study_version": study_version,
             "name": name,
             "description": self._nullable_text(row_data.get("description")),
@@ -254,7 +236,7 @@ class ImportStudyEventDefinitionsTemplateService:
 
         with transaction.atomic():
             event_definition = EventDefinition.objects.filter(
-                study_id=study.pk,
+                study_id=study_id,
                 study_version=study_version,
                 code=code,
             ).first()

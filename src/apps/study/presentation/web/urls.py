@@ -8,6 +8,7 @@ from apps.study.presentation.web.views import (
     StudyEventFormBindingImportTemplateView,
     StudyEventDefinitionImportTemplateView,
     StudyEventDefinitionListView,
+    StudyRandomizationView,
     StudyDeleteView,
     StudyDetailView,
     StudyListView,
@@ -32,6 +33,7 @@ urlpatterns = [
     path("studies/<int:study_id>/eventdefinitions/import", StudyEventDefinitionImportTemplateView.as_view(), name="study_event_definition_import"),
     path("studies/<int:study_id>/eventdefinitions/new", StudyEventDefinitionCreateView.as_view(), name="study_event_definition_create"),
     path("studies/<int:study_id>/eventdefinitions", StudyEventDefinitionListView.as_view(), name="study_event_definitions"),
+    path("studies/<int:study_id>/randomization", StudyRandomizationView.as_view(), name="study_randomization"),
     path("studies/<int:study_id>/delete", StudyDeleteView.as_view(), name="study_delete"),
     path("studies/<int:study_id>/edit", StudyUpdateView.as_view(), name="study_update"),
     path(
