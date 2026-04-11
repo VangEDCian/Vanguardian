@@ -4,34 +4,9 @@
 
 {% block title %}{% trans "Sites | Vanguardian" %}{% endblock %}
 
-{% block extra_css %}
-  {{ block.super }}
-  <style>
-    .entity-table__filter--right {
-      margin-left: auto;
-    }
-
-    .entity-table__filter-field {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-  </style>
-{% endblock %}
-
 {% block dashboard_content %}
   <section class="entity-table-panel">
-    <form method="get" class="entity-table__toolbar">
-      {% include "shared/components/_entity_table_toolbar_icon.html" %}
-      <div class="entity-table__filter entity-table__filter--right">
-        {% for field in filter.form %}
-          <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
-          <div class="entity-table__filter-field">
-            {{ field }}
-          </div>
-        {% endfor %}
-      </div>
-    </form>
+    {% include "shared/components/_entity_table_toolbar2.html" with filter_form=filter.form %}
     {% render_table table %}
 
     {% if perms.site.create_site %}

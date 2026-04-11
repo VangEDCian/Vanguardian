@@ -1,11 +1,15 @@
 __all__ = [
     "SiteForm",
     "SiteMembershipForm",
+    "SitesToolbarForm",
 ]
 
 from django import forms
 
 from django.utils.translation import gettext_lazy as _
+
+from apps.shared.filters import SharedFilter, SharedSearch, SharedTotal
+from apps.study.infrastructure.persistence.models import Site
 
 
 class SiteForm(forms.Form):
@@ -35,7 +39,9 @@ class SiteForm(forms.Form):
         label=_("Active"),
     )
 
-    def __init__(self, *args, study_choices=(), fixed_study_id=None, fixed_code=None, **kwargs):
+    def __init__(
+        self, *args, study_choices=(), fixed_study_id=None, fixed_code=None, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.fixed_study_id = fixed_study_id
         self.fixed_code = fixed_code
@@ -74,3 +80,16 @@ class SiteMembershipForm(forms.Form):
 
     def clean_user_id(self):
         return int(self.cleaned_data["user_id"])
+
+
+class SitesToolbarForm(SharedFilter, SharedSearch, SharedTotal):
+    SEARCH_FIELDS = ("name", "code")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bind_total_field()
+
+    class Meta:
+        model = Site
+        fields = ("filter", "search")
+        toolbar_fields = ("filter", "total", "search")

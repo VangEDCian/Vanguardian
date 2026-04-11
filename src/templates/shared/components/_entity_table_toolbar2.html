@@ -1,0 +1,7 @@
+<form method="get" class="entity-table__toolbar">
+  {% include "shared/components/_entity_table_toolbar_icon.html" %}
+  {% for field in filter_form %}
+    <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
+    {{ field }}
+  {% endfor %}
+</form>

@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.forms",
     "rest_framework",
     "django_filters",
     "drf_spectacular",
@@ -102,6 +103,7 @@ TEMPLATES = [
         },
     },
 ]
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 
 WSGI_APPLICATION = "Vanguardian.wsgi.application"
 ASGI_APPLICATION = "Vanguardian.asgi.application"

@@ -22,10 +22,9 @@ from apps.study.application.commands.site_data import (
     SiteCodeAlreadyExistsError, CreateSiteCommand, UpdateSiteCommand,
 )
 from apps.study.application.queries.site_directory import StudySiteDirectoryQueryService
-from apps.study.application.queries.site_filter import SitesFilter
 from apps.study.application.services.site_audit import SiteAuditService
 from apps.study.infrastructure.persistence.models import Site, Study
-from apps.study.presentation.web.formpackages.site import SiteForm
+from apps.study.presentation.web.formpackages.site import SiteForm, SitesToolbarForm
 from apps.study.presentation.web.tables import SiteListTable
 from apps.study.presentation.web.viewpackages._helpers import _user_has_study_access
 
@@ -57,7 +56,7 @@ class SiteListView(
     model = Site
     template_name = "study/site_list.html"
     table_class = SiteListTable
-    filterset_class = SitesFilter
+    filterset_class = SitesToolbarForm
     paginate_by = 2
 
     study_obj: Study = None
