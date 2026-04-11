@@ -65,13 +65,17 @@ class SiteListView(
     def get_queryset(self):
         return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
 
+    @staticmethod
+    def _get_resolved_study_id(request):
+        return StudyDropdownHandler(request=request).build().selected_id
+
     def get(self, request, *args, **kwargs):
         path_study_id = self.get_study_id()
-        cookie_study_id = StudyDropdownHandler(request=request).get_cookie_value(parse_to_int=True)
-        if path_study_id and cookie_study_id:
-            if path_study_id == cookie_study_id:
+        resolved_study_id = self._get_resolved_study_id(request)
+        if path_study_id and resolved_study_id:
+            if path_study_id == resolved_study_id:
                 return super().get(request, *args, **kwargs)
-            return redirect(reverse("study:site_list", kwargs={'study_id': cookie_study_id}))
+            return redirect(reverse("study:site_list", kwargs={'study_id': resolved_study_id}))
         return redirect(reverse('dashboard:main'))
 
 
@@ -200,11 +204,9 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractV
         )
 
     def _get_selected_study_id(self):
-        cookie_study_id = StudyDropdownHandler(
-            request=self.request,
-        ).get_cookie_value(parse_to_int=True)
-        if cookie_study_id is not None:
-            return cookie_study_id
+        selected_study_id = StudyDropdownHandler(request=self.request).build().selected_id
+        if selected_study_id is not None:
+            return selected_study_id
         return self.get_study_id()
 
     def _get_selected_study(self):
