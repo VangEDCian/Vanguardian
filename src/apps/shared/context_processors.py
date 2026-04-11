@@ -119,21 +119,16 @@ class DropdownHandlerAbstract(abc.ABC):
         if self.user:
             try:
                 study_selected_id = self.get_cookie_value(parse_to_int=True)
-                study_objs = self.get_objects()
+                study_objs = list(self.get_objects())
+
+                if study_objs and not any(obj.id == study_selected_id for obj in study_objs):
+                    study_selected_id = study_objs[0].id
 
                 select_display_text = self.PLACEHOLDER_TEXT
-                selected_options = []
                 for obj in study_objs:
                     if study_selected_id == obj.id:
                         select_display_text = obj.code
-
-                    selected_options.append(
-                        {
-                            "value": str(obj.id),
-                            "label": obj.code,
-                            "selected": study_selected_id == obj.id,
-                        },
-                    )
+                        break
 
                 return DropdownData(
                     selected_id=study_selected_id,
@@ -167,7 +162,7 @@ class StudyDropdownHandler(DropdownHandlerAbstract):
             )
             qs = qs.filter(pk__in=belong_to_studies)
 
-        return qs.order_by("code")
+        return qs.order_by("id")
 
 
 class SiteDropdownHandler(StudyDropdownHandler):
@@ -190,7 +185,7 @@ class SiteDropdownHandler(StudyDropdownHandler):
             ).values_list("study_id", flat=True)
             qs = qs.filter(pk__in=belong_to_studies)
 
-        return qs.order_by("code")
+        return qs.order_by("id")
 
 
 def shared_select_options(request):
