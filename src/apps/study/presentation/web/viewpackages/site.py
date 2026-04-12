@@ -54,7 +54,7 @@ class SiteListView(
     layout_breadcrumb_label = _("SITES")
 
     model = Site
-    template_name = "study/site_list.html"
+    template_name = "study/sites.html"
     table_class = SiteListTable
     filterset_class = SitesToolbarForm
     paginate_by = 2

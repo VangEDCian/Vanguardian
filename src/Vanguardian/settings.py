@@ -54,6 +54,7 @@ X_INSTALLED_APPS = [
     "apps.dashboard.apps.DashboardConfig",
     "apps.study.apps.StudyConfig",
     "apps.crf.apps.CrfConfig",
+    "apps.subject.apps.SubjectConfig",
 ]
 
 INSTALLED_APPS = [

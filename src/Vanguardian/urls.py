@@ -25,5 +25,6 @@ urlpatterns = [
     path("", include("apps.identity.presentation.web.urls")),
     path("", include("apps.dashboard.presentation.web.urls")),
     path("", include("apps.study.presentation.web.urls")),
+    path("", include("apps.subject.presentation.web.urls")),
     path('admin/', admin.site.urls),
 ]

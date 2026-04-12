@@ -1,0 +1,12 @@
+{% extends "shared/_layout.html" %}
+{% load i18n %}
+{% load render_table from django_tables2 %}
+
+{% block title %}{% trans "Subjects | Vanguardian" %}{% endblock %}
+
+{% block dashboard_content %}
+  <section class="entity-table-panel">
+    {% include "shared/components/_entity_table_toolbar2.html" with filter_form=filter.form %}
+    {% render_table table %}
+  </section>
+{% endblock %}

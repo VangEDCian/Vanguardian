@@ -19,12 +19,26 @@
     <header class="top-nav">
       <div class="top-nav__inner">
         <nav class="top-nav__menu" aria-label="{% trans 'Main navigation' %}">
-          <button type="button" class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'SUBJECTS' %}">
-            <span class="top-nav__icon" aria-hidden="true">
-              <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
-            </span>
-            <span>{% trans "SUBJECTS" %}</span>
-          </button>
+          {% if shared_study_selected_id %}
+            <a href="{% url 'subject:subject_list' study_id=shared_study_selected_id %}" class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'SUBJECTS' %}">
+              <span class="top-nav__icon" aria-hidden="true">
+                <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
+              </span>
+              <span>{% trans "SUBJECTS" %}</span>
+            </a>
+          {% else %}
+            <button
+                    onclick="alert(`{% trans 'Choose a study first.' %}`)"
+                    title="{% trans 'Choose a study first.' %}"
+                    class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
+                    data-nav-label="{% trans 'SUBJECTS' %}"
+            >
+              <span class="top-nav__icon" aria-hidden="true">
+                <span class="svg-icon" style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
+              </span>
+              <span>{% trans "SUBJECTS" %}</span>
+            </button>
+          {% endif %}
 
           {% if shared_study_selected_id %}
             <a href="{% url 'study:site_list' study_id=shared_study_selected_id %}" class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'SITES' %}">
