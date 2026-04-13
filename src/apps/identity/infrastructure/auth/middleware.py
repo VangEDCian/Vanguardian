@@ -54,21 +54,24 @@ class MembershipAccessMiddleware:
 
 
 class CheckFirstLoginMiddleware:
-    EXCLUDES_PATH = [
+    EXCLUDED_PATH_PREFIXES = (
         reverse("identity:login"),
         reverse("identity:first_login"),
         reverse("identity:logout"),
-    ]
+        reverse("set_language"),
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        is_excluded_path = request.path_info.startswith(self.EXCLUDED_PATH_PREFIXES)
+
         if (
                 request.user.is_authenticated
                 and hasattr(request.user, "attempt_login")
                 and request.user.attempt_login <= 0
-                and request.path not in self.EXCLUDES_PATH
+                and not is_excluded_path
         ):
             return HttpResponseRedirect(reverse('identity:first_login'))
         response = self.get_response(request)
