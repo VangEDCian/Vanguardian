@@ -227,7 +227,7 @@
   padding: 0 16px;
   font-size: 12px;
   color: #888; */
-  padding: 0.375rem 1rem;
+  /* padding: 0.375rem 1rem; */
   background-color: rgb(255, 255, 255);
   border-bottom: 1px solid rgb(224, 224, 224);
   font-size: 12px;
@@ -247,6 +247,11 @@
   min-width: 0;
 }
 
+.dashboard-breadcrumb__prefix{
+  padding: 0.375rem 0 0.375rem 1rem;
+}
+
+.dashboard-breadcrumb__prefix:empty,
 .dashboard-breadcrumb__prefix:empty + .dashboard-breadcrumb__trail {
   display: none;
 }

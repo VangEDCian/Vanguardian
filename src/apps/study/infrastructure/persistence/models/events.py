@@ -1,9 +1,12 @@
 from django.db import models
 
 from apps.core.choices import (
+    EventDefinitionCategoryChoices,
+    EventExecutionModeChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
-    EventInstanceStatusChoices,
+    EventTransitionConditionScopeChoices,
+    EventTransitionTypeChoices,
 )
 from apps.shared.constants import EventFormEntryModeChoices
 
@@ -36,6 +39,17 @@ class EventDefinition(models.Model):
         choices=EventDefinitionTimingModeChoices.choices,
         default=EventDefinitionTimingModeChoices.SCHEDULED,
     )
+    event_category = models.CharField(
+        max_length=32,
+        choices=EventDefinitionCategoryChoices.choices,
+        null=True,
+        blank=True,
+    )
+    execution_mode = models.CharField(
+        max_length=32,
+        choices=EventExecutionModeChoices.choices,
+        default=EventExecutionModeChoices.FORM_ENTRY,
+    )
 
     sequence_no = models.IntegerField(default=1)
     phase_code = models.CharField(max_length=64, null=True, blank=True)
@@ -45,18 +59,6 @@ class EventDefinition(models.Model):
 
     is_enabled = models.BooleanField(default=True)
     is_required = models.BooleanField(default=False)
-
-    anchor_event_code = models.CharField(max_length=64, null=True, blank=True)
-    day_offset = models.IntegerField(null=True, blank=True)
-    window_before_days = models.IntegerField(null=True, blank=True)
-    window_after_days = models.IntegerField(null=True, blank=True)
-
-    opens_after_status = models.CharField(
-        max_length=64,
-        choices=EventInstanceStatusChoices.choices,
-        null=True,
-        blank=True,
-    )
 
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)
@@ -73,18 +75,96 @@ class EventDefinition(models.Model):
         )
         constraints = [
             models.UniqueConstraint(
-                fields=["study_version", "code"],
-                name="study_eventdefinition_version_code_uniq",
+                fields=["study", "study_version", "code"],
+                name="study_eventdefinition_study_version_code_uniq",
             )
         ]
         indexes = [
             models.Index(
                 fields=["study", "study_version", "sequence_no"],
-                name="study_evtdef_ver_seq_idx",
+                name="study_eventdefinition_study_version_sequence_idx",
             )
         ]
         verbose_name = "study event definition"
         verbose_name_plural = "study event definitions"
+
+
+class EventTransitionRule(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="event_transition_rules",
+    )
+    study_version = models.CharField(max_length=20)
+
+    from_event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="from_event_definition_id",
+        related_name="outgoing_transition_rules",
+    )
+    to_event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="to_event_definition_id",
+        related_name="incoming_transition_rules",
+    )
+
+    transition_type = models.CharField(
+        max_length=32,
+        choices=EventTransitionTypeChoices.choices,
+        default=EventTransitionTypeChoices.SEQUENTIAL,
+    )
+    condition_scope = models.CharField(
+        max_length=32,
+        choices=EventTransitionConditionScopeChoices.choices,
+        default=EventTransitionConditionScopeChoices.SUBJECT_EVENT,
+    )
+    condition_code = models.CharField(max_length=64, null=True, blank=True)
+    condition_expression = models.TextField(null=True, blank=True)
+
+    offset_days = models.IntegerField(null=True, blank=True)
+    window_before_days = models.IntegerField(null=True, blank=True)
+    window_after_days = models.IntegerField(null=True, blank=True)
+
+    auto_open = models.BooleanField(default=False)
+    auto_create = models.BooleanField(default=False)
+    requires_previous_completion = models.BooleanField(default=True)
+    allow_skip = models.BooleanField(default=False)
+
+    display_order = models.IntegerField(default=1)
+    is_enabled = models.BooleanField(default=True)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_event_transition_rule"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["study", "study_version", "from_event_definition", "to_event_definition"],
+                name="study_eventtransition_from_to_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["study", "study_version", "display_order"],
+                name="study_eventtransition_display_idx",
+            ),
+            models.Index(
+                fields=["to_event_definition", "is_enabled"],
+                name="study_eventtransition_to_enabled_idx",
+            ),
+        ]
+        verbose_name = "study event transition rule"
+        verbose_name_plural = "study event transition rules"
 
 
 class EventFormBinding(models.Model):

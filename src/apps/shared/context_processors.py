@@ -182,7 +182,7 @@ class SiteDropdownHandler(StudyDropdownHandler):
         if not self.user.is_superuser:
             belong_to_studies = StudySiteMembership.objects.filter(
                 user=self.user, deleted=False,
-            ).values_list("study_id", flat=True)
+            ).values_list("site_id", flat=True)
             qs = qs.filter(pk__in=belong_to_studies)
 
         return qs.order_by("id")

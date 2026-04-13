@@ -76,3 +76,5 @@ AGENT.md
 .github/AGENTS.md
 node_modules
 .well-known/
+
+test-results/

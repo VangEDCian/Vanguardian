@@ -5,11 +5,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core.choices import (
+    EventDefinitionCategoryChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
-    EventInstanceStatusChoices,
+    EventExecutionModeChoices,
+    EventTransitionConditionScopeChoices,
+    EventTransitionTypeChoices,
 )
-from apps.study.infrastructure.persistence.models import EventDefinition
+from apps.study.infrastructure.persistence.models import EventDefinition, EventTransitionRule
 
 
 @dataclass(frozen=True)
@@ -57,17 +60,26 @@ class ImportStudyEventDefinitionsTemplateService:
         "Name",
         "Description",
         "Event Type",
-        "Phase Code",
         "Timing Mode",
+        "Event Category",
+        "Execution Mode",
         "Sequence No",
+        "Phase Code",
         "Repeated",
         "Max Repeats",
         "Required",
         "Precondition",
-        "Day Offset",
+        "Transition Type",
+        "Condition Scope",
+        "Condition Code",
+        "Condition Expression",
+        "Offset Days",
         "Window Before Days",
         "Window After Days",
-        "Open After Status",
+        "Auto Open",
+        "Auto Create",
+        "Requires Previous Completion",
+        "Allow Skip",
     )
     expected_header_map = {
         "study code": "study_code",
@@ -76,42 +88,76 @@ class ImportStudyEventDefinitionsTemplateService:
         "name": "name",
         "description": "description",
         "event type": "event_type",
-        "phase code": "phase_code",
         "timing mode": "timing_mode",
+        "event category": "event_category",
+        "execution mode": "execution_mode",
         "sequence no": "sequence_no",
+        "phase code": "phase_code",
         "repeated": "repeated",
         "max repeats": "max_repeats",
         "required": "required",
         "precondition": "precondition",
-        "day offset": "day_offset",
+        "transition type": "transition_type",
+        "condition scope": "condition_scope",
+        "condition code": "condition_code",
+        "condition expression": "condition_expression",
+        "offset days": "offset_days",
         "window before days": "window_before_days",
         "window after days": "window_after_days",
-        "open after status": "opens_after_status",
+        "auto open": "auto_open",
+        "auto create": "auto_create",
+        "requires previous completion": "requires_previous_completion",
+        "allow skip": "allow_skip",
     }
     event_type_aliases = {
         "visit_based": EventDefinitionTypeChoices.VISIT_BASED,
         "visit based": EventDefinitionTypeChoices.VISIT_BASED,
         "visit-based": EventDefinitionTypeChoices.VISIT_BASED,
         "common": EventDefinitionTypeChoices.COMMON,
+        "operational": EventDefinitionTypeChoices.OPERATIONAL,
     }
     timing_mode_aliases = {
         "scheduled": EventDefinitionTimingModeChoices.SCHEDULED,
         "unscheduled": EventDefinitionTimingModeChoices.UNSCHEDULED,
         "conditional": EventDefinitionTimingModeChoices.CONDITIONAL,
     }
-    status_aliases = {
-        "not_ready": EventInstanceStatusChoices.NOT_READY,
-        "not ready": EventInstanceStatusChoices.NOT_READY,
-        "planned": EventInstanceStatusChoices.PLANNED,
-        "open": EventInstanceStatusChoices.OPEN,
-        "in_progress": EventInstanceStatusChoices.IN_PROGRESS,
-        "in progress": EventInstanceStatusChoices.IN_PROGRESS,
-        "completed": EventInstanceStatusChoices.COMPLETED,
-        "verified": EventInstanceStatusChoices.VERIFIED,
-        "locked": EventInstanceStatusChoices.LOCKED,
-        "skipped": EventInstanceStatusChoices.SKIPPED,
-        "cancelled": EventInstanceStatusChoices.CANCELLED,
-        "canceled": EventInstanceStatusChoices.CANCELLED,
+    event_category_aliases = {
+        "screening": EventDefinitionCategoryChoices.SCREENING,
+        "randomization": EventDefinitionCategoryChoices.RANDOMIZATION,
+        "treatment": EventDefinitionCategoryChoices.TREATMENT,
+        "washout": EventDefinitionCategoryChoices.WASHOUT,
+        "follow_up": EventDefinitionCategoryChoices.FOLLOW_UP,
+        "follow up": EventDefinitionCategoryChoices.FOLLOW_UP,
+        "follow-up": EventDefinitionCategoryChoices.FOLLOW_UP,
+        "eos": EventDefinitionCategoryChoices.EOS,
+        "end of study": EventDefinitionCategoryChoices.EOS,
+        "unscheduled": EventDefinitionCategoryChoices.UNSCHEDULED,
+    }
+    execution_mode_aliases = {
+        "form_entry": EventExecutionModeChoices.FORM_ENTRY,
+        "form entry": EventExecutionModeChoices.FORM_ENTRY,
+        "form-entry": EventExecutionModeChoices.FORM_ENTRY,
+        "workflow_action": EventExecutionModeChoices.WORKFLOW_ACTION,
+        "workflow action": EventExecutionModeChoices.WORKFLOW_ACTION,
+        "workflow-action": EventExecutionModeChoices.WORKFLOW_ACTION,
+        "hybrid": EventExecutionModeChoices.HYBRID,
+    }
+    transition_type_aliases = {
+        "sequential": EventTransitionTypeChoices.SEQUENTIAL,
+        "conditional": EventTransitionTypeChoices.CONDITIONAL,
+        "manual": EventTransitionTypeChoices.MANUAL,
+        "automatic": EventTransitionTypeChoices.AUTOMATIC,
+    }
+    transition_condition_scope_aliases = {
+        "subject": EventTransitionConditionScopeChoices.SUBJECT,
+        "subject_event": EventTransitionConditionScopeChoices.SUBJECT_EVENT,
+        "subject event": EventTransitionConditionScopeChoices.SUBJECT_EVENT,
+        "subject-event": EventTransitionConditionScopeChoices.SUBJECT_EVENT,
+        "subject_period": EventTransitionConditionScopeChoices.SUBJECT_PERIOD,
+        "subject period": EventTransitionConditionScopeChoices.SUBJECT_PERIOD,
+        "subject-period": EventTransitionConditionScopeChoices.SUBJECT_PERIOD,
+        "randomization": EventTransitionConditionScopeChoices.RANDOMIZATION,
+        "eligibility": EventTransitionConditionScopeChoices.ELIGIBILITY,
     }
     true_values = {"true", "1", "yes", "y"}
     false_values = {"", "false", "0", "no", "n"}
@@ -189,26 +235,69 @@ class ImportStudyEventDefinitionsTemplateService:
             aliases=self.timing_mode_aliases,
             field_label="Timing Mode",
         )
-        opens_after_status = self._normalize_choice(
-            raw_value=row_data.get("opens_after_status"),
-            aliases=self.status_aliases,
-            field_label="Open After Status",
+        event_category = self._normalize_choice(
+            raw_value=row_data.get("event_category"),
+            aliases=self.event_category_aliases,
+            field_label="Event Category",
             allow_blank=True,
         )
+        execution_mode = self._normalize_choice(
+            raw_value=row_data.get("execution_mode"),
+            aliases=self.execution_mode_aliases,
+            field_label="Execution Mode",
+            allow_blank=True,
+        ) or EventExecutionModeChoices.FORM_ENTRY
+        precondition_code = self._nullable_text(row_data.get("precondition"))
 
         sequence_no = self._coerce_int(row_data.get("sequence_no"), field_label="Sequence No", default=1)
         max_repeats = self._coerce_int(row_data.get("max_repeats"), field_label="Max Repeats", allow_blank=True)
-        day_offset = self._coerce_int(row_data.get("day_offset"), field_label="Day Offset", allow_blank=True)
-        window_before_days = self._coerce_int(
-            row_data.get("window_before_days"),
-            field_label="Window Before Days",
-            allow_blank=True,
-        )
-        window_after_days = self._coerce_int(
-            row_data.get("window_after_days"),
-            field_label="Window After Days",
-            allow_blank=True,
-        )
+
+        if precondition_code:
+            transition_type = self._normalize_choice(
+                raw_value=row_data.get("transition_type"),
+                aliases=self.transition_type_aliases,
+                field_label="Transition Type",
+                allow_blank=True,
+            ) or EventTransitionTypeChoices.SEQUENTIAL
+            condition_scope = self._normalize_choice(
+                raw_value=row_data.get("condition_scope"),
+                aliases=self.transition_condition_scope_aliases,
+                field_label="Condition Scope",
+                allow_blank=True,
+            ) or EventTransitionConditionScopeChoices.SUBJECT_EVENT
+            condition_code = self._nullable_text(row_data.get("condition_code"))
+            condition_expression = self._nullable_text(row_data.get("condition_expression"))
+            offset_days = self._coerce_int(row_data.get("offset_days"), field_label="Offset Days", allow_blank=True)
+            window_before_days = self._coerce_int(
+                row_data.get("window_before_days"),
+                field_label="Window Before Days",
+                allow_blank=True,
+            )
+            window_after_days = self._coerce_int(
+                row_data.get("window_after_days"),
+                field_label="Window After Days",
+                allow_blank=True,
+            )
+            auto_open = self._coerce_bool(row_data.get("auto_open"), allow_blank=True, default=False)
+            auto_create = self._coerce_bool(row_data.get("auto_create"), allow_blank=True, default=False)
+            requires_previous_completion = self._coerce_bool(
+                row_data.get("requires_previous_completion"),
+                allow_blank=True,
+                default=True,
+            )
+            allow_skip = self._coerce_bool(row_data.get("allow_skip"), allow_blank=True, default=False)
+        else:
+            transition_type = None
+            condition_scope = None
+            condition_code = None
+            condition_expression = None
+            offset_days = None
+            window_before_days = None
+            window_after_days = None
+            auto_open = False
+            auto_create = False
+            requires_previous_completion = True
+            allow_skip = False
 
         now = self._now()
         defaults = {
@@ -218,17 +307,14 @@ class ImportStudyEventDefinitionsTemplateService:
             "description": self._nullable_text(row_data.get("description")),
             "event_type": event_type,
             "timing_mode": timing_mode,
+            "event_category": event_category,
+            "execution_mode": execution_mode,
             "sequence_no": sequence_no,
             "phase_code": self._nullable_text(row_data.get("phase_code")),
             "is_repeating": self._coerce_bool(row_data.get("repeated")),
             "max_repeats": max_repeats,
             "is_enabled": True,
             "is_required": self._coerce_bool(row_data.get("required")),
-            "anchor_event_code": self._nullable_text(row_data.get("precondition")),
-            "day_offset": day_offset,
-            "window_before_days": window_before_days,
-            "window_after_days": window_after_days,
-            "opens_after_status": opens_after_status,
             "deleted": False,
             "updated_at": now,
             "updated_by_id": actor_user_id,
@@ -242,18 +328,150 @@ class ImportStudyEventDefinitionsTemplateService:
             ).first()
 
             if event_definition is None:
-                EventDefinition.objects.create(
+                event_definition = EventDefinition.objects.create(
                     code=code,
                     created_at=now,
                     created_by_id=actor_user_id,
                     **defaults,
+                )
+                self._sync_transition_rule(
+                    event_definition=event_definition,
+                    study_id=study_id,
+                    study_version=study_version,
+                    sequence_no=sequence_no,
+                    precondition_code=precondition_code,
+                    transition_type=transition_type,
+                    condition_scope=condition_scope,
+                    condition_code=condition_code,
+                    condition_expression=condition_expression,
+                    offset_days=offset_days,
+                    window_before_days=window_before_days,
+                    window_after_days=window_after_days,
+                    auto_open=auto_open,
+                    auto_create=auto_create,
+                    requires_previous_completion=requires_previous_completion,
+                    allow_skip=allow_skip,
+                    actor_user_id=actor_user_id,
+                    now=now,
                 )
                 return "created"
 
             for field_name, value in defaults.items():
                 setattr(event_definition, field_name, value)
             event_definition.save(update_fields=list(defaults.keys()))
+            self._sync_transition_rule(
+                event_definition=event_definition,
+                study_id=study_id,
+                study_version=study_version,
+                sequence_no=sequence_no,
+                precondition_code=precondition_code,
+                transition_type=transition_type,
+                condition_scope=condition_scope,
+                condition_code=condition_code,
+                condition_expression=condition_expression,
+                offset_days=offset_days,
+                window_before_days=window_before_days,
+                window_after_days=window_after_days,
+                auto_open=auto_open,
+                auto_create=auto_create,
+                requires_previous_completion=requires_previous_completion,
+                allow_skip=allow_skip,
+                actor_user_id=actor_user_id,
+                now=now,
+            )
             return "updated"
+
+    def _sync_transition_rule(
+        self,
+        *,
+        event_definition,
+        study_id,
+        study_version,
+        sequence_no,
+        precondition_code,
+        transition_type,
+        condition_scope,
+        condition_code,
+        condition_expression,
+        offset_days,
+        window_before_days,
+        window_after_days,
+        auto_open,
+        auto_create,
+        requires_previous_completion,
+        allow_skip,
+        actor_user_id,
+        now,
+    ):
+        existing_transition_rules = EventTransitionRule.objects.filter(
+            study_id=study_id,
+            study_version=study_version,
+            to_event_definition=event_definition,
+        )
+
+        if not precondition_code:
+            existing_transition_rules.filter(deleted=False).update(
+                deleted=True,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+            return
+
+        from_event_definition = EventDefinition.objects.filter(
+            study_id=study_id,
+            study_version=study_version,
+            code__iexact=precondition_code,
+            deleted=False,
+        ).first()
+        if from_event_definition is None:
+            raise EventDefinitionImportFormatError(
+                f"Precondition event {precondition_code!r} was not found in study version {study_version!r}."
+            )
+
+        existing_transition_rules.exclude(from_event_definition=from_event_definition).filter(deleted=False).update(
+            deleted=True,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+
+        transition_defaults = {
+            "transition_type": transition_type,
+            "condition_scope": condition_scope,
+            "condition_code": condition_code,
+            "condition_expression": condition_expression,
+            "offset_days": offset_days,
+            "window_before_days": window_before_days,
+            "window_after_days": window_after_days,
+            "auto_open": auto_open,
+            "auto_create": auto_create,
+            "requires_previous_completion": requires_previous_completion,
+            "allow_skip": allow_skip,
+            "display_order": sequence_no,
+            "is_enabled": True,
+            "deleted": False,
+            "updated_at": now,
+            "updated_by_id": actor_user_id,
+        }
+
+        transition_rule = existing_transition_rules.filter(
+            from_event_definition=from_event_definition,
+        ).first()
+
+        if transition_rule is None:
+            EventTransitionRule.objects.create(
+                study_id=study_id,
+                study_version=study_version,
+                from_event_definition=from_event_definition,
+                to_event_definition=event_definition,
+                created_at=now,
+                created_by_id=actor_user_id,
+                **transition_defaults,
+            )
+            return
+
+        for field_name, value in transition_defaults.items():
+            setattr(transition_rule, field_name, value)
+        transition_rule.save(update_fields=list(transition_defaults.keys()))
 
     def _load_rows_from_workbook(self, *, file_name, file_content):
         file_name_lower = (file_name or "").strip().lower()
@@ -354,8 +572,12 @@ class ImportStudyEventDefinitionsTemplateService:
             return existing_study_version
         return normalized_study_version
 
-    def _coerce_bool(self, value):
+    def _coerce_bool(self, value, *, allow_blank=False, default=None):
         normalized = self._as_text(value).lower()
+        if not normalized:
+            if allow_blank:
+                return default
+            raise EventDefinitionImportFormatError(f"Invalid boolean value: {value!r}")
         if normalized in self.true_values:
             return True
         if normalized in self.false_values:

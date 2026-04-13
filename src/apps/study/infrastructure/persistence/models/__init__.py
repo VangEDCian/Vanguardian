@@ -1,5 +1,5 @@
 from .study import Study
-from .events import EventDefinition, EventFormBinding
+from .events import EventDefinition, EventFormBinding, EventTransitionRule
 from .randomization import (
     RandomizationScheme,
     RandomizationArm,
@@ -12,6 +12,7 @@ __all__ = [
     "Study",
     "EventDefinition",
     "EventFormBinding",
+    "EventTransitionRule",
     "RandomizationScheme",
     "RandomizationArm",
     "RandomizationSlot",

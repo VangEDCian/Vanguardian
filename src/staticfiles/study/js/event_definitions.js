@@ -63,8 +63,35 @@
   diagram.linkTemplate = $(
     window.go.Link,
     { routing: window.go.Routing.Orthogonal, corner: 8 },
-    $(window.go.Shape, { stroke: "#90a4b4", strokeWidth: 1.5 }),
-    $(window.go.Shape, { toArrow: "Standard", fill: "#90a4b4", stroke: null })
+    $(
+      window.go.Shape,
+      { strokeWidth: 1.5 },
+      new window.go.Binding("stroke", "stroke"),
+      new window.go.Binding("strokeDashArray", "strokeDashArray")
+    ),
+    $(
+      window.go.Shape,
+      { toArrow: "Standard", stroke: null },
+      new window.go.Binding("fill", "stroke")
+    ),
+    $(
+      window.go.Panel,
+      "Auto",
+      {
+        segmentIndex: 0,
+        segmentFraction: 0.5,
+      },
+      $(window.go.Shape, "RoundedRectangle", { fill: "#ffffff", stroke: "#d6dee5" }),
+      $(
+        window.go.TextBlock,
+        {
+          margin: new window.go.Margin(4, 6, 4, 6),
+          font: "11px Segoe UI, sans-serif",
+          stroke: "#4f5f6d",
+        },
+        new window.go.Binding("text", "label")
+      )
+    )
   );
 
   diagram.model = new window.go.GraphLinksModel(nodesData, linksData);
