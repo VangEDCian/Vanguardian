@@ -529,6 +529,14 @@ class IdentityUserFirstLoginView(LoginRequiredMixin, TemplateView):
     template_name = "identity/first_login.html"
     success_url = reverse_lazy("dashboard:main")
 
+    def dispatch(self, request, *args, **kwargs):
+        current_user = cast(User, self.request.user)
+        if current_user and current_user.is_authenticated:
+            if current_user.attempt_login > 0:
+                return redirect(reverse('dashboard:main'))
+            return super().dispatch(request, *args, **kwargs)
+        return redirect(reverse('identity:login'))
+
     def get_account_identity(self):
         current_user = cast(User, self.request.user)
         return (
