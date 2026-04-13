@@ -1,0 +1,6 @@
+<div class="entity-table__filter">
+  <label for="{{ widget.attrs.id }}" class="entity-table__filter-label">
+    {{ widget.filter_label }}
+  </label>
+  {% include "shared/components/_common_select.html" with select_mode="dropdown" select_id=widget.attrs.id select_name=widget.name select_display_text=widget.select_display_text select_options=widget.filter_options select_wrapper_class=widget.select_wrapper_class select_aria_label=widget.select_aria_label %}
+</div>
