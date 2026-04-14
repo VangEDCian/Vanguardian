@@ -4,6 +4,7 @@ from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
+from django_tables2 import RequestConfig
 
 from apps.shared.views.generic import AuthenticateTemplateView
 from apps.study.application import (
@@ -24,6 +25,7 @@ from apps.study.presentation.web.forms import (
     EventDefinitionImportTemplateForm,
     EventFormBindingImportTemplateForm,
 )
+from apps.study.presentation.web.tables import EventDefinitionListTable
 from apps.study.presentation.web.viewpackages._helpers import _user_has_study_access
 
 __all__ = [
@@ -93,14 +95,17 @@ class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["detail_study"] = self._detail_view_model["detail_study"]
-        context.update(
-            self.get_study_event_definition_directory_query_service().list_event_definitions(
-                study_id=self._study.pk,
-                search_query=self.request.GET.get("q", ""),
-                sort_key=self.request.GET.get("sort", "sequence_no"),
-                sort_direction=self.request.GET.get("direction", "asc"),
-            )
+        directory_context = self.get_study_event_definition_directory_query_service().list_event_definitions(
+            study_id=self._study.pk,
+            search_query=self.request.GET.get("q", ""),
+            sort_query=self.request.GET.get("sort", ""),
         )
+        event_definitions_table = EventDefinitionListTable(directory_context["event_definitions"])
+        event_definitions_table.empty_text = directory_context["event_definitions_empty_text"]
+        RequestConfig(self.request, paginate={"per_page": 25}).configure(event_definitions_table)
+
+        context.update(directory_context)
+        context["event_definitions_table"] = event_definitions_table
         context.setdefault("import_form", EventDefinitionImportTemplateForm())
         context.setdefault("binding_import_form", EventFormBindingImportTemplateForm())
         context["expected_import_columns"] = self.expected_import_columns

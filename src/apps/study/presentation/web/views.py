@@ -7,6 +7,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
+from django_tables2 import RequestConfig
 
 from apps.shared.views.generic import AuthenticateTemplateView
 
@@ -34,6 +35,7 @@ from apps.study.application import (
 )
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import CrfTemplateImportTemplateForm, StudyForm
+from apps.study.presentation.web.tables import CrfTemplateListTable
 from apps.study.presentation.web.viewpackages._helpers import (
     _can_change_study_status,
     _serialize_study_snapshot,
@@ -357,14 +359,17 @@ class StudyCrfTemplateListView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["detail_study"] = self._detail_view_model["detail_study"]
-        context.update(
-            self.get_study_crf_template_directory_query_service().list_crf_templates(
-                study_id=self._study.pk,
-                search_query=self.request.GET.get("q", ""),
-                sort_key=self.request.GET.get("sort", "code"),
-                sort_direction=self.request.GET.get("direction", "asc"),
-            )
+        directory_context = self.get_study_crf_template_directory_query_service().list_crf_templates(
+            study_id=self._study.pk,
+            search_query=self.request.GET.get("q", ""),
+            sort_query=self.request.GET.get("sort", ""),
         )
+        crf_templates_table = CrfTemplateListTable(directory_context["crf_templates"])
+        crf_templates_table.empty_text = directory_context["crf_templates_empty_text"]
+        RequestConfig(self.request, paginate={"per_page": 25}).configure(crf_templates_table)
+
+        context.update(directory_context)
+        context["crf_templates_table"] = crf_templates_table
         context.setdefault("import_form", CrfTemplateImportTemplateForm())
         context["expected_import_columns"] = self.expected_import_columns
         context["import_result"] = kwargs.get("import_result")

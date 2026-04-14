@@ -1,17 +1,12 @@
 {% extends "shared/_layout.html" %}
 {% load i18n static %}
+{% load render_table from django_tables2 %}
 
 {% block title %}{{ detail_study.code }} | {% trans "CRF Templates | Vanguardian" %}{% endblock %}
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
   <link rel="stylesheet" href="{% static 'study/css/crf_templates.css' %}">
-{% endblock %}
-
-{% block extra_js %}
-  {{ block.super }}
-  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
 {% endblock %}
 
 {% block dashboard_breadcrumb_prefix %}
@@ -24,7 +19,7 @@
 
   {% include "shared/components/_entity_table_toolbar.html" with toolbar=crf_templates_table_toolbar %}
 
-  {% include "shared/components/_common_table.html" with headers=crf_templates_table_headers rows=crf_templates_table_rows empty_text=crf_templates_empty_text sortable_columns=crf_templates_table_sortable_columns sort_key=crf_templates_table_sort_key sort_direction=crf_templates_table_sort_direction sort_params=crf_templates_table_sort_params %}
+  {% render_table crf_templates_table %}
 
   <div class="entity-table__footer entity-table__footer--actions">
     <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary" data-modal-open="modal-import-crftemplates">

@@ -197,3 +197,49 @@ class StudyEventDefinitionDirectoryQueryServiceTests(SimpleTestCase):
                 },
             ],
         )
+
+    def test_builds_mermaid_flowchart_source(self):
+        event_definitions = [
+            _make_event_definition(
+                pk=41,
+                study_version="v1.0",
+                sequence_no=1,
+                code="SCREEN",
+                name="Screening",
+            ),
+            _make_event_definition(
+                pk=42,
+                study_version="v1.0",
+                sequence_no=2,
+                code="RAND",
+                name="Randomization",
+                event_category="randomization",
+                execution_mode="workflow_action",
+            ),
+        ]
+        transition_rules = [
+            _make_transition_rule(
+                study_version="v1.0",
+                from_event_definition_id=41,
+                to_event_definition_id=42,
+                transition_type="automatic",
+                condition_code="eligible",
+            )
+        ]
+
+        mermaid = self.service._build_diagram_mermaid(
+            self.service._build_diagram_nodes(event_definitions),
+            self.service._build_diagram_links(event_definitions, transition_rules),
+        )
+
+        self.assertIn("flowchart LR", mermaid)
+        self.assertNotIn("Version v1.0", mermaid)
+        self.assertIn('event_41["1. SCREEN<br/>Screening<br/>Visit Based · Scheduled · Form Entry"]', mermaid)
+        self.assertIn('event_42["2. RAND<br/>Randomization<br/>Visit Based · Scheduled · Randomization · Workflow Action"]', mermaid)
+        self.assertIn("event_41 -->|Automatic · Eligible| event_42", mermaid)
+        self.assertIn("style event_41 fill:#fdf2e2,stroke:#1e88b9,stroke-width:1.5px,color:#1b2b34", mermaid)
+        self.assertIn("style event_42 fill:#f2e8ff,stroke:#1e88b9,stroke-width:1.5px,color:#1b2b34", mermaid)
+        self.assertIn("linkStyle 0 stroke:#90a4b4,stroke-width:1.5px", mermaid)
+
+    def test_returns_empty_mermaid_source_without_nodes(self):
+        self.assertEqual(self.service._build_diagram_mermaid([], []), "")

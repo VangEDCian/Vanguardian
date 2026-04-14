@@ -1,19 +1,18 @@
 {% extends "shared/_layout.html" %}
 {% load i18n static shared_layout %}
+{% load render_table from django_tables2 %}
 
 {% block title %}{{ detail_study.code }} | {% trans "Event Definitions | Vanguardian" %}{% endblock %}
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
   <link rel="stylesheet" href="{% static 'study/css/event_definitions.css' %}">
 {% endblock %}
 
 {% block extra_js %}
   {{ block.super }}
-  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
-  <script src="{% static 'gojs/release/go.js' %}"></script>
-  <script src="{% static 'study/js/event_definitions.js' %}"></script>
+  <script src="{% static 'vendor/elkjs/elk.bundled.js' %}"></script>
+  <script type="module" src="{% static 'study/js/event_definitions.js' %}"></script>
 {% endblock %}
 
 {% block dashboard_breadcrumb_prefix %}
@@ -28,7 +27,7 @@
 
   {% render_event_definitions_diagram_panel %}
 
-  {% include "shared/components/_common_table.html" with headers=event_definitions_table_headers rows=event_definitions_table_rows empty_text=event_definitions_empty_text sortable_columns=event_definitions_table_sortable_columns sort_key=event_definitions_table_sort_key sort_direction=event_definitions_table_sort_direction sort_params=event_definitions_table_sort_params %}
+  {% render_table event_definitions_table %}
 
   <div class="entity-table__footer entity-table__footer--actions">
     {% if perms.study.create_study_eventdefinition %}

@@ -33,8 +33,8 @@ def render_event_definitions_diagram_panel(context):
         "event_definitions_diagram_title": _("Event Flow"),
         "event_definitions_diagram_note": _("Visualized from event definitions and transition rules."),
         "event_definitions_diagram_aria_label": _("Event definitions flow diagram"),
-        "event_definitions_diagram_nodes": context.get("event_definitions_diagram_nodes") or (),
-        "event_definitions_diagram_links": context.get("event_definitions_diagram_links") or (),
+        "event_definitions_diagram_has_nodes": bool(context.get("event_definitions_diagram_has_nodes")),
+        "event_definitions_diagram_mermaid": context.get("event_definitions_diagram_mermaid") or "",
     }
 
 

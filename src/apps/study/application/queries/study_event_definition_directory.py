@@ -6,50 +6,13 @@ from apps.study.models import EventDefinition, EventTransitionRule
 
 
 class StudyEventDefinitionDirectoryQueryService:
-    event_definitions_table_headers = (
-        {"key": "code", "label": _("CODE")},
-        {"key": "study_version", "label": _("VERSION")},
-        {"key": "name", "label": _("NAME")},
-        {"key": "event_type", "label": _("EVENT TYPE")},
-        {"key": "timing_mode", "label": _("TIMING")},
-        {"key": "sequence_no", "label": _("SEQUENCE")},
-        {"key": "required", "label": _("REQUIRED")},
-        {"key": "enabled", "label": _("ENABLED")},
-    )
-    event_definitions_sortable_columns = (
-        "code",
-        "study_version",
-        "name",
-        "event_type",
-        "timing_mode",
-        "sequence_no",
-        "required",
-        "enabled",
-    )
-    event_definitions_sort_map = {
-        "code": ("study_version", "code"),
-        "study_version": ("study_version", "sequence_no", "code"),
-        "name": ("study_version", "name", "code"),
-        "event_type": ("study_version", "event_type", "sequence_no", "code"),
-        "timing_mode": ("study_version", "timing_mode", "sequence_no", "code"),
-        "sequence_no": ("study_version", "sequence_no", "code"),
-        "required": ("study_version", "is_required", "sequence_no", "code"),
-        "enabled": ("study_version", "is_enabled", "sequence_no", "code"),
-    }
-
-    def list_event_definitions(self, *, study_id, search_query="", sort_key="sequence_no", sort_direction="asc"):
+    def list_event_definitions(self, *, study_id, search_query="", sort_query=""):
         normalized_search_query = (search_query or "").strip()
-        normalized_sort_key = (sort_key or "sequence_no").strip()
-        normalized_sort_direction = (sort_direction or "asc").strip().lower()
-        if normalized_sort_direction not in {"asc", "desc"}:
-            normalized_sort_direction = "asc"
-        if normalized_sort_key not in self.event_definitions_sort_map:
-            normalized_sort_key = "sequence_no"
 
         event_definitions_queryset = EventDefinition.objects.filter(
             study_id=study_id,
             deleted=False,
-        ).order_by(*self._build_order_by(normalized_sort_key, normalized_sort_direction))
+        )
 
         if normalized_search_query:
             event_definitions_queryset = event_definitions_queryset.filter(
@@ -74,62 +37,23 @@ class StudyEventDefinitionDirectoryQueryService:
             )
             .order_by("study_version", "display_order", "id")
         )
+        diagram_nodes = self._build_diagram_nodes(event_definitions)
+        diagram_links = self._build_diagram_links(event_definitions, transition_rules)
 
         return {
-            "event_definitions_table_headers": self.event_definitions_table_headers,
-            "event_definitions_table_rows": [self._build_table_row(event_definition) for event_definition in event_definitions],
-            "event_definitions_table_sortable_columns": self.event_definitions_sortable_columns,
-            "event_definitions_table_sort_key": normalized_sort_key,
-            "event_definitions_table_sort_direction": normalized_sort_direction,
-            "event_definitions_table_sort_params": self._build_sort_params(normalized_search_query),
+            "event_definitions": event_definitions,
+            "event_definitions_total": len(event_definitions),
             "event_definitions_empty_text": _("No event definitions found matching your criteria."),
             "event_definitions_table_toolbar": self._build_table_toolbar(
                 total=len(event_definitions),
                 search_query=normalized_search_query,
-                sort_key=normalized_sort_key,
-                sort_direction=normalized_sort_direction,
+                sort_query=sort_query,
             ),
-            "event_definitions_diagram_nodes": self._build_diagram_nodes(event_definitions),
-            "event_definitions_diagram_links": self._build_diagram_links(event_definitions, transition_rules),
+            "event_definitions_diagram_has_nodes": bool(diagram_nodes),
+            "event_definitions_diagram_mermaid": self._build_diagram_mermaid(diagram_nodes, diagram_links),
         }
 
-    def _build_table_row(self, event_definition):
-        return {
-            "selection_value": event_definition.pk,
-            "cells": [
-                {
-                    "kind": "text",
-                    "value": event_definition.code,
-                    "column_class": "entity-table__primary",
-                },
-                self._build_text_cell(event_definition.study_version),
-                self._build_text_cell(event_definition.name),
-                self._build_text_cell(event_definition.get_event_type_display()),
-                self._build_text_cell(event_definition.get_timing_mode_display()),
-                self._build_text_cell(str(event_definition.sequence_no)),
-                {
-                    "kind": "state",
-                    "value": _("Required") if event_definition.is_required else _("Optional"),
-                    "tone": "active" if event_definition.is_required else "inactive",
-                },
-                {
-                    "kind": "state",
-                    "value": _("Enabled") if event_definition.is_enabled else _("Disabled"),
-                    "tone": "active" if event_definition.is_enabled else "inactive",
-                },
-            ],
-        }
-
-    def _build_text_cell(self, value):
-        if value not in (None, ""):
-            return {"kind": "text", "value": value}
-        return {"kind": "muted", "value": "—"}
-
-    def _build_order_by(self, sort_key, sort_direction):
-        prefix = "-" if sort_direction == "desc" else ""
-        return tuple(f"{prefix}{field_name}" for field_name in self.event_definitions_sort_map[sort_key])
-
-    def _build_table_toolbar(self, *, total, search_query, sort_key, sort_direction):
+    def _build_table_toolbar(self, *, total, search_query, sort_query):
         return {
             "filter": None,
             "secondary_search": None,
@@ -143,10 +67,7 @@ class StudyEventDefinitionDirectoryQueryService:
                 "placeholder": _("Search event definitions..."),
                 "aria_label": _("Search event definitions"),
                 "show_icon": True,
-                "hidden_fields": self._build_hidden_fields(
-                    sort=sort_key,
-                    direction=sort_direction,
-                ),
+                "hidden_fields": self._build_hidden_fields(sort=sort_query),
             },
         }
 
@@ -154,7 +75,6 @@ class StudyEventDefinitionDirectoryQueryService:
         nodes = []
         for event_definition in sorted(event_definitions, key=lambda item: (item.study_version, item.sequence_no, item.code)):
             subtitle_parts = [
-                event_definition.study_version,
                 event_definition.get_event_type_display(),
                 event_definition.get_timing_mode_display(),
             ]
@@ -169,12 +89,14 @@ class StudyEventDefinitionDirectoryQueryService:
                 {
                     "key": str(event_definition.pk),
                     "label": event_definition.name,
-                    "title": f"{event_definition.study_version} · {event_definition.sequence_no}. {event_definition.code}",
+                    "title": f"{event_definition.sequence_no}. {event_definition.code}",
                     "code": event_definition.code,
                     "subtitle": " | ".join(str(part) for part in subtitle_parts if part),
+                    "study_version": event_definition.study_version,
                     "sequence": event_definition.sequence_no,
                     "fill": self._get_node_fill(event_definition),
                     "stroke": "#1e88b9" if event_definition.is_enabled else "#9aa7b2",
+                    "text": "#1b2b34" if event_definition.is_enabled else "#6a7885",
                 }
             )
         return nodes
@@ -201,6 +123,38 @@ class StudyEventDefinitionDirectoryQueryService:
 
         return links
 
+    def _build_diagram_mermaid(self, nodes, links):
+        if not nodes:
+            return ""
+
+        mermaid_lines = ["flowchart LR"]
+
+        for node in nodes:
+            mermaid_lines.append(
+                f'  {self._build_mermaid_node_id(node["key"])}["{self._build_mermaid_node_label(node)}"]'
+            )
+
+        for link in links:
+            mermaid_lines.append(
+                "  "
+                f'{self._build_mermaid_node_id(link["from"])} -->|{self._build_mermaid_edge_label(link["label"])}| '
+                f'{self._build_mermaid_node_id(link["to"])}'
+            )
+
+        for node in nodes:
+            mermaid_lines.append(
+                "  "
+                f'style {self._build_mermaid_node_id(node["key"])} '
+                f'fill:{node["fill"]},stroke:{node["stroke"]},stroke-width:1.5px,color:{node["text"]}'
+            )
+
+        for link_index, link in enumerate(links):
+            mermaid_lines.append(
+                f'  linkStyle {link_index} stroke:{link["stroke"]},stroke-width:1.5px'
+            )
+
+        return "\n".join(mermaid_lines)
+
     @staticmethod
     def _get_node_fill(event_definition):
         if not event_definition.is_enabled:
@@ -225,12 +179,11 @@ class StudyEventDefinitionDirectoryQueryService:
             label_parts.append(_("Day %(day)s") % {"day": transition_rule.offset_days})
 
         if transition_rule.window_before_days is not None or transition_rule.window_after_days is not None:
-            before_days = transition_rule.window_before_days or 0
-            after_days = transition_rule.window_after_days or 0
             label_parts.append(
-                _("Window -%(before)s/+%(after)s") % {
-                    "before": before_days,
-                    "after": after_days,
+                _("Window -%(before)s/+%(after)s")
+                % {
+                    "before": transition_rule.window_before_days if transition_rule.window_before_days is not None else 0,
+                    "after": transition_rule.window_after_days if transition_rule.window_after_days is not None else 0,
                 }
             )
 
@@ -241,11 +194,35 @@ class StudyEventDefinitionDirectoryQueryService:
         return " ".join(str(value).replace("_", " ").replace("-", " ").split()).title()
 
     @staticmethod
-    def _build_sort_params(search_query):
-        params = []
-        if search_query:
-            params.append({"name": "q", "value": search_query})
-        return params
+    def _build_mermaid_node_id(node_key):
+        return f"event_{node_key}"
+
+    @staticmethod
+    def _build_mermaid_node_label(node):
+        label_lines = [node["title"], node["label"]]
+        if node["subtitle"]:
+            label_lines.append(node["subtitle"].replace(" | ", " · "))
+        return "<br/>".join(
+            StudyEventDefinitionDirectoryQueryService._escape_mermaid_text(line)
+            for line in label_lines
+            if line
+        )
+
+    @staticmethod
+    def _build_mermaid_edge_label(label):
+        return StudyEventDefinitionDirectoryQueryService._escape_mermaid_text(
+            str(label or "").replace(" | ", " · ")
+        )
+
+    @staticmethod
+    def _escape_mermaid_text(value):
+        return (
+            str(value)
+            .replace("&", "&amp;")
+            .replace('"', "&quot;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
 
     @staticmethod
     def _build_hidden_fields(**params):

@@ -5,11 +5,10 @@
     <h2 class="event-definitions-diagram-panel__title">{{ event_definitions_diagram_title }}</h2>
     <span class="event-definitions-diagram-panel__note">{{ event_definitions_diagram_note }}</span>
   </div>
-  {{ event_definitions_diagram_nodes|json_script:"event-definitions-diagram-nodes" }}
-  {{ event_definitions_diagram_links|json_script:"event-definitions-diagram-links" }}
+  {{ event_definitions_diagram_mermaid|json_script:"event-definitions-diagram-mermaid" }}
   <div
     id="event-definitions-diagram"
-    class="event-definitions-diagram"
+    class="event-definitions-diagram{% if not event_definitions_diagram_has_nodes %} event-definitions-diagram--empty{% endif %}"
     aria-label="{{ event_definitions_diagram_aria_label }}"
   ></div>
 </section>

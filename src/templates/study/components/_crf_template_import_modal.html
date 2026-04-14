@@ -83,7 +83,7 @@
             <strong>{% trans "Skipped Rows" %}</strong>
             <ul>
               {% for issue in import_result.issues %}
-              <li>{% blocktrans with row_number=issue.row_number code=issue.code version=issue.version reason=issue.reason %}Row {{ row_number }} (code: {{ code }}, version: {{ version }}): {{ reason }}{% endblocktrans %}</li>
+              <li>{% blocktrans with sheet_name=issue.sheet_name row_number=issue.row_number identifier=issue.identifier reason=issue.reason %}Sheet {{ sheet_name }}, row {{ row_number }} ({{ identifier }}): {{ reason }}{% endblocktrans %}</li>
               {% endfor %}
             </ul>
           </div>

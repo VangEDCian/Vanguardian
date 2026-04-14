@@ -1,98 +1,45 @@
-(function () {
+import { renderMermaidSVG } from "../../vendor/beautiful-mermaid/index.js";
+
+function renderEventDefinitionsDiagram() {
   const diagramElement = document.getElementById("event-definitions-diagram");
-  if (!diagramElement || typeof window.go === "undefined") {
+  const mermaidElement = document.getElementById("event-definitions-diagram-mermaid");
+
+  if (!diagramElement || !mermaidElement) {
     return;
   }
 
-  const nodesData = JSON.parse(document.getElementById("event-definitions-diagram-nodes").textContent || "[]");
-  const linksData = JSON.parse(document.getElementById("event-definitions-diagram-links").textContent || "[]");
+  const mermaidSource = JSON.parse(mermaidElement.textContent || '""');
 
-  if (!nodesData.length) {
-    diagramElement.classList.add("event-definitions-diagram--empty");
+  if (!mermaidSource.trim()) {
     diagramElement.textContent = "No event definitions available for visualization.";
     return;
   }
 
-  const $ = window.go.GraphObject.make;
-  const diagram = $(window.go.Diagram, diagramElement, {
-    initialAutoScale: window.go.AutoScale.Uniform,
-    layout: $(window.go.LayeredDigraphLayout, {
-      direction: 0,
-      layerSpacing: 48,
-      columnSpacing: 28,
-    }),
-    allowMove: false,
-    allowCopy: false,
-    allowDelete: false,
-    isReadOnly: true,
-    "toolManager.mouseWheelBehavior": window.go.WheelMode.Zoom,
-  });
+  try {
+    const svg = renderMermaidSVG(mermaidSource, {
+      bg: "#f8fbfe",
+      fg: "#1e2b36",
+      line: "#90a4b4",
+      accent: "#1e88b9",
+      muted: "#607080",
+      surface: "#ffffff",
+      border: "#d6dee5",
+      font: "Segoe UI",
+      transparent: true,
+      padding: 28,
+      nodeSpacing: 28,
+      layerSpacing: 56,
+      componentSpacing: 40,
+      thoroughness: 4,
+    });
 
-  diagram.nodeTemplate = $(
-    window.go.Node,
-    "Auto",
-    $(
-      window.go.Shape,
-      "RoundedRectangle",
-      { strokeWidth: 1.5, parameter1: 10 },
-      new window.go.Binding("fill", "fill"),
-      new window.go.Binding("stroke", "stroke")
-    ),
-    $(
-      window.go.Panel,
-      "Vertical",
-      { margin: 10, width: 170, defaultAlignment: window.go.Spot.Left },
-      $(
-        window.go.TextBlock,
-        { font: "700 12px Segoe UI, sans-serif", stroke: "#1b2b34", margin: new window.go.Margin(0, 0, 4, 0) },
-        new window.go.Binding("text", "title")
-      ),
-      $(
-        window.go.TextBlock,
-        { font: "600 13px Segoe UI, sans-serif", stroke: "#1b2b34", wrap: window.go.WrapFit, maxSize: new window.go.Size(150, NaN) },
-        new window.go.Binding("text", "label")
-      ),
-      $(
-        window.go.TextBlock,
-        { font: "11px Segoe UI, sans-serif", stroke: "#5b6976", margin: new window.go.Margin(6, 0, 0, 0), wrap: window.go.WrapFit, maxSize: new window.go.Size(150, NaN) },
-        new window.go.Binding("text", "subtitle")
-      )
-    )
-  );
+    diagramElement.classList.remove("event-definitions-diagram--empty", "event-definitions-diagram--error");
+    diagramElement.innerHTML = `<div class="event-definitions-diagram__canvas">${svg}</div>`;
+  } catch (error) {
+    console.error("Failed to render event definitions diagram", error);
+    diagramElement.classList.add("event-definitions-diagram--error");
+    diagramElement.textContent = "Unable to render event workflow.";
+  }
+}
 
-  diagram.linkTemplate = $(
-    window.go.Link,
-    { routing: window.go.Routing.Orthogonal, corner: 8 },
-    $(
-      window.go.Shape,
-      { strokeWidth: 1.5 },
-      new window.go.Binding("stroke", "stroke"),
-      new window.go.Binding("strokeDashArray", "strokeDashArray")
-    ),
-    $(
-      window.go.Shape,
-      { toArrow: "Standard", stroke: null },
-      new window.go.Binding("fill", "stroke")
-    ),
-    $(
-      window.go.Panel,
-      "Auto",
-      {
-        segmentIndex: 0,
-        segmentFraction: 0.5,
-      },
-      $(window.go.Shape, "RoundedRectangle", { fill: "#ffffff", stroke: "#d6dee5" }),
-      $(
-        window.go.TextBlock,
-        {
-          margin: new window.go.Margin(4, 6, 4, 6),
-          font: "11px Segoe UI, sans-serif",
-          stroke: "#4f5f6d",
-        },
-        new window.go.Binding("text", "label")
-      )
-    )
-  );
-
-  diagram.model = new window.go.GraphLinksModel(nodesData, linksData);
-})();
+renderEventDefinitionsDiagram();

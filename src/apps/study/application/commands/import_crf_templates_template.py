@@ -4,7 +4,7 @@ from io import BytesIO
 from django.db import transaction
 from django.utils import timezone
 
-from apps.crf.models import CrfTemplate
+from apps.crf.models import CrfPageTemplate, CrfTemplate
 
 
 @dataclass(frozen=True)
@@ -17,9 +17,9 @@ class ImportStudyCrfTemplatesTemplateCommand:
 
 @dataclass(frozen=True)
 class CrfTemplateImportIssue:
+    sheet_name: str
     row_number: int
-    code: str
-    version: str
+    identifier: str
     reason: str
 
 
@@ -46,19 +46,40 @@ class CrfTemplateImportFormatError(CrfTemplateImportTemplateError):
 
 
 class ImportStudyCrfTemplatesTemplateService:
-    expected_columns = (
-        "Code",
-        "Name",
-        "Version",
-    )
-    expected_header_map = {
-        "code": "code",
-        "name": "name",
-        "version": "version",
+    crf_templates_sheet_name = "CRF Templates"
+    page_templates_sheet_name = "Page Templates"
+    expected_columns = {
+        crf_templates_sheet_name: (
+            "Code",
+            "Vi Name",
+            "En Name",
+            "Version",
+        ),
+        page_templates_sheet_name: (
+            "CRF Code",
+            "Code",
+            "Vi Name",
+            "En Name",
+            "Order",
+        ),
     }
-
+    expected_header_map = {
+        crf_templates_sheet_name: {
+            "code": "code",
+            "vi name": "vi_name",
+            "en name": "en_name",
+            "version": "version",
+        },
+        page_templates_sheet_name: {
+            "crf code": "crf_code",
+            "code": "code",
+            "vi name": "vi_name",
+            "en name": "en_name",
+            "order": "order",
+        },
+    }
     def execute(self, command: ImportStudyCrfTemplatesTemplateCommand) -> ImportStudyCrfTemplatesTemplateResult:
-        workbook_rows = self._load_rows_from_workbook(
+        workbook_rows_by_sheet = self._load_rows_from_workbook(
             file_name=command.file_name,
             file_content=command.file_content,
         )
@@ -67,32 +88,47 @@ class ImportStudyCrfTemplatesTemplateService:
         updated_count = 0
         issues = []
 
-        for row_number, row_data in workbook_rows:
-            try:
-                import_outcome = self._import_row(
-                    study_id=command.study_id,
-                    row_data=row_data,
-                    row_number=row_number,
-                    actor_user_id=command.actor_user_id,
+        for sheet_name in (self.crf_templates_sheet_name, self.page_templates_sheet_name):
+            for row_number, row_data in workbook_rows_by_sheet[sheet_name]:
+                identifier = (
+                    self._build_crf_template_identifier(row_data)
+                    if sheet_name == self.crf_templates_sheet_name
+                    else self._build_page_template_identifier(row_data)
                 )
-            except CrfTemplateImportFormatError as exc:
-                issues.append(
-                    CrfTemplateImportIssue(
-                        row_number=row_number,
-                        code=str(row_data.get("code", "") or ""),
-                        version=str(row_data.get("version", "") or ""),
-                        reason=str(exc),
+                try:
+                    if sheet_name == self.crf_templates_sheet_name:
+                        import_outcome = self._import_crf_template_row(
+                            study_id=command.study_id,
+                            row_data=row_data,
+                            row_number=row_number,
+                            actor_user_id=command.actor_user_id,
+                        )
+                    else:
+                        import_outcome = self._import_page_template_row(
+                            study_id=command.study_id,
+                            row_data=row_data,
+                            row_number=row_number,
+                            actor_user_id=command.actor_user_id,
+                        )
+                except CrfTemplateImportFormatError as exc:
+                    issues.append(
+                        CrfTemplateImportIssue(
+                            sheet_name=sheet_name,
+                            row_number=row_number,
+                            identifier=identifier,
+                            reason=str(exc),
+                        )
                     )
-                )
-                continue
+                    continue
 
-            if import_outcome == "created":
-                created_count += 1
-            else:
-                updated_count += 1
+                if import_outcome == "created":
+                    created_count += 1
+                else:
+                    updated_count += 1
 
+        total_rows = sum(len(rows) for rows in workbook_rows_by_sheet.values())
         return ImportStudyCrfTemplatesTemplateResult(
-            total_rows=len(workbook_rows),
+            total_rows=total_rows,
             created_count=created_count,
             updated_count=updated_count,
             skipped_count=len(issues),
@@ -100,28 +136,30 @@ class ImportStudyCrfTemplatesTemplateService:
             warnings=(),
         )
 
-    def _import_row(self, *, study_id, row_data, row_number, actor_user_id):
-        code = self._as_text(row_data.get("code"))
-        if not code:
-            raise CrfTemplateImportFormatError("Code is required.")
-        if len(code) > 64:
-            raise CrfTemplateImportFormatError("Code must be 64 characters or fewer.")
-
-        name = self._as_text(row_data.get("name"))
-        if not name:
-            raise CrfTemplateImportFormatError("Name is required.")
-        if len(name) > 255:
-            raise CrfTemplateImportFormatError("Name must be 255 characters or fewer.")
-
-        version = self._as_text(row_data.get("version"))
-        if not version:
-            raise CrfTemplateImportFormatError("Version is required.")
-        if len(version) > 32:
-            raise CrfTemplateImportFormatError("Version must be 32 characters or fewer.")
+    def _import_crf_template_row(self, *, study_id, row_data, row_number, actor_user_id):
+        code = self._require_text(
+            row_data.get("code"),
+            field_label="Code",
+            max_length=64,
+        )
+        vi_name = self._require_text(
+            row_data.get("vi_name"),
+            field_label="Vi Name",
+            max_length=255,
+        )
+        en_name = self._require_text(
+            row_data.get("en_name"),
+            field_label="En Name",
+            max_length=255,
+        )
+        version = self._require_text(
+            row_data.get("version"),
+            field_label="Version",
+            max_length=32,
+        )
 
         now = self._now()
         defaults = {
-            "name": name,
             "deleted": False,
             "is_active": True,
             "updated_at": now,
@@ -136,7 +174,7 @@ class ImportStudyCrfTemplatesTemplateService:
             ).first()
 
             if crf_template is None:
-                CrfTemplate.objects.create(
+                crf_template = CrfTemplate(
                     study_id=study_id,
                     code=code,
                     version=version,
@@ -144,12 +182,90 @@ class ImportStudyCrfTemplatesTemplateService:
                     created_by_id=actor_user_id,
                     **defaults,
                 )
-                return "created"
+                import_outcome = "created"
+            else:
+                for field_name, value in defaults.items():
+                    setattr(crf_template, field_name, value)
+                import_outcome = "updated"
 
-            for field_name, value in defaults.items():
-                setattr(crf_template, field_name, value)
-            crf_template.save(update_fields=list(defaults.keys()))
-            return "updated"
+            self._set_translated_value(crf_template, "name", "vi", vi_name)
+            self._set_translated_value(crf_template, "name", "en", en_name)
+            crf_template.save()
+            return import_outcome
+
+    def _import_page_template_row(self, *, study_id, row_data, row_number, actor_user_id):
+        crf_code = self._require_text(
+            row_data.get("crf_code"),
+            field_label="CRF Code",
+            max_length=64,
+        )
+        code = self._require_text(
+            row_data.get("code"),
+            field_label="Code",
+            max_length=64,
+        )
+        vi_name = self._require_text(
+            row_data.get("vi_name"),
+            field_label="Vi Name",
+            max_length=255,
+        )
+        en_name = self._require_text(
+            row_data.get("en_name"),
+            field_label="En Name",
+            max_length=255,
+        )
+        order = self._require_int(
+            row_data.get("order"),
+            field_label="Order",
+        )
+
+        crf_templates = CrfTemplate.objects.filter(
+            study_id=study_id,
+            code=crf_code,
+            deleted=False,
+        )
+        crf_template = crf_templates.order_by("-updated_at", "-id").first()
+        if crf_template is None:
+            raise CrfTemplateImportFormatError(
+                f"CRF Template with code '{crf_code}' was not found for this study."
+            )
+        if crf_templates.exclude(pk=crf_template.pk).exists():
+            raise CrfTemplateImportFormatError(
+                f"CRF Template code '{crf_code}' is ambiguous because multiple versions exist."
+            )
+
+        now = self._now()
+        defaults = {
+            "deleted": False,
+            "order": order,
+            "updated_at": now,
+            "updated_by_id": actor_user_id,
+        }
+
+        with transaction.atomic():
+            page_template = CrfPageTemplate.objects.filter(
+                crf_template=crf_template,
+                code=code,
+            ).first()
+
+            if page_template is None:
+                page_template = CrfPageTemplate(
+                    crf_template=crf_template,
+                    code=code,
+                    created_at=now,
+                    created_by_id=actor_user_id,
+                    **defaults,
+                )
+                import_outcome = "created"
+            else:
+                for field_name, value in defaults.items():
+                    setattr(page_template, field_name, value)
+                import_outcome = "updated"
+
+            self._set_translated_value(page_template, "title", "vi", vi_name)
+            self._set_translated_value(page_template, "title", "en", en_name)
+            page_template.save()
+            return import_outcome
 
     def _load_rows_from_workbook(self, *, file_name, file_content):
         file_name_lower = (file_name or "").strip().lower()
@@ -168,9 +284,15 @@ class ImportStudyCrfTemplatesTemplateService:
             ) from exc
 
         workbook = load_workbook(filename=BytesIO(file_content), data_only=True, read_only=True)
-        worksheet = workbook.worksheets[0]
-        rows = list(worksheet.iter_rows(values_only=True))
-        return self._map_rows(rows)
+        rows_by_sheet = {}
+        for sheet_name in self.expected_columns:
+            if sheet_name not in workbook.sheetnames:
+                raise CrfTemplateImportFormatError(f"Missing required worksheet: {sheet_name}")
+            rows_by_sheet[sheet_name] = self._map_rows(
+                rows=list(workbook[sheet_name].iter_rows(values_only=True)),
+                sheet_name=sheet_name,
+            )
+        return rows_by_sheet
 
     def _load_xls_rows(self, file_content):
         try:
@@ -181,26 +303,38 @@ class ImportStudyCrfTemplatesTemplateService:
             ) from exc
 
         workbook = xlrd.open_workbook(file_contents=file_content)
-        worksheet = workbook.sheet_by_index(0)
-        rows = [worksheet.row_values(index) for index in range(worksheet.nrows)]
-        return self._map_rows(rows)
+        rows_by_sheet = {}
+        for sheet_name in self.expected_columns:
+            try:
+                worksheet = workbook.sheet_by_name(sheet_name)
+            except xlrd.biffh.XLRDError as exc:
+                raise CrfTemplateImportFormatError(
+                    f"Missing required worksheet: {sheet_name}"
+                ) from exc
+            rows_by_sheet[sheet_name] = self._map_rows(
+                rows=[worksheet.row_values(index) for index in range(worksheet.nrows)],
+                sheet_name=sheet_name,
+            )
+        return rows_by_sheet
 
-    def _map_rows(self, rows):
+    def _map_rows(self, *, rows, sheet_name):
+        if sheet_name not in self.expected_columns:
+            raise CrfTemplateImportFormatError(f"Unexpected worksheet: {sheet_name}")
         if not rows:
-            raise CrfTemplateImportFormatError("The workbook is empty.")
+            return []
 
         headers = [self._normalize_header(value) for value in rows[0]]
         missing_headers = [
             header
-            for header in self.expected_columns
+            for header in self.expected_columns[sheet_name]
             if self._normalize_header(header) not in headers
         ]
         if missing_headers:
             raise CrfTemplateImportFormatError(
-                "Missing required columns: " + ", ".join(missing_headers)
+                f"Worksheet '{sheet_name}' is missing required columns: " + ", ".join(missing_headers)
             )
 
-        header_keys = [self.expected_header_map.get(header) for header in headers]
+        header_keys = [self.expected_header_map[sheet_name].get(header) for header in headers]
         mapped_rows = []
         for row_index, row_values in enumerate(rows[1:], start=2):
             if self._is_blank_row(row_values):
@@ -231,6 +365,46 @@ class ImportStudyCrfTemplatesTemplateService:
         if isinstance(value, float) and value.is_integer():
             return str(int(value))
         return str(value).strip()
+
+    def _require_text(self, value, *, field_label, max_length):
+        normalized_value = self._as_text(value)
+        if not normalized_value:
+            raise CrfTemplateImportFormatError(f"{field_label} is required.")
+        if len(normalized_value) > max_length:
+            raise CrfTemplateImportFormatError(
+                f"{field_label} must be {max_length} characters or fewer."
+            )
+        return normalized_value
+
+    def _require_int(self, value, *, field_label):
+        normalized_value = self._as_text(value)
+        if not normalized_value:
+            raise CrfTemplateImportFormatError(f"{field_label} is required.")
+        try:
+            return int(normalized_value)
+        except ValueError as exc:
+            raise CrfTemplateImportFormatError(f"{field_label} must be an integer.") from exc
+
+    @staticmethod
+    def _set_translated_value(instance, field_name, language_code, value):
+        instance.set_current_language(language_code, initialize=True)
+        setattr(instance, field_name, value)
+
+    def _build_crf_template_identifier(self, row_data):
+        return " / ".join(
+            part for part in (
+                self._as_text(row_data.get("code")),
+                self._as_text(row_data.get("version")),
+            ) if part
+        )
+
+    def _build_page_template_identifier(self, row_data):
+        return " / ".join(
+            part for part in (
+                self._as_text(row_data.get("crf_code")),
+                self._as_text(row_data.get("code")),
+            ) if part
+        )
 
     @staticmethod
     def _now():

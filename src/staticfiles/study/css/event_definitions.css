@@ -26,8 +26,10 @@
 }
 
 .event-definitions-diagram {
-  width: 100%;
+  /* width: 100%; */
   height: 360px;
+  overflow: auto;
+  padding: 16px;
   border: 1px solid #d9e2ec;
   border-radius: 6px;
   background: linear-gradient(180deg, #fbfdff 0%, #f5f9fc 100%);
@@ -38,6 +40,23 @@
   place-items: center;
   color: #7b8a97;
   font-size: 13px;
+}
+
+.event-definitions-diagram--error {
+  color: #a44b48;
+}
+
+.event-definitions-diagram__canvas {
+  min-width: max-content;
+  min-height: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.event-definitions-diagram__canvas svg {
+  display: block;
+  height: auto;
 }
 
 .event-definitions-form-placeholder {

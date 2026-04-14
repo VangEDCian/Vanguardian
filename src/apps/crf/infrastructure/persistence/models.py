@@ -1,15 +1,17 @@
 from django.db import models
+from parler.fields import TranslatedField
+from parler.models import TranslatableModel, TranslatedFieldsModel
 
 from apps.study.models import Study
 
 
-class CrfTemplate(models.Model):
+class CrfTemplate(TranslatableModel):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
     code = models.CharField(max_length=64)
-    name = models.CharField(max_length=255)
+    name = TranslatedField(any_language=True)
     version = models.CharField(max_length=32)
     is_active = models.BooleanField(default=True)
 
@@ -36,13 +38,40 @@ class CrfTemplate(models.Model):
         verbose_name_plural = "CRF templates"
 
 
-class CrfPageTemplate(models.Model):
+class CrfTemplateTranslation(TranslatedFieldsModel):
+    master = models.ForeignKey(
+        CrfTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="crf_template_id",
+        related_name="translations",
+    )
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "crf_crftemplate_translation"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language_code", "master"],
+                name="crf_crftemplate_translation_lang_template_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["master"], name="crf_crftemplate_translation_master_idx"),
+            models.Index(fields=["language_code"], name="crf_crftemplate_translation_language_idx"),
+        ]
+        verbose_name = "CRF template translation"
+        verbose_name_plural = "CRF template translations"
+
+
+class CrfPageTemplate(TranslatableModel):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
     code = models.CharField(max_length=64)
-    title = models.CharField(max_length=255)
+    title = TranslatedField(any_language=True)
     order = models.IntegerField()
 
     crf_template = models.ForeignKey(
@@ -68,13 +97,40 @@ class CrfPageTemplate(models.Model):
         verbose_name_plural = "CRF page templates"
 
 
-class CrfFieldTemplate(models.Model):
+class CrfPageTemplateTranslation(TranslatedFieldsModel):
+    master = models.ForeignKey(
+        CrfPageTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="page_template_id",
+        related_name="translations",
+    )
+    title = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "crf_pagetemplate_translation"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language_code", "master"],
+                name="crf_pagetemplate_translation_lang_page_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["master"], name="crf_pagetemplate_translation_master_idx"),
+            models.Index(fields=["language_code"], name="crf_pagetemplate_translation_language_idx"),
+        ]
+        verbose_name = "CRF page template translation"
+        verbose_name_plural = "CRF page template translations"
+
+
+class CrfFieldTemplate(TranslatableModel):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
     field_key = models.CharField(max_length=100)
-    label = models.TextField()
+    label = TranslatedField(any_language=True)
     data_type = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
 
@@ -99,6 +155,33 @@ class CrfFieldTemplate(models.Model):
         ]
         verbose_name = "CRF field template"
         verbose_name_plural = "CRF field templates"
+
+
+class CrfFieldTemplateTranslation(TranslatedFieldsModel):
+    master = models.ForeignKey(
+        CrfFieldTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="field_template_id",
+        related_name="translations",
+    )
+    label = models.TextField()
+
+    class Meta:
+        db_table = "crf_fieldtemplate_translation"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language_code", "master"],
+                name="crf_fieldtemplate_translation_lang_field_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["master"], name="crf_fieldtemplate_translation_master_idx"),
+            models.Index(fields=["language_code"], name="crf_fieldtemplate_translation_language_idx"),
+        ]
+        verbose_name = "CRF field template translation"
+        verbose_name_plural = "CRF field template translations"
 
 
 class CrfFieldDefinition(models.Model):
@@ -166,14 +249,14 @@ class CrfFieldUiConfig(models.Model):
         verbose_name_plural = "CRF field UI configs"
 
 
-class CrfFieldValidationRule(models.Model):
+class CrfFieldValidationRule(TranslatableModel):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
     rule_type = models.CharField(max_length=64)
     expression = models.TextField()
-    message = models.TextField()
+    message = TranslatedField(any_language=True)
     severity = models.CharField(max_length=20)
     mode = models.CharField(max_length=20)
 
@@ -192,3 +275,30 @@ class CrfFieldValidationRule(models.Model):
         default_permissions = ()
         verbose_name = "CRF field validation rule"
         verbose_name_plural = "CRF field validation rules"
+
+
+class CrfFieldValidationRuleTranslation(TranslatedFieldsModel):
+    master = models.ForeignKey(
+        CrfFieldValidationRule,
+        on_delete=models.DO_NOTHING,
+        db_column="field_validation_rule_id",
+        related_name="translations",
+    )
+    message = models.TextField()
+
+    class Meta:
+        db_table = "crf_fieldvalidationrule_translation"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language_code", "master"],
+                name="crf_fieldvalidationrule_translation_lang_rule_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["master"], name="crf_fieldvalidationrule_translation_master_idx"),
+            models.Index(fields=["language_code"], name="crf_fieldvalidationrule_translation_language_idx"),
+        ]
+        verbose_name = "CRF field validation rule translation"
+        verbose_name_plural = "CRF field validation rule translations"

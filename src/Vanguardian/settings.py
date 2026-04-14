@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "django_tables2",
+    "parler",
 ] + X_INSTALLED_APPS
 
 MIDDLEWARE = [
@@ -162,6 +163,15 @@ LANGUAGES = [
     ("vi", _("Vietnamese")),
     ("en", _("English")),
 ]
+
+PARLER_DEFAULT_LANGUAGE_CODE = LANGUAGE_CODE
+PARLER_LANGUAGES = {
+    None: tuple({"code": code} for code, _label in LANGUAGES),
+    "default": {
+        "fallbacks": [PARLER_DEFAULT_LANGUAGE_CODE],
+        "hide_untranslated": False,
+    },
+}
 
 LOCALE_PATHS = [
     BASE_DIR / "locale",
