@@ -7,9 +7,11 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from django_tables2 import RequestConfig
+from django.views.generic import ListView
+from django_filters.views import FilterView
+from django_tables2 import SingleTableMixin
 
-from apps.shared.views.generic import AuthenticateTemplateView
+from apps.shared.views import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 
 from apps.study.application import (
     CrfTemplateImportDependencyError,
@@ -21,7 +23,6 @@ from apps.study.application import (
     ImportStudyCrfTemplatesTemplateCommand,
     ImportStudyCrfTemplatesTemplateService,
     StudyAuditService,
-    StudyCrfTemplateDirectoryQueryService,
     StudyCodeAlreadyExistsError,
     StudyDateRangeError,
     StudyDirectoryQueryService,
@@ -33,8 +34,13 @@ from apps.study.application import (
     UpdateStudyCommand,
     UpdateStudyService,
 )
+from apps.crf.models import CrfTemplate
 from apps.study.infrastructure.persistence.models import Study
-from apps.study.presentation.web.forms import CrfTemplateImportTemplateForm, StudyForm
+from apps.study.presentation.web.forms import (
+    CrfTemplateImportTemplateForm,
+    CrfTemplatesToolbarForm,
+    StudyForm,
+)
 from apps.study.presentation.web.tables import CrfTemplateListTable
 from apps.study.presentation.web.viewpackages._helpers import (
     _can_change_study_status,
@@ -300,16 +306,20 @@ class StudyDetailView(
 
 
 class StudyCrfTemplateListView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView
+    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
+    SingleTableMixin, FilterView, ListView,
 ):
     permission_required = "study.view_study_detail"
     raise_exception = True
     template_name = "study/crf_templates.html"
     layout_nav_key = "STUDIES"
+    model = CrfTemplate
+    table_class = CrfTemplateListTable
+    filterset_class = CrfTemplatesToolbarForm
+    context_table_name = "crf_templates_table"
+    paginate_by = 25
+
     study_directory_query_service_class = StudyDirectoryQueryService
-    study_crf_template_directory_query_service_class = (
-        StudyCrfTemplateDirectoryQueryService
-    )
     import_crf_templates_template_service_class = ImportStudyCrfTemplatesTemplateService
     expected_import_columns = ImportStudyCrfTemplatesTemplateService.expected_columns
     _detail_view_model = None
@@ -317,9 +327,6 @@ class StudyCrfTemplateListView(
 
     def get_study_directory_query_service(self):
         return self.study_directory_query_service_class()
-
-    def get_study_crf_template_directory_query_service(self):
-        return self.study_crf_template_directory_query_service_class()
 
     def get_import_crf_templates_template_service(self):
         return self.import_crf_templates_template_service_class()
@@ -356,20 +363,59 @@ class StudyCrfTemplateListView(
             return super().get_layout_detail_meta_items()
         return self._detail_view_model.get("layout_detail_meta_items", ())
 
+    def get_queryset(self):
+        return super().get_queryset().filter(
+            study_id=self._study.pk,
+            deleted=False,
+        ).prefetch_related("translations")
+
+    def get_table(self, **kwargs):
+        table = super().get_table(**kwargs)
+        table.empty_text = _("No CRF templates found matching your criteria.")
+        return table
+
+    @staticmethod
+    def _build_hidden_fields(**params):
+        return [{"name": name, "value": value} for name, value in params.items() if value not in (None, "")]
+
+    def _build_table_toolbar(self, *, total, search_query, sort_query):
+        return {
+            "filter": None,
+            "secondary_search": None,
+            "summary": {
+                "label": _("Total CRF Templates"),
+                "value": total,
+            },
+            "search": {
+                "name": "search",
+                "value": search_query,
+                "placeholder": _("Search CRF templates..."),
+                "aria_label": _("Search CRF templates"),
+                "show_icon": True,
+                "hidden_fields": self._build_hidden_fields(sort=sort_query),
+            },
+        }
+
+    def _ensure_filter_state(self):
+        if not hasattr(self, "filterset"):
+            self.filterset = self.get_filterset(self.get_filterset_class())
+        if not hasattr(self, "object_list"):
+            self.object_list = self.filterset.qs
+
     def get_context_data(self, **kwargs):
+        self._ensure_filter_state()
         context = super().get_context_data(**kwargs)
         context["detail_study"] = self._detail_view_model["detail_study"]
-        directory_context = self.get_study_crf_template_directory_query_service().list_crf_templates(
-            study_id=self._study.pk,
-            search_query=self.request.GET.get("q", ""),
-            sort_query=self.request.GET.get("sort", ""),
+        search_query = (self.request.GET.get("search", "") or "").strip()
+        sort_query = self.request.GET.get("sort", "")
+        context["crf_templates_total"] = self.filterset.qs.count()
+        context["crf_templates_empty_text"] = _("No CRF templates found matching your criteria.")
+        context["crf_templates_table_toolbar"] = self._build_table_toolbar(
+            total=context["crf_templates_total"],
+            search_query=search_query,
+            sort_query=sort_query,
         )
-        crf_templates_table = CrfTemplateListTable(directory_context["crf_templates"])
-        crf_templates_table.empty_text = directory_context["crf_templates_empty_text"]
-        RequestConfig(self.request, paginate={"per_page": 25}).configure(crf_templates_table)
-
-        context.update(directory_context)
-        context["crf_templates_table"] = crf_templates_table
+        context["crf_template_search_query"] = search_query
         context.setdefault("import_form", CrfTemplateImportTemplateForm())
         context["expected_import_columns"] = self.expected_import_columns
         context["import_result"] = kwargs.get("import_result")

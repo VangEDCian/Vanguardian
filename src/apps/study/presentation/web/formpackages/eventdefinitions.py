@@ -1,6 +1,14 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.filters import SharedSearch, SharedTotal
+from apps.study.infrastructure.persistence.models import EventDefinition
+
+__all__ = [
+    "EventDefinitionImportTemplateForm",
+    "EventDefinitionsToolbarForm",
+]
+
 
 class EventDefinitionImportTemplateForm(forms.Form):
     import_file = forms.FileField(
@@ -19,3 +27,26 @@ class EventDefinitionImportTemplateForm(forms.Form):
         if not file_name.endswith((".xlsx", ".xls")):
             raise forms.ValidationError(_("Only .xlsx and .xls files are supported."))
         return uploaded_file
+
+
+class EventDefinitionsToolbarForm(SharedSearch, SharedTotal):
+    SEARCH_FIELDS = (
+        "study_version",
+        "code",
+        "name",
+        "description",
+        "event_type",
+        "timing_mode",
+        "event_category",
+        "execution_mode",
+    )
+    TOTAL_LABEL = _("Total Event Definitions")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bind_total_field()
+
+    class Meta:
+        model = EventDefinition
+        fields = ("search",)
+        toolbar_fields = ("total", "search")

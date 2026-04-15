@@ -44,27 +44,41 @@ def _make_user(**kwargs):
 
 
 class DeleteIdentityUserServiceTests(SimpleTestCase):
-    databases = {"default"}
-
+    @patch("apps.identity.application.commands.delete_user.build_soft_deleted_optional_unique_value")
+    @patch("apps.identity.application.commands.delete_user.build_soft_deleted_unique_value")
     @patch("apps.identity.application.commands.delete_user.User")
-    def test_marks_user_deleted_without_overwriting_profile(self, mock_user_cls):
+    def test_marks_user_deleted_and_suffixes_unique_identifiers(
+        self,
+        mock_user_cls,
+        mock_suffix_builder,
+        mock_optional_suffix_builder,
+    ):
         user = _make_user(pk=7)
         mock_user_cls.objects.prefetch_related.return_value.filter.return_value.first.return_value = user
+        mock_suffix_builder.return_value = "demo-user_deleted_deadbeef"
+        mock_optional_suffix_builder.side_effect = [
+            "demo@example.com_deleted_deadbeef",
+            "123_deleted_deadbeef",
+        ]
 
-        DeleteIdentityUserService().execute(
-            DeleteIdentityUserCommand(user_id=7, actor_user_id=1)
+        DeleteIdentityUserService.execute.__wrapped__(
+            DeleteIdentityUserService(),
+            DeleteIdentityUserCommand(user_id=7, actor_user_id=1),
         )
 
-        self.assertEqual(user.username, "demo-user")
+        self.assertEqual(user.username, "demo-user_deleted_deadbeef")
         self.assertEqual(user.first_name, "Demo")
         self.assertEqual(user.last_name, "User")
         self.assertEqual(user.display_name, "Demo User")
-        self.assertEqual(user.email, "demo@example.com")
-        self.assertEqual(user.phone_number, "123")
+        self.assertEqual(user.email, "demo@example.com_deleted_deadbeef")
+        self.assertEqual(user.phone_number, "123_deleted_deadbeef")
         self.assertFalse(user.is_active)
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.deleted)
+        mock_suffix_builder.assert_called_once_with("demo-user")
+        mock_optional_suffix_builder.assert_any_call("demo@example.com")
+        mock_optional_suffix_builder.assert_any_call("123")
         user.save.assert_called_once()
         user.groups.set.assert_not_called()
 
@@ -73,14 +87,13 @@ class DeleteIdentityUserServiceTests(SimpleTestCase):
         mock_user_cls.objects.prefetch_related.return_value.filter.return_value.first.return_value = None
 
         with self.assertRaises(IdentityUserNotFoundError):
-            DeleteIdentityUserService().execute(
-                DeleteIdentityUserCommand(user_id=999, actor_user_id=1)
+            DeleteIdentityUserService.execute.__wrapped__(
+                DeleteIdentityUserService(),
+                DeleteIdentityUserCommand(user_id=999, actor_user_id=1),
             )
 
 
 class RestoreIdentityUserServiceTests(SimpleTestCase):
-    databases = {"default"}
-
     @patch("apps.identity.application.commands.delete_user.AuditEvent")
     @patch("apps.identity.application.commands.delete_user.User")
     @patch("apps.identity.application.commands.delete_user.Group")
@@ -105,8 +118,9 @@ class RestoreIdentityUserServiceTests(SimpleTestCase):
         )
         mock_audit_event_cls.objects.filter.return_value.order_by.return_value.first.return_value = deleted_event
 
-        restored_user = RestoreIdentityUserService().execute(
-            RestoreIdentityUserCommand(user_id=9, actor_user_id=1)
+        restored_user = RestoreIdentityUserService.execute.__wrapped__(
+            RestoreIdentityUserService(),
+            RestoreIdentityUserCommand(user_id=9, actor_user_id=1),
         )
 
         self.assertEqual(user.username, "demo-user")
@@ -131,6 +145,7 @@ class RestoreIdentityUserServiceTests(SimpleTestCase):
         mock_audit_event_cls.objects.filter.return_value.order_by.return_value.first.return_value = None
 
         with self.assertRaises(IdentityUserRestoreDataNotFoundError):
-            RestoreIdentityUserService().execute(
-                RestoreIdentityUserCommand(user_id=11, actor_user_id=1)
+            RestoreIdentityUserService.execute.__wrapped__(
+                RestoreIdentityUserService(),
+                RestoreIdentityUserCommand(user_id=11, actor_user_id=1),
             )

@@ -1,5 +1,14 @@
 from django import forms
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
+
+from apps.crf.models import CrfTemplate
+from apps.shared.filters import SharedSearch, SharedTotal
+
+__all__ = [
+    "CrfTemplateImportTemplateForm",
+    "CrfTemplatesToolbarForm",
+]
 
 
 class CrfTemplateImportTemplateForm(forms.Form):
@@ -19,3 +28,29 @@ class CrfTemplateImportTemplateForm(forms.Form):
         if not file_name.endswith((".xlsx", ".xls")):
             raise forms.ValidationError(_("Only .xlsx and .xls files are supported."))
         return uploaded_file
+
+
+class CrfTemplatesToolbarForm(SharedSearch, SharedTotal):
+    SEARCH_FIELDS = ("code", "version")
+    TOTAL_LABEL = _("Total CRF Templates")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bind_total_field()
+
+    @classmethod
+    def filter_search(cls, queryset, name, value):
+        normalized_value = (value or "").strip()
+        if not normalized_value:
+            return queryset
+
+        return queryset.filter(
+            Q(code__icontains=normalized_value)
+            | Q(version__icontains=normalized_value)
+            | Q(translations__name__icontains=normalized_value)
+        ).distinct()
+
+    class Meta:
+        model = CrfTemplate
+        fields = ("search",)
+        toolbar_fields = ("total", "search")

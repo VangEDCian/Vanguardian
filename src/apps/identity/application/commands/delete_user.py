@@ -7,6 +7,10 @@ from django.db import transaction
 from apps.audit.infrastructure.persistence.models import AuditEvent
 from apps.identity.application.queries import IdentityUserNotFoundError
 from apps.identity.models import User
+from apps.shared.application.services.soft_delete import (
+    build_soft_deleted_optional_unique_value,
+    build_soft_deleted_unique_value,
+)
 from apps.shared.constants import AuditEventAction, AuditEventObjectType
 
 
@@ -33,6 +37,9 @@ class DeleteIdentityUserService:
         if user is None:
             raise IdentityUserNotFoundError(command.user_id)
 
+        user.username = build_soft_deleted_unique_value(user.username)
+        user.email = build_soft_deleted_optional_unique_value(user.email)
+        user.phone_number = build_soft_deleted_optional_unique_value(user.phone_number)
         user.deleted = True
         user.is_active = False
         user.is_staff = False

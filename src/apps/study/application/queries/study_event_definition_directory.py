@@ -27,6 +27,24 @@ class StudyEventDefinitionDirectoryQueryService:
             )
 
         event_definitions = list(event_definitions_queryset)
+        diagram_context = self.build_diagram_context(
+            study_id=study_id,
+            event_definitions=event_definitions,
+        )
+
+        return {
+            "event_definitions": event_definitions,
+            "event_definitions_total": len(event_definitions),
+            "event_definitions_empty_text": _("No event definitions found matching your criteria."),
+            "event_definitions_table_toolbar": self._build_table_toolbar(
+                total=len(event_definitions),
+                search_query=normalized_search_query,
+                sort_query=sort_query,
+            ),
+            **diagram_context,
+        }
+
+    def build_diagram_context(self, *, study_id, event_definitions):
         transition_rules = list(
             EventTransitionRule.objects.select_related("from_event_definition", "to_event_definition")
             .filter(
@@ -39,16 +57,7 @@ class StudyEventDefinitionDirectoryQueryService:
         )
         diagram_nodes = self._build_diagram_nodes(event_definitions)
         diagram_links = self._build_diagram_links(event_definitions, transition_rules)
-
         return {
-            "event_definitions": event_definitions,
-            "event_definitions_total": len(event_definitions),
-            "event_definitions_empty_text": _("No event definitions found matching your criteria."),
-            "event_definitions_table_toolbar": self._build_table_toolbar(
-                total=len(event_definitions),
-                search_query=normalized_search_query,
-                sort_query=sort_query,
-            ),
             "event_definitions_diagram_has_nodes": bool(diagram_nodes),
             "event_definitions_diagram_mermaid": self._build_diagram_mermaid(diagram_nodes, diagram_links),
         }

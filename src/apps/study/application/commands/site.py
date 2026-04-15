@@ -1,9 +1,10 @@
 from django.db import transaction
+from django.utils import timezone
 
+from apps.shared.application.services.soft_delete import build_soft_deleted_unique_value
 from apps.study.application.commands.site_data import SiteCodeAlreadyExistsError
 from apps.study.infrastructure.persistence.models import SiteMembership
 from apps.study.models import Site
-from django.utils import timezone
 
 from .site_data import (
     CreateSiteCommand, DeleteSiteCommand, CreateSiteMembershipCommand,
@@ -43,6 +44,7 @@ class DeleteSiteService:
         if site is None:
             raise SiteNotFoundError(command.site_id)
 
+        site.code = build_soft_deleted_unique_value(site.code)
         site.deleted = True
         site.is_active = False
         site.updated_at = timezone.now()

@@ -4,8 +4,11 @@ from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from django_tables2 import RequestConfig
+from django.views.generic import ListView
+from django_filters.views import FilterView
+from django_tables2 import SingleTableMixin
 
+from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.shared.views.generic import AuthenticateTemplateView
 from apps.study.application import (
     EventFormBindingImportDependencyError,
@@ -20,8 +23,9 @@ from apps.study.application import (
     StudyEventDefinitionDirectoryQueryService,
     StudyNotFoundError,
 )
-from apps.study.infrastructure.persistence.models import Study
+from apps.study.infrastructure.persistence.models import EventDefinition, Study
 from apps.study.presentation.web.forms import (
+    EventDefinitionsToolbarForm,
     EventDefinitionImportTemplateForm,
     EventFormBindingImportTemplateForm,
 )
@@ -36,11 +40,20 @@ __all__ = [
 ]
 
 
-class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
+class StudyEventDefinitionListView(
+    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
+    SingleTableMixin, FilterView, ListView,
+):
     permission_required = "study.view_study_detail"
     raise_exception = True
     template_name = "study/event_definitions.html"
     layout_nav_key = "STUDIES"
+    model = EventDefinition
+    table_class = EventDefinitionListTable
+    filterset_class = EventDefinitionsToolbarForm
+    context_table_name = "event_definitions_table"
+    paginate_by = 25
+
     study_directory_query_service_class = StudyDirectoryQueryService
     study_event_definition_directory_query_service_class = StudyEventDefinitionDirectoryQueryService
     import_event_definitions_template_service_class = ImportStudyEventDefinitionsTemplateService
@@ -92,20 +105,65 @@ class StudyEventDefinitionListView(LoginRequiredMixin, PermissionRequiredMixin, 
             return super().get_layout_detail_meta_items()
         return self._detail_view_model.get("layout_detail_meta_items", ())
 
+    def get_queryset(self):
+        return super().get_queryset().filter(
+            study_id=self._study.pk,
+            deleted=False,
+        )
+
+    def get_table(self, **kwargs):
+        table = super().get_table(**kwargs)
+        table.empty_text = _("No event definitions found matching your criteria.")
+        return table
+
+    @staticmethod
+    def _build_hidden_fields(**params):
+        return [{"name": name, "value": value} for name, value in params.items() if value not in (None, "")]
+
+    def _build_table_toolbar(self, *, total, search_query, sort_query):
+        return {
+            "filter": None,
+            "secondary_search": None,
+            "summary": {
+                "label": _("Total Event Definitions"),
+                "value": total,
+            },
+            "search": {
+                "name": "search",
+                "value": search_query,
+                "placeholder": _("Search event definitions..."),
+                "aria_label": _("Search event definitions"),
+                "show_icon": True,
+                "hidden_fields": self._build_hidden_fields(sort=sort_query),
+            },
+        }
+
+    def _ensure_filter_state(self):
+        if not hasattr(self, "filterset"):
+            self.filterset = self.get_filterset(self.get_filterset_class())
+        if not hasattr(self, "object_list"):
+            self.object_list = self.filterset.qs
+
     def get_context_data(self, **kwargs):
+        self._ensure_filter_state()
         context = super().get_context_data(**kwargs)
         context["detail_study"] = self._detail_view_model["detail_study"]
-        directory_context = self.get_study_event_definition_directory_query_service().list_event_definitions(
+        search_query = (self.request.GET.get("search", "") or "").strip()
+        sort_query = self.request.GET.get("sort", "")
+        filtered_event_definitions = list(self.filterset.qs)
+        diagram_context = self.get_study_event_definition_directory_query_service().build_diagram_context(
             study_id=self._study.pk,
-            search_query=self.request.GET.get("q", ""),
-            sort_query=self.request.GET.get("sort", ""),
+            event_definitions=filtered_event_definitions,
         )
-        event_definitions_table = EventDefinitionListTable(directory_context["event_definitions"])
-        event_definitions_table.empty_text = directory_context["event_definitions_empty_text"]
-        RequestConfig(self.request, paginate={"per_page": 25}).configure(event_definitions_table)
 
-        context.update(directory_context)
-        context["event_definitions_table"] = event_definitions_table
+        context["event_definitions_total"] = len(filtered_event_definitions)
+        context["event_definitions_empty_text"] = _("No event definitions found matching your criteria.")
+        context["event_definitions_table_toolbar"] = self._build_table_toolbar(
+            total=context["event_definitions_total"],
+            search_query=search_query,
+            sort_query=sort_query,
+        )
+        context.update(diagram_context)
         context.setdefault("import_form", EventDefinitionImportTemplateForm())
         context.setdefault("binding_import_form", EventFormBindingImportTemplateForm())
         context["expected_import_columns"] = self.expected_import_columns
