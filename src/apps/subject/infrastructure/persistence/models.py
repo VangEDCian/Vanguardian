@@ -9,6 +9,7 @@ class Subject(models.Model):
     deleted = models.BooleanField(default=False)
 
     subject_code = models.CharField(max_length=64)
+    current_sequence = models.BigIntegerField()
 
     site = models.ForeignKey(
         Site,
@@ -40,7 +41,11 @@ class Subject(models.Model):
             models.UniqueConstraint(
                 fields=["study", "site", "subject_code"],
                 name="study_subj_study_site_code_uq",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["study", "current_sequence"],
+                name="study_subj_study_sequence_uq",
+            ),
         ]
         verbose_name = "subject"
         verbose_name_plural = "subjects"

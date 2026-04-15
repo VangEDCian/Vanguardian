@@ -9,15 +9,19 @@ from django.views.generic import ListView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
-from apps.shared.context_processors import StudyDropdownHandler
+from apps.shared.context_processors import StudyDropdownHandler, SiteDropdownHandler
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.study.application.queries.site_directory import StudySiteDirectoryQueryService
 from apps.study.presentation.web.viewpackages._helpers import _user_has_study_access
+from apps.subject.application.commands.create_subject import (
+    CreateSubjectCommand,
+    CreateSubjectService,
+)
 from apps.subject.models import Subject
 from apps.subject.presentation.web.formpackages import SubjectsToolbarForm
 from apps.subject.presentation.web.tables import SubjectListTable
 
-__all__ = ["SubjectListView"]
+__all__ = ["SubjectListView", "SubjectCreateView"]
 
 
 class SubjectAbstractVerifyStudy(View):
@@ -82,3 +86,32 @@ class SubjectListView(
                 )
             )
         return redirect(reverse("dashboard:main"))
+
+
+class SubjectCreateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SubjectAbstractVerifyStudy,
+):
+    permission_required = "subject.create_subject"
+    raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        study_id = self.get_study_id()
+        site_id = SiteDropdownHandler(
+            request=request,
+            study_id=study_id,
+        ).build().selected_id
+        if site_id is None:
+            raise Http404
+
+        CreateSubjectService().execute(
+            CreateSubjectCommand(
+                study_id=study_id,
+                site_id=site_id,
+                actor_user_id=request.user.pk,
+            ),
+        )
+        return redirect(
+            reverse("subject:subject_list", kwargs={"study_id": study_id}),
+        )
