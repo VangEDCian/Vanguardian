@@ -1,4 +1,4 @@
-from apps.crf.infrastructure.persistence.models import (
+from apps.crf.infrastructure.persistence.models.crf import (
     CrfFieldDefinition,
     CrfFieldTemplate,
     CrfFieldTemplateTranslation,
