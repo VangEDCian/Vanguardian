@@ -243,7 +243,9 @@
 .entity-table__pagination {
   display: flex;
   justify-content: flex-end;
-  background: #e8e8e8;
+  border-top: 1px solid #dddddd80;
+  /* background: transparent; */
+  /* background: #e8e8e8; */
 }
 
 .entity-table__pagination-list {

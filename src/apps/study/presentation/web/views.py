@@ -34,7 +34,7 @@ from apps.study.application import (
     UpdateStudyCommand,
     UpdateStudyService,
 )
-from apps.crf.models import CrfTemplate
+from apps.crf.public import get_crf_template_model
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import (
     CrfTemplateImportTemplateForm,
@@ -313,7 +313,7 @@ class StudyCrfTemplateListView(
     raise_exception = True
     template_name = "study/crf_templates.html"
     layout_nav_key = "STUDIES"
-    model = CrfTemplate
+    model = get_crf_template_model()
     table_class = CrfTemplateListTable
     filterset_class = CrfTemplatesToolbarForm
     context_table_name = "crf_templates_table"

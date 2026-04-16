@@ -1,17 +1,21 @@
 from django.utils.translation import gettext_lazy as _
 
-from apps.crf.models import CrfTemplate
+from apps.crf.public import CrfContextAdapter
 
 
 class StudyCrfTemplateDirectoryQueryService:
+    crf_context_adapter_class = CrfContextAdapter
+
+    def __init__(self, crf_context_adapter=None):
+        self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
+
     def list_crf_templates(self, *, study_id, search_query="", sort_query=""):
         normalized_search_query = (search_query or "").strip()
 
         crf_templates = list(
-            CrfTemplate.objects.filter(
+            self.crf_context_adapter.list_study_templates_for_listing(
                 study_id=study_id,
-                deleted=False,
-            ).prefetch_related("translations")
+            )
         )
 
         if normalized_search_query:

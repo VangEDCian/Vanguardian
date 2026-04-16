@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 from io import BytesIO
 
-from django.db import transaction
 from django.utils import timezone
 
-from apps.crf.models import CrfPageTemplate, CrfTemplate
+from apps.crf.public import (
+    CrfContextAdapter,
+    CrfTemplateAmbiguousError,
+    CrfTemplateNotFoundError,
+)
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,7 @@ class CrfTemplateImportFormatError(CrfTemplateImportTemplateError):
 
 
 class ImportStudyCrfTemplatesTemplateService:
+    crf_context_adapter_class = CrfContextAdapter
     crf_templates_sheet_name = "CRF Templates"
     page_templates_sheet_name = "Page Templates"
     expected_columns = {
@@ -78,6 +82,10 @@ class ImportStudyCrfTemplatesTemplateService:
             "order": "order",
         },
     }
+
+    def __init__(self, crf_context_adapter=None):
+        self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
+
     def execute(self, command: ImportStudyCrfTemplatesTemplateCommand) -> ImportStudyCrfTemplatesTemplateResult:
         workbook_rows_by_sheet = self._load_rows_from_workbook(
             file_name=command.file_name,
@@ -158,40 +166,15 @@ class ImportStudyCrfTemplatesTemplateService:
             max_length=32,
         )
 
-        now = self._now()
-        defaults = {
-            "deleted": False,
-            "is_active": True,
-            "updated_at": now,
-            "updated_by_id": actor_user_id,
-        }
-
-        with transaction.atomic():
-            crf_template = CrfTemplate.objects.filter(
-                study_id=study_id,
-                code=code,
-                version=version,
-            ).first()
-
-            if crf_template is None:
-                crf_template = CrfTemplate(
-                    study_id=study_id,
-                    code=code,
-                    version=version,
-                    created_at=now,
-                    created_by_id=actor_user_id,
-                    **defaults,
-                )
-                import_outcome = "created"
-            else:
-                for field_name, value in defaults.items():
-                    setattr(crf_template, field_name, value)
-                import_outcome = "updated"
-
-            self._set_translated_value(crf_template, "name", "vi", vi_name)
-            self._set_translated_value(crf_template, "name", "en", en_name)
-            crf_template.save()
-            return import_outcome
+        return self.crf_context_adapter.upsert_crf_template(
+            study_id=study_id,
+            code=code,
+            version=version,
+            vi_name=vi_name,
+            en_name=en_name,
+            actor_user_id=actor_user_id,
+            now=self._now(),
+        )
 
     def _import_page_template_row(self, *, study_id, row_data, row_number, actor_user_id):
         crf_code = self._require_text(
@@ -219,53 +202,25 @@ class ImportStudyCrfTemplatesTemplateService:
             field_label="Order",
         )
 
-        crf_templates = CrfTemplate.objects.filter(
-            study_id=study_id,
-            code=crf_code,
-            deleted=False,
-        )
-        crf_template = crf_templates.order_by("-updated_at", "-id").first()
-        if crf_template is None:
+        try:
+            return self.crf_context_adapter.upsert_crf_page_template(
+                study_id=study_id,
+                crf_code=crf_code,
+                code=code,
+                title_vi=vi_name,
+                title_en=en_name,
+                order=order,
+                actor_user_id=actor_user_id,
+                now=self._now(),
+            )
+        except CrfTemplateNotFoundError as exc:
             raise CrfTemplateImportFormatError(
                 f"CRF Template with code '{crf_code}' was not found for this study."
-            )
-        if crf_templates.exclude(pk=crf_template.pk).exists():
+            ) from exc
+        except CrfTemplateAmbiguousError as exc:
             raise CrfTemplateImportFormatError(
                 f"CRF Template code '{crf_code}' is ambiguous because multiple versions exist."
-            )
-
-        now = self._now()
-        defaults = {
-            "deleted": False,
-            "order": order,
-            "updated_at": now,
-            "updated_by_id": actor_user_id,
-        }
-
-        with transaction.atomic():
-            page_template = CrfPageTemplate.objects.filter(
-                crf_template=crf_template,
-                code=code,
-            ).first()
-
-            if page_template is None:
-                page_template = CrfPageTemplate(
-                    crf_template=crf_template,
-                    code=code,
-                    created_at=now,
-                    created_by_id=actor_user_id,
-                    **defaults,
-                )
-                import_outcome = "created"
-            else:
-                for field_name, value in defaults.items():
-                    setattr(page_template, field_name, value)
-                import_outcome = "updated"
-
-            self._set_translated_value(page_template, "title", "vi", vi_name)
-            self._set_translated_value(page_template, "title", "en", en_name)
-            page_template.save()
-            return import_outcome
+            ) from exc
 
     def _load_rows_from_workbook(self, *, file_name, file_content):
         file_name_lower = (file_name or "").strip().lower()
@@ -384,11 +339,6 @@ class ImportStudyCrfTemplatesTemplateService:
             return int(normalized_value)
         except ValueError as exc:
             raise CrfTemplateImportFormatError(f"{field_label} must be an integer.") from exc
-
-    @staticmethod
-    def _set_translated_value(instance, field_name, language_code, value):
-        instance.set_current_language(language_code, initialize=True)
-        setattr(instance, field_name, value)
 
     def _build_crf_template_identifier(self, row_data):
         return " / ".join(

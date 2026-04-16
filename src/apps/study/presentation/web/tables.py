@@ -5,8 +5,8 @@ from django.utils.formats import date_format
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from apps.crf.public import get_crf_template_model
 from apps.study.infrastructure.persistence.models import EventDefinition, Site
-from apps.crf.models import CrfTemplate
 
 
 class SiteListTable(tables.Table):
@@ -84,7 +84,7 @@ class CrfTemplateListTable(tables.Table):
         return date_format(value, "DATETIME_FORMAT") if value else "—"
 
     class Meta:
-        model = CrfTemplate
+        model = get_crf_template_model()
         fields = ("code", "name", "version", "status", "updated_at")
 
 

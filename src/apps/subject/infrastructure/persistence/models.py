@@ -8,7 +8,8 @@ class Subject(models.Model):
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
-    subject_code = models.CharField(max_length=64)
+    subject_code = models.CharField(max_length=64, null=True, blank=True)
+    screening_code = models.CharField(max_length=64, null=True, blank=True)
     current_sequence = models.BigIntegerField()
 
     site = models.ForeignKey(
@@ -41,6 +42,10 @@ class Subject(models.Model):
             models.UniqueConstraint(
                 fields=["study", "site", "subject_code"],
                 name="study_subj_study_site_code_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["study", "screening_code"],
+                name="study_subj_study_screening_code_uq",
             ),
             models.UniqueConstraint(
                 fields=["study", "current_sequence"],

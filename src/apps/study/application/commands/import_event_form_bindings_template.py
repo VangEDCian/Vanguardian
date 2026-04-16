@@ -4,7 +4,11 @@ from io import BytesIO
 from django.db import transaction
 from django.utils import timezone
 
-from apps.crf.models import CrfTemplate
+from apps.crf.public import (
+    CrfContextAdapter,
+    CrfTemplateAmbiguousError,
+    CrfTemplateNotFoundError,
+)
 from apps.shared.constants import EventFormEntryModeChoices
 from apps.study.models import EventDefinition, EventFormBinding
 
@@ -48,6 +52,7 @@ class EventFormBindingImportFormatError(EventFormBindingImportTemplateError):
 
 
 class ImportStudyEventFormBindingsTemplateService:
+    crf_context_adapter_class = CrfContextAdapter
     expected_columns = (
         "Event Code",
         "Form Code",
@@ -76,6 +81,9 @@ class ImportStudyEventFormBindingsTemplateService:
         # "query response": EventFormEntryModeChoices.QUERY_RESPONSE,
         # "query_response": EventFormEntryModeChoices.QUERY_RESPONSE,
     }
+
+    def __init__(self, crf_context_adapter=None):
+        self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
 
     def execute(self, command: ImportStudyEventFormBindingsTemplateCommand) -> ImportStudyEventFormBindingsTemplateResult:
         workbook_rows = self._load_rows_from_workbook(
@@ -199,19 +207,18 @@ class ImportStudyEventFormBindingsTemplateService:
         return queryset.first()
 
     def _resolve_form_definition(self, *, study_id, form_code):
-        queryset = CrfTemplate.objects.filter(
-            study_id=study_id,
-            deleted=False,
-            code__iexact=form_code,
-        ).order_by("pk")
-        count = queryset.count()
-        if count == 0:
-            raise EventFormBindingImportFormatError("Form Code was not found.")
-        if count > 1:
+        try:
+            return self.crf_context_adapter.resolve_unique_template_by_code(
+                study_id=study_id,
+                code=form_code,
+                case_insensitive=True,
+            )
+        except CrfTemplateNotFoundError as exc:
+            raise EventFormBindingImportFormatError("Form Code was not found.") from exc
+        except CrfTemplateAmbiguousError as exc:
             raise EventFormBindingImportFormatError(
                 "Form Code matched multiple CRF templates. Please make the code unique across template versions."
-            )
-        return queryset.first()
+            ) from exc
 
     def _load_rows_from_workbook(self, *, file_name, file_content):
         file_name_lower = (file_name or "").strip().lower()

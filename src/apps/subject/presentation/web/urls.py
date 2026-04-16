@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apps.subject.presentation.web.views import SubjectCreateView, SubjectListView
+from apps.subject.presentation.web.views import SubjectCreateView, SubjectDetailView, SubjectListView
 
 app_name = "subject"
 
@@ -14,5 +14,10 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/create/",
         SubjectCreateView.as_view(),
         name="subject_create",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/",
+        SubjectDetailView.as_view(),
+        name="subject_detail",
     ),
 ]

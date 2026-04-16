@@ -2,7 +2,7 @@ from django import forms
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
-from apps.crf.models import CrfTemplate
+from apps.crf.public import get_crf_template_model
 from apps.shared.filters import SharedSearch, SharedTotal
 
 __all__ = [
@@ -51,6 +51,6 @@ class CrfTemplatesToolbarForm(SharedSearch, SharedTotal):
         ).distinct()
 
     class Meta:
-        model = CrfTemplate
+        model = get_crf_template_model()
         fields = ("search",)
         toolbar_fields = ("total", "search")

@@ -7,7 +7,7 @@ __all__ = ["SubjectsToolbarForm"]
 
 
 class SubjectsToolbarForm(SharedSearch, SharedTotal):
-    SEARCH_FIELDS = ("subject_code",)
+    SEARCH_FIELDS = ("subject_code", "screening_code")
     TOTAL_LABEL = _("Total Subjects")
 
     def __init__(self, *args, **kwargs):

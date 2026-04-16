@@ -135,6 +135,12 @@ else:
         "default": environ.Env.cache_url_config(_cache_url),
     }
 
+STUDY_SUBJECT_CODE_GENERATION_MODE = env(
+    "STUDY_SUBJECT_CODE_GENERATION_MODE",
+    cast=str,
+    default="screening_code_incremental",
+)
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 

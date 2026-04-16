@@ -5,6 +5,9 @@ from django.db.models import Max
 from django.utils import timezone
 
 from apps.study.models import Study
+from apps.study.application.services.study_subject_code_generation import (
+    StudySubjectCodeGenerationService,
+)
 from apps.subject.models import Subject
 
 
@@ -47,9 +50,14 @@ class CreateSubjectService:
             max_current_sequence=Max("current_sequence"),
         )["max_current_sequence"] or 0
         next_current_sequence = max_current_sequence + 1
+        generated_codes = StudySubjectCodeGenerationService().generate(
+            study_code=study.code,
+            current_sequence=next_current_sequence,
+        )
         now = timezone.now()
         return Subject.objects.create(
-            subject_code=f"{study.code}-{str(next_current_sequence).rjust(4, '0')}",
+            subject_code=generated_codes.subject_code,
+            screening_code=generated_codes.screening_code,
             current_sequence=next_current_sequence,
             site_id=command.site_id,
             study_id=command.study_id,
