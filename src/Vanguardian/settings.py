@@ -185,7 +185,7 @@ LOCALE_PATHS = [
 
 FORMAT_MODULE_PATH = "apps.shared.formats"
 
-TIME_ZONE = 'Asia/Ho_Chi_Minh'
+TIME_ZONE = "Asia/Ho_Chi_Minh"
 
 USE_I18N = True
 
@@ -218,3 +218,14 @@ DJANGO_TABLES2_TABLE_ATTRS = {
     "class": "entity-table",
     "data-common-table": "true",
 }
+
+
+class DisableMigrations(dict):
+    def __contains__(self, item):
+        return True
+
+    def __getitem__(self, item):
+        return None
+
+
+MIGRATION_MODULES = DisableMigrations()

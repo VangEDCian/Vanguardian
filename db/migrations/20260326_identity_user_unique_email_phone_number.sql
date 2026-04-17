@@ -1,13 +1,7 @@
 -- Identity user identifier hardening.
 -- email and phone_number are optional, but if present they must be unique.
-
-UPDATE identity_user
-SET email = NULL
-WHERE TRIM(email) = '';
-
-UPDATE identity_user
-SET phone_number = NULL
-WHERE TRIM(phone_number) = '';
+-- Data backfill moved to:
+-- db/seeders/20260326_identity_user_unique_email_phone_number.sql
 
 ALTER TABLE identity_user
 MODIFY COLUMN email VARCHAR(254) NULL,
