@@ -23,26 +23,6 @@ CREATE TABLE IF NOT EXISTS crf_crftemplate (
         FOREIGN KEY (study_id) REFERENCES study_study (id)
 );
 
-CREATE TABLE IF NOT EXISTS crf_pagetemplate (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-
-    code VARCHAR(64) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    `order` INT NOT NULL,
-
-    crf_template_id BIGINT NOT NULL,
-    created_by_id BIGINT NULL,
-    updated_by_id BIGINT NULL,
-
-    CONSTRAINT crf_pagetemplate_crf_template_code_uniq
-        UNIQUE (crf_template_id, code),
-    CONSTRAINT fk_crf_pagetemplate_crf_template
-        FOREIGN KEY (crf_template_id) REFERENCES crf_crftemplate (id)
-);
-
 CREATE TABLE IF NOT EXISTS crf_fieldtemplate (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     created_at DATETIME NOT NULL,
@@ -54,14 +34,14 @@ CREATE TABLE IF NOT EXISTS crf_fieldtemplate (
     data_type VARCHAR(20) NOT NULL,
     is_active TINYINT NOT NULL DEFAULT 1,
 
-    page_template_id BIGINT NOT NULL,
+    crf_template_id BIGINT NOT NULL,
     created_by_id BIGINT NULL,
     updated_by_id BIGINT NULL,
 
-    CONSTRAINT crf_fieldtemplate_page_fieldkey_uniq
-        UNIQUE (page_template_id, field_key),
-    CONSTRAINT fk_crf_fieldtemplate_page_template
-        FOREIGN KEY (page_template_id) REFERENCES crf_pagetemplate (id)
+    CONSTRAINT crf_fieldtemplate_crf_template_fieldkey_uniq
+        UNIQUE (crf_template_id, field_key),
+    CONSTRAINT fk_crf_fieldtemplate_crf_template
+        FOREIGN KEY (crf_template_id) REFERENCES crf_crftemplate (id)
 );
 
 CREATE TABLE IF NOT EXISTS crf_fielddefinition (

@@ -46,29 +46,6 @@ class CrfContextAdapter:
             now=now,
         )
 
-    def upsert_crf_page_template(
-        self,
-        *,
-        study_id,
-        crf_code,
-        code,
-        title_vi,
-        title_en,
-        order,
-        actor_user_id,
-        now=None,
-    ):
-        return self.crf_template_service.upsert_crf_page_template(
-            study_id=study_id,
-            crf_code=crf_code,
-            code=code,
-            title_vi=title_vi,
-            title_en=title_en,
-            order=order,
-            actor_user_id=actor_user_id,
-            now=now,
-        )
-
 
 def get_crf_template_model():
     return CrfContextAdapter().get_crf_template_model()

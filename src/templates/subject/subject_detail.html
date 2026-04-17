@@ -57,7 +57,7 @@
                 class="subject-detail-sidebar__group{% if focused_crf and focused_crf.id == crf_item.id %} is-active{% endif %}"
               >
                 <span class="subject-detail-sidebar__group-name">{{ crf_item.name }}</span>
-                <span class="subject-detail-sidebar__group-meta">v{{ crf_item.version }}</span>
+                {% comment %} <span class="subject-detail-sidebar__group-meta">v{{ crf_item.version }}</span> {% endcomment %}
               </a>
 
               {% if crf_item.pages %}

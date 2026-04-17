@@ -65,65 +65,6 @@ class CrfTemplateTranslation(TranslatedFieldsModel):
         verbose_name_plural = "CRF template translations"
 
 
-class CrfPageTemplate(TranslatableModel):
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
-    deleted = models.BooleanField(default=False)
-
-    code = models.CharField(max_length=64)
-    title = TranslatedField(any_language=True)
-    order = models.IntegerField()
-
-    crf_template = models.ForeignKey(
-        CrfTemplate,
-        on_delete=models.DO_NOTHING,
-        db_column="crf_template_id",
-        related_name="page_templates",
-    )
-    created_by_id = models.BigIntegerField(null=True, blank=True)
-    updated_by_id = models.BigIntegerField(null=True, blank=True)
-
-    class Meta:
-        db_table = "crf_pagetemplate"
-        managed = False
-        default_permissions = ()
-        constraints = [
-            models.UniqueConstraint(
-                fields=["crf_template", "code"],
-                name="crf_pagetemplate_crf_template_code_uniq",
-            )
-        ]
-        verbose_name = "CRF page template"
-        verbose_name_plural = "CRF page templates"
-
-
-class CrfPageTemplateTranslation(TranslatedFieldsModel):
-    master = models.ForeignKey(
-        CrfPageTemplate,
-        on_delete=models.DO_NOTHING,
-        db_column="page_template_id",
-        related_name="translations",
-    )
-    title = models.CharField(max_length=255)
-
-    class Meta:
-        db_table = "crf_pagetemplate_translation"
-        managed = False
-        default_permissions = ()
-        constraints = [
-            models.UniqueConstraint(
-                fields=["language_code", "master"],
-                name="crf_pagetemplate_translation_lang_page_uniq",
-            )
-        ]
-        indexes = [
-            models.Index(fields=["master"], name="crf_pagetemplate_translation_master_idx"),
-            models.Index(fields=["language_code"], name="crf_pagetemplate_translation_language_idx"),
-        ]
-        verbose_name = "CRF page template translation"
-        verbose_name_plural = "CRF page template translations"
-
-
 class CrfFieldTemplate(TranslatableModel):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -134,10 +75,10 @@ class CrfFieldTemplate(TranslatableModel):
     data_type = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
 
-    page_template = models.ForeignKey(
-        CrfPageTemplate,
+    crf_template = models.ForeignKey(
+        CrfTemplate,
         on_delete=models.DO_NOTHING,
-        db_column="page_template_id",
+        db_column="crf_template_id",
         related_name="field_templates",
     )
     created_by_id = models.BigIntegerField(null=True, blank=True)
@@ -149,8 +90,8 @@ class CrfFieldTemplate(TranslatableModel):
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
-                fields=["page_template", "field_key"],
-                name="crf_fieldtemplate_page_fieldkey_uniq",
+                fields=["crf_template", "field_key"],
+                name="crf_fieldtemplate_crf_template_fieldkey_uniq",
             )
         ]
         verbose_name = "CRF field template"

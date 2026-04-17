@@ -12,7 +12,7 @@ class StudyEventDefinitionDirectoryQueryService:
         event_definitions_queryset = EventDefinition.objects.filter(
             study_id=study_id,
             deleted=False,
-        )
+        ).order_by("study_version", "sequence_no", "code", "pk")
 
         if normalized_search_query:
             event_definitions_queryset = event_definitions_queryset.filter(

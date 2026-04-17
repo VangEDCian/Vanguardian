@@ -27,30 +27,6 @@ CREATE TABLE IF NOT EXISTS crf_crftemplate_translation (
 --       AND tt.crf_template_id = t.id
 -- );
 
-CREATE TABLE IF NOT EXISTS crf_pagetemplate_translation (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    language_code VARCHAR(15) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    page_template_id BIGINT NOT NULL,
-
-    CONSTRAINT crf_pagetemplate_translation_lang_page_uniq
-        UNIQUE (language_code, page_template_id),
-    CONSTRAINT fk_crf_pagetemplate_translation_master
-        FOREIGN KEY (page_template_id) REFERENCES crf_pagetemplate (id),
-    INDEX crf_pagetemplate_translation_master_idx (page_template_id),
-    INDEX crf_pagetemplate_translation_language_idx (language_code)
-);
-
--- INSERT INTO crf_pagetemplate_translation (language_code, title, page_template_id)
--- SELECT 'en', t.title, t.id
--- FROM crf_pagetemplate AS t
--- WHERE NOT EXISTS (
---     SELECT 1
---     FROM crf_pagetemplate_translation AS tt
---     WHERE tt.language_code = 'en'
---       AND tt.page_template_id = t.id
--- );
-
 CREATE TABLE IF NOT EXISTS crf_fieldtemplate_translation (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     language_code VARCHAR(15) NOT NULL,
@@ -101,9 +77,6 @@ CREATE TABLE IF NOT EXISTS crf_fieldvalidationrule_translation (
 
 ALTER TABLE crf_crftemplate
     DROP COLUMN IF EXISTS `name`;
-
-ALTER TABLE crf_pagetemplate
-    DROP COLUMN IF EXISTS title;
 
 ALTER TABLE crf_fieldtemplate
     DROP COLUMN IF EXISTS label;

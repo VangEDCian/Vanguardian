@@ -109,7 +109,7 @@ class StudyEventDefinitionListView(
         return super().get_queryset().filter(
             study_id=self._study.pk,
             deleted=False,
-        )
+        ).order_by("study_version", "sequence_no", "code", "pk")
 
     def get_table(self, **kwargs):
         table = super().get_table(**kwargs)
