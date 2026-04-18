@@ -19,7 +19,7 @@
           href="{% static 'shared/css/components/user-detail.css' %}" />
 {% endblock %}
 {% block dashboard_breadcrumb_prefix %}
-    <a href="{{ detail_user.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans 'Users' %}</a>
+    <a href="{{ detail_user.back_url }}" class="dashboard-breadcrumb__back">{% trans 'Users' %}</a>
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">

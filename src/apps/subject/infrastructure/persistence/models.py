@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.study.infrastructure.persistence.models import Site, Study
+from apps.study.infrastructure.persistence.models import EventDefinition, Site, Study
 
 
 class Subject(models.Model):
@@ -160,3 +160,88 @@ class SubjectRandomization(models.Model):
         ]
         verbose_name = "subject randomization"
         verbose_name_plural = "subject randomizations"
+
+
+class SubjectEventInstance(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="subject_event_instances",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="event_instances",
+    )
+    event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="event_definition_id",
+        related_name="subject_event_instances",
+    )
+    study_version = models.CharField(max_length=20)
+
+    repeat_index = models.IntegerField(default=1)
+
+    planned_date = models.DateTimeField(null=True, blank=True)
+    target_date = models.DateTimeField(null=True, blank=True)
+    actual_date = models.DateTimeField(null=True, blank=True)
+
+    status = models.CharField(max_length=32, default="not_ready")
+
+    opened_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
+
+    opened_by_id = models.BigIntegerField(null=True, blank=True)
+    completed_by_id = models.BigIntegerField(null=True, blank=True)
+    verified_by_id = models.BigIntegerField(null=True, blank=True)
+    locked_by_id = models.BigIntegerField(null=True, blank=True)
+
+    skip_reason = models.TextField(null=True, blank=True)
+    cancel_reason = models.TextField(null=True, blank=True)
+
+    event_code_snapshot = models.CharField(max_length=64, null=True, blank=True)
+    event_name_snapshot = models.CharField(max_length=255, null=True, blank=True)
+    event_type_snapshot = models.CharField(max_length=32, null=True, blank=True)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventinstance"
+        managed = False
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["study", "subject"],
+                name="study_eventinstance_study_subject_idx",
+            ),
+            models.Index(
+                fields=["subject", "status"],
+                name="study_eventinstance_subject_status_idx",
+            ),
+            models.Index(
+                fields=["planned_date"],
+                name="study_eventinstance_planned_date_idx",
+            ),
+            models.Index(
+                fields=["actual_date"],
+                name="study_eventinstance_actual_date_idx",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subject", "event_definition", "repeat_index"],
+                name="study_eventinstance_subject_event_repeat_uniq",
+            )
+        ]
+        verbose_name = "subject event instance"
+        verbose_name_plural = "subject event instances"

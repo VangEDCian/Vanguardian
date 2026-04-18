@@ -158,9 +158,9 @@
                 </div>
             </header>
             <div class="dashboard-breadcrumb">
-                <div class="dashboard-breadcrumb__prefix">
-                    {% block dashboard_breadcrumb_prefix %}{% endblock %}
-                </div>
+                {# djlint:off #}
+                <div class="dashboard-breadcrumb__prefix">{% block dashboard_breadcrumb_prefix %}{% endblock %}</div>
+                {# djlint:on #}
                 {% if layout_show_breadcrumb_trail %}
                     <div class="dashboard-breadcrumb__trail">
                         <strong data-breadcrumb-active>

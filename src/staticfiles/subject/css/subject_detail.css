@@ -99,13 +99,13 @@
   padding: 10px 12px;
   text-decoration: none;
   color: #24323f;
+  font-size: 13px;
+  font-weight: 700;
   border-left: 3px solid transparent;
   background: #f8fafc;
 }
 
 .subject-detail-sidebar__group.is-active {
-  font-size: 13px;
-  font-weight: 700;
   color: rgb(21, 101, 192);
   background-color: rgb(227, 242, 253);
   border-bottom: 2px solid rgb(229, 57, 53);
@@ -119,9 +119,18 @@
 }
 
 .subject-detail-sidebar__group-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
   color: #6f7c87;
   font-size: 11px;
   white-space: nowrap;
+}
+
+.subject-detail-sidebar__group-status-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .subject-detail-sidebar__group.is-active~.subject-detail-sidebar__children {

@@ -37,6 +37,7 @@ from apps.study.application.queries.study_filters import (
 )
 from apps.study.application.queries.study_history import StudyHistoryQueryService
 from apps.study.application.services.study_audit import StudyAuditService
+from apps.study.application.use_cases import StudyEventTransitionRuleAutoOpenUseCase
 
 __all__ = [
     # query
@@ -61,6 +62,7 @@ __all__ = [
     "ImportStudyEventDefinitionsTemplateCommand",
     "ImportStudyEventDefinitionsTemplateResult",
     "ImportStudyEventDefinitionsTemplateService",
+    "StudyEventTransitionRuleAutoOpenUseCase",
     "UpdateStudyCommand",
     "UpdateStudyService",
     "ToggleStudyStatusCommand",

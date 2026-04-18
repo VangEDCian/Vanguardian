@@ -19,8 +19,10 @@
           href="{% static 'shared/css/components/user-detail.css' %}" />
 {% endblock %}
 {% block dashboard_breadcrumb_prefix %}
-    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans 'Users' %}</a>
-    <span aria-hidden="true">›</span>
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">{% trans 'Users' %}</a>
+    <span class="svg-icon"
+          aria-hidden="true"
+          style="--icon-url: url('{% static 'images/status/arrow-right-svgrepo-com.svg' %}')"></span>
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">

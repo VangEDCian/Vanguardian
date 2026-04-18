@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static 'study/css/crf_templates.css' %}">
 {% endblock %}
 {% block dashboard_breadcrumb_prefix %}
-    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Studies" %}</a>
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
