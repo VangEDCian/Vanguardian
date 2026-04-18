@@ -1,18 +1,12 @@
 <div class="entity-table__toolbar">
-  {% include "shared/components/_entity_table_toolbar_icon.html" %}
-  <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
-
-  {% if toolbar.filter %}
-    {% include "shared/components/_entity_table_toolbar_filter.html" with toolbar_item=toolbar.filter %}
-  {% endif %}
-
-  {% if toolbar.filter %}
+    {% include "shared/components/_entity_table_toolbar_icon.html" %}
     <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
-  {% endif %}
-
-  {% include "shared/components/_entity_table_toolbar_summary.html" with toolbar_item=toolbar.summary %}
-
-  {% if toolbar.search %}
-    {% include "shared/components/_entity_table_toolbar_search.html" with toolbar_item=toolbar.search %}
-  {% endif %}
+    {% if toolbar.filter %}
+        {% include "shared/components/_entity_table_toolbar_filter.html" with toolbar_item=toolbar.filter %}
+    {% endif %}
+    {% if toolbar.filter %}<span class="entity-table__toolbar-divider" aria-hidden="true"></span>{% endif %}
+    {% include "shared/components/_entity_table_toolbar_summary.html" with toolbar_item=toolbar.summary %}
+    {% if toolbar.search %}
+        {% include "shared/components/_entity_table_toolbar_search.html" with toolbar_item=toolbar.search %}
+    {% endif %}
 </div>

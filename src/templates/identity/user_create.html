@@ -1,180 +1,182 @@
 {% extends 'shared/_layout.html' %}
 {% load i18n static %}
-
 {% block title %}
-  {% trans 'New User | Vanguardian' %}
+    {% trans 'New User | Vanguardian' %}
 {% endblock %}
-
 {% block extra_css %}
-  {{ block.super }}
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
-  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}" />
-  <link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}" />
-  <link rel="stylesheet" href="{% static 'shared/css/components/_old_select2_single_choice.css' %}" />
-  <link rel="stylesheet" href="{% static 'shared/css/components/_old_select2_multiple_choice.css' %}" />
-  <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}" />
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_textbox.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_select2_single_choice.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_select2_multiple_choice.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/user-detail.css' %}" />
 {% endblock %}
-
 {% block dashboard_breadcrumb_prefix %}
-  <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans 'Users' %}</a>
-  <span aria-hidden="true">›</span>
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans 'Users' %}</a>
+    <span aria-hidden="true">›</span>
 {% endblock %}
-
 {% block dashboard_content %}
-  <section class="entity-table-panel">
-    <div class="entity-table__toolbar">
-      <div class="entity-table__summary">
-        {% trans 'New User' %}
-      </div>
-    </div>
-
-    <form class="user-detail-form" method="post" action="{{ create_url }}">
-      {% csrf_token %}
-      <div class="user-detail-form__content">
-        <section class="user-detail-section">
-          <h2 class="user-detail-section__title">{% trans 'USER INFO' %}</h2>
-          <div class="user-detail-section__body">
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.username.id_for_label }}">{% trans 'Username' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.username.id_for_label textbox_name=form.username.html_name textbox_value=form.username.value textbox_required='required' %}
-                  {% for error in form.username.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.first_name.id_for_label }}">{% trans 'First Name' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.first_name.id_for_label textbox_name=form.first_name.html_name textbox_value=form.first_name.value %}
-                  {% for error in form.first_name.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
+    <section class="entity-table-panel">
+        <div class="entity-table__toolbar">
+            <div class="entity-table__summary">{% trans 'New User' %}</div>
+        </div>
+        <form class="user-detail-form" method="post" action="{{ create_url }}">
+            {% csrf_token %}
+            <div class="user-detail-form__content">
+                <section class="user-detail-section">
+                    <h2 class="user-detail-section__title">{% trans 'USER INFO' %}</h2>
+                    <div class="user-detail-section__body">
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.username.id_for_label }}">{% trans 'Username' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.username.id_for_label textbox_name=form.username.html_name textbox_value=form.username.value textbox_required='required' %}
+                                    {% for error in form.username.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.first_name.id_for_label }}">{% trans 'First Name' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.first_name.id_for_label textbox_name=form.first_name.html_name textbox_value=form.first_name.value %}
+                                    {% for error in form.first_name.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.last_name.id_for_label }}">{% trans 'Last Name' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.last_name.id_for_label textbox_name=form.last_name.html_name textbox_value=form.last_name.value %}
+                                    {% for error in form.last_name.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.email.id_for_label }}">{% trans 'Email' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.email.id_for_label textbox_name=form.email.html_name textbox_type='email' textbox_value=form.email.value %}
+                                    {% for error in form.email.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.phone_number.id_for_label }}">{% trans 'Phone Number' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.phone_number.id_for_label textbox_name=form.phone_number.html_name textbox_value=form.phone_number.value %}
+                                    {% for error in form.phone_number.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.password.id_for_label }}">{% trans 'Password' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <div class="user-detail-password-control">
+                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.password.id_for_label textbox_name=form.password.html_name textbox_type='password' textbox_value=form.password.value textbox_required='required' textbox_class='user-detail-password-input' %}
+                                        <button type="button"
+                                                class="user-detail-password-toggle"
+                                                data-password-toggle
+                                                aria-label="{% trans 'Show or hide password' %}">
+                                            <span class="svg-icon lucide-eye"
+                                                  aria-hidden="true"
+                                                  style="--icon-url: url('{% static 'images/auth/eye.svg' %}')"></span>
+                                        </button>
+                                    </div>
+                                    {% for error in form.password.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.confirm_password.id_for_label }}">
+                                    {% trans 'Confirm Password' %}:
+                                </label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <div class="user-detail-password-control">
+                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.confirm_password.id_for_label textbox_name=form.confirm_password.html_name textbox_type='password' textbox_value=form.confirm_password.value textbox_required='required' textbox_class='user-detail-password-input' %}
+                                        <button type="button"
+                                                class="user-detail-password-toggle"
+                                                data-password-toggle
+                                                aria-label="{% trans 'Show or hide password' %}">
+                                            <span class="svg-icon lucide-eye"
+                                                  aria-hidden="true"
+                                                  style="--icon-url: url('{% static 'images/auth/eye.svg' %}')"></span>
+                                        </button>
+                                    </div>
+                                    {% for error in form.confirm_password.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <span class="user-detail-inline-field__label">{% trans 'Generate Password' %}:</span>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <button type="button"
+                                            class="entity-table__footer-button entity-table__footer-button--secondary user-detail-generate-button"
+                                            data-generate-password>{% trans 'Generate Password' %}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="user-detail-section">
+                    <h2 class="user-detail-section__title">{% trans 'PERMISSION' %}</h2>
+                    <div class="user-detail-section__body">
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.role.id_for_label }}">{% trans 'Role' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans 'Select role' as select_role_placeholder %}
+                                    {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.role.id_for_label select_name=form.role.html_name select_options=role_options select_placeholder=select_role_placeholder %}
+                                    {% for error in form.role.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full user-detail-inline-field--permission-groups">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.permission_groups.id_for_label }}">
+                                    {% trans 'Permission Groups' %}:
+                                </label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans 'Select permission groups' as select_permission_groups_placeholder %}
+                                    {% include 'shared/components/_old_select2_multiple_choice.html' with select_id=form.permission_groups.id_for_label select_name=form.permission_groups.html_name select_options=permission_group_options select_placeholder=select_permission_groups_placeholder %}
+                                    {% for error in form.permission_groups.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
-
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.last_name.id_for_label }}">{% trans 'Last Name' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.last_name.id_for_label textbox_name=form.last_name.html_name textbox_value=form.last_name.value %}
-                  {% for error in form.last_name.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.email.id_for_label }}">{% trans 'Email' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.email.id_for_label textbox_name=form.email.html_name textbox_type='email' textbox_value=form.email.value %}
-                  {% for error in form.email.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
+            <div class="entity-table__footer entity-table__footer--actions">
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans 'Save' %}
+                </button>
+                <button type="reset"
+                        class="entity-table__footer-button entity-table__footer-button--secondary">
+                    {% trans 'Reset' %}
+                </button>
             </div>
-
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.phone_number.id_for_label }}">{% trans 'Phone Number' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% include 'shared/components/_old_textbox.html' with textbox_id=form.phone_number.id_for_label textbox_name=form.phone_number.html_name textbox_value=form.phone_number.value %}
-                  {% for error in form.phone_number.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.password.id_for_label }}">{% trans 'Password' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  <div class="user-detail-password-control">
-                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.password.id_for_label textbox_name=form.password.html_name textbox_type='password' textbox_value=form.password.value textbox_required='required' textbox_class='user-detail-password-input' %}
-                    <button type="button" class="user-detail-password-toggle" data-password-toggle aria-label="{% trans 'Show or hide password' %}">
-                      <span class="svg-icon lucide-eye" aria-hidden="true" style="--icon-url: url('{% static 'images/auth/eye.svg' %}')"></span>
-                    </button>
-                  </div>
-                  {% for error in form.password.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.confirm_password.id_for_label }}">{% trans 'Confirm Password' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  <div class="user-detail-password-control">
-                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.confirm_password.id_for_label textbox_name=form.confirm_password.html_name textbox_type='password' textbox_value=form.confirm_password.value textbox_required='required' textbox_class='user-detail-password-input' %}
-                    <button type="button" class="user-detail-password-toggle" data-password-toggle aria-label="{% trans 'Show or hide password' %}">
-                      <span class="svg-icon lucide-eye" aria-hidden="true" style="--icon-url: url('{% static 'images/auth/eye.svg' %}')"></span>
-                    </button>
-                  </div>
-                  {% for error in form.confirm_password.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field user-detail-inline-field--full">
-                <span class="user-detail-inline-field__label">{% trans 'Generate Password' %}:</span>
-                <div class="user-detail-inline-field__control-wrap">
-                  <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary user-detail-generate-button" data-generate-password>
-                    {% trans 'Generate Password' %}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="user-detail-section">
-          <h2 class="user-detail-section__title">{% trans 'PERMISSION' %}</h2>
-          <div class="user-detail-section__body">
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field">
-                <label class="user-detail-inline-field__label" for="{{ form.role.id_for_label }}">{% trans 'Role' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% trans 'Select role' as select_role_placeholder %}
-                  {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.role.id_for_label select_name=form.role.html_name select_options=role_options select_placeholder=select_role_placeholder %}
-                  {% for error in form.role.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-
-            <div class="user-detail-inline-row">
-              <div class="user-detail-inline-field user-detail-inline-field--full user-detail-inline-field--permission-groups">
-                <label class="user-detail-inline-field__label" for="{{ form.permission_groups.id_for_label }}">{% trans 'Permission Groups' %}:</label>
-                <div class="user-detail-inline-field__control-wrap">
-                  {% trans 'Select permission groups' as select_permission_groups_placeholder %}
-                  {% include 'shared/components/_old_select2_multiple_choice.html' with select_id=form.permission_groups.id_for_label select_name=form.permission_groups.html_name select_options=permission_group_options select_placeholder=select_permission_groups_placeholder %}
-                  {% for error in form.permission_groups.errors %}
-                    <span class="user-detail-field__error">{{ error }}</span>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="entity-table__footer entity-table__footer--actions">
-        <button type="submit" class="entity-table__footer-button entity-table__footer-button--primary">{% trans 'Save' %}</button>
-        <button type="reset" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans 'Reset' %}</button>
-      </div>
-    </form>
-  </section>
+        </form>
+    </section>
 {% endblock %}
-
 {% block extra_js %}
-  {{ block.super }}
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-  <script src="{% static 'identity/js/user-create.js' %}"></script>
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{% static 'identity/js/user-create.js' %}"></script>
 {% endblock %}

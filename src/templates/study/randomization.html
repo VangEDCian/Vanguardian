@@ -1,71 +1,71 @@
 {% extends "shared/_layout.html" %}
 {% load i18n static %}
-
-{% block title %}{{ detail_study.code }} | {% trans "Randomization | Vanguardian" %}{% endblock %}
-
+{% block title %}
+    {{ detail_study.code }} | {% trans "Randomization | Vanguardian" %}
+{% endblock %}
 {% block extra_css %}
-  {{ block.super }}
-  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
-  <link rel="stylesheet" href="{% static 'study/css/randomization.css' %}">
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet" href="{% static 'study/css/randomization.css' %}">
 {% endblock %}
-
 {% block extra_js %}
-  {{ block.super }}
-  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+    {{ block.super }}
+    <script src="{% static 'shared/js/components/common-table.js' %}"></script>
 {% endblock %}
-
 {% block dashboard_breadcrumb_prefix %}
-  <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Studies" %}</a>
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Studies" %}</a>
 {% endblock %}
-
 {% block dashboard_content %}
-<section class="entity-table-panel">
-  {% include "study/components/_study_detail_tabs.html" with study_active_tab="randomization" %}
-
-  <div class="randomization-overview">
-    <section class="randomization-section">
-      <header class="randomization-section__header">
-        <div class="randomization-section__title-group">
-          <h2 class="randomization-section__title">{% trans "Randomization Scheme" %}</h2>
-          <p class="randomization-section__description">{% trans "Study-level randomization configuration and lifecycle." %}</p>
+    <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="randomization" %}
+        <div class="randomization-overview">
+            <section class="randomization-section">
+                <header class="randomization-section__header">
+                    <div class="randomization-section__title-group">
+                        <h2 class="randomization-section__title">{% trans "Randomization Scheme" %}</h2>
+                        <p class="randomization-section__description">{% trans "Study-level randomization configuration and lifecycle." %}</p>
+                    </div>
+                    <span class="randomization-section__count">{{ randomization_scheme_total }}</span>
+                </header>
+                {% include "shared/components/_common_table.html" with headers=randomization_scheme_headers rows=randomization_scheme_rows empty_text=randomization_scheme_empty_text %}
+            </section>
+            <section class="randomization-section">
+                <header class="randomization-section__header">
+                    <div class="randomization-section__title-group">
+                        <h2 class="randomization-section__title">{% trans "Randomization Arms" %}</h2>
+                        <p class="randomization-section__description">
+                            {% trans "Allocation arms defined under each randomization scheme." %}
+                        </p>
+                    </div>
+                    <span class="randomization-section__count">{{ randomization_arm_total }}</span>
+                </header>
+                {% include "shared/components/_common_table.html" with headers=randomization_arm_headers rows=randomization_arm_rows empty_text=randomization_arm_empty_text %}
+            </section>
+            <section class="randomization-section">
+                <header class="randomization-section__header">
+                    <div class="randomization-section__title-group">
+                        <h2 class="randomization-section__title">{% trans "Randomization Slots" %}</h2>
+                        <p class="randomization-section__description">
+                            {% trans "Concrete assignment slots available for subject randomization." %}
+                        </p>
+                    </div>
+                    <span class="randomization-section__count">{{ randomization_slot_total }}</span>
+                </header>
+                {% include "shared/components/_common_table.html" with headers=randomization_slot_headers rows=randomization_slot_rows empty_text=randomization_slot_empty_text %}
+            </section>
+            <section class="randomization-section">
+                <header class="randomization-section__header">
+                    <div class="randomization-section__title-group">
+                        <h2 class="randomization-section__title">{% trans "Eligibility Policy" %}</h2>
+                        <p class="randomization-section__description">
+                            {% trans "Eligibility records captured before a subject can be randomized." %}
+                        </p>
+                    </div>
+                    <span class="randomization-section__count">{{ randomization_eligibility_total }}</span>
+                </header>
+                {% include "shared/components/_common_table.html" with headers=randomization_eligibility_headers rows=randomization_eligibility_rows empty_text=randomization_eligibility_empty_text %}
+            </section>
         </div>
-        <span class="randomization-section__count">{{ randomization_scheme_total }}</span>
-      </header>
-      {% include "shared/components/_common_table.html" with headers=randomization_scheme_headers rows=randomization_scheme_rows empty_text=randomization_scheme_empty_text %}
     </section>
-
-    <section class="randomization-section">
-      <header class="randomization-section__header">
-        <div class="randomization-section__title-group">
-          <h2 class="randomization-section__title">{% trans "Randomization Arms" %}</h2>
-          <p class="randomization-section__description">{% trans "Allocation arms defined under each randomization scheme." %}</p>
-        </div>
-        <span class="randomization-section__count">{{ randomization_arm_total }}</span>
-      </header>
-      {% include "shared/components/_common_table.html" with headers=randomization_arm_headers rows=randomization_arm_rows empty_text=randomization_arm_empty_text %}
-    </section>
-
-    <section class="randomization-section">
-      <header class="randomization-section__header">
-        <div class="randomization-section__title-group">
-          <h2 class="randomization-section__title">{% trans "Randomization Slots" %}</h2>
-          <p class="randomization-section__description">{% trans "Concrete assignment slots available for subject randomization." %}</p>
-        </div>
-        <span class="randomization-section__count">{{ randomization_slot_total }}</span>
-      </header>
-      {% include "shared/components/_common_table.html" with headers=randomization_slot_headers rows=randomization_slot_rows empty_text=randomization_slot_empty_text %}
-    </section>
-
-    <section class="randomization-section">
-      <header class="randomization-section__header">
-        <div class="randomization-section__title-group">
-          <h2 class="randomization-section__title">{% trans "Eligibility Policy" %}</h2>
-          <p class="randomization-section__description">{% trans "Eligibility records captured before a subject can be randomized." %}</p>
-        </div>
-        <span class="randomization-section__count">{{ randomization_eligibility_total }}</span>
-      </header>
-      {% include "shared/components/_common_table.html" with headers=randomization_eligibility_headers rows=randomization_eligibility_rows empty_text=randomization_eligibility_empty_text %}
-    </section>
-  </div>
-</section>
 {% endblock %}

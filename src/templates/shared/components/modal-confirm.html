@@ -1,55 +1,40 @@
 {% load i18n %}
-
 {% with variant=modal_variant|default:"warning" %}
-<div
-  class="modal-backdrop"
-  id="{{ modal_id }}"
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="{{ modal_id }}-title"
->
-  <div class="modal modal--{{ variant }}">
-
-    <div class="modal__header">
-      <div class="modal__icon" aria-hidden="true">
-        {% if variant == "success" %}✓
-        {% elif variant == "danger" %}!
-        {% elif variant == "info" %}i
-        {% else %}!
-        {% endif %}
-      </div>
-      <h2 class="modal__title" id="{{ modal_id }}-title">{{ modal_title }}</h2>
+    <div class="modal-backdrop"
+         id="{{ modal_id }}"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="{{ modal_id }}-title">
+        <div class="modal modal--{{ variant }}">
+            <div class="modal__header">
+                <div class="modal__icon" aria-hidden="true">
+                    {% if variant == "success" %}
+                        ✓
+                    {% elif variant == "danger" %}
+                        !
+                    {% elif variant == "info" %}
+                        i
+                    {% else %}
+                        !
+                    {% endif %}
+                </div>
+                <h2 class="modal__title" id="{{ modal_id }}-title">{{ modal_title }}</h2>
+            </div>
+            <div class="modal__body">
+                <p class="modal__message">{{ modal_message|safe }}</p>
+            </div>
+            <div class="modal__footer">
+                <button type="button" class="modal__cancel" data-modal-close="{{ modal_id }}">
+                    {{ modal_cancel_label|default:"Cancel" }}
+                </button>
+                <form method="post" action="{{ form_action }}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="entity-table__footer-button {% if variant == 'danger' %}entity-table__footer-button--danger {% elif variant == 'success' %}entity-table__footer-button--success {% elif variant == 'warning' %}entity-table__footer-button--warning {% else %}entity-table__footer-button--primary {% endif %}">
+                        {{ modal_confirm_label|default:"Confirm" }}
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
-
-    <div class="modal__body">
-      <p class="modal__message">{{ modal_message|safe }}</p>
-    </div>
-
-    <div class="modal__footer">
-      <button
-        type="button"
-        class="modal__cancel"
-        data-modal-close="{{ modal_id }}"
-      >
-        {{ modal_cancel_label|default:"Cancel" }}
-      </button>
-
-      <form method="post" action="{{ form_action }}">
-        {% csrf_token %}
-        <button
-          type="submit"
-          class="entity-table__footer-button
-            {% if variant == 'danger' %}entity-table__footer-button--danger
-            {% elif variant == 'success' %}entity-table__footer-button--success
-            {% elif variant == 'warning' %}entity-table__footer-button--warning
-            {% else %}entity-table__footer-button--primary
-            {% endif %}"
-        >
-          {{ modal_confirm_label|default:"Confirm" }}
-        </button>
-      </form>
-    </div>
-
-  </div>
-</div>
 {% endwith %}

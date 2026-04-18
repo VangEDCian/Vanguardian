@@ -1,12 +1,11 @@
-<select
-  {% if select_id %}id="{{ select_id }}"{% endif %}
-  {% if select_name %}name="{{ select_name }}"{% endif %}
-  class="old-select2-multiple-choice{% if select_class %} {{ select_class }}{% endif %}"
-  multiple
-  {% if select_placeholder %}data-placeholder="{{ select_placeholder }}"{% endif %}
-  {% if select_disabled %}disabled{% endif %}
->
-  {% for option in select_options %}
-    <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
-  {% endfor %}
+<select {% if select_id %}id="{{ select_id }}"{% endif %}
+        {% if select_name %}name="{{ select_name }}"{% endif %}
+        class="old-select2-multiple-choice{% if select_class %} {{ select_class }}{% endif %}"
+        multiple
+        {% if select_placeholder %}data-placeholder="{{ select_placeholder }}"{% endif %}
+        {% if select_disabled %}disabled{% endif %}>
+    {% for option in select_options %}
+        <option value="{{ option.value }}"
+                {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+    {% endfor %}
 </select>

@@ -1,156 +1,177 @@
 {% extends "shared/_layout.html" %}
 {% load i18n static %}
-
-{% block title %}{{ subject_display_id }} | {% trans "Subject Detail | Vanguardian" %}{% endblock %}
-
+{% block title %}
+    {{ subject_display_id }} | {% trans "Subject Detail | Vanguardian" %}
+{% endblock %}
 {% block extra_css %}
-  {{ block.super }}
-  <link rel="stylesheet" href="{% static 'subject/css/subject_detail.css' %}">
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'subject/css/subject_detail.css' %}">
 {% endblock %}
-
 {% block dashboard_breadcrumb_prefix %}
-  <a href="{{ back_url }}" class="dashboard-breadcrumb__back">&lt; {% trans "Subjects" %}</a>
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">
+        <span class="svg-icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/status/arrow-left-svgrepo-com.svg' %}')"></span>
+    {% trans "Subjects" %}</a>
 {% endblock %}
-
 {% block dashboard_content %}
-  <section class="entity-table-panel subject-detail-screen">
-    <header class="subject-detail-screen__summary">
-      <div class="subject-detail-screen__summary-left">
-        <span class="subject-detail-screen__summary-item">
-          <span class="subject-detail-screen__label">{% trans "Subject" %}</span>
-          <strong>{{ subject_display_id }}</strong>
-        </span>
-        <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
-        <span class="subject-detail-screen__summary-item">
-          <span class="subject-detail-screen__label">{% trans "Site" %}</span>
-          <strong>{{ subject_obj.site.code }}</strong>
-        </span>
-        <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
-        <span class="subject-detail-screen__summary-item">
-          <span class="subject-detail-screen__label">{% trans "Screening Code" %}</span>
-          <strong>{{ subject_obj.screening_code|default:"—" }}</strong>
-        </span>
-      </div>
-      <strong class="subject-detail-screen__study-name">{{ study_header_label }}</strong>
-    </header>
-
-    {% if focused_pages %}
-      <nav class="subject-detail-screen__tabs" aria-label="{% trans 'Page templates' %}">
-        {% for page_item in focused_pages %}
-          <a
-            href="{{ page_item.focus_url }}"
-            class="subject-detail-screen__tab{% if focused_page and focused_page.id == page_item.id %} is-active{% endif %}"
-          >
-            {{ page_item.title }}
-          </a>
-        {% endfor %}
-      </nav>
-    {% endif %}
-
-    <div class="subject-detail-screen__body">
-      <aside class="subject-detail-screen__sidebar" aria-label="{% trans 'CRF templates' %}">
-        {% if crf_navigation %}
-          {% for crf_item in crf_navigation %}
-            <div class="subject-detail-sidebar__section">
-              <a
-                href="{{ crf_item.focus_url }}"
-                class="subject-detail-sidebar__group{% if focused_crf and focused_crf.id == crf_item.id %} is-active{% endif %}"
-              >
-                <span class="subject-detail-sidebar__group-name">{{ crf_item.name }}</span>
-                {% comment %} <span class="subject-detail-sidebar__group-meta">v{{ crf_item.version }}</span> {% endcomment %}
-              </a>
-
-              {% if crf_item.pages %}
-                <div class="subject-detail-sidebar__children">
-                  {% for page_item in crf_item.pages %}
-                    <a
-                      href="{{ page_item.focus_url }}"
-                      class="subject-detail-sidebar__child{% if focused_page and focused_page.id == page_item.id %} is-active{% endif %}"
-                    >
-                      {{ page_item.title }}
+    <section class="entity-table-panel subject-detail-screen">
+        <header class="subject-detail-screen__summary">
+            <div class="subject-detail-screen__summary-left">
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Subject" %}</span>
+                    <strong>{{ subject_display_id }}</strong>
+                </span>
+                <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Site" %}</span>
+                    <strong>{{ subject_obj.site.code }}</strong>
+                </span>
+                <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Screening Code" %}</span>
+                    <strong>{{ subject_obj.screening_code|default:"—" }}</strong>
+                </span>
+            </div>
+            <strong class="subject-detail-screen__study-name">{{ study_header_label }}</strong>
+        </header>
+        {% if focused_pages %}
+            <nav class="subject-detail-screen__tabs"
+                 aria-label="{% trans 'Page templates' %}">
+                {% for page_item in focused_pages %}
+                    <a href="{{ page_item.focus_url }}"
+                       class="subject-detail-screen__tab{% if focused_page and focused_page.id == page_item.id %} is-active{% endif %}">
+                        {{ page_item.title }}
                     </a>
-                  {% endfor %}
-                </div>
-              {% endif %}
-            </div>
-          {% endfor %}
-        {% else %}
-          <p class="subject-detail-screen__empty">{% trans "No CRF templates available for this study." %}</p>
+                {% endfor %}
+            </nav>
         {% endif %}
-      </aside>
-
-      <main class="subject-detail-screen__content">
-        {% if focused_page %}
-          <section class="subject-form-panel">
-            <div class="subject-form-panel__title">{{ focused_page.title|upper }}</div>
-
-            <div class="subject-form-panel__grid subject-form-panel__grid--header">
-              <div>{% trans "How was the event recognized?" %}</div>
-              <div>{% trans "Clinical event type" %}</div>
-              <div>{% trans "Associated with hospitalization?" %}</div>
-            </div>
-
-            <div class="subject-form-panel__grid">
-              <div class="subject-form-panel__cell subject-form-panel__cell--stack">
-                <label><input type="checkbox" disabled> {% trans "CRC Review of Chart" %}</label>
-                <label><input type="checkbox" disabled> {% trans "Patient Reported Outcome" %}</label>
-                <label><input type="checkbox" disabled> {% trans "Safety desk review" %}</label>
-                <label><input type="checkbox" disabled> {% trans "Other" %}</label>
-              </div>
-              <div class="subject-form-panel__cell subject-form-panel__cell--stack">
-                <label><input type="radio" checked disabled> {% trans "Death" %}</label>
-                <label><input type="radio" disabled> {% trans "Ischemic stroke" %}</label>
-                <label><input type="radio" disabled> {% trans "Pulmonary embolus" %}</label>
-              </div>
-              <div class="subject-form-panel__cell subject-form-panel__cell--stack">
-                <label><input type="radio" disabled> {% trans "Yes" %}</label>
-                <label><input type="radio" checked disabled> {% trans "No" %}</label>
-              </div>
-            </div>
-
-            <div class="subject-form-panel__grid subject-form-panel__grid--header">
-              <div>{% trans "Date of event" %}</div>
-              <div>{% trans "Event time" %}</div>
-            </div>
-
-            <div class="subject-form-panel__grid subject-form-panel__grid--two">
-              <div class="subject-form-panel__cell">
-                <div class="subject-form-panel__inputs">
-                  <input type="text" placeholder="DD" readonly>
-                  <input type="text" placeholder="MM" readonly>
-                  <input type="text" placeholder="YYYY" readonly>
-                </div>
-              </div>
-              <div class="subject-form-panel__cell">
-                <div class="subject-form-panel__inputs">
-                  <input type="text" placeholder="HH:MM" readonly>
-                  <label><input type="checkbox" disabled> {% trans "Unknown" %}</label>
-                </div>
-              </div>
-            </div>
-
-            <div class="subject-form-panel__placeholder">
-              {% blocktrans with page=focused_page.title %}
+        <div class="subject-detail-screen__body">
+            <aside class="subject-detail-screen__sidebar"
+                   aria-label="{% trans 'CRF templates' %}">
+                {% if crf_navigation %}
+                    {% for crf_item in crf_navigation %}
+                        <div class="subject-detail-sidebar__section">
+                            <a href="{{ crf_item.focus_url }}"
+                               class="subject-detail-sidebar__group{% if focused_crf and focused_crf.id == crf_item.id %} is-active{% endif %}">
+                                <span class="subject-detail-sidebar__group-name">{{ crf_item.name }}</span>
+                                {% comment %} <span class="subject-detail-sidebar__group-meta">v{{ crf_item.version }}</span> {% endcomment %}
+                            </a>
+                            {% if crf_item.pages %}
+                                <div class="subject-detail-sidebar__children">
+                                    {% for page_item in crf_item.pages %}
+                                        <a href="{{ page_item.focus_url }}"
+                                           class="subject-detail-sidebar__child{% if focused_page and focused_page.id == page_item.id %} is-active{% endif %}">
+                                            {{ page_item.title }}
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="subject-detail-screen__empty">{% trans "No CRF templates available for this study." %}</p>
+                {% endif %}
+            </aside>
+            <main class="subject-detail-screen__content">
+                {% if focused_page %}
+                    <section class="subject-form-panel">
+                        <div class="subject-form-panel__title">{{ focused_page.title|upper }}</div>
+                        <div class="subject-form-panel__grid subject-form-panel__grid--header">
+                            <div>{% trans "How was the event recognized?" %}</div>
+                            <div>{% trans "Clinical event type" %}</div>
+                            <div>{% trans "Associated with hospitalization?" %}</div>
+                        </div>
+                        <div class="subject-form-panel__grid">
+                            <div class="subject-form-panel__cell subject-form-panel__cell--stack">
+                                <label>
+                                    <input type="checkbox" disabled>
+                                    {% trans "CRC Review of Chart" %}
+                                </label>
+                                <label>
+                                    <input type="checkbox" disabled>
+                                    {% trans "Patient Reported Outcome" %}
+                                </label>
+                                <label>
+                                    <input type="checkbox" disabled>
+                                    {% trans "Safety desk review" %}
+                                </label>
+                                <label>
+                                    <input type="checkbox" disabled>
+                                    {% trans "Other" %}
+                                </label>
+                            </div>
+                            <div class="subject-form-panel__cell subject-form-panel__cell--stack">
+                                <label>
+                                    <input type="radio" checked disabled>
+                                    {% trans "Death" %}
+                                </label>
+                                <label>
+                                    <input type="radio" disabled>
+                                    {% trans "Ischemic stroke" %}
+                                </label>
+                                <label>
+                                    <input type="radio" disabled>
+                                    {% trans "Pulmonary embolus" %}
+                                </label>
+                            </div>
+                            <div class="subject-form-panel__cell subject-form-panel__cell--stack">
+                                <label>
+                                    <input type="radio" disabled>
+                                    {% trans "Yes" %}
+                                </label>
+                                <label>
+                                    <input type="radio" checked disabled>
+                                    {% trans "No" %}
+                                </label>
+                            </div>
+                        </div>
+                        <div class="subject-form-panel__grid subject-form-panel__grid--header">
+                            <div>{% trans "Date of event" %}</div>
+                            <div>{% trans "Event time" %}</div>
+                        </div>
+                        <div class="subject-form-panel__grid subject-form-panel__grid--two">
+                            <div class="subject-form-panel__cell">
+                                <div class="subject-form-panel__inputs">
+                                    <input type="text" placeholder="DD" readonly>
+                                    <input type="text" placeholder="MM" readonly>
+                                    <input type="text" placeholder="YYYY" readonly>
+                                </div>
+                            </div>
+                            <div class="subject-form-panel__cell">
+                                <div class="subject-form-panel__inputs">
+                                    <input type="text" placeholder="HH:MM" readonly>
+                                    <label>
+                                        <input type="checkbox" disabled>
+                                        {% trans "Unknown" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="subject-form-panel__placeholder">
+                            {% blocktrans with page=focused_page.title %}
                 Rendering page template: <strong>{{ page }}</strong>. Runtime EDC fields will be wired in next step.
               {% endblocktrans %}
-            </div>
-          </section>
-        {% else %}
-          <div class="subject-detail-screen__empty">{% trans "Select a page template to continue." %}</div>
-        {% endif %}
-      </main>
-    </div>
-
-    <footer class="subject-detail-screen__footer">
-      <button type="button" class="entity-table__footer-button entity-table__footer-button--primary">
-        {% trans "Save" %}
-      </button>
-      <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary">
-        {% trans "Reset" %}
-      </button>
-      <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary">
-        {% trans "Submit for Review" %}
-      </button>
-    </footer>
-  </section>
+                        </div>
+                    </section>
+                {% else %}
+                    <div class="subject-detail-screen__empty">{% trans "Select a page template to continue." %}</div>
+                {% endif %}
+            </main>
+        </div>
+        <footer class="subject-detail-screen__footer">
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--primary">
+                {% trans "Save" %}
+            </button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary">
+                {% trans "Reset" %}
+            </button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary">
+                {% trans "Submit for Review" %}
+            </button>
+        </footer>
+    </section>
 {% endblock %}

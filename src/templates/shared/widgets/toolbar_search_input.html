@@ -1,14 +1,13 @@
 {% load static %}
 <div class="entity-table__search">
-  {% if widget.show_icon %}
-    <span class="entity-table__search-icon" aria-hidden="true">
-      <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
-    </span>
-  {% endif %}
-  <input
-    type="{{ widget.type }}"
-    name="{{ widget.name }}"
-    {% if widget.value != None %}value="{{ widget.value|stringformat:'s' }}"{% endif %}
-    {% include "django/forms/widgets/attrs.html" %}
-  >
+    {% if widget.show_icon %}
+        <span class="entity-table__search-icon" aria-hidden="true">
+            <span class="svg-icon"
+                  style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
+        </span>
+    {% endif %}
+    <input type="{{ widget.type }}"
+           name="{{ widget.name }}"
+           {% if widget.value != None %}value="{{ widget.value|stringformat:'s' }}"{% endif %}
+           {% include "django/forms/widgets/attrs.html" %}>
 </div>

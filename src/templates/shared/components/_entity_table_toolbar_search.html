@@ -1,17 +1,16 @@
 {% load static %}
-
-<form method="get" class="entity-table__search{% if toolbar_item.class_name %} {{ toolbar_item.class_name }}{% endif %}">
-  {% include "shared/components/_entity_table_toolbar_hidden_fields.html" with hidden_fields=toolbar_item.hidden_fields %}
-  {% if toolbar_item.show_icon %}
-    <span class="entity-table__search-icon" aria-hidden="true">
-      <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
-    </span>
-  {% endif %}
-  <input
-    type="{{ toolbar_item.input_type|default:'search' }}"
-    name="{{ toolbar_item.name }}"
-    value="{{ toolbar_item.value }}"
-    placeholder="{{ toolbar_item.placeholder }}"
-    aria-label="{{ toolbar_item.aria_label }}"
-  >
+<form method="get"
+      class="entity-table__search{% if toolbar_item.class_name %} {{ toolbar_item.class_name }}{% endif %}">
+    {% include "shared/components/_entity_table_toolbar_hidden_fields.html" with hidden_fields=toolbar_item.hidden_fields %}
+    {% if toolbar_item.show_icon %}
+        <span class="entity-table__search-icon" aria-hidden="true">
+            <span class="svg-icon"
+                  style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
+        </span>
+    {% endif %}
+    <input type="{{ toolbar_item.input_type|default:'search' }}"
+           name="{{ toolbar_item.name }}"
+           value="{{ toolbar_item.value }}"
+           placeholder="{{ toolbar_item.placeholder }}"
+           aria-label="{{ toolbar_item.aria_label }}">
 </form>

@@ -1,17 +1,13 @@
 {% load i18n %}
-
 {% if layout_detail_meta_items %}
-  <div class="dashboard-breadcrumb__detail-meta" aria-label="{% trans 'Detail summary' %}">
-    {% for item in layout_detail_meta_items %}
-      {% if not forloop.first %}
-        <span class="dashboard-breadcrumb__detail-separator" aria-hidden="true">|</span>
-      {% endif %}
-      <span class="dashboard-breadcrumb__detail-item">
-        {% if item.label %}
-          <span class="dashboard-breadcrumb__detail-label">{{ item.label }}:</span>
-        {% endif %}
-        <strong class="dashboard-breadcrumb__detail-value">{{ item.value }}</strong>
-      </span>
-    {% endfor %}
-  </div>
+    <div class="dashboard-breadcrumb__detail-meta"
+         aria-label="{% trans 'Detail summary' %}">
+        {% for item in layout_detail_meta_items %}
+            {% if not forloop.first %}<span class="dashboard-breadcrumb__detail-separator" aria-hidden="true">|</span>{% endif %}
+            <span class="dashboard-breadcrumb__detail-item">
+                {% if item.label %}<span class="dashboard-breadcrumb__detail-label">{{ item.label }}:</span>{% endif %}
+                <strong class="dashboard-breadcrumb__detail-value">{{ item.value }}</strong>
+            </span>
+        {% endfor %}
+    </div>
 {% endif %}
