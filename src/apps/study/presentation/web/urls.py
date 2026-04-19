@@ -1,6 +1,8 @@
 from django.urls import path, include
 
 from apps.study.presentation.web.views import (
+    StudyRandomizationArmImportCommitView,
+    StudyRandomizationArmImportPreviewView,
     StudyCreateView,
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
@@ -8,6 +10,8 @@ from apps.study.presentation.web.views import (
     StudyEventFormBindingImportTemplateView,
     StudyEventDefinitionImportTemplateView,
     StudyEventDefinitionListView,
+    StudyRandomizationSchemeImportCommitView,
+    StudyRandomizationSchemeImportPreviewView,
     StudyRandomizationView,
     StudyDeleteView,
     StudyDetailView,
@@ -42,6 +46,38 @@ urlpatterns = [
     ),
 ]
 
+# Study.Randomization
+urlpatterns += [
+    path(
+        "studies/<int:study_id>/randomization/", include(
+            [
+                path(
+                    "schemes/import/preview",
+                    StudyRandomizationSchemeImportPreviewView.as_view(),
+                    name="study_randomization_scheme_import_preview",
+                ),
+                path(
+                    "schemes/import/commit",
+                    StudyRandomizationSchemeImportCommitView.as_view(),
+                    name="study_randomization_scheme_import_commit",
+                ),
+                path(
+                    "arms/import/preview",
+                    StudyRandomizationArmImportPreviewView.as_view(),
+                    name="study_randomization_arm_import_preview",
+                ),
+                path(
+                    "arms/import/commit",
+                    StudyRandomizationArmImportCommitView.as_view(),
+                    name="study_randomization_arm_import_commit",
+                ),
+            ],
+        ),
+    ),
+]
+
+
+# Study.Site
 urlpatterns += [
     path(
         "studies/<int:study_id>/sites/", include(

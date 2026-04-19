@@ -669,3 +669,13 @@ msgstr "Bạn không có quyền cập nhật người dùng này."
 msgid "Please fill in both password fields to change the password."
 msgstr "Vui lòng điền đầy đủ cả hai trường mật khẩu để thay đổi mật khẩu."
 
+#. ==============================
+#. Module: Study
+#. Feature: Randomization
+#. ==============================
+
+msgid "Import from file"
+msgstr "Nhập dữ liệu từ tệp"
+
+msgid "Download template"
+msgstr "Tải excel mẫu"

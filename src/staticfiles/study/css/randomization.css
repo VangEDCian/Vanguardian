@@ -35,6 +35,12 @@
   font-size: 12px;
 }
 
+.randomization-section__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .randomization-section__count {
   display: inline-flex;
   align-items: center;
@@ -50,6 +56,202 @@
   font-weight: 700;
 }
 
+.randomization-import-toggle {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #c5d4e0;
+  border-radius: 6px;
+  background: #fff;
+  color: #314353;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.randomization-import-toggle:hover {
+  background: #f7fbff;
+}
+
+.randomization-import-panel {
+  margin: 12px 16px 0;
+  padding: 12px;
+  border: 1px dashed #cfe2ef;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.randomization-import-panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.randomization-import-panel__input {
+  max-width: 320px;
+}
+
+.randomization-import-panel__download {
+  color: #1e88b9;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.randomization-import-panel__download:hover {
+  text-decoration: underline;
+}
+
+.randomization-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.randomization-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(21 31 43 / 42%);
+}
+
+.randomization-modal__dialog {
+  position: relative;
+  width: min(1000px, 92vw);
+  max-height: 88vh;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.randomization-modal__header,
+.randomization-modal__footer {
+  padding: 12px 16px;
+  border-bottom: 1px solid #dfe7ef;
+}
+
+.randomization-modal__footer {
+  border-bottom: 0;
+  border-top: 1px solid #dfe7ef;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.randomization-modal__title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.randomization-modal__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: #f3f7fb;
+  cursor: pointer;
+}
+
+.randomization-modal__body {
+  padding: 12px 16px;
+  overflow: auto;
+}
+
+.randomization-modal__meta,
+.randomization-modal__status {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #607080;
+}
+
+.randomization-modal__status {
+  margin-top: 10px;
+}
+
+.randomization-modal__status-title {
+  display: block;
+  font-weight: 700;
+}
+
+.randomization-modal__status-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.randomization-modal__status-list li {
+  margin-bottom: 4px;
+}
+
+.randomization-modal__status--success {
+  color: #247348;
+}
+
+.randomization-modal__status--error {
+  color: #ae2a22;
+}
+
+.randomization-modal__status--info {
+  color: #235f87;
+}
+
+.randomization-modal__btn {
+  min-width: 94px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.randomization-modal__btn--secondary {
+  background: #fff;
+  border-color: #c5d4e0;
+  color: #314353;
+}
+
+.randomization-modal__btn--primary {
+  background: #1e88b9;
+  color: #fff;
+}
+
+.randomization-modal__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.randomization-preview-table-wrap {
+  border: 1px solid #dfe7ef;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 52vh;
+}
+
+.randomization-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.randomization-preview-table th,
+.randomization-preview-table td {
+  padding: 6px 8px;
+  border: 1px solid #dfe7ef;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.randomization-preview-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f7fbff;
+}
+
 .randomization-section .entity-table__scroller {
   padding-top: 12px;
 }
@@ -60,7 +262,17 @@
     align-items: stretch;
   }
 
+  .randomization-section__actions {
+    justify-content: space-between;
+  }
+
   .randomization-section__count {
     align-self: flex-start;
+  }
+
+  .randomization-modal__dialog {
+    width: calc(100vw - 16px);
+    margin: 8px;
+    max-height: calc(100vh - 16px);
   }
 }
