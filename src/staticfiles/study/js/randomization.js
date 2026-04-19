@@ -328,6 +328,16 @@ class RandomizationImportController {
 
         this.dom.modal.hidden = true;
         this.dom.modal.setAttribute("aria-hidden", "true");
+        this.resetImportState();
+    }
+
+    resetImportState() {
+        this.state.activeImport = null;
+        this.clearPreview();
+        this.clearStatus();
+        this.dom.importInputs.forEach((input) => {
+            input.value = "";
+        });
     }
 
     getCsrfToken() {

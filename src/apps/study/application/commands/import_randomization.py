@@ -265,7 +265,6 @@ class CommitStudyRandomizationArmsImportService:
                 scheme=scheme,
                 arm_code=values["arm_code"],
                 current_count=0,
-                is_active=True,
                 notes=None,
                 created_at=now,
                 **defaults,
