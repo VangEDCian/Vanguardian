@@ -136,7 +136,7 @@ class CrfFieldDefinition(models.Model):
     range_max = models.DecimalField(max_digits=21, decimal_places=6, null=True, blank=True)
     precision = models.IntegerField(null=True, blank=True)
     allowed_missing_values = models.TextField(default="", blank=True)
-    codelist = models.TextField(default="", blank=True)
+    codelist = models.TextField(null=True, blank=True)
     data_semantic = models.TextField(null=True, blank=True)
     comments = models.TextField(null=True, blank=True)
     text_max_length = models.IntegerField(null=True, blank=True)

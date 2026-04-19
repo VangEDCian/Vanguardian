@@ -6,6 +6,7 @@
 {% block extra_css %}
     {{ block.super }}
     <link rel="stylesheet" href="{% static 'subject/css/subject_detail.css' %}">
+    <link rel="stylesheet" href="{% static 'subject/css/_form_render.css' %}">
 {% endblock %}
 {% block dashboard_breadcrumb_prefix %}
     <a href="{{ back_url }}" class="dashboard-breadcrumb__back">
@@ -84,85 +85,7 @@
             </aside>
             <main class="subject-detail-screen__content">
                 {% if focused_form %}
-                    <section class="subject-form-panel">
-                        <div class="subject-form-panel__title">{{ focused_form.title|upper }}</div>
-                        <div class="subject-form-panel__grid subject-form-panel__grid--header">
-                            <div>{% trans "How was the event recognized?" %}</div>
-                            <div>{% trans "Clinical event type" %}</div>
-                            <div>{% trans "Associated with hospitalization?" %}</div>
-                        </div>
-                        <div class="subject-form-panel__grid">
-                            <div class="subject-form-panel__cell subject-form-panel__cell--stack">
-                                <label>
-                                    <input type="checkbox" disabled>
-                                    {% trans "CRC Review of Chart" %}
-                                </label>
-                                <label>
-                                    <input type="checkbox" disabled>
-                                    {% trans "Patient Reported Outcome" %}
-                                </label>
-                                <label>
-                                    <input type="checkbox" disabled>
-                                    {% trans "Safety desk review" %}
-                                </label>
-                                <label>
-                                    <input type="checkbox" disabled>
-                                    {% trans "Other" %}
-                                </label>
-                            </div>
-                            <div class="subject-form-panel__cell subject-form-panel__cell--stack">
-                                <label>
-                                    <input type="radio" checked disabled>
-                                    {% trans "Death" %}
-                                </label>
-                                <label>
-                                    <input type="radio" disabled>
-                                    {% trans "Ischemic stroke" %}
-                                </label>
-                                <label>
-                                    <input type="radio" disabled>
-                                    {% trans "Pulmonary embolus" %}
-                                </label>
-                            </div>
-                            <div class="subject-form-panel__cell subject-form-panel__cell--stack">
-                                <label>
-                                    <input type="radio" disabled>
-                                    {% trans "Yes" %}
-                                </label>
-                                <label>
-                                    <input type="radio" checked disabled>
-                                    {% trans "No" %}
-                                </label>
-                            </div>
-                        </div>
-                        <div class="subject-form-panel__grid subject-form-panel__grid--header">
-                            <div>{% trans "Date of event" %}</div>
-                            <div>{% trans "Event time" %}</div>
-                        </div>
-                        <div class="subject-form-panel__grid subject-form-panel__grid--two">
-                            <div class="subject-form-panel__cell">
-                                <div class="subject-form-panel__inputs">
-                                    <input type="text" placeholder="DD" readonly>
-                                    <input type="text" placeholder="MM" readonly>
-                                    <input type="text" placeholder="YYYY" readonly>
-                                </div>
-                            </div>
-                            <div class="subject-form-panel__cell">
-                                <div class="subject-form-panel__inputs">
-                                    <input type="text" placeholder="HH:MM" readonly>
-                                    <label>
-                                        <input type="checkbox" disabled>
-                                        {% trans "Unknown" %}
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="subject-form-panel__placeholder">
-                            {% blocktrans with template_name=focused_form.title event_name=focused_event.name %}
-                Rendering CRF template: <strong>{{ template_name }}</strong> under event <strong>{{ event_name }}</strong>. Runtime EDC fields will be wired in next step.
-              {% endblocktrans %}
-                        </div>
-                    </section>
+                    {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
                 {% else %}
                     <div class="subject-detail-screen__empty">{% trans "Select a CRF template to continue." %}</div>
                 {% endif %}

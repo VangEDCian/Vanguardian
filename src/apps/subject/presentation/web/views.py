@@ -1,3 +1,5 @@
+import re
+
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
@@ -9,6 +11,7 @@ from django.views.generic import DetailView, ListView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
+from apps.crf.public import CrfContextAdapter
 from apps.shared.context_processors import StudyDropdownHandler, SiteDropdownHandler
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.core.choices.study import EventInstanceStatusChoices
@@ -104,6 +107,27 @@ class SubjectDetailView(
 
     model = Subject
     pk_url_kwarg = "subject_id"
+    crf_context_adapter_class = CrfContextAdapter
+    supported_control_type_map = {
+        "checkbox list": "checkbox_list",
+        "checkbox": "checkbox_list",
+        "radio button list": "radio_button_list",
+        "radio": "radio_button_list",
+        "dropdown list": "dropdown",
+        "dropdown": "dropdown",
+        "select": "dropdown",
+        "date picker": "date_picker",
+        "date": "date_picker",
+        "time picker": "time_picker",
+        "time": "time_picker",
+        "entry box": "entry_box",
+        "textbox": "entry_box",
+        "text box": "entry_box",
+        "text area": "text_area",
+        "textarea": "text_area",
+        "calculated field": "calculated_field",
+        "calculated": "calculated_field",
+    }
 
     def get_queryset(self):
         return (
@@ -183,6 +207,7 @@ class SubjectDetailView(
                 forms.append(
                     {
                         "id": str(binding.pk),
+                        "form_definition_id": str(template.pk),
                         "title": template_name,
                         "code": template.code,
                     }
@@ -234,6 +259,98 @@ class SubjectDetailView(
             )
         return payload
 
+    def get_crf_context_adapter(self):
+        if not hasattr(self, "_crf_context_adapter"):
+            self._crf_context_adapter = self.crf_context_adapter_class()
+        return self._crf_context_adapter
+
+    @classmethod
+    def _normalize_control_type(cls, raw_control_type):
+        if not raw_control_type:
+            return "entry_box"
+        normalized_value = str(raw_control_type).strip().lower()
+        return cls.supported_control_type_map.get(normalized_value, "unsupported")
+
+    @staticmethod
+    def _parse_choice_options(raw_value):
+        if not raw_value:
+            return []
+
+        normalized = str(raw_value).replace("\r", "\n")
+        normalized = normalized.replace("|", "\n").replace(";", "\n")
+        lines = [line.strip() for line in normalized.split("\n") if line.strip()]
+        options = []
+
+        pair_pattern = re.compile(
+            r"([^=]+?)\s*=\s*([^=]+?)(?=\s+[^=]+?\s*=|$)"
+        )
+        for line in lines:
+            if "=" in line:
+                matched_pairs = pair_pattern.findall(line)
+                if matched_pairs:
+                    for label, value in matched_pairs:
+                        options.append(
+                            {
+                                "label": label.strip(),
+                                "value": value.strip(),
+                            }
+                        )
+                    continue
+                label, value = line.split("=", 1)
+                options.append({"label": label.strip(), "value": value.strip()})
+                continue
+
+            options.append({"label": line, "value": line})
+
+        return [option for option in options if option["label"]]
+
+    def _build_form_render_sections(self, focused_form_fields):
+        if not focused_form_fields:
+            return []
+
+        sections_by_title = {}
+        for field in focused_form_fields:
+            section_title = (field.get("data_semantic") or "").strip() or _("General")
+            if section_title not in sections_by_title:
+                sections_by_title[section_title] = {
+                    "title": section_title,
+                    "fields": [],
+                    "columns": 1,
+                }
+
+            ui_config = field.get("ui_config") or {}
+            control_type = self._normalize_control_type(ui_config.get("control_type"))
+            options = self._parse_choice_options(ui_config.get("options") or field.get("codelist"))
+            placeholder_text = (ui_config.get("text") or "").strip()
+            helper_text = (field.get("comments") or "").strip()
+
+            sections_by_title[section_title]["fields"].append(
+                {
+                    "id": field.get("id"),
+                    "field_key": field.get("field_key"),
+                    "label": field.get("label") or field.get("field_key"),
+                    "data_type": field.get("data_type"),
+                    "control_type": control_type,
+                    "raw_control_type": ui_config.get("control_type"),
+                    "placeholder_text": placeholder_text,
+                    "helper_text": helper_text,
+                    "options": options,
+                    "is_required": "required" in (ui_config.get("behavior") or "").lower(),
+                }
+            )
+
+        payload = []
+        for section in sections_by_title.values():
+            field_count = len(section["fields"])
+            if field_count <= 1:
+                section["columns"] = 1
+            elif field_count == 2:
+                section["columns"] = 2
+            else:
+                section["columns"] = 3
+            payload.append(section)
+        return payload
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         subject = self.object
@@ -245,6 +362,17 @@ class SubjectDetailView(
 
         focus_form_id = (self.request.GET.get("form") or "").strip()
         focused_form = self._resolve_focus(focused_forms, focus_form_id)
+        focused_form_fields = []
+        if focused_form:
+            form_definition_id = focused_form.get("form_definition_id")
+            if form_definition_id:
+                try:
+                    focused_form_fields = self.get_crf_context_adapter().list_template_fields_with_ui_config(
+                        template_id=int(form_definition_id),
+                    )
+                except (TypeError, ValueError):
+                    focused_form_fields = []
+        form_render_sections = self._build_form_render_sections(focused_form_fields)
 
         context["back_url"] = reverse(
             "subject:subject_list", kwargs={"study_id": self.get_study_id()},
@@ -255,6 +383,8 @@ class SubjectDetailView(
         context["focused_event"] = focused_event
         context["focused_forms"] = focused_forms
         context["focused_form"] = focused_form
+        context["focused_form_fields"] = focused_form_fields
+        context["form_render_sections"] = form_render_sections
         context["study_header_label"] = subject.study.name or subject.study.code
         return context
 

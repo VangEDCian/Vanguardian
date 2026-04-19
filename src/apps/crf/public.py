@@ -18,6 +18,11 @@ class CrfContextAdapter:
     def list_study_crf_navigation(self, *, study_id):
         return self.crf_template_service.list_study_crf_navigation(study_id=study_id)
 
+    def list_template_fields_with_ui_config(self, *, template_id):
+        return self.crf_template_service.list_template_fields_with_ui_config(
+            template_id=template_id,
+        )
+
     def resolve_unique_template_by_code(self, *, study_id, code, case_insensitive=False):
         return self.crf_template_service.resolve_unique_template_by_code(
             study_id=study_id,
