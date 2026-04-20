@@ -68,7 +68,7 @@ Apply all business SQL migrations from `db/migrations/` to MariaDB:
 ```bash
 for file in db/migrations/*.sql; do
   docker exec -i vanguardian-mariadb \
-    mariadb -uvanguardian -pvanguardian vanguardian < "$file"
+    mariadb -uvanguardian -pvanguardian vanguardian < "$file" > /dev/null
 done
 ```
 
