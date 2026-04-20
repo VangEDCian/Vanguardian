@@ -20,7 +20,8 @@
 
 .subject-form-section__grid {
   display: grid;
-  background: #eef2f6;
+  /* background: #eef2f6; */
+  border-bottom: 2px solid rgb(33, 150, 196);
 }
 
 .subject-form-section__grid--cols-1 {
@@ -36,23 +37,21 @@
 }
 
 .subject-form-field-card {
-  min-height: 180px;
-  /* padding: 12px 14px; */
-  border-right: 1px solid #d7e1e8;
-}
-
-.subject-form-field-card:last-child {
-  border-right: 0;
+  /* border-right: 1px solid #d7e1e8; */
 }
 
 .subject-form-field__title {
   margin: 0;
-  padding: 0.5rem;
-  background: #1779a8;
+  padding: 0.5rem 0.75rem;
+  background: #1976a8;
   color: #ffffff;
   font-size: 13px;
-  font-weight: 700;
-  line-height: 1.35;
+  font-weight: 600;
+  text-align: center;
+}
+
+.subject-form-field__title:not(:last-child) {
+  border-right: 1px solid rgb(160, 212, 239);
 }
 
 .subject-form-field-card__required {
@@ -64,7 +63,6 @@
   color: #fff;
   font-size: 12px;
   font-weight: 400;
-  font-size: 12px;
 }
 
 .subject-form-field-card__choice-list {
@@ -82,6 +80,7 @@
 
 .subject-form-field-card__control {
   min-height: 80px;
+  padding: 0.75rem 1rem;
 }
 
 .subject-form-field-card__input,
@@ -108,12 +107,6 @@
 .subject-form-field-card__input--readonly {
   background: #f7fafc;
   color: #60717f;
-}
-
-.subject-form-field-card__date-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(80px, 120px));
-  gap: 8px;
 }
 
 .subject-form-field-card__time-grid {

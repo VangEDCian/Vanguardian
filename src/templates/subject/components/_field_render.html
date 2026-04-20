@@ -40,20 +40,7 @@
                 {% for option in field.options %}<option value="{{ option.value }}">{{ option.label }}</option>{% endfor %}
             </select>
         {% elif field.control_type == "date_picker" %}
-            <div class="subject-form-field-card__date-grid">
-                <input class="subject-form-field-card__input"
-                       type="text"
-                       readonly
-                       placeholder="DD">
-                <input class="subject-form-field-card__input"
-                       type="text"
-                       readonly
-                       placeholder="MM">
-                <input class="subject-form-field-card__input"
-                       type="text"
-                       readonly
-                       placeholder="YYYY">
-            </div>
+            {% include "subject/components/_date_picker_control.html" %}
         {% elif field.control_type == "time_picker" %}
             <div class="subject-form-field-card__time-grid">
                 <input class="subject-form-field-card__input"
@@ -88,8 +75,8 @@
             </div>
         {% endif %}
     </div>
-    <div class="subject-form-field-card__meta">
+    {% comment %} <div class="subject-form-field-card__meta">
         <span>{{ field.field_key }}</span>
         <span>{{ field.data_type|default:"" }}</span>
-    </div>
+    </div> {% endcomment %}
 </article>

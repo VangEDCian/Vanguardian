@@ -1,3 +1,4 @@
+import json
 import re
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -276,6 +277,25 @@ class SubjectDetailView(
         if not raw_value:
             return []
 
+        if isinstance(raw_value, list):
+            normalized_options = SubjectDetailView._normalize_choice_option_items(raw_value)
+            if normalized_options:
+                return normalized_options
+
+        if isinstance(raw_value, str):
+            stripped_value = raw_value.strip()
+            if stripped_value.startswith("[") and stripped_value.endswith("]"):
+                try:
+                    loaded_options = json.loads(stripped_value)
+                except json.JSONDecodeError:
+                    loaded_options = None
+                else:
+                    normalized_options = SubjectDetailView._normalize_choice_option_items(
+                        loaded_options
+                    )
+                    if normalized_options:
+                        return normalized_options
+
         normalized = str(raw_value).replace("\r", "\n")
         normalized = normalized.replace("|", "\n").replace(";", "\n")
         lines = [line.strip() for line in normalized.split("\n") if line.strip()]
@@ -303,6 +323,26 @@ class SubjectDetailView(
             options.append({"label": line, "value": line})
 
         return [option for option in options if option["label"]]
+
+    @staticmethod
+    def _normalize_choice_option_items(raw_items):
+        if not isinstance(raw_items, list):
+            return []
+
+        options = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+
+            label = str(item.get("label") or "").strip()
+            value = str(item.get("value") or "").strip()
+            if not label:
+                continue
+            if not value:
+                value = label
+            options.append({"value": value, "label": label})
+
+        return options
 
     def _build_form_render_sections(self, focused_form_fields):
         if not focused_form_fields:

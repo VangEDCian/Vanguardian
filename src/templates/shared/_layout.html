@@ -2,7 +2,7 @@
 {% get_current_language as CURRENT_LANGUAGE %}
 {% require_authenticate_template_view %}
 <!DOCTYPE html>
-<html lang="{{ CURRENT_LANGUAGE }}">
+<html lang="{{ CURRENT_LANGUAGE }}" class="h-full">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,6 +16,7 @@
         </title>
         <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
         <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
+        <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">
         <link rel="stylesheet"
               href="{% static 'shared/css/components/_common_select.css' %}">
         <link rel="stylesheet"
@@ -23,7 +24,7 @@
         <link rel="stylesheet" href="{% static 'shared/css/layout.css' %}">
         {% block extra_css %}{% endblock %}
     </head>
-    <body class="dashboard-page">
+    <body class="min-h-screen bg-slate-100 text-slate-800 font-sans antialiased">
         <div class="dashboard-shell" data-dashboard-shell>
             <header class="top-nav">
                 <div class="top-nav__inner">
