@@ -58,11 +58,120 @@ class CrfTemplateTranslation(TranslatedFieldsModel):
             )
         ]
         indexes = [
-            models.Index(fields=["master"], name="crf_crftemplate_translation_master_idx"),
-            models.Index(fields=["language_code"], name="crf_crftemplate_translation_language_idx"),
+            models.Index(fields=["master"], name="crf_ct_tr_m_idx"),
+            models.Index(fields=["language_code"], name="crf_ct_tr_l_idx"),
         ]
         verbose_name = "CRF template translation"
         verbose_name_plural = "CRF template translations"
+
+
+class CrfSectionTemplate(TranslatableModel):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    section_code = models.CharField(max_length=64)
+    section_name = TranslatedField(any_language=True)
+    display_order = models.IntegerField(default=1)
+
+    is_required = models.BooleanField(default=True)
+    is_enabled = models.BooleanField(default=True)
+    is_repeatable = models.BooleanField(default=False)
+    min_repeats = models.IntegerField(default=0)
+    max_repeats = models.IntegerField(null=True, blank=True)
+
+    crf_template = models.ForeignKey(
+        CrfTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="crf_template_id",
+        related_name="section_templates",
+    )
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "crf_sectiontemplate"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["crf_template", "section_code"],
+                name="crf_sectiontemplate_crf_template_section_code_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["crf_template", "display_order"],
+                name="crf_st_ct_do_idx",
+            )
+        ]
+        verbose_name = "CRF section template"
+        verbose_name_plural = "CRF section templates"
+
+
+class CrfSectionTemplateTranslation(TranslatedFieldsModel):
+    master = models.ForeignKey(
+        CrfSectionTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="section_template_id",
+        related_name="translations",
+    )
+    section_name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    help_text = models.TextField(null=True, blank=True)
+    instruction_text = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "crf_sectiontemplate_translation"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language_code", "master"],
+                name="crf_sectiontemplate_translation_lang_section_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["master"], name="crf_st_tr_m_idx"),
+            models.Index(fields=["language_code"], name="crf_st_tr_l_idx"),
+        ]
+        verbose_name = "CRF section template translation"
+        verbose_name_plural = "CRF section template translations"
+
+
+class CrfSectionLayoutConfig(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    layout_type = models.CharField(max_length=32, default="section")
+    column_count = models.IntegerField(default=1)
+    label_position = models.CharField(max_length=16, default="top")
+    density = models.CharField(max_length=16, default="standard")
+    section_style = models.CharField(max_length=32, default="plain")
+    is_collapsible = models.BooleanField(default=False)
+    is_expanded_by_default = models.BooleanField(default=True)
+    show_section_header = models.BooleanField(default=True)
+    show_border = models.BooleanField(default=False)
+    show_background = models.BooleanField(default=False)
+    custom_css_class = models.CharField(max_length=128, null=True, blank=True)
+    custom_layout_schema = models.JSONField(null=True, blank=True)
+
+    section_template = models.OneToOneField(
+        CrfSectionTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="section_template_id",
+        related_name="layout_config",
+    )
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "crf_section_layoutconfig"
+        managed = False
+        default_permissions = ()
+        verbose_name = "CRF section layout config"
+        verbose_name_plural = "CRF section layout configs"
 
 
 class CrfFieldTemplate(TranslatableModel):
@@ -74,12 +183,21 @@ class CrfFieldTemplate(TranslatableModel):
     label = TranslatedField(any_language=True)
     data_type = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
+    display_order = models.IntegerField(default=1)
 
     crf_template = models.ForeignKey(
         CrfTemplate,
         on_delete=models.DO_NOTHING,
         db_column="crf_template_id",
         related_name="field_templates",
+    )
+    section_template = models.ForeignKey(
+        CrfSectionTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="section_template_id",
+        related_name="field_templates",
+        null=True,
+        blank=True,
     )
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)
@@ -118,8 +236,8 @@ class CrfFieldTemplateTranslation(TranslatedFieldsModel):
             )
         ]
         indexes = [
-            models.Index(fields=["master"], name="crf_fieldtemplate_translation_master_idx"),
-            models.Index(fields=["language_code"], name="crf_fieldtemplate_translation_language_idx"),
+            models.Index(fields=["master"], name="crf_ft_tr_m_idx"),
+            models.Index(fields=["language_code"], name="crf_ft_tr_l_idx"),
         ]
         verbose_name = "CRF field template translation"
         verbose_name_plural = "CRF field template translations"
@@ -238,8 +356,8 @@ class CrfFieldValidationRuleTranslation(TranslatedFieldsModel):
             )
         ]
         indexes = [
-            models.Index(fields=["master"], name="crf_fieldvalidationrule_translation_master_idx"),
-            models.Index(fields=["language_code"], name="crf_fieldvalidationrule_translation_language_idx"),
+            models.Index(fields=["master"], name="crf_fvr_tr_m_idx"),
+            models.Index(fields=["language_code"], name="crf_fvr_tr_l_idx"),
         ]
         verbose_name = "CRF field validation rule translation"
         verbose_name_plural = "CRF field validation rule translations"

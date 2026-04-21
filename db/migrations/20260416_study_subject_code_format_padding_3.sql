@@ -1,5 +1,0 @@
--- Normalize study_subject code format to 3-digit sequence padding.
--- subject_code:   {study.code}-{sequence.rjust(3, "0")}
--- screening_code: {study.code}-S{sequence.rjust(3, "0")}
--- Data backfill moved to:
--- db/seeders/20260416_study_subject_code_format_padding_3.sql

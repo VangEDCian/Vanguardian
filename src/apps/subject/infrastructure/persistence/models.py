@@ -222,19 +222,19 @@ class SubjectEventInstance(models.Model):
         indexes = [
             models.Index(
                 fields=["study", "subject"],
-                name="study_eventinstance_study_subject_idx",
+                name="sub_evtins_st_sub_idx",
             ),
             models.Index(
                 fields=["subject", "status"],
-                name="study_eventinstance_subject_status_idx",
+                name="sub_evtins_sub_st_idx",
             ),
             models.Index(
                 fields=["planned_date"],
-                name="study_eventinstance_planned_date_idx",
+                name="sub_evtins_plan_dt_idx",
             ),
             models.Index(
                 fields=["actual_date"],
-                name="study_eventinstance_actual_date_idx",
+                name="sub_evtins_act_dt_idx",
             ),
         ]
         constraints = [

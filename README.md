@@ -72,12 +72,6 @@ for file in db/migrations/*.sql; do
 done
 ```
 
-Mark the `identity` app migration state without letting Django create the schema itself:
-
-```bash
-python manage.py migrate identity --fake
-```
-
 Run the remaining framework-managed migrations:
 
 ```bash
