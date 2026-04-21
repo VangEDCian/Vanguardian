@@ -5,6 +5,7 @@ from apps.crf.models import (
     CrfFieldDefinition,
     CrfFieldTemplate,
     CrfFieldUiConfig,
+    CrfSectionTemplate,
     CrfTemplate,
 )
 
@@ -19,6 +20,7 @@ class CrfTemplateAmbiguousError(Exception):
 
 class CrfTemplateApplicationService:
     template_model = CrfTemplate
+    section_template_model = CrfSectionTemplate
     field_template_model = CrfFieldTemplate
     field_definition_model = CrfFieldDefinition
     field_ui_config_model = CrfFieldUiConfig
@@ -65,6 +67,34 @@ class CrfTemplateApplicationService:
             )
 
         return payload
+
+    def list_study_templates_by_code(self, *, study_id, code):
+        return list(
+            self.template_model.objects.filter(
+                study_id=study_id,
+                deleted=False,
+                code=code,
+            ).order_by("version", "id")
+        )
+
+    def resolve_unique_template_by_code_version(self, *, study_id, code, version):
+        queryset = self.template_model.objects.filter(
+            study_id=study_id,
+            deleted=False,
+            code=code,
+            version=version,
+        ).order_by("pk")
+
+        count = queryset.count()
+        if count == 0:
+            raise CrfTemplateNotFoundError(
+                f"CRF template with code '{code}' and version '{version}' was not found for study '{study_id}'."
+            )
+        if count > 1:
+            raise CrfTemplateAmbiguousError(
+                f"CRF template code '{code}' and version '{version}' is ambiguous for study '{study_id}'."
+            )
+        return queryset.first()
 
     def resolve_unique_template_by_code(
         self,
@@ -135,6 +165,59 @@ class CrfTemplateApplicationService:
             self._set_translated_value(crf_template, "name", "vi", vi_name)
             self._set_translated_value(crf_template, "name", "en", en_name)
             crf_template.save()
+            return import_outcome
+
+    def upsert_section_template(
+        self,
+        *,
+        crf_template_id,
+        section_code,
+        vi_name,
+        en_name,
+        display_order,
+        is_required,
+        is_repeatable,
+        min_repeats,
+        max_repeats,
+        actor_user_id,
+        now=None,
+    ):
+        timestamp = now or timezone.now()
+        defaults = {
+            "deleted": False,
+            "display_order": display_order,
+            "is_required": is_required,
+            "is_enabled": True,
+            "is_repeatable": is_repeatable,
+            "min_repeats": min_repeats,
+            "max_repeats": max_repeats,
+            "updated_at": timestamp,
+            "updated_by_id": actor_user_id,
+        }
+
+        with transaction.atomic():
+            section_template = self.section_template_model.objects.filter(
+                crf_template_id=crf_template_id,
+                section_code=section_code,
+            ).first()
+
+            if section_template is None:
+                section_template = self.section_template_model(
+                    crf_template_id=crf_template_id,
+                    section_code=section_code,
+                    created_at=timestamp,
+                    created_by_id=actor_user_id,
+                    **defaults,
+                )
+                import_outcome = "created"
+            else:
+                for field_name, value in defaults.items():
+                    setattr(section_template, field_name, value)
+                import_outcome = "updated"
+
+            self._set_translated_value(section_template, "section_name", "vi", vi_name)
+            self._set_translated_value(section_template, "section_name", "en", en_name)
+            section_template.save()
             return import_outcome
 
     def list_template_fields_with_ui_config(self, *, template_id):
