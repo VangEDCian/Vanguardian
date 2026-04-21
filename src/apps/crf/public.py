@@ -15,14 +15,32 @@ class CrfContextAdapter:
     def list_study_templates_for_listing(self, *, study_id):
         return self.crf_template_service.list_study_templates_for_listing(study_id=study_id)
 
+    def list_study_templates_by_code(self, *, study_id, code):
+        return self.crf_template_service.list_study_templates_by_code(
+            study_id=study_id,
+            code=code,
+        )
+
     def list_study_crf_navigation(self, *, study_id):
         return self.crf_template_service.list_study_crf_navigation(study_id=study_id)
+
+    def list_template_fields_with_ui_config(self, *, template_id):
+        return self.crf_template_service.list_template_fields_with_ui_config(
+            template_id=template_id,
+        )
 
     def resolve_unique_template_by_code(self, *, study_id, code, case_insensitive=False):
         return self.crf_template_service.resolve_unique_template_by_code(
             study_id=study_id,
             code=code,
             case_insensitive=case_insensitive,
+        )
+
+    def resolve_unique_template_by_code_version(self, *, study_id, code, version):
+        return self.crf_template_service.resolve_unique_template_by_code_version(
+            study_id=study_id,
+            code=code,
+            version=version,
         )
 
     def upsert_crf_template(
@@ -42,6 +60,35 @@ class CrfContextAdapter:
             version=version,
             vi_name=vi_name,
             en_name=en_name,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
+    def upsert_section_template(
+        self,
+        *,
+        crf_template_id,
+        section_code,
+        vi_name,
+        en_name,
+        display_order,
+        is_required,
+        is_repeatable,
+        min_repeats,
+        max_repeats,
+        actor_user_id,
+        now=None,
+    ):
+        return self.crf_template_service.upsert_section_template(
+            crf_template_id=crf_template_id,
+            section_code=section_code,
+            vi_name=vi_name,
+            en_name=en_name,
+            display_order=display_order,
+            is_required=is_required,
+            is_repeatable=is_repeatable,
+            min_repeats=min_repeats,
+            max_repeats=max_repeats,
             actor_user_id=actor_user_id,
             now=now,
         )

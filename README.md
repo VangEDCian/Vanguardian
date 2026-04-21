@@ -68,14 +68,8 @@ Apply all business SQL migrations from `db/migrations/` to MariaDB:
 ```bash
 for file in db/migrations/*.sql; do
   docker exec -i vanguardian-mariadb \
-    mariadb -uvanguardian -pvanguardian vanguardian < "$file"
+    mariadb -uvanguardian -pvanguardian vanguardian < "$file" > /dev/null
 done
-```
-
-Mark the `identity` app migration state without letting Django create the schema itself:
-
-```bash
-python manage.py migrate identity --fake
 ```
 
 Run the remaining framework-managed migrations:

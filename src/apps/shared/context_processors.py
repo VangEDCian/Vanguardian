@@ -34,7 +34,7 @@ class DropdownHandlerAbstract(abc.ABC):
     - transforming model objects into `DropdownData` for templates
 
     Subclasses must implement `get_objects()` and return items exposing
-    `id` and `code` attributes for dropdown option mapping.
+    `id`, `name` and `code` attributes for dropdown option mapping.
 
     The `build()` method reads selected id from cookie, computes selected
     option/display text, and safely falls back to an empty `DropdownData`
@@ -99,17 +99,25 @@ class DropdownHandlerAbstract(abc.ABC):
         """Return selectable objects for the dropdown.
 
         Subclasses must implement this and return a queryset/iterable of
-        objects exposing `id` and `code` attributes, which are consumed by
+        objects exposing `id`, `name` and `code` attributes, which are consumed by
         `build()` to generate option values and labels.
         """
         raise NotImplementedError()
+
+    @staticmethod
+    def _label_for(obj) -> str:
+        name = (getattr(obj, "name", "") or "").strip()
+        if name:
+            return name
+        return getattr(obj, "code", "")
 
     def build(self) -> DropdownData:
         """Build and return dropdown data for template rendering.
 
         For authenticated users, this method reads the selected id from cookie,
         loads selectable objects from `get_objects()`, marks the selected
-        option, and resolves display text to the selected object's `code` or
+        option, and resolves display text to the selected object's `name`
+        (fallback `code`) or
         `PLACEHOLDER_TEXT`.
 
         Returns:
@@ -127,7 +135,7 @@ class DropdownHandlerAbstract(abc.ABC):
                 select_display_text = self.PLACEHOLDER_TEXT
                 for obj in study_objs:
                     if study_selected_id == obj.id:
-                        select_display_text = obj.code
+                        select_display_text = self._label_for(obj)
                         break
 
                 return DropdownData(
@@ -135,7 +143,7 @@ class DropdownHandlerAbstract(abc.ABC):
                     select_options=[
                         {
                             "value": str(obj.id),
-                            "label": obj.code,
+                            "label": self._label_for(obj),
                             "selected": study_selected_id == obj.id,
                         } for obj in study_objs
                     ],
@@ -151,7 +159,7 @@ class StudyDropdownHandler(DropdownHandlerAbstract):
     PLACEHOLDER_TEXT = _("Select study")
 
     def get_objects(self):
-        qs = Study.objects.only('id', 'code').filter(is_active=True, deleted=False)
+        qs = Study.objects.only('id', 'code', 'name').filter(is_active=True, deleted=False)
 
         # Only Django superusers bypass membership filtering.
         if not self.user.is_superuser:
@@ -174,7 +182,7 @@ class SiteDropdownHandler(StudyDropdownHandler):
         super().__init__(request, **kwargs)
 
     def get_objects(self):
-        qs = Site.objects.only('id', 'code').filter(
+        qs = Site.objects.only('id', 'code', 'name').filter(
             study_id=self.study_id, is_active=True, deleted=False,
         )
 

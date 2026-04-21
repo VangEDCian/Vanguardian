@@ -30,6 +30,9 @@
                             </div>
                         {% endif %}
                         <p class="crf-template-import-form__help">{% trans "Accepted formats: .xlsx, .xls" %}</p>
+                        <p class="crf-template-import-form__help">
+                            {% trans "Required worksheets: Form Templates (CRF Template) and Section Templates (sectiontemplate)." %}
+                        </p>
                         <a href="{% static 'study/templates/crf_templates_import_template.xlsx' %}"
                            class="crf-template-import-form__template-link"
                            download>{% trans "Download Template" %}</a>

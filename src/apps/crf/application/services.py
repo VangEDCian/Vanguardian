@@ -1,7 +1,13 @@
 from django.db import transaction
 from django.utils import timezone
 
-from apps.crf.models import CrfTemplate
+from apps.crf.models import (
+    CrfFieldDefinition,
+    CrfFieldTemplate,
+    CrfFieldUiConfig,
+    CrfSectionTemplate,
+    CrfTemplate,
+)
 
 
 class CrfTemplateNotFoundError(Exception):
@@ -14,6 +20,10 @@ class CrfTemplateAmbiguousError(Exception):
 
 class CrfTemplateApplicationService:
     template_model = CrfTemplate
+    section_template_model = CrfSectionTemplate
+    field_template_model = CrfFieldTemplate
+    field_definition_model = CrfFieldDefinition
+    field_ui_config_model = CrfFieldUiConfig
 
     def get_crf_template_model(self):
         return self.template_model
@@ -57,6 +67,34 @@ class CrfTemplateApplicationService:
             )
 
         return payload
+
+    def list_study_templates_by_code(self, *, study_id, code):
+        return list(
+            self.template_model.objects.filter(
+                study_id=study_id,
+                deleted=False,
+                code=code,
+            ).order_by("version", "id")
+        )
+
+    def resolve_unique_template_by_code_version(self, *, study_id, code, version):
+        queryset = self.template_model.objects.filter(
+            study_id=study_id,
+            deleted=False,
+            code=code,
+            version=version,
+        ).order_by("pk")
+
+        count = queryset.count()
+        if count == 0:
+            raise CrfTemplateNotFoundError(
+                f"CRF template with code '{code}' and version '{version}' was not found for study '{study_id}'."
+            )
+        if count > 1:
+            raise CrfTemplateAmbiguousError(
+                f"CRF template code '{code}' and version '{version}' is ambiguous for study '{study_id}'."
+            )
+        return queryset.first()
 
     def resolve_unique_template_by_code(
         self,
@@ -128,6 +166,123 @@ class CrfTemplateApplicationService:
             self._set_translated_value(crf_template, "name", "en", en_name)
             crf_template.save()
             return import_outcome
+
+    def upsert_section_template(
+        self,
+        *,
+        crf_template_id,
+        section_code,
+        vi_name,
+        en_name,
+        display_order,
+        is_required,
+        is_repeatable,
+        min_repeats,
+        max_repeats,
+        actor_user_id,
+        now=None,
+    ):
+        timestamp = now or timezone.now()
+        defaults = {
+            "deleted": False,
+            "display_order": display_order,
+            "is_required": is_required,
+            "is_enabled": True,
+            "is_repeatable": is_repeatable,
+            "min_repeats": min_repeats,
+            "max_repeats": max_repeats,
+            "updated_at": timestamp,
+            "updated_by_id": actor_user_id,
+        }
+
+        with transaction.atomic():
+            section_template = self.section_template_model.objects.filter(
+                crf_template_id=crf_template_id,
+                section_code=section_code,
+            ).first()
+
+            if section_template is None:
+                section_template = self.section_template_model(
+                    crf_template_id=crf_template_id,
+                    section_code=section_code,
+                    created_at=timestamp,
+                    created_by_id=actor_user_id,
+                    **defaults,
+                )
+                import_outcome = "created"
+            else:
+                for field_name, value in defaults.items():
+                    setattr(section_template, field_name, value)
+                import_outcome = "updated"
+
+            self._set_translated_value(section_template, "section_name", "vi", vi_name)
+            self._set_translated_value(section_template, "section_name", "en", en_name)
+            section_template.save()
+            return import_outcome
+
+    def list_template_fields_with_ui_config(self, *, template_id):
+        field_templates = list(
+            self.field_template_model.objects.filter(
+                crf_template_id=template_id,
+                deleted=False,
+                is_active=True,
+            )
+            .prefetch_related("translations")
+            .order_by("id")
+        )
+        if not field_templates:
+            return []
+
+        field_template_ids = [field_template.pk for field_template in field_templates]
+        field_definition_map = {
+            field_definition.field_template_id: field_definition
+            for field_definition in self.field_definition_model.objects.filter(
+                field_template_id__in=field_template_ids,
+                deleted=False,
+            )
+        }
+        ui_config_map = {
+            ui_config.field_template_id: ui_config
+            for ui_config in self.field_ui_config_model.objects.filter(
+                field_template_id__in=field_template_ids,
+                deleted=False,
+            )
+        }
+
+        payload = []
+        for field_template in field_templates:
+            field_definition = field_definition_map.get(field_template.pk)
+            ui_config = ui_config_map.get(field_template.pk)
+            field_label = field_template.safe_translation_getter(
+                "label",
+                default=field_template.field_key,
+                any_language=True,
+            )
+            payload.append(
+                {
+                    "id": str(field_template.pk),
+                    "field_key": field_template.field_key,
+                    "label": field_label,
+                    "data_type": field_template.data_type,
+                    "data_semantic": field_definition.data_semantic if field_definition else None,
+                    "comments": field_definition.comments if field_definition else None,
+                    "unit": field_definition.unit if field_definition else None,
+                    "codelist": field_definition.codelist if field_definition else None,
+                    "text_max_length": field_definition.text_max_length if field_definition else None,
+                    "text_min_length": field_definition.text_min_length if field_definition else None,
+                    "pattern": field_definition.pattern if field_definition else None,
+                    "ui_config": {
+                        "control_type": ui_config.control_type if ui_config else None,
+                        "layout": ui_config.layout if ui_config else None,
+                        "text": ui_config.text if ui_config else None,
+                        "behavior": ui_config.behavior if ui_config else None,
+                        "options": ui_config.options if ui_config else None,
+                        "style": ui_config.style if ui_config else None,
+                    },
+                }
+            )
+
+        return payload
 
     @staticmethod
     def _set_translated_value(instance, field_name, language_code, value):

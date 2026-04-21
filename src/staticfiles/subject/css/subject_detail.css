@@ -171,94 +171,6 @@
   overflow: auto;
 }
 
-.subject-form-panel {
-  padding: 0;
-}
-
-.subject-form-panel__title {
-  padding: 10px 14px;
-  background: #1f95c6;
-  color: #ffffff;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.subject-form-panel__grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr 0.8fr;
-  border-bottom: 1px solid #dbe4ea;
-}
-
-.subject-form-panel__grid--two {
-  grid-template-columns: 1fr 1fr;
-}
-
-.subject-form-panel__grid--header>div {
-  padding: 10px 12px;
-  background: #1779a8;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 13px;
-  border-right: 1px solid #8fc0da;
-}
-
-.subject-form-panel__grid--header>div:last-child {
-  border-right: 0;
-}
-
-.subject-form-panel__cell {
-  padding: 12px 14px;
-  border-right: 1px solid #e2e9ef;
-}
-
-.subject-form-panel__cell:last-child {
-  border-right: 0;
-}
-
-.subject-form-panel__cell--stack {
-  display: grid;
-  gap: 8px;
-}
-
-.subject-form-panel__cell--stack label {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  color: #24323f;
-}
-
-.subject-form-panel__inputs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.subject-form-panel__inputs input[type="text"] {
-  min-width: 84px;
-  padding: 7px 8px;
-  border: 1px solid #c4cfd9;
-  border-radius: 4px;
-  background: #f8fafc;
-  color: #53606d;
-}
-
-.subject-form-panel__inputs label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #3e4d5b;
-}
-
-.subject-form-panel__placeholder {
-  margin: 16px;
-  padding: 14px;
-  border: 1px dashed #c5d2dc;
-  border-radius: 6px;
-  color: #5e6c79;
-  background: #fafcff;
-}
-
 .subject-detail-screen__empty {
   margin: 16px;
   padding: 12px;
@@ -281,19 +193,6 @@
 @media (max-width: 1200px) {
   .subject-detail-screen__body {
     grid-template-columns: max-content minmax(0, 1fr);
-  }
-
-  .subject-form-panel__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .subject-form-panel__grid--header {
-    display: none;
-  }
-
-  .subject-form-panel__cell {
-    border-right: 0;
-    border-bottom: 1px solid #e2e9ef;
   }
 }
 
