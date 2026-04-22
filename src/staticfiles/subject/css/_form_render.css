@@ -12,7 +12,7 @@
   padding: 10px 14px;
   background: #1f95c6;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -40,6 +40,11 @@
   /* border-right: 1px solid #d7e1e8; */
 }
 
+.subject-form-field-card:last-child {
+  /* grid-column: 1 / -1; */
+  flex-grow: 0;
+}
+
 .subject-form-field__title {
   margin: 0;
   padding: 0.5rem 0.75rem;
@@ -50,8 +55,16 @@
   text-align: center;
 }
 
-.subject-form-field__title:not(:last-child) {
+.subject-form-section__grid--cols-1>.subject-form-field-card:not(:nth-child(1n))>.subject-form-field__title,
+.subject-form-section__grid--cols-2>.subject-form-field-card:not(:nth-child(2n))>.subject-form-field__title,
+.subject-form-section__grid--cols-3>.subject-form-field-card:not(:nth-child(3n))>.subject-form-field__title {
   border-right: 1px solid rgb(160, 212, 239);
+}
+
+.subject-form-section__grid--cols-1>.subject-form-field-card:not(:nth-child(1n))>.subject-form-field-card__control,
+.subject-form-section__grid--cols-2>.subject-form-field-card:not(:nth-child(2n))>.subject-form-field-card__control,
+.subject-form-section__grid--cols-3>.subject-form-field-card:not(:nth-child(3n))>.subject-form-field-card__control {
+  border-right: 1px solid rgb(224, 224, 224);
 }
 
 .subject-form-field-card__required {
