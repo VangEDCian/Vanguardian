@@ -388,6 +388,7 @@ class SubjectDetailView(
                     "helper_text": helper_text,
                     "options": options,
                     "is_required": "required" in (ui_config.get("behavior") or "").lower(),
+                    "classes": (ui_config.get("classes") or "").strip(),
                 }
             )
 

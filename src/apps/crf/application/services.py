@@ -305,6 +305,7 @@ class CrfTemplateApplicationService:
                         "behavior": ui_config.behavior if ui_config else None,
                         "options": ui_config.options if ui_config else None,
                         "style": ui_config.style if ui_config else None,
+                        "classes": ui_config.classes if ui_config else None,
                     },
                 }
             )

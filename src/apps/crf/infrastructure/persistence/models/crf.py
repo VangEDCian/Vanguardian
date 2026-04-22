@@ -290,6 +290,7 @@ class CrfFieldUiConfig(models.Model):
     behavior = models.TextField(null=True, blank=True)
     options = models.TextField(null=True, blank=True)
     style = models.TextField(null=True, blank=True)
+    classes = models.CharField(max_length=255, null=True, blank=True)
 
     field_template = models.OneToOneField(
         CrfFieldTemplate,
