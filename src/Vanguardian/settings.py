@@ -220,12 +220,17 @@ DJANGO_TABLES2_TABLE_ATTRS = {
 }
 
 
-class DisableMigrations(dict):
-    def __contains__(self, item):
-        return True
+DISABLE_APP_MIGRATIONS = env("DISABLE_APP_MIGRATIONS", cast=bool, default=False)
 
-    def __getitem__(self, item):
-        return None
-
-
-MIGRATION_MODULES = DisableMigrations()
+if DISABLE_APP_MIGRATIONS:
+    # Keep django.contrib migrations active (contenttypes/auth/sessions/...)
+    # and disable only project app migrations when needed.
+    MIGRATION_MODULES = {
+        "shared": None,
+        "audit": None,
+        "identity": None,
+        "dashboard": None,
+        "study": None,
+        "crf": None,
+        "subject": None,
+    }
