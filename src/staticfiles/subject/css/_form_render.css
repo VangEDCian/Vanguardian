@@ -45,7 +45,7 @@
   flex-grow: 0;
 }
 
-.subject-form-field__title {
+.subject-form-field-card>.subject-form-field__title {
   margin: 0;
   padding: 0.5rem 0.75rem;
   background: #1976a8;
@@ -88,14 +88,13 @@
   font-size: 13px;
 }
 
-.subject-form-field-card__control {
+.subject-form-field-card>.subject-form-field-card__control {
   padding: 1rem;
 }
 
 .subject-form-field-card__input,
 .subject-form-field-card__textarea {
   width: 100%;
-  max-width: 320px;
   border: 1px solid #b7c6d2;
   border-radius: 4px;
   background: #ffffff;
