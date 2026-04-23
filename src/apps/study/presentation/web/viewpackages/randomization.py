@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -36,6 +37,8 @@ __all__ = [
     "StudyRandomizationArmImportPreviewView",
     "StudyRandomizationArmImportCommitView",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class StudyRandomizationAccessMixin(View):
@@ -155,7 +158,23 @@ class StudyRandomizationImportBaseView(
 
     @classmethod
     def render_format_error(cls, exc):
-        return JsonResponse({"detail": str(exc)}, status=400)
+        if isinstance(exc, RandomizationImportDependencyError):
+            detail = str(
+                _("Import processing is temporarily unavailable. Please contact support."),
+            )
+        elif isinstance(exc, RandomizationImportFormatError):
+            detail = str(
+                _("The uploaded file format is invalid. Please review the template and try again."),
+            )
+        else:
+            detail = str(_("Unable to process import file."))
+
+        logger.warning(
+            "Randomization import request failed with %s",
+            exc.__class__.__name__,
+            exc_info=(exc.__class__, exc, exc.__traceback__),
+        )
+        return JsonResponse({"detail": detail}, status=400)
 
     def get_preview_service(self) -> BaseRandomizationImportValidationService:
         if (
@@ -300,9 +319,14 @@ class StudyRandomizationCommitBaseView(StudyRandomizationImportBaseView):
         raise ValueError('Request user must be required.')
 
     def serialize_validation_error(self, exc):
+        logger.warning(
+            "Randomization import validation failed with %s",
+            exc.__class__.__name__,
+            exc_info=(exc.__class__, exc, exc.__traceback__),
+        )
         return JsonResponse(
             {
-                "detail": str(exc),
+                "detail": str(_("The uploaded file contains validation issues.")),
                 "issues": [
                     {
                         "row_number": issue.row_number,

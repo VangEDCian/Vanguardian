@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
@@ -19,6 +20,14 @@ from apps.study.application.use_cases.randomization_import_preview import (
     RandomizationImportParsedRow,
     RandomizationImportPreviewResult,
     RandomizationSchemeImportPreviewUseCase,
+)
+from apps.study.application import (
+    RandomizationImportDependencyError,
+    RandomizationImportFormatError,
+)
+from apps.study.presentation.web.viewpackages.randomization import (
+    StudyRandomizationCommitBaseView,
+    StudyRandomizationImportBaseView,
 )
 
 
@@ -402,3 +411,53 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
             deleted=False,
             updated_at=ANY,
         )
+
+
+class StudyRandomizationImportBaseViewTests(SimpleTestCase):
+    def test_render_format_error_hides_raw_exception_message(self):
+        response = StudyRandomizationImportBaseView.render_format_error(
+            RandomizationImportFormatError("db_password=secret"),
+        )
+
+        payload = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            payload["detail"],
+            "The uploaded file format is invalid. Please review the template and try again.",
+        )
+        self.assertNotIn("db_password", payload["detail"])
+
+    def test_render_format_error_returns_safe_dependency_message(self):
+        response = StudyRandomizationImportBaseView.render_format_error(
+            RandomizationImportDependencyError("openpyxl missing on C:/venv/private"),
+        )
+
+        payload = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            payload["detail"],
+            "Import processing is temporarily unavailable. Please contact support.",
+        )
+        self.assertNotIn("openpyxl", payload["detail"])
+
+    def test_serialize_validation_error_hides_exception_message_and_keeps_issues(self):
+        view = StudyRandomizationCommitBaseView()
+        exc = RandomizationImportValidationError(
+            (
+                RandomizationImportIssue(
+                    row_number=2,
+                    identifier="SCH-001",
+                    column_label="Code",
+                    reason="Code is required.",
+                ),
+            ),
+        )
+
+        response = view.serialize_validation_error(exc)
+
+        payload = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(payload["detail"], "The uploaded file contains validation issues.")
+        self.assertEqual(len(payload["issues"]), 1)
+        self.assertEqual(payload["issues"][0]["column_label"], "Code")
+        self.assertEqual(payload["issues"][0]["reason"], "Code is required.")
