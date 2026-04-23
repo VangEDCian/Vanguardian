@@ -20,20 +20,6 @@
 {% block dashboard_content %}
     <section class="entity-table-panel">
         {% include "study/components/_study_detail_tabs.html" with study_active_tab="randomization" %}
-        <div id="scheme-import-i18n"
-             data-no-file="{% trans 'Please select a file first.' %}"
-             data-preview-truncated="{% trans 'Preview truncated to %(max)s rows (total rows: %(total)s).' %}"
-             data-importing="{% trans 'Importing...' %}"
-             data-import-success="{% trans 'Import completed successfully.' %}"
-             data-import-error="{% trans 'Import failed. Please try again.' %}"
-             data-preview-error="{% trans 'Could not preview the selected file.' %}"
-             data-uploading-preview="{% trans 'Uploading file for preview...' %}"
-             data-network-error="{% trans 'The request could not be completed. Please try again.' %}"
-             data-invalid-cells="{% trans 'Some cells contain invalid values. Please review the details below.' %}"
-             data-validation-error-title="{% trans 'Import validation issues' %}"
-             data-unexpected-error="{% trans 'An unexpected error occurred.' %}"
-        >
-        </div>
         <div class="randomization-overview">
             <section class="randomization-section">
                 <header class="randomization-section__header">
@@ -119,7 +105,17 @@
                             {% trans "Concrete assignment slots available for subject randomization." %}
                         </p>
                     </div>
-                    <span class="randomization-section__count">{{ randomization_slot_total }}</span>
+                    <div class="randomization-section__actions randomization-section__actions--summary">
+                        <span class="randomization-section__count">{{ randomization_slot_total }}</span>
+                        <div class="randomization-slot-status" aria-label="{% trans 'Slot status summary' %}">
+                            {% for item in randomization_slot_status_summary %}
+                                <span class="randomization-slot-status__item randomization-slot-status__item--{{ item.key }}">
+                                    <span class="randomization-slot-status__label">{{ item.label }}</span>
+                                    <strong class="randomization-slot-status__count">{{ item.count }}</strong>
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </header>
                 {% include "shared/components/_common_table.html" with headers=randomization_slot_headers rows=randomization_slot_rows empty_text=randomization_slot_empty_text %}
             </section>
@@ -137,6 +133,20 @@
             </section>
         </div>
 
+        <div id="scheme-import-i18n"
+             data-no-file="{% trans 'Please select a file first.' %}"
+             data-preview-truncated="{% trans 'Preview truncated to %(max)s rows (total rows: %(total)s).' %}"
+             data-importing="{% trans 'Importing...' %}"
+             data-import-success="{% trans 'Import completed successfully.' %}"
+             data-import-error="{% trans 'Import failed. Please try again.' %}"
+             data-preview-error="{% trans 'Could not preview the selected file.' %}"
+             data-uploading-preview="{% trans 'Uploading file for preview...' %}"
+             data-network-error="{% trans 'The request could not be completed. Please try again.' %}"
+             data-invalid-cells="{% trans 'Some cells contain invalid values. Please review the details below.' %}"
+             data-validation-error-title="{% trans 'Import validation issues' %}"
+             data-unexpected-error="{% trans 'An unexpected error occurred.' %}"
+        >
+        </div>
         <div id="scheme-import-modal" class="randomization-modal" aria-hidden="true" hidden>
             <div class="randomization-modal__backdrop" data-scheme-modal-close></div>
             <div class="randomization-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="scheme-import-modal-title">

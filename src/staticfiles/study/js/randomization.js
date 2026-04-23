@@ -46,6 +46,57 @@ class RandomizationImportController {
         this.bindModal();
         this.bindImportInputs();
         this.bindConfirmImport();
+        this.bindExpandableCells();
+    }
+
+    bindExpandableCells() {
+        const containers = Array.from(document.querySelectorAll(".randomization-section [data-expandable-text]"));
+        if (!containers.length) {
+            return;
+        }
+
+        containers.forEach((container) => {
+            if (!(container instanceof HTMLElement)) {
+                return;
+            }
+            this.refreshExpandableState(container);
+        });
+
+        document.addEventListener("click", (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const toggle = target.closest(".randomization-section [data-expand-toggle]");
+            if (!(toggle instanceof HTMLButtonElement)) {
+                return;
+            }
+
+            const container = toggle.closest("[data-expandable-text]");
+            if (!(container instanceof HTMLElement)) {
+                return;
+            }
+
+            const isExpanded = container.classList.toggle("is-expanded");
+            const moreLabel = toggle.dataset.moreLabel || "See more";
+            const lessLabel = toggle.dataset.lessLabel || "See less";
+            toggle.textContent = isExpanded ? lessLabel : moreLabel;
+            this.refreshExpandableState(container);
+        });
+    }
+
+    refreshExpandableState(container) {
+        const content = container.querySelector("[data-expandable-content]");
+        if (!(content instanceof HTMLElement)) {
+            return;
+        }
+
+        container.classList.remove("is-short");
+        const hasOverflow = content.scrollHeight > content.clientHeight + 1;
+        if (!hasOverflow) {
+            container.classList.add("is-short");
+        }
     }
 
     bindPanelToggles() {

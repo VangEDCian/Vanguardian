@@ -55,3 +55,16 @@ class EventInstanceStatusChoices(models.TextChoices):
     LOCKED = "locked", _("Locked")
     SKIPPED = "skipped", _("Skipped")
     CANCELLED = "cancelled", _("Cancelled")
+
+
+class RandomizationSchemeStatusChoice(models.TextChoices):
+    DRAFT = "draft", _("Draft")
+    ACTIVE = "active", _("Active")
+    CLOSED = "closed", _("Closed")
+    RETRIED = "retried", _("Retried")
+
+
+class RandomizationSlotStatusChoice(models.TextChoices):
+    AVAILABLE = "available", _("Available")
+    ASSIGNED = "assigned", _("Assigned")
+    VOID = "void", _("Void")

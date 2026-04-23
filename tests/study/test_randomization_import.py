@@ -78,6 +78,22 @@ class RandomizationSchemeImportPreviewUseCaseTests(SimpleTestCase):
         self.assertEqual(result.issues[0].row_number, 3)
         self.assertEqual(result.issues[0].column_label, "Code")
 
+    def test_execute_accepts_scheme_status_alias_header(self):
+        csv_content = "\n".join(
+            [
+                "Code,Name,Type,Target Randomized Total,Is Open Label,Requires Screening Pass,Scheme Status",
+                "SCH-001,Main Scheme,block,100,Yes,No,closed",
+            ]
+        ).encode("utf-8")
+
+        result = self.use_case.execute(
+            file_name="randomization_scheme.csv",
+            file_content=csv_content,
+        )
+
+        self.assertEqual(result.issues, ())
+        self.assertEqual(result.parsed_rows[0].values["status"], "closed")
+
 
 class RandomizationArmImportPreviewTests(SimpleTestCase):
     def test_static_template_headers_match_expected_columns(self):
@@ -221,6 +237,76 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
             deleted=False,
             updated_at=ANY,
         )
+
+    @patch("apps.study.application.commands.import_randomization.RandomizationScheme")
+    def test_upsert_scheme_update_preserves_existing_status_when_import_status_empty(self, mock_scheme_model):
+        existing_scheme = SimpleNamespace(
+            status="active",
+            save=MagicMock(),
+        )
+        mock_scheme_model.objects.filter.return_value.first.return_value = existing_scheme
+        service = CommitStudyRandomizationSchemesImportService()
+        service.randomization_scheme_model = mock_scheme_model
+        parsed_row = RandomizationImportParsedRow(
+            row_number=2,
+            identifier="SCH-001",
+            values={
+                "code": "SCH-001",
+                "name": "Main",
+                "randomization_type": "block",
+                "target_randomized_total": 100,
+                "eligibility_rule_code": "RULE-1",
+                "requires_screening_pass": True,
+                "is_open_label": False,
+                "status": "",
+            },
+        )
+
+        outcome = service._upsert_scheme(
+            study_id=3,
+            parsed_row=parsed_row,
+            actor_user_id=9,
+            now=ANY,
+        )
+
+        self.assertEqual(outcome, ("updated", existing_scheme))
+        self.assertEqual(existing_scheme.status, "active")
+        existing_scheme.save.assert_called_once()
+
+    @patch("apps.study.application.commands.import_randomization.RandomizationScheme")
+    def test_upsert_scheme_update_overrides_status_when_import_has_status(self, mock_scheme_model):
+        existing_scheme = SimpleNamespace(
+            status="draft",
+            save=MagicMock(),
+        )
+        mock_scheme_model.objects.filter.return_value.first.return_value = existing_scheme
+        service = CommitStudyRandomizationSchemesImportService()
+        service.randomization_scheme_model = mock_scheme_model
+        parsed_row = RandomizationImportParsedRow(
+            row_number=2,
+            identifier="SCH-001",
+            values={
+                "code": "SCH-001",
+                "name": "Main",
+                "randomization_type": "block",
+                "target_randomized_total": 100,
+                "eligibility_rule_code": "RULE-1",
+                "requires_screening_pass": True,
+                "is_open_label": False,
+                "status": "active",
+            },
+        )
+
+        outcome = service._upsert_scheme(
+            study_id=3,
+            parsed_row=parsed_row,
+            actor_user_id=9,
+            now=ANY,
+        )
+
+        self.assertEqual(outcome, ("updated", existing_scheme))
+        self.assertEqual(existing_scheme.status, "active")
+        existing_scheme.save.assert_called_once()
 
 
 class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):

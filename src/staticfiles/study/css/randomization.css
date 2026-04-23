@@ -1,12 +1,25 @@
 .randomization-overview {
   display: grid;
   gap: 14px;
-  margin-top: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 14px;
+}
+
+/* Keep header rows visible in the flex panel; only overview should scroll. */
+.entity-table-panel > .entity-detail-tabs,
+.entity-table-panel > .entity-table__toolbar,
+.entity-table-panel > #scheme-import-i18n {
+  flex: 0 0 auto;
 }
 
 .randomization-section {
   background: #fff;
   border-bottom: 1px solid #d7dde4;
+  min-width: 0;
 }
 
 .randomization-section__header {
@@ -41,6 +54,11 @@
   gap: 8px;
 }
 
+.randomization-section__actions--summary {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .randomization-section__count {
   display: inline-flex;
   align-items: center;
@@ -54,6 +72,47 @@
   color: #1e88b9;
   font-size: 12px;
   font-weight: 700;
+}
+
+.randomization-slot-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.randomization-slot-status__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid #d7dde4;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #314353;
+  font-size: 11px;
+}
+
+.randomization-slot-status__count {
+  font-size: 12px;
+}
+
+.randomization-slot-status__item--available {
+  border-color: #b8dfc6;
+  background: #f2fbf5;
+  color: #247348;
+}
+
+.randomization-slot-status__item--assigned {
+  border-color: #b9d9ed;
+  background: #f2f9fe;
+  color: #235f87;
+}
+
+.randomization-slot-status__item--void {
+  border-color: #ecc7c4;
+  background: #fff4f3;
+  color: #ae2a22;
 }
 
 .randomization-import-toggle {
@@ -254,6 +313,72 @@
 
 .randomization-section .entity-table__scroller {
   padding-top: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.randomization-section .entity-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.randomization-section .entity-table td.entity-table__wrap {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: 280px;
+}
+
+.randomization-section .entity-table td.entity-table__scheme-name {
+  min-width: 320px;
+  max-width: 520px;
+}
+
+.randomization-section .entity-table td.entity-table__scheme-notes,
+.randomization-section .entity-table td.entity-table__arm-notes {
+  min-width: 260px;
+  max-width: 420px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.randomization-section .entity-table__expandable {
+  display: grid;
+  gap: 4px;
+}
+
+.randomization-section .entity-table__expandable-content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.randomization-section .entity-table__expandable.is-expanded .entity-table__expandable-content {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.randomization-section .entity-table__expandable-toggle {
+  border: 0;
+  background: transparent;
+  color: #1e88b9;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  justify-self: start;
+  cursor: pointer;
+}
+
+.randomization-section .entity-table__expandable.is-short .entity-table__expandable-toggle {
+  display: none;
 }
 
 @media (max-width: 720px) {
@@ -264,6 +389,10 @@
 
   .randomization-section__actions {
     justify-content: space-between;
+  }
+
+  .randomization-section__actions--summary {
+    justify-content: flex-start;
   }
 
   .randomization-section__count {

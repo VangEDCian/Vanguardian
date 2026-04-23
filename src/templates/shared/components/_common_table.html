@@ -69,6 +69,17 @@
                                     {% endif %}
                                     {{ cell.value }}
                                 </span>
+                            {% elif cell.kind == "expandable_text" %}
+                                <div class="entity-table__expandable" data-expandable-text>
+                                    <span class="entity-table__expandable-content" data-expandable-content>{{ cell.value }}</span>
+                                    <button type="button"
+                                            class="entity-table__expandable-toggle"
+                                            data-expand-toggle
+                                            data-more-label="{% trans 'See more' %}"
+                                            data-less-label="{% trans 'See less' %}">
+                                        {% trans "See more" %}
+                                    </button>
+                                </div>
                             {% else %}
                                 {{ cell.value }}
                             {% endif %}

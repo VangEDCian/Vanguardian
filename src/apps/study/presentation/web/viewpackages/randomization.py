@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, JsonResponse
@@ -20,6 +22,9 @@ from apps.study.application import (
     StudyNotFoundError,
     StudyRandomizationDirectoryQueryService,
 )
+from apps.study.application.commands.import_randomization import (
+    BaseRandomizationImportValidationService,
+)
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import RandomizationImportFileForm
 from apps.study.presentation.web.viewpackages._helpers import _user_has_study_access
@@ -33,7 +38,7 @@ __all__ = [
 ]
 
 
-class StudyRandomizationAccessMixin:
+class StudyRandomizationAccessMixin(View):
     study_directory_query_service_class = StudyDirectoryQueryService
     _detail_view_model = None
     _study = None
@@ -69,9 +74,7 @@ class StudyRandomizationView(
     raise_exception = True
     template_name = "study/randomization.html"
     layout_nav_key = "STUDIES"
-    study_randomization_directory_query_service_class = (
-        StudyRandomizationDirectoryQueryService
-    )
+    study_randomization_directory_query_service_class = StudyRandomizationDirectoryQueryService
 
     def get_study_randomization_directory_query_service(self):
         return self.study_randomization_directory_query_service_class()
@@ -133,34 +136,90 @@ class StudyRandomizationImportBaseView(
     raise_exception = True
     import_form_class = RandomizationImportFileForm
     preview_title = _("Import Preview")
+    preview_service_class: BaseRandomizationImportValidationService | None = None
+    field_input_guidance = {}
+    preview_json_dump_type: tuple[type] = None
 
     def get_import_form(self):
         return self.import_form_class(self.request.POST, self.request.FILES)
 
-    def build_command(self, uploaded_file):
-        return PreviewRandomizationImportCommand(
-            actor_user_id=self.request.user.pk,
-            study_id=self._study.pk,
-            file_name=uploaded_file.name,
-            file_content=uploaded_file.read(),
+    @classmethod
+    def render_form_errors(cls, form):
+        return JsonResponse(
+            {
+                "detail": str(_("Please upload a valid file.")),
+                "errors": form.errors.get_json_data(),
+            },
+            status=400,
         )
 
+    @classmethod
+    def render_format_error(cls, exc):
+        return JsonResponse({"detail": str(exc)}, status=400)
+
+    def get_preview_service(self) -> BaseRandomizationImportValidationService:
+        if (
+                self.preview_service_class
+                and callable(self.preview_service_class)
+        ):
+            return self.preview_service_class()
+        raise ValueError(
+            self.__class__.__name__,
+            'property `preview_service_class` must be provide class '
+            'extend from BaseRandomizationImportValidationService',
+        )
+
+    def build_command(self, uploaded_file):
+        if self.request.user.pk and isinstance(self.request.user.pk, int):
+            return PreviewRandomizationImportCommand(
+                actor_user_id=self.request.user.pk,
+                study_id=self._study.pk,
+                file_name=uploaded_file.name,
+                file_content=uploaded_file.read(),
+            )
+        raise ValueError('Request user must be required.')
+
+    def _build_issue_detail(self, issue):
+        base_detail = str(
+            _("Row %(row)s · %(column)s · %(reason)s")
+            % {
+                "row": issue.row_number,
+                "column": issue.column_label,
+                "reason": str(issue.reason),
+            },
+        )
+        guidance = self.field_input_guidance.get(issue.column_label)
+        if not guidance:
+            return base_detail
+        return str(
+            _("%(base)s Suggested format: %(guidance)s")
+            % {
+                "base": base_detail,
+                "guidance": str(guidance),
+            },
+        )
+
+    def _preview_result_rows(self, preview_rows: tuple):
+        return [
+            [
+                (
+                    (
+                        json.dumps(sub_item) if isinstance(sub_item, self.preview_json_dump_type) else sub_item
+                    ) if self.preview_json_dump_type else sub_item
+                )
+                for sub_item in list(row.values)
+            ] for row in preview_rows
+        ]
+
     def serialize_preview_result(self, preview_result):
-        preview_rows = [list(row.values) for row in preview_result.preview_rows[:100]]
+        preview_rows = self._preview_result_rows(preview_rows=preview_result.preview_rows[:100])
         issues = [
             {
                 "row_number": issue.row_number,
                 "identifier": issue.identifier,
                 "column_label": issue.column_label,
                 "reason": str(issue.reason),
-                "detail": str(
-                    _("Row %(row)s · %(column)s · %(reason)s")
-                    % {
-                        "row": issue.row_number,
-                        "column": issue.column_label,
-                        "reason": str(issue.reason),
-                    },
-                ),
+                "detail": self._build_issue_detail(issue),
             }
             for issue in preview_result.issues
         ]
@@ -174,56 +233,53 @@ class StudyRandomizationImportBaseView(
             "can_commit": len(preview_result.issues) == 0,
         }
 
-    def render_form_errors(self, form):
-        return JsonResponse(
-            {"errors": form.errors.get_json_data()},
-            status=400,
-        )
+    def post(self, request, *_args, **_kwargs):
+        form = self.get_import_form()
+        if not form.is_valid():
+            return self.render_form_errors(form)
 
-    def render_format_error(self, exc):
-        return JsonResponse({"detail": str(exc)}, status=400)
+        uploaded_file = form.cleaned_data["import_file"]
+        try:
+            preview_result = self.get_preview_service().execute(self.build_command(uploaded_file))
+        except (RandomizationImportDependencyError, RandomizationImportFormatError) as exc:
+            return self.render_format_error(exc)
+
+        return JsonResponse(self.serialize_preview_result(preview_result))
 
 
 class StudyRandomizationSchemeImportPreviewView(StudyRandomizationImportBaseView):
     preview_service_class = PreviewStudyRandomizationSchemesImportService
     preview_title = _("Randomization Scheme Preview")
-
-    def get_preview_service(self):
-        return self.preview_service_class()
-
-    def post(self, request, *_args, **_kwargs):
-        form = self.get_import_form()
-        if not form.is_valid():
-            return self.render_form_errors(form)
-
-        uploaded_file = form.cleaned_data["import_file"]
-        try:
-            preview_result = self.get_preview_service().execute(self.build_command(uploaded_file))
-        except (RandomizationImportDependencyError, RandomizationImportFormatError) as exc:
-            return self.render_format_error(exc)
-
-        return JsonResponse(self.serialize_preview_result(preview_result))
+    field_input_guidance = {
+        "Code": _("Unique scheme code, up to 64 characters. Example: SCH-001"),
+        "Name": _("Scheme name, up to 255 characters. Example: Main Scheme"),
+        "Type": _("Randomization type text. Example: block"),
+        "Allocation Ratio": _(
+            'JSON object with ARM code as key and ratio > 0 as value. Example: {"ARM-A": 2, "ARM-B": 1}',
+        ),
+        "Target Randomized Total": _("Whole number greater than 0. Example: 100"),
+        "Eligibility Rule Code": _("Optional rule code, up to 64 characters. Example: ELIG-01"),
+        "Requires Screening Pass": _("Yes/No, True/False, or 1/0"),
+        "Is Open Label": _("Yes/No, True/False, or 1/0"),
+        "Status": _("One of: draft, active, closed, retried"),
+        "Effective From": _("Datetime. Example: 2026-04-21 08:30"),
+        "Effective To": _("Datetime and must be >= Effective From"),
+        "Notes": _("Optional free text note."),
+    }
+    preview_json_dump_type = (dict, list)
 
 
 class StudyRandomizationArmImportPreviewView(StudyRandomizationImportBaseView):
     preview_service_class = PreviewStudyRandomizationArmsImportService
     preview_title = _("Randomization Arm Preview")
-
-    def get_preview_service(self):
-        return self.preview_service_class()
-
-    def post(self, request, *_args, **_kwargs):
-        form = self.get_import_form()
-        if not form.is_valid():
-            return self.render_form_errors(form)
-
-        uploaded_file = form.cleaned_data["import_file"]
-        try:
-            preview_result = self.get_preview_service().execute(self.build_command(uploaded_file))
-        except (RandomizationImportDependencyError, RandomizationImportFormatError) as exc:
-            return self.render_format_error(exc)
-
-        return JsonResponse(self.serialize_preview_result(preview_result))
+    field_input_guidance = {
+        "Scheme Code": _("Existing scheme code in this study. Example: SCH-001"),
+        "Code": _("Unique ARM code within a scheme. Example: ARM-A"),
+        "Target Count": _("Whole number greater than or equal to current assigned count"),
+        "Display Order": _("Whole number used for ordering. Example: 1"),
+        "Is Active": _("Yes/No, True/False, or 1/0"),
+        "Notes": _("Optional free text note."),
+    }
 
 
 class StudyRandomizationCommitBaseView(StudyRandomizationImportBaseView):
@@ -234,12 +290,14 @@ class StudyRandomizationCommitBaseView(StudyRandomizationImportBaseView):
         return self.commit_service_class()
 
     def build_commit_command(self, uploaded_file):
-        return CommitRandomizationImportCommand(
-            actor_user_id=self.request.user.pk,
-            study_id=self._study.pk,
-            file_name=uploaded_file.name,
-            file_content=uploaded_file.read(),
-        )
+        if self.request.user.pk and isinstance(self.request.user.pk, int):
+            return CommitRandomizationImportCommand(
+                actor_user_id=self.request.user.pk,
+                study_id=self._study.pk,
+                file_name=uploaded_file.name,
+                file_content=uploaded_file.read(),
+            )
+        raise ValueError('Request user must be required.')
 
     def serialize_validation_error(self, exc):
         return JsonResponse(
@@ -251,14 +309,7 @@ class StudyRandomizationCommitBaseView(StudyRandomizationImportBaseView):
                         "identifier": issue.identifier,
                         "column_label": issue.column_label,
                         "reason": str(issue.reason),
-                        "detail": str(
-                            _("Row %(row)s · %(column)s · %(reason)s")
-                            % {
-                                "row": issue.row_number,
-                                "column": issue.column_label,
-                                "reason": str(issue.reason),
-                            },
-                        ),
+                        "detail": self._build_issue_detail(issue),
                     }
                     for issue in exc.issues
                 ],
@@ -301,6 +352,7 @@ class StudyRandomizationCommitBaseView(StudyRandomizationImportBaseView):
 
 class StudyRandomizationSchemeImportCommitView(StudyRandomizationCommitBaseView):
     commit_service_class = CommitStudyRandomizationSchemesImportService
+    field_input_guidance = StudyRandomizationSchemeImportPreviewView.field_input_guidance
     success_message = _(
         "Imported randomization schemes successfully. Created: %(created_count)s. Updated: %(updated_count)s.",
     )
@@ -308,6 +360,7 @@ class StudyRandomizationSchemeImportCommitView(StudyRandomizationCommitBaseView)
 
 class StudyRandomizationArmImportCommitView(StudyRandomizationCommitBaseView):
     commit_service_class = CommitStudyRandomizationArmsImportService
+    field_input_guidance = StudyRandomizationArmImportPreviewView.field_input_guidance
     success_message = _(
         "Imported randomization arms successfully. Created: %(created_count)s. Updated: %(updated_count)s.",
     )
