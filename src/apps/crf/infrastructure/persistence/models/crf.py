@@ -285,6 +285,7 @@ class CrfFieldUiConfig(models.Model):
     deleted = models.BooleanField(default=False)
 
     control_type = models.CharField(max_length=50)
+    control_layout = models.CharField(max_length=20, default="normal")
     layout = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     behavior = models.TextField(null=True, blank=True)

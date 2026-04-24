@@ -2,15 +2,7 @@
 <section class="subject-form-panel">
     {% if form_render_sections %}
         {% for section in form_render_sections %}
-            <section class="subject-form-section">
-                <header class="subject-form-section__title">{{ section.title }}</header>
-                {% comment %} <div class="subject-form-section__grid {% if section.columns == 1 %}subject-form-section__grid--cols-1{% elif section.columns == 2 %}subject-form-section__grid--cols-2{% else %}subject-form-section__grid--cols-3{% endif %}"> {% endcomment %}
-                <div class="subject-form-section__grid grid grid-cols-6">
-                    {% for field in section.fields %}
-                        {% include "subject/components/_field_card_render.html" with field=field %}
-                    {% endfor %}
-                </div>
-            </section>
+            {% include "subject/components/_section_render.html" with section=section %}
         {% endfor %}
     {% else %}
         <div class="subject-form-panel__placeholder">

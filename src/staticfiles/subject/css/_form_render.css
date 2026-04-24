@@ -1,11 +1,13 @@
+@import url("./_field_render.css");
 @import url("./_field_card_render.css");
+@import url("./_date_picker_control.css");
 
 .subject-form-panel {
   padding: 0;
 }
 
 .subject-form-section {
-  border-bottom: 1px solid #d7e1e8;
+  /* border-bottom: 1px solid #d7e1e8; */
   margin-bottom: 8px;
 }
 
@@ -23,7 +25,7 @@
 .subject-form-section__grid {
   display: grid;
   /* background: #eef2f6; */
-  border-bottom: 2px solid rgb(33, 150, 196);
+  /* border-bottom: 2px solid rgb(33, 150, 196); */
 }
 
 .subject-form-section__grid--cols-1 {

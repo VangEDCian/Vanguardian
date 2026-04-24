@@ -1,31 +1,36 @@
-<div class="flex flex-wrap items-end gap-2.5">
-    <div class="flex flex-col items-center gap-1">
-        <span class="text-xs leading-none text-gray-500">Day</span>
-        <input class="h-[29.5px] w-14 rounded border border-zinc-300 px-2 py-1 text-center text-sm outline-none focus:border-sky-400"
+{% load i18n %}
+<div class="subject-date-picker">
+    <div class="subject-date-picker__part">
+        <span class="subject-date-picker__label">{% trans "Day" %}</span>
+        <input class="subject-date-picker__input subject-date-picker__input--day"
+               type="text"
+               readonly
                placeholder="DD"
                value="">
     </div>
-    <div class="flex flex-col items-center gap-1">
-        <span class="text-xs leading-none text-gray-500">Month</span>
-        <select class="h-[29px] w-24 rounded border border-zinc-300 px-1 py-1 text-sm outline-none focus:border-sky-400">
+    <div class="subject-date-picker__part">
+        <span class="subject-date-picker__label">{% trans "Month" %}</span>
+        <select class="subject-date-picker__input subject-date-picker__input--month" disabled>
             <option value="">--</option>
-            <option value="1">January</option>
-            <option value="2">February</option>
-            <option value="3">March</option>
-            <option value="4">April</option>
-            <option value="5">May</option>
-            <option value="6">June</option>
-            <option value="7">July</option>
-            <option value="8">August</option>
-            <option value="9">September</option>
-            <option value="10">October</option>
-            <option value="11">November</option>
-            <option value="12">December</option>
+            <option value="1">{% trans "January" %}</option>
+            <option value="2">{% trans "February" %}</option>
+            <option value="3">{% trans "March" %}</option>
+            <option value="4">{% trans "April" %}</option>
+            <option value="5">{% trans "May" %}</option>
+            <option value="6">{% trans "June" %}</option>
+            <option value="7">{% trans "July" %}</option>
+            <option value="8">{% trans "August" %}</option>
+            <option value="9">{% trans "September" %}</option>
+            <option value="10">{% trans "October" %}</option>
+            <option value="11">{% trans "November" %}</option>
+            <option value="12">{% trans "December" %}</option>
         </select>
     </div>
-    <div class="flex flex-col items-center gap-1">
-        <span class="text-xs leading-none text-gray-500">Year</span>
-        <input class="h-[29.5px] w-20 rounded border border-zinc-300 px-2 py-1 text-center text-sm outline-none focus:border-sky-400"
+    <div class="subject-date-picker__part">
+        <span class="subject-date-picker__label">{% trans "Year" %}</span>
+        <input class="subject-date-picker__input subject-date-picker__input--year"
+               type="text"
+               readonly
                placeholder="YYYY"
                value="">
     </div>

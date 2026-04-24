@@ -300,6 +300,7 @@ class CrfTemplateApplicationService:
                     "pattern": field_definition.pattern if field_definition else None,
                     "ui_config": {
                         "control_type": ui_config.control_type if ui_config else None,
+                        "control_layout": ui_config.control_layout if ui_config else None,
                         "layout": ui_config.layout if ui_config else None,
                         "text": ui_config.text if ui_config else None,
                         "behavior": ui_config.behavior if ui_config else None,

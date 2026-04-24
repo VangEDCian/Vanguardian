@@ -1,16 +1,16 @@
 .subject-form-flat-field {
   display: grid;
-  gap: 6px;
+  margin: 1rem;
+  grid-auto-rows: min-content;
+  gap: 0.375rem;
 }
 
 .subject-form-flat-field__label {
-  margin: 0;
   text-align: left;
-  font-size: 26px;
-  font-style: normal;
-  font-weight: 700;
-  line-height: 1.35;
+  font-size: 13px;
+  font-weight: 600;
   color: #333333;
+  height: min-content;
 }
 
 .subject-form-flat-field__required {
@@ -18,10 +18,15 @@
 }
 
 .subject-form-flat-field__helper {
-  margin: 0;
+  margin: -0.375rem 0 0 0;
   text-align: left;
   font-size: 13px;
   color: #5e6670;
+}
+
+.subject-form-flat-field__helper:empty::after {
+  content: "transparent";
+  color: transparent;
 }
 
 .subject-form-flat-field__control {
@@ -66,38 +71,6 @@
 .subject-form-flat-field__input--readonly {
   background: #f4f4f4;
   color: #5b6169;
-}
-
-.subject-form-flat-field__date-grid {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.subject-form-flat-field__date-col {
-  display: grid;
-  gap: 4px;
-}
-
-.subject-form-flat-field__date-col span {
-  text-align: left;
-  font-size: 13px;
-  color: #4f5a66;
-}
-
-.subject-form-flat-field__input--day {
-  width: 48px;
-  text-align: center;
-}
-
-.subject-form-flat-field__input--month {
-  width: 96px;
-}
-
-.subject-form-flat-field__input--year {
-  width: 64px;
-  text-align: center;
 }
 
 .subject-form-flat-field__time-grid {

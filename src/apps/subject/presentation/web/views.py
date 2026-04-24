@@ -273,6 +273,13 @@ class SubjectDetailView(
         return cls.supported_control_type_map.get(normalized_value, "unsupported")
 
     @staticmethod
+    def _normalize_control_layout(raw_control_layout):
+        normalized_value = str(raw_control_layout or "").strip().lower()
+        if normalized_value in {"normal", "card", "table_row"}:
+            return normalized_value
+        return "normal"
+
+    @staticmethod
     def _parse_choice_options(raw_value):
         if not raw_value:
             return []
@@ -371,6 +378,7 @@ class SubjectDetailView(
 
             ui_config = field.get("ui_config") or {}
             control_type = self._normalize_control_type(ui_config.get("control_type"))
+            control_layout = self._normalize_control_layout(ui_config.get("control_layout"))
             options = self._parse_choice_options(ui_config.get("options") or field.get("codelist"))
             placeholder_text = (ui_config.get("text") or "").strip()
             helper_text = (field.get("comments") or "").strip()
@@ -383,6 +391,7 @@ class SubjectDetailView(
                     "data_type": field.get("data_type"),
                     "display_order": field.get("display_order") or 999999,
                     "control_type": control_type,
+                    "control_layout": control_layout,
                     "raw_control_type": ui_config.get("control_type"),
                     "placeholder_text": placeholder_text,
                     "helper_text": helper_text,
