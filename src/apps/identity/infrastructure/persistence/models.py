@@ -3,11 +3,6 @@ from django.db import models
 
 
 class User(AbstractUser):
-    """
-    Identity user stays compatible with django-auth's runtime semantics while
-    reserving ownership of the concrete user table for the DB-first schema.
-    """
-
     email = models.EmailField(blank=True, null=True, unique=True)
     deleted = models.BooleanField(default=False)
     display_name = models.CharField(max_length=255, blank=True, default="")

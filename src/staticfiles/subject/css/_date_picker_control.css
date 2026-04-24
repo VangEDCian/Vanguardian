@@ -47,3 +47,8 @@
   width: 80px;
   text-align: center;
 }
+
+.subject-date-picker__input--time {
+  width: 88px;
+  text-align: center;
+}

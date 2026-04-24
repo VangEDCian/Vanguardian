@@ -110,24 +110,39 @@ class SubjectDetailView(
     pk_url_kwarg = "subject_id"
     crf_context_adapter_class = CrfContextAdapter
     supported_control_type_map = {
-        "checkbox list": "checkbox_list",
-        "checkbox": "checkbox_list",
-        "radio button list": "radio_button_list",
-        "radio": "radio_button_list",
-        "dropdown list": "dropdown",
-        "dropdown": "dropdown",
-        "select": "dropdown",
-        "date picker": "date_picker",
-        "date": "date_picker",
-        "time picker": "time_picker",
-        "time": "time_picker",
-        "entry box": "entry_box",
-        "textbox": "entry_box",
-        "text box": "entry_box",
-        "text area": "text_area",
-        "textarea": "text_area",
-        "calculated field": "calculated_field",
-        "calculated": "calculated_field",
+        "text": "text",
+        "entry_box": "text",
+        "entry box": "text",
+        "textbox": "text",
+        "text box": "text",
+        "textarea": "textarea",
+        "text_area": "textarea",
+        "text area": "textarea",
+        "number": "number",
+        "numeric": "number",
+        "select": "select",
+        "dropdown": "select",
+        "dropdown list": "select",
+        "radio": "radio",
+        "radio_button_list": "radio",
+        "radio button list": "radio",
+        "checkbox": "checkbox",
+        "checkbox_list": "multi_select",
+        "checkbox list": "multi_select",
+        "multi_select": "multi_select",
+        "multi select": "multi_select",
+        "date": "date",
+        "date_picker": "date",
+        "date picker": "date",
+        "datetime": "datetime",
+        "time_picker": "datetime",
+        "time picker": "datetime",
+        "time": "datetime",
+        "label_only": "label_only",
+        "label only": "label_only",
+        "calculated_field": "label_only",
+        "calculated field": "label_only",
+        "calculated": "label_only",
     }
 
     def get_queryset(self):
@@ -268,7 +283,7 @@ class SubjectDetailView(
     @classmethod
     def _normalize_control_type(cls, raw_control_type):
         if not raw_control_type:
-            return "entry_box"
+            return "text"
         normalized_value = str(raw_control_type).strip().lower()
         return cls.supported_control_type_map.get(normalized_value, "unsupported")
 

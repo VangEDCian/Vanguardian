@@ -1,0 +1,6 @@
+{% load subject_form_tags %}
+{% subject_textarea_control_i18n as textarea_control_i18n %}
+<textarea class="{{ textarea_class }}"
+          rows="{{ textarea_rows|default:'3' }}"
+          readonly
+          placeholder="{{ field.placeholder_text|default:textarea_control_i18n.placeholder }}"></textarea>

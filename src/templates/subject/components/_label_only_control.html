@@ -1,0 +1,7 @@
+{% load subject_form_tags %}
+{% subject_label_only_control_i18n as label_only_control_i18n %}
+<input class="{{ readonly_input_class|default:input_class }}"
+       type="text"
+       readonly
+       value=""
+       placeholder="{{ field.placeholder_text|default:label_only_control_i18n.placeholder }}" />

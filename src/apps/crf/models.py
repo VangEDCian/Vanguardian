@@ -1,4 +1,5 @@
 from apps.crf.infrastructure.persistence.models import (
+    CrfFieldControlTypeChoices,
     CrfFieldDefinition,
     CrfFieldTemplate,
     CrfFieldTemplateTranslation,
@@ -13,6 +14,7 @@ from apps.crf.infrastructure.persistence.models import (
 )
 
 __all__ = [
+    "CrfFieldControlTypeChoices",
     "CrfTemplate",
     "CrfTemplateTranslation",
     "CrfSectionTemplate",

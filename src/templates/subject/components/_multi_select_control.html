@@ -1,0 +1,12 @@
+{% load subject_form_tags %}
+{% subject_multi_select_control_i18n as multi_select_control_i18n %}
+<div class="{{ choice_list_class }}">
+    {% for option in field.options %}
+        <label>
+            <input type="checkbox" disabled />
+            {{ option.label }}
+        </label>
+    {% empty %}
+        <span>{{ multi_select_control_i18n.empty_option }}</span>
+    {% endfor %}
+</div>
