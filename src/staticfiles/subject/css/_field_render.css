@@ -1,0 +1,131 @@
+.subject-form-flat-field {
+  display: grid;
+  gap: 6px;
+}
+
+.subject-form-flat-field__label {
+  margin: 0;
+  text-align: left;
+  font-size: 26px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #333333;
+}
+
+.subject-form-flat-field__required {
+  color: #333333;
+}
+
+.subject-form-flat-field__helper {
+  margin: 0;
+  text-align: left;
+  font-size: 13px;
+  color: #5e6670;
+}
+
+.subject-form-flat-field__control {
+  width: 100%;
+}
+
+.subject-form-flat-field__choice-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.subject-form-flat-field__choice-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: #20262d;
+}
+
+.subject-form-flat-field__input,
+.subject-form-flat-field__textarea {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid #b4b4b4;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #222222;
+  font-size: 14px;
+}
+
+.subject-form-flat-field__input {
+  padding: 6px 10px;
+}
+
+.subject-form-flat-field__textarea {
+  padding: 8px 10px;
+  resize: none;
+}
+
+.subject-form-flat-field__input--readonly {
+  background: #f4f4f4;
+  color: #5b6169;
+}
+
+.subject-form-flat-field__date-grid {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.subject-form-flat-field__date-col {
+  display: grid;
+  gap: 4px;
+}
+
+.subject-form-flat-field__date-col span {
+  text-align: left;
+  font-size: 13px;
+  color: #4f5a66;
+}
+
+.subject-form-flat-field__input--day {
+  width: 48px;
+  text-align: center;
+}
+
+.subject-form-flat-field__input--month {
+  width: 96px;
+}
+
+.subject-form-flat-field__input--year {
+  width: 64px;
+  text-align: center;
+}
+
+.subject-form-flat-field__time-grid {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.subject-form-flat-field__time-grid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #2f3a46;
+}
+
+.subject-form-flat-field__unsupported {
+  padding: 8px 10px;
+  border: 1px dashed #d98a8a;
+  border-radius: 4px;
+  color: #8d2f2f;
+  background: #fff5f5;
+  font-size: 12px;
+}
+
+@media (max-width: 1200px) {
+  .subject-form-flat-field__label {
+    font-size: 20px;
+  }
+}

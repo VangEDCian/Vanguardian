@@ -7,7 +7,7 @@
                 {% comment %} <div class="subject-form-section__grid {% if section.columns == 1 %}subject-form-section__grid--cols-1{% elif section.columns == 2 %}subject-form-section__grid--cols-2{% else %}subject-form-section__grid--cols-3{% endif %}"> {% endcomment %}
                 <div class="subject-form-section__grid grid grid-cols-6">
                     {% for field in section.fields %}
-                        {% include "subject/components/_field_render.html" with field=field %}
+                        {% include "subject/components/_field_card_render.html" with field=field %}
                     {% endfor %}
                 </div>
             </section>

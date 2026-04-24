@@ -1,79 +1,115 @@
 {% load i18n %}
-{% comment %} <article class="subject-form-field-card {% if field.classes %}
-    {{ field.classes }}
-  {% endif %}">
-  {% endcomment %}
-  <article class="subject-form-field-card {% if field.classes %}
-      {{ field.classes }}
-    {% endif %}">
-    <h4 class="subject-form-field__title">
-      {{ field.label }}
-      {% if field.is_required %}
-        <span class="subject-form-field-card__required">*</span>
-      {% endif %}
-      {% if field.helper_text %}
-        <p class="subject-form-field-card__helper">{{ field.helper_text }}</p>
-      {% endif %}
-    </h4>
-    <div class="subject-form-field-card__control">
-      {% if field.control_type == 'checkbox_list' %}
-        <div class="subject-form-field-card__choice-list">
-          {% for option in field.options %}
-            <label>
-              <input type="checkbox" disabled />
-              {{ option.label }}
-            </label>
-          {% empty %}
-            <label>
-              <input type="checkbox" disabled />
-              {{ field.label }}
-            </label>
-          {% endfor %}
-        </div>
-      {% elif field.control_type == 'radio_button_list' %}
-        <div class="subject-form-field-card__choice-list">
-          {% for option in field.options %}
-            <label>
-              <input type="radio" disabled name="field_{{ field.id }}" />
-              {{ option.label }}
-            </label>
-          {% empty %}
-            <label>
-              <input type="radio" disabled name="field_{{ field.id }}" />
-              {{ field.label }}
-            </label>
-          {% endfor %}
-        </div>
-      {% elif field.control_type == 'dropdown' %}
-        <select class="subject-form-field-card__input" disabled>
-          <option value="">
-            {% trans 'Select value' %}
-          </option>
-          {% for option in field.options %}
-            <option value="{{ option.value }}">{{ option.label }}</option>
-          {% endfor %}
-        </select>
-      {% elif field.control_type == 'date_picker' %}
-        {% include 'subject/components/_date_picker_control.html' %}
-      {% elif field.control_type == 'time_picker' %}
-        <div class="subject-form-field-card__time-grid">
-          <input class="subject-form-field-card__input" type="text" readonly placeholder="HH:MM" />
+<article class="subject-form-flat-field {% if field.classes %}{{ field.classes }}{% endif %}">
+  <h4 class="subject-form-flat-field__label">
+    {{ field.label }}
+    {% if field.is_required %}
+      <span class="subject-form-flat-field__required">*</span>
+    {% endif %}
+  </h4>
+  {% if field.helper_text %}
+    <p class="subject-form-flat-field__helper">{{ field.helper_text }}</p>
+  {% endif %}
+
+  <div class="subject-form-flat-field__control">
+    {% if field.control_type == 'checkbox_list' %}
+      <div class="subject-form-flat-field__choice-list">
+        {% for option in field.options %}
           <label>
             <input type="checkbox" disabled />
-            {% trans 'Unknown' %}
+            {{ option.label }}
           </label>
+        {% empty %}
+          <label>
+            <input type="checkbox" disabled />
+            {{ field.label }}
+          </label>
+        {% endfor %}
+      </div>
+    {% elif field.control_type == 'radio_button_list' %}
+      <div class="subject-form-flat-field__choice-list">
+        {% for option in field.options %}
+          <label>
+            <input type="radio" disabled name="field_{{ field.id }}" />
+            {{ option.label }}
+          </label>
+        {% empty %}
+          <label>
+            <input type="radio" disabled name="field_{{ field.id }}" />
+            {{ field.label }}
+          </label>
+        {% endfor %}
+      </div>
+    {% elif field.control_type == 'dropdown' %}
+      <select class="subject-form-flat-field__input" disabled>
+        <option value="">-- {% trans 'Select' %} --</option>
+        {% for option in field.options %}
+          <option value="{{ option.value }}">{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    {% elif field.control_type == 'date_picker' %}
+      <div class="subject-form-flat-field__date-grid">
+        <div class="subject-form-flat-field__date-col">
+          <span>{% trans 'Day' %}</span>
+          <input class="subject-form-flat-field__input subject-form-flat-field__input--day"
+                 type="text"
+                 readonly
+                 placeholder="DD" />
         </div>
-      {% elif field.control_type == 'text_area' %}
-        <textarea class="subject-form-field-card__textarea" rows="3" readonly placeholder="{{ field.placeholder_text|default_if_none:'' }}"></textarea>
-      {% elif field.control_type == 'calculated_field' %}
-        <input class="subject-form-field-card__input subject-form-field-card__input--readonly" type="text" readonly value="" placeholder="{{ field.placeholder_text|default_if_none:'' }}" />
-      {% elif field.control_type == 'entry_box' %}
-        <input class="subject-form-field-card__input" type="text" readonly value="" placeholder="{{ field.placeholder_text|default_if_none:'' }}" />
-      {% else %}
-        <div class="subject-form-field-card__unsupported">
-          {% trans 'Unsupported control type:' %} {{ field.raw_control_type|default:'N/A' }}
+        <div class="subject-form-flat-field__date-col">
+          <span>{% trans 'Month' %}</span>
+          <select class="subject-form-flat-field__input subject-form-flat-field__input--month" disabled>
+            <option value="">--</option>
+            <option value="1">{% trans 'January' %}</option>
+            <option value="2">{% trans 'February' %}</option>
+            <option value="3">{% trans 'March' %}</option>
+            <option value="4">{% trans 'April' %}</option>
+            <option value="5">{% trans 'May' %}</option>
+            <option value="6">{% trans 'June' %}</option>
+            <option value="7">{% trans 'July' %}</option>
+            <option value="8">{% trans 'August' %}</option>
+            <option value="9">{% trans 'September' %}</option>
+            <option value="10">{% trans 'October' %}</option>
+            <option value="11">{% trans 'November' %}</option>
+            <option value="12">{% trans 'December' %}</option>
+          </select>
         </div>
-      {% endif %}
-    </div>
-  </article>
+        <div class="subject-form-flat-field__date-col">
+          <span>{% trans 'Year' %}</span>
+          <input class="subject-form-flat-field__input subject-form-flat-field__input--year"
+                 type="text"
+                 readonly
+                 placeholder="YYYY" />
+        </div>
+      </div>
+    {% elif field.control_type == 'time_picker' %}
+      <div class="subject-form-flat-field__time-grid">
+        <input class="subject-form-flat-field__input" type="text" readonly placeholder="HH:MM" />
+        <label>
+          <input type="checkbox" disabled />
+          {% trans 'Unknown' %}
+        </label>
+      </div>
+    {% elif field.control_type == 'text_area' %}
+      <textarea class="subject-form-flat-field__textarea"
+                rows="3"
+                readonly
+                placeholder="{{ field.placeholder_text|default_if_none:'' }}"></textarea>
+    {% elif field.control_type == 'calculated_field' %}
+      <input class="subject-form-flat-field__input subject-form-flat-field__input--readonly"
+             type="text"
+             readonly
+             value=""
+             placeholder="{{ field.placeholder_text|default_if_none:'' }}" />
+    {% elif field.control_type == 'entry_box' %}
+      <input class="subject-form-flat-field__input"
+             type="text"
+             readonly
+             value=""
+             placeholder="{{ field.placeholder_text|default_if_none:'' }}" />
+    {% else %}
+      <div class="subject-form-flat-field__unsupported">
+        {% trans 'Unsupported control type:' %} {{ field.raw_control_type|default:'N/A' }}
+      </div>
+    {% endif %}
+  </div>
 </article>
