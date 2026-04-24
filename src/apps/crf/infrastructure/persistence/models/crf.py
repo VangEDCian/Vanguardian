@@ -285,11 +285,13 @@ class CrfFieldUiConfig(models.Model):
     deleted = models.BooleanField(default=False)
 
     control_type = models.CharField(max_length=50)
+    control_layout = models.CharField(max_length=20, default="normal")
     layout = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     behavior = models.TextField(null=True, blank=True)
     options = models.TextField(null=True, blank=True)
     style = models.TextField(null=True, blank=True)
+    classes = models.CharField(max_length=255, null=True, blank=True)
 
     field_template = models.OneToOneField(
         CrfFieldTemplate,

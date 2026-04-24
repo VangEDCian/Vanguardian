@@ -273,6 +273,13 @@ class SubjectDetailView(
         return cls.supported_control_type_map.get(normalized_value, "unsupported")
 
     @staticmethod
+    def _normalize_control_layout(raw_control_layout):
+        normalized_value = str(raw_control_layout or "").strip().lower()
+        if normalized_value in {"normal", "card", "table_row"}:
+            return normalized_value
+        return "normal"
+
+    @staticmethod
     def _parse_choice_options(raw_value):
         if not raw_value:
             return []
@@ -348,39 +355,68 @@ class SubjectDetailView(
         if not focused_form_fields:
             return []
 
-        sections_by_title = {}
+        sections_by_key = {}
         for field in focused_form_fields:
-            section_title = (field.get("data_semantic") or "").strip() or _("General")
-            if section_title not in sections_by_title:
-                sections_by_title[section_title] = {
+            section_template = field.get("section_template") or {}
+            section_title = (section_template.get("name") or "").strip() or _("General")
+            section_order = section_template.get("display_order")
+            if section_order is None:
+                section_order = 999999
+
+            section_key = (
+                section_template.get("id")
+                or section_template.get("code")
+                or f"general::{section_title}"
+            )
+            if section_key not in sections_by_key:
+                sections_by_key[section_key] = {
                     "title": section_title,
+                    "order": section_order,
                     "fields": [],
                     "columns": 1,
                 }
 
             ui_config = field.get("ui_config") or {}
             control_type = self._normalize_control_type(ui_config.get("control_type"))
+            control_layout = self._normalize_control_layout(ui_config.get("control_layout"))
             options = self._parse_choice_options(ui_config.get("options") or field.get("codelist"))
             placeholder_text = (ui_config.get("text") or "").strip()
             helper_text = (field.get("comments") or "").strip()
 
-            sections_by_title[section_title]["fields"].append(
+            sections_by_key[section_key]["fields"].append(
                 {
                     "id": field.get("id"),
                     "field_key": field.get("field_key"),
                     "label": field.get("label") or field.get("field_key"),
                     "data_type": field.get("data_type"),
+                    "display_order": field.get("display_order") or 999999,
                     "control_type": control_type,
+                    "control_layout": control_layout,
                     "raw_control_type": ui_config.get("control_type"),
                     "placeholder_text": placeholder_text,
                     "helper_text": helper_text,
                     "options": options,
                     "is_required": "required" in (ui_config.get("behavior") or "").lower(),
+                    "classes": (ui_config.get("classes") or "").strip(),
                 }
             )
 
         payload = []
-        for section in sections_by_title.values():
+        ordered_sections = sorted(
+            sections_by_key.values(),
+            key=lambda section: (
+                section.get("order", 999999),
+                str(section.get("title") or "").lower(),
+            ),
+        )
+        for section in ordered_sections:
+            section["fields"] = sorted(
+                section["fields"],
+                key=lambda field: (
+                    field.get("display_order", 999999),
+                    str(field.get("label") or "").lower(),
+                ),
+            )
             field_count = len(section["fields"])
             if field_count <= 1:
                 section["columns"] = 1
