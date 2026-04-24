@@ -6,12 +6,7 @@
   padding: 0;
 }
 
-.subject-form-section {
-  /* border-bottom: 1px solid #d7e1e8; */
-  margin-bottom: 8px;
-}
-
-.subject-form-section__title {
+.subject-form__title {
   margin: 0;
   padding: 10px 14px;
   background: #1f95c6;
@@ -20,6 +15,21 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.subject-form-section {
+  /* border-bottom: 1px solid #d7e1e8; */
+  margin-bottom: 8px;
+}
+
+.subject-form-section__title {
+  padding: 0 0 0.25rem;
+  color: rgb(33, 150, 196);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 2px solid rgb(33, 150, 196);
+  margin: 1rem 1rem 0;
 }
 
 .subject-form-section__grid {

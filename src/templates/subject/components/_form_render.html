@@ -1,5 +1,12 @@
 {% load i18n %}
 <section class="subject-form-panel">
+    <header class="subject-form__title">
+        {% if focused_form and focused_form.title %}
+            {{ focused_form.title }}
+        {% else %}
+            {% trans "Form" %}
+        {% endif %}
+    </header>
     {% if form_render_sections %}
         {% for section in form_render_sections %}
             {% include "subject/components/_section_render.html" with section=section %}
