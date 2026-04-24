@@ -1,0 +1,46 @@
+{% load subject_form_tags %}
+{% subject_datetime_control_i18n as datetime_control_i18n %}
+<div class="subject-date-picker">
+    <div class="subject-date-picker__part">
+        <span class="subject-date-picker__label">{{ datetime_control_i18n.day_label }}</span>
+        <input class="subject-date-picker__input subject-date-picker__input--day"
+               type="text"
+               inputmode="numeric"
+               pattern="^(?:[1-9]|[12][0-9]|3[01])$"
+               maxlength="2"
+               oninput="this.value=this.value.replace(/\D/g,'').slice(0,2);if(this.value){var day=parseInt(this.value,10);if(day<1){this.value='1';}else if(day>31){this.value='31';}}"
+               placeholder="{{ datetime_control_i18n.day_placeholder }}"
+               value="">
+    </div>
+    <div class="subject-date-picker__part">
+        <span class="subject-date-picker__label">{{ datetime_control_i18n.month_label }}</span>
+        <select class="subject-date-picker__input subject-date-picker__input--month">
+            <option value="">{{ datetime_control_i18n.month_empty_option }}</option>
+            {% for month in datetime_control_i18n.months %}
+                <option value="{{ month.value }}">{{ month.label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="subject-date-picker__part">
+        <span class="subject-date-picker__label">{{ datetime_control_i18n.year_label }}</span>
+        <input class="subject-date-picker__input subject-date-picker__input--year"
+               type="text"
+               inputmode="numeric"
+               pattern="^\d{4}$"
+               maxlength="4"
+               oninput="this.value=this.value.replace(/\D/g,'').slice(0,4);"
+               placeholder="{{ datetime_control_i18n.year_placeholder }}"
+               value="">
+    </div>
+    <div class="subject-date-picker__part">
+        <span class="subject-date-picker__label">{{ datetime_control_i18n.time_label }}</span>
+        <input class="subject-date-picker__input subject-date-picker__input--time"
+               type="text"
+               inputmode="numeric"
+               pattern="^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+               maxlength="5"
+               oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4);if(this.value.length>=3){this.value=this.value.slice(0,2)+':'+this.value.slice(2,4);}if(this.value.length===5){var p=this.value.split(':');var hh=parseInt(p[0],10);var mm=parseInt(p[1],10);if(hh>23){hh=23;}if(mm>59){mm=59;}this.value=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');}"
+               placeholder="{{ datetime_control_i18n.time_placeholder }}"
+               value="">
+    </div>
+</div>

@@ -1,8 +1,22 @@
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from parler.fields import TranslatedField
 from parler.models import TranslatableModel, TranslatedFieldsModel
 
 from apps.study.models import Study
+
+
+class CrfFieldControlTypeChoices(models.TextChoices):
+    TEXT = "TEXT", _("Text")
+    TEXTAREA = "TEXTAREA", _("Textarea")
+    NUMBER = "NUMBER", _("Number")
+    SELECT = "SELECT", _("Select")
+    RADIO = "RADIO", _("Radio")
+    CHECKBOX = "CHECKBOX", _("Checkbox")
+    MULTI_SELECT = "MULTI_SELECT", _("Multi Select")
+    DATE = "DATE", _("Date")
+    DATETIME = "DATETIME", _("DateTime")
+    LABEL_ONLY = "LABEL_ONLY", _("Label Only")
 
 
 class CrfTemplate(TranslatableModel):
@@ -284,7 +298,10 @@ class CrfFieldUiConfig(models.Model):
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
-    control_type = models.CharField(max_length=50)
+    control_type = models.CharField(
+        max_length=50,
+        choices=CrfFieldControlTypeChoices.choices,
+    )
     control_layout = models.CharField(max_length=20, default="normal")
     layout = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
