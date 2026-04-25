@@ -9,7 +9,9 @@ from apps.crf.public import (
     CrfTemplateAmbiguousError,
     CrfTemplateNotFoundError,
 )
+from apps.crf.domain.exceptions import StudyScopeViolationError
 from apps.shared.constants import EventFormEntryModeChoices
+from apps.shared.context_processors import StudyDropdownHandler
 from apps.study.models import EventDefinition, EventFormBinding
 
 
@@ -85,7 +87,25 @@ class ImportStudyEventFormBindingsTemplateService:
     def __init__(self, crf_context_adapter=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
 
-    def execute(self, command: ImportStudyEventFormBindingsTemplateCommand) -> ImportStudyEventFormBindingsTemplateResult:
+    @staticmethod
+    def _resolve_selected_study_id(request):
+        try:
+            selected_study_id = StudyDropdownHandler(request=request).build().selected_id
+        except Exception as exc:
+            raise StudyScopeViolationError("No study is selected in the current context.") from exc
+        if selected_study_id is None:
+            raise StudyScopeViolationError("No study is selected in the current context.")
+        return int(selected_study_id)
+
+    @classmethod
+    def _ensure_current_study_scope(cls, *, request, study_id):
+        selected_study_id = cls._resolve_selected_study_id(request)
+        if int(study_id) != selected_study_id:
+            raise StudyScopeViolationError("Command study scope does not match the selected study.")
+        return selected_study_id
+
+    def execute(self, command: ImportStudyEventFormBindingsTemplateCommand, *, request) -> ImportStudyEventFormBindingsTemplateResult:
+        self._ensure_current_study_scope(request=request, study_id=command.study_id)
         workbook_rows = self._load_rows_from_workbook(
             file_name=command.file_name,
             file_content=command.file_content,

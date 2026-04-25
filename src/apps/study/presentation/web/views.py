@@ -440,7 +440,10 @@ class StudyCrfTemplateListView(
             file_content=uploaded_file.read(),
         )
         try:
-            import_result = self.get_import_crf_templates_template_service().execute(command)
+            import_result = self.get_import_crf_templates_template_service().execute(
+                command,
+                request=request,
+            )
         except (CrfTemplateImportDependencyError, CrfTemplateImportFormatError) as exc:
             import_form.add_error(None, str(exc))
             return self.render_to_response(

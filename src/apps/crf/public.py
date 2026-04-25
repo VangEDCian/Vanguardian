@@ -46,6 +46,7 @@ class CrfContextAdapter:
     def upsert_crf_template(
         self,
         *,
+        request,
         study_id,
         code,
         version,
@@ -55,6 +56,7 @@ class CrfContextAdapter:
         now=None,
     ):
         return self.crf_template_service.upsert_crf_template(
+            request=request,
             study_id=study_id,
             code=code,
             version=version,
@@ -67,10 +69,18 @@ class CrfContextAdapter:
     def upsert_section_template(
         self,
         *,
+        request,
         crf_template_id,
+        section_template_id,
         section_code,
         vi_name,
         en_name,
+        vi_description,
+        en_description,
+        vi_help_text,
+        en_help_text,
+        vi_instruction_text,
+        en_instruction_text,
         display_order,
         is_required,
         is_repeatable,
@@ -80,10 +90,18 @@ class CrfContextAdapter:
         now=None,
     ):
         return self.crf_template_service.upsert_section_template(
+            request=request,
             crf_template_id=crf_template_id,
+            section_template_id=section_template_id,
             section_code=section_code,
             vi_name=vi_name,
             en_name=en_name,
+            vi_description=vi_description,
+            en_description=en_description,
+            vi_help_text=vi_help_text,
+            en_help_text=en_help_text,
+            vi_instruction_text=vi_instruction_text,
+            en_instruction_text=en_instruction_text,
             display_order=display_order,
             is_required=is_required,
             is_repeatable=is_repeatable,
