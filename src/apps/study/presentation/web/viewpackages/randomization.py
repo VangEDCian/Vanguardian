@@ -474,7 +474,16 @@ class StudyRandomizationSchemeDeleteView(
         except RandomizationSchemeNotFoundError as exc:
             raise Http404 from exc
         except RandomizationDeleteBlockedError as exc:
-            return JsonResponse({"detail": str(exc)}, status=400)
+            logging.getLogger(__name__).warning(
+                "Randomization scheme deletion blocked for study_id=%s scheme_id=%s",
+                self._study.pk,
+                kwargs.get("scheme_id"),
+                exc_info=exc,
+            )
+            return JsonResponse(
+                {"detail": str(_("Unable to delete randomization scheme."))},
+                status=400,
+            )
 
         return JsonResponse(
             {
@@ -523,7 +532,17 @@ class StudyRandomizationArmDeleteView(
         except RandomizationArmNotFoundError as exc:
             raise Http404 from exc
         except RandomizationDeleteBlockedError as exc:
-            return JsonResponse({"detail": str(exc)}, status=400)
+            logger.warning(
+                "Randomization arm deletion blocked for study_id=%s arm_id=%s user_id=%s",
+                self._study.pk,
+                kwargs.get("arm_id"),
+                request.user.pk,
+                exc_info=exc,
+            )
+            return JsonResponse(
+                {"detail": str(_("Unable to delete randomization arm."))},
+                status=400,
+            )
 
         return JsonResponse(
             {
