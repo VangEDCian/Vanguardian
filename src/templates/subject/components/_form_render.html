@@ -9,7 +9,11 @@
     </header>
     {% if form_render_sections %}
         {% for section in form_render_sections %}
-            {% include "subject/components/_section_render.html" with section=section %}
+            {% if forloop.first and forloop.last %}
+                {% include "subject/components/_section_render.html" with section=section hide_section_title=True %}
+            {% else %}
+                {% include "subject/components/_section_render.html" with section=section hide_section_title=False %}
+            {% endif %}
         {% endfor %}
     {% else %}
         <div class="subject-form-panel__placeholder">

@@ -74,7 +74,7 @@
 
 .subject-detail-screen__body {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: 180px minmax(0, 1fr);
   min-height: 560px;
   /* max-height: calc(100vh - 320px); */
   height: 100%;
@@ -191,9 +191,9 @@
 }
 
 @media (max-width: 1200px) {
-  .subject-detail-screen__body {
+  /* .subject-detail-screen__body {
     grid-template-columns: max-content minmax(0, 1fr);
-  }
+  } */
 }
 
 @media (max-width: 860px) {

@@ -1,5 +1,7 @@
 <section class="subject-form-section">
-    <header class="subject-form-section__title">{{ section.title }}</header>
+    {% if not hide_section_title %}
+        <header class="subject-form-section__title">{{ section.title }}</header>
+    {% endif %}
     {% comment %} <div class="subject-form-section__grid {% if section.columns == 1 %}subject-form-section__grid--cols-1{% elif section.columns == 2 %}subject-form-section__grid--cols-2{% else %}subject-form-section__grid--cols-3{% endif %}"> {% endcomment %}
     <div class="subject-form-section__grid grid grid-cols-6">
         {% for field in section.fields %}
