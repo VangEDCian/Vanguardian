@@ -91,4 +91,31 @@ class StudyRandomizationImportAuditService:
             after_data=serialize_randomization_arm_snapshot(arm),
         )
 
+    def record_scheme_deleted(self, *, scheme, actor_user_id, before_data, deleted_slot_count, deleted_arm_count):
+        self.audit_context_adapter.record_event(
+            action=AuditEventActionEnum.STUDY_RANDOMIZATION_SCHEME_DELETED,
+            object_type=AuditEventObjectTypeEnum.STUDY_RANDOMIZATION_SCHEME,
+            object_id=str(scheme.pk),
+            actor_user_id=actor_user_id,
+            before_data=before_data,
+            after_data={
+                **serialize_randomization_scheme_snapshot(scheme),
+                "deleted_slot_count": deleted_slot_count,
+                "deleted_arm_count": deleted_arm_count,
+            },
+        )
+
+    def record_arm_deleted(self, *, arm, actor_user_id, before_data, deleted_slot_count):
+        self.audit_context_adapter.record_event(
+            action=AuditEventActionEnum.STUDY_RANDOMIZATION_ARM_DELETED,
+            object_type=AuditEventObjectTypeEnum.STUDY_RANDOMIZATION_ARM,
+            object_id=str(arm.pk),
+            actor_user_id=actor_user_id,
+            before_data=before_data,
+            after_data={
+                **serialize_randomization_arm_snapshot(arm),
+                "deleted_slot_count": deleted_slot_count,
+            },
+        )
+
 

@@ -32,8 +32,10 @@ class AuditEventActionEnum(enum.Enum):
 
     STUDY_RANDOMIZATION_SCHEME_INSERTED_BY_IMPORT = "study.randomization_scheme.inserted_by_import"
     STUDY_RANDOMIZATION_SCHEME_UPDATED_BY_IMPORT = "study.randomization_scheme.updated_by_import"
+    STUDY_RANDOMIZATION_SCHEME_DELETED = "study.randomization_scheme.deleted"
     STUDY_RANDOMIZATION_ARM_INSERTED_BY_IMPORT = "study.randomization_arm.inserted_by_import"
     STUDY_RANDOMIZATION_ARM_UPDATED_BY_IMPORT = "study.randomization_arm.updated_by_import"
+    STUDY_RANDOMIZATION_ARM_DELETED = "study.randomization_arm.deleted"
 
 
 class AuditEventObjectTypeEnum(enum.Enum):

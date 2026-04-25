@@ -10,15 +10,22 @@ from django.views import View
 
 from apps.shared.views.generic import AuthenticateTemplateView
 from apps.study.application import (
+    DeleteRandomizationArmCommand,
+    DeleteRandomizationArmService,
+    DeleteRandomizationSchemeCommand,
+    DeleteRandomizationSchemeService,
     CommitRandomizationImportCommand,
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,
     PreviewRandomizationImportCommand,
     PreviewStudyRandomizationArmsImportService,
     PreviewStudyRandomizationSchemesImportService,
+    RandomizationArmNotFoundError,
+    RandomizationDeleteBlockedError,
     RandomizationImportDependencyError,
     RandomizationImportFormatError,
     RandomizationImportValidationError,
+    RandomizationSchemeNotFoundError,
     StudyDirectoryQueryService,
     StudyNotFoundError,
     StudyRandomizationDirectoryQueryService,
@@ -36,6 +43,8 @@ __all__ = [
     "StudyRandomizationSchemeImportCommitView",
     "StudyRandomizationArmImportPreviewView",
     "StudyRandomizationArmImportCommitView",
+    "StudyRandomizationSchemeDeleteView",
+    "StudyRandomizationArmDeleteView",
 ]
 
 logger = logging.getLogger(__name__)
@@ -78,6 +87,52 @@ class StudyRandomizationView(
     template_name = "study/randomization.html"
     layout_nav_key = "STUDIES"
     study_randomization_directory_query_service_class = StudyRandomizationDirectoryQueryService
+
+    @staticmethod
+    def _build_delete_cell(*, action_url, confirm_message, enabled):
+        if not enabled:
+            return {"kind": "muted", "value": "—"}
+        return {
+            "kind": "post_action",
+            "action": action_url,
+            "label": str(_("Delete")),
+            "button_class": "randomization-delete-button",
+            "confirm_message": str(confirm_message),
+        }
+
+    def _append_delete_actions(self, *, context):
+        action_header = {"label": _("ACTIONS")}
+        can_delete = context["can_manage_randomization_import"]
+
+        scheme_headers = list(context.get("randomization_scheme_headers", ()))
+        scheme_headers.append(action_header)
+        context["randomization_scheme_headers"] = tuple(scheme_headers)
+        for row in context.get("randomization_scheme_rows", []):
+            row["cells"].append(
+                self._build_delete_cell(
+                    action_url=reverse(
+                        "study:study_randomization_scheme_delete",
+                        kwargs={"study_id": self._study.pk, "scheme_id": row["selection_value"]},
+                    ),
+                    confirm_message=_("Are you sure you want to delete this randomization scheme?"),
+                    enabled=can_delete,
+                ),
+            )
+
+        arm_headers = list(context.get("randomization_arm_headers", ()))
+        arm_headers.append(action_header)
+        context["randomization_arm_headers"] = tuple(arm_headers)
+        for row in context.get("randomization_arm_rows", []):
+            row["cells"].append(
+                self._build_delete_cell(
+                    action_url=reverse(
+                        "study:study_randomization_arm_delete",
+                        kwargs={"study_id": self._study.pk, "arm_id": row["selection_value"]},
+                    ),
+                    confirm_message=_("Are you sure you want to delete this randomization arm?"),
+                    enabled=can_delete,
+                ),
+            )
 
     def get_study_randomization_directory_query_service(self):
         return self.study_randomization_directory_query_service_class()
@@ -126,6 +181,7 @@ class StudyRandomizationView(
             "study:study_randomization",
             kwargs={"study_id": self._study.pk},
         )
+        self._append_delete_actions(context=context)
         return context
 
 
@@ -388,3 +444,99 @@ class StudyRandomizationArmImportCommitView(StudyRandomizationCommitBaseView):
     success_message = _(
         "Imported randomization arms successfully. Created: %(created_count)s. Updated: %(updated_count)s.",
     )
+
+
+class StudyRandomizationSchemeDeleteView(
+    StudyRandomizationAccessMixin,
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    View,
+):
+    permission_required = "study.update_study"
+    raise_exception = True
+    delete_service_class = DeleteRandomizationSchemeService
+
+    def get_delete_service(self):
+        return self.delete_service_class()
+
+    def post(self, request, *_args, **kwargs):
+        if not request.user.pk or not isinstance(request.user.pk, int):
+            raise PermissionDenied
+
+        try:
+            result = self.get_delete_service().execute(
+                DeleteRandomizationSchemeCommand(
+                    actor_user_id=request.user.pk,
+                    study_id=self._study.pk,
+                    scheme_id=kwargs["scheme_id"],
+                ),
+            )
+        except RandomizationSchemeNotFoundError as exc:
+            raise Http404 from exc
+        except RandomizationDeleteBlockedError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
+
+        return JsonResponse(
+            {
+                "detail": str(
+                    _(
+                        "Deleted randomization scheme successfully. Removed %(deleted_arm_count)s arm(s) and %(deleted_slot_count)s slot(s).",
+                    )
+                    % {
+                        "deleted_arm_count": result.deleted_arm_count,
+                        "deleted_slot_count": result.deleted_slot_count,
+                    }
+                ),
+                "redirect_url": reverse(
+                    "study:study_randomization",
+                    kwargs={"study_id": self._study.pk},
+                ),
+            },
+        )
+
+
+class StudyRandomizationArmDeleteView(
+    StudyRandomizationAccessMixin,
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    View,
+):
+    permission_required = "study.update_study"
+    raise_exception = True
+    delete_service_class = DeleteRandomizationArmService
+
+    def get_delete_service(self):
+        return self.delete_service_class()
+
+    def post(self, request, *_args, **kwargs):
+        if not request.user.pk or not isinstance(request.user.pk, int):
+            raise PermissionDenied
+
+        try:
+            result = self.get_delete_service().execute(
+                DeleteRandomizationArmCommand(
+                    actor_user_id=request.user.pk,
+                    study_id=self._study.pk,
+                    arm_id=kwargs["arm_id"],
+                ),
+            )
+        except RandomizationArmNotFoundError as exc:
+            raise Http404 from exc
+        except RandomizationDeleteBlockedError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
+
+        return JsonResponse(
+            {
+                "detail": str(
+                    _(
+                        "Deleted randomization arm successfully. Removed %(deleted_slot_count)s slot(s).",
+                    )
+                    % {"deleted_slot_count": result.deleted_slot_count}
+                ),
+                "redirect_url": reverse(
+                    "study:study_randomization",
+                    kwargs={"study_id": self._study.pk},
+                ),
+            },
+        )
+

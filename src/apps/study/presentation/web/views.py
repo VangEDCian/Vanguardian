@@ -54,8 +54,10 @@ from apps.study.presentation.web.viewpackages.eventdefinitions import (
     StudyEventDefinitionListView,
 )
 from apps.study.presentation.web.viewpackages.randomization import (
+    StudyRandomizationArmDeleteView,
     StudyRandomizationArmImportCommitView,
     StudyRandomizationArmImportPreviewView,
+    StudyRandomizationSchemeDeleteView,
     StudyRandomizationSchemeImportCommitView,
     StudyRandomizationSchemeImportPreviewView,
     StudyRandomizationView,
@@ -72,8 +74,10 @@ __all__ = [
     "StudyRandomizationView",
     "StudyRandomizationSchemeImportPreviewView",
     "StudyRandomizationSchemeImportCommitView",
+    "StudyRandomizationSchemeDeleteView",
     "StudyRandomizationArmImportPreviewView",
     "StudyRandomizationArmImportCommitView",
+    "StudyRandomizationArmDeleteView",
 
     "SiteListView",
     "SiteDetailView",

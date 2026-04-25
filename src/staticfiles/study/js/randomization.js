@@ -38,6 +38,7 @@ class RandomizationImportController {
             invalidCells: i18n?.dataset.invalidCells || "Some cells contain invalid values. Please review the details below.",
             validationErrorTitle: i18n?.dataset.validationErrorTitle || "Import validation issues",
             unexpectedError: i18n?.dataset.unexpectedError || "An unexpected error occurred.",
+            deleteError: i18n?.dataset.deleteError || "Delete failed. Please try again.",
         };
     }
 
@@ -47,6 +48,58 @@ class RandomizationImportController {
         this.bindImportInputs();
         this.bindConfirmImport();
         this.bindExpandableCells();
+        this.bindDeleteForms();
+    }
+
+    bindDeleteForms() {
+        const forms = Array.from(document.querySelectorAll("[data-randomization-delete-form]"));
+        if (!forms.length) {
+            return;
+        }
+
+        forms.forEach((form) => {
+            if (!(form instanceof HTMLFormElement)) {
+                return;
+            }
+
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const confirmMessage = form.dataset.confirmMessage || "";
+                if (confirmMessage && !window.confirm(confirmMessage)) {
+                    return;
+                }
+                await this.submitDeleteForm(form);
+            });
+        });
+    }
+
+    async submitDeleteForm(form) {
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": this.getCsrfToken(),
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                credentials: "same-origin",
+                body: new FormData(form),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                window.alert(data.detail || this.msg.deleteError);
+                return;
+            }
+            if (data.detail) {
+                window.alert(data.detail);
+            }
+            if (data.redirect_url) {
+                window.location.assign(data.redirect_url);
+                return;
+            }
+            window.location.reload();
+        } catch {
+            window.alert(this.msg.networkError);
+        }
     }
 
     bindExpandableCells() {

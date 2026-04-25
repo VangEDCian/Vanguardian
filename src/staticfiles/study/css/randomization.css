@@ -381,6 +381,26 @@
   display: none;
 }
 
+.randomization-section .entity-table__post-action {
+  margin: 0;
+}
+
+.randomization-delete-button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e4b6b3;
+  border-radius: 6px;
+  background: #fff5f4;
+  color: #ae2a22;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.randomization-delete-button:hover {
+  background: #ffe9e7;
+}
+
 @media (max-width: 720px) {
   .randomization-section__header {
     flex-direction: column;
