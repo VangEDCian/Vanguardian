@@ -1,5 +1,6 @@
 import django_tables2 as tables
 
+from django.urls import reverse
 from django.templatetags.static import static
 from django.utils.formats import date_format
 from django.utils.html import format_html
@@ -41,6 +42,7 @@ class SiteListTable(tables.Table):
 class CrfTemplateListTable(tables.Table):
     code = tables.Column(
         verbose_name=_("CODE"),
+        linkify=("crf:form_builder", {"form_id": tables.A("pk")}),
         attrs={"td": {"class": "entity-table__primary"}},
         order_by=("code", "version"),
     )
@@ -60,6 +62,12 @@ class CrfTemplateListTable(tables.Table):
     updated_at = tables.Column(
         verbose_name=_("UPDATED AT"),
         order_by=("updated_at", "code", "version"),
+    )
+    actions = tables.Column(
+        verbose_name=_("ACTIONS"),
+        empty_values=(),
+        orderable=False,
+        attrs={"td": {"class": "entity-table__actions"}},
     )
 
     def render_name(self, record):
@@ -83,9 +91,22 @@ class CrfTemplateListTable(tables.Table):
     def render_updated_at(value):
         return date_format(value, "DATETIME_FORMAT") if value else "—"
 
+    @staticmethod
+    def render_actions(record):
+        return format_html(
+            '<div class="flex gap-2">'
+            '<a class="entity-table__footer-button entity-table__footer-button--secondary" href="{}">{}</a>'
+            '<a class="entity-table__footer-button entity-table__footer-button--primary" href="{}">{}</a>'
+            '</div>',
+            reverse("crf:form_detail", kwargs={"form_id": record.pk}),
+            _("Detail"),
+            reverse("crf:form_builder", kwargs={"form_id": record.pk}),
+            _("Builder"),
+        )
+
     class Meta:
         model = get_crf_template_model()
-        fields = ("code", "name", "version", "status", "updated_at")
+        fields = ("code", "name", "version", "status", "updated_at", "actions")
 
 
 class EventDefinitionListTable(tables.Table):

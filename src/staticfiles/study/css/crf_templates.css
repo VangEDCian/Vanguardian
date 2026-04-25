@@ -1,3 +1,10 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 .crf-template-import-form {
   display: grid;
   gap: 16px;
@@ -146,6 +153,12 @@
 .crf-template-import-form__template-link:hover {
   color: #145f8d;
   text-decoration: underline;
+}
+
+.entity-table-panel .entity-table__footer-button--primary {
+  background: #63c4f2;
+  border-color: #4fb5e8;
+  color: #000000;
 }
 
 @media (max-width: 960px) {

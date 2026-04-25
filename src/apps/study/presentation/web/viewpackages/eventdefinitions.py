@@ -307,7 +307,10 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
             file_content=uploaded_file.read(),
         )
         try:
-            binding_import_result = self.get_import_event_form_bindings_template_service().execute(command)
+            binding_import_result = self.get_import_event_form_bindings_template_service().execute(
+                command,
+                request=request,
+            )
         except (EventFormBindingImportDependencyError, EventFormBindingImportFormatError) as exc:
             binding_import_form.add_error(None, str(exc))
             return self.render_to_response(
