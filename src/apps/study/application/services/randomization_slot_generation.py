@@ -1,26 +1,3 @@
-"""
-Quy tắc tạo slot như sau:
-- Scheme.status == "active"
-- Scheme.allocation_ratio_json sẽ chứa key-value với `key` là mã ARM, `value` là tỉ lệ.
-- Scheme.target_randomized_total sẽ chứa tổng số slot
-- Tất cả Arms nằm trong allocation_ratio_json (là key) có `is_active == True`. Nếu không tồn tại arms theo code thì báo lỗi luôn.
-- Khi tỉ lệ + total chia ra slot cho các arms không tròn số thì arms cuối nhận hết các phần số lẻ còn lại.
-- Các slot có status == "assigned" hoặc status == "void" không được chỉnh sửa ở hàm này.
-- Total sẽ bằng số lượng slot có status == assigned hoặc available.
-- Các slot có status == "available" có thể được giải phóng nếu total trước đó lớn hơn khi import lại (import lại muốn giảm total từ 30 về 20 chẳng hạn, thì 10 slot có status == available sẽ cập nhật status = "void" và void_reason = "allocated slot")
-- Khi import cần tính toán slot đang có để xử lý thêm slot hay xoá các slot, nếu công thức sẽ báo lỗi luôn (sai khi assigned + void lớn hơn total)
-- Hàm kiểm tra total với số lượng slot assigned hiện có cần tác ra 1 hàm khác để lúc sau tôi sử dụng ở bước xử lý dữ liệu import => để hiển thị lỗi ở trường total cho người dùng biết luôn.
-
-Ghi chú maintainability:
-- Service này là nơi tập trung toàn bộ rule reconcile slot của randomization.
-- ``check_target_total_capacity`` và ``validate_target_total_capacity`` là API dùng lại cho bước import validation.
-- Reconcile chỉ tác động slot ``available``:
-  + dư thì chuyển ``status=void`` + ``void_reason='allocated slot'``;
-  + thiếu thì tạo mới với ``status=available`` và ``sequence_no`` tăng dần.
-- Dữ liệu ratio đầu vào được chuẩn hoá về ``{ARM_CODE: positive_int_ratio}``.
-- Nếu dữ liệu không khả thi (ví dụ ``assigned + void > target_total``) thì raise ``RandomizationSlotGenerationError`` để caller xử lý hiển thị lỗi nghiệp vụ.
-"""
-
 from dataclasses import dataclass
 
 from django.utils import timezone

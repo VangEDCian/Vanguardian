@@ -1,6 +1,9 @@
 from apps.study.application.services.randomization_slot_generation import (
     StudyRandomizationSlotGenerationService,
 )
+from apps.study.application.services.randomization_audit import (
+    StudyRandomizationImportAuditService,
+)
 from apps.study.application.services.study_audit import StudyAuditService
 from apps.study.application.services.study_subject_code_generation import (
     StudySubjectCodeGenerationService,
@@ -11,6 +14,7 @@ from apps.study.application.services.study_subject_code_generation import (
 
 __all__ = [
     "StudyAuditService",
+    "StudyRandomizationImportAuditService",
     "StudyRandomizationSlotGenerationService",
     "StudySubjectGeneratedCodes",
     "StudySubjectScreeningCodeIncrementalService",

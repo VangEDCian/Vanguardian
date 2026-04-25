@@ -13,6 +13,11 @@ from apps.core.choices.study import RandomizationSchemeStatusChoice
 from apps.study.application.services.randomization_slot_generation import (
     StudyRandomizationSlotGenerationService,
 )
+from apps.study.application.services.randomization_audit import (
+    StudyRandomizationImportAuditService,
+    serialize_randomization_arm_snapshot,
+    serialize_randomization_scheme_snapshot,
+)
 from apps.study.application.use_cases.randomization_import_preview import (
     RandomizationArmImportPreviewUseCase,
     RandomizationImportIssue,
@@ -358,11 +363,15 @@ class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValida
     randomization_scheme_model = RandomizationScheme
     randomization_arm_model = RandomizationArm
     slot_generation_service_class = StudyRandomizationSlotGenerationService
+    randomization_audit_service_class = StudyRandomizationImportAuditService
 
-    def __init__(self, preview_service=None, slot_generation_service=None):
+    def __init__(self, preview_service=None, slot_generation_service=None, randomization_audit_service=None):
         self.preview_service = preview_service or self.preview_service_class()
         self.slot_generation_service = (
             slot_generation_service or self.slot_generation_service_class()
+        )
+        self.randomization_audit_service = (
+            randomization_audit_service or self.randomization_audit_service_class()
         )
 
     def execute(self, command: CommitRandomizationImportCommand) -> CommitRandomizationImportResult:
@@ -383,7 +392,7 @@ class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValida
 
         with transaction.atomic():
             for parsed_row in preview_result.parsed_rows:
-                outcome, scheme = self._upsert_scheme(
+                outcome, scheme, before_data = self._upsert_scheme(
                     study_id=command.study_id,
                     parsed_row=parsed_row,
                     actor_user_id=command.actor_user_id,
@@ -391,8 +400,17 @@ class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValida
                 )
                 if outcome == "created":
                     created_count += 1
+                    self.randomization_audit_service.record_scheme_inserted_by_import(
+                        scheme=scheme,
+                        actor_user_id=command.actor_user_id,
+                    )
                 else:
                     updated_count += 1
+                    self.randomization_audit_service.record_scheme_updated_by_import(
+                        scheme=scheme,
+                        actor_user_id=command.actor_user_id,
+                        before_data=before_data,
+                    )
                 self._generate_slots_for_active_scheme(scheme)
 
         return CommitRandomizationImportResult(
@@ -433,12 +451,13 @@ class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValida
                 created_by_id=actor_user_id,
                 **defaults,
             )
-            return "created", scheme
+            return "created", scheme, {}
 
+        before_data = serialize_randomization_scheme_snapshot(scheme)
         for field_name, value in defaults.items():
             setattr(scheme, field_name, value)
         scheme.save(update_fields=list(defaults.keys()))
-        return "updated", scheme
+        return "updated", scheme, before_data
 
     def _generate_slots_for_active_scheme(self, scheme):
         if getattr(scheme, "status", None) != RandomizationSchemeStatusChoice.ACTIVE:
@@ -461,11 +480,15 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
     randomization_scheme_model = RandomizationScheme
     randomization_arm_model = RandomizationArm
     slot_generation_service_class = StudyRandomizationSlotGenerationService
+    randomization_audit_service_class = StudyRandomizationImportAuditService
 
-    def __init__(self, preview_service=None, slot_generation_service=None):
+    def __init__(self, preview_service=None, slot_generation_service=None, randomization_audit_service=None):
         self.preview_service = preview_service or self.preview_service_class()
         self.slot_generation_service = (
             slot_generation_service or self.slot_generation_service_class()
+        )
+        self.randomization_audit_service = (
+            randomization_audit_service or self.randomization_audit_service_class()
         )
 
     def execute(self, command: CommitRandomizationImportCommand) -> CommitRandomizationImportResult:
@@ -487,15 +510,24 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
 
         with transaction.atomic():
             for parsed_row in preview_result.parsed_rows:
-                outcome, scheme, arm = self._upsert_arm(
+                outcome, scheme, arm, before_data = self._upsert_arm(
                     parsed_row=parsed_row,
                     scheme_map=scheme_map,
                     now=now,
                 )
                 if outcome == "created":
                     created_count += 1
+                    self.randomization_audit_service.record_arm_inserted_by_import(
+                        arm=arm,
+                        actor_user_id=command.actor_user_id,
+                    )
                 else:
                     updated_count += 1
+                    self.randomization_audit_service.record_arm_updated_by_import(
+                        arm=arm,
+                        actor_user_id=command.actor_user_id,
+                        before_data=before_data,
+                    )
                 self._generate_slots_for_active_arm(scheme=scheme, arm=arm)
 
         return CommitRandomizationImportResult(
@@ -538,12 +570,13 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
                 created_at=now,
                 **defaults,
             )
-            return "created", scheme, arm
+            return "created", scheme, arm, {}
 
+        before_data = serialize_randomization_arm_snapshot(arm)
         for field_name, value in defaults.items():
             setattr(arm, field_name, value)
         arm.save(update_fields=list(defaults.keys()))
-        return "updated", scheme, arm
+        return "updated", scheme, arm, before_data
 
     def _generate_slots_for_active_arm(self, *, scheme, arm):
         if getattr(scheme, "status", None) != RandomizationSchemeStatusChoice.ACTIVE:
