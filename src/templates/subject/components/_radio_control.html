@@ -1,0 +1,12 @@
+{% load subject_form_tags %}
+{% subject_radio_control_i18n as radio_control_i18n %}
+<div class="{{ choice_list_class }}">
+    {% for option in field.options %}
+        <label>
+            <input type="radio" disabled name="field_{{ field.id }}" />
+            {{ option.label }}
+        </label>
+    {% empty %}
+        <span>{{ radio_control_i18n.empty_option }}</span>
+    {% endfor %}
+</div>

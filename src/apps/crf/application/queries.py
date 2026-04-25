@@ -110,11 +110,18 @@ class CrfTemplateQueryService:
         field_templates = list(
             self.field_template_model.objects.filter(
                 crf_template_id=template_id,
+                section_template_id__isnull=False,
                 deleted=False,
                 is_active=True,
             )
-            .prefetch_related("translations")
-            .order_by("display_order", "id")
+            .select_related("section_template")
+            .prefetch_related("translations", "section_template__translations")
+            .order_by(
+                "section_template__display_order",
+                "section_template__id",
+                "display_order",
+                "id",
+            )
         )
         if not field_templates:
             return []
@@ -139,13 +146,40 @@ class CrfTemplateQueryService:
         for field_template in field_templates:
             field_definition = field_definition_map.get(field_template.pk)
             ui_config = ui_config_map.get(field_template.pk)
-            field_label = self._translated_value(field_template, current_language, "label", default=field_template.field_key)
+            field_label = self._translated_value(
+                field_template,
+                current_language,
+                "label",
+                default=field_template.field_key,
+            )
+
+            section_template = field_template.section_template
+            section_payload = None
+            if section_template is not None:
+                section_payload = {
+                    "id": str(section_template.pk),
+                    "code": section_template.section_code,
+                    "name": self._translated_value(
+                        section_template,
+                        current_language,
+                        "section_name",
+                        default=section_template.section_code,
+                    ),
+                    "display_order": section_template.display_order,
+                    "is_required": section_template.is_required,
+                    "is_repeatable": section_template.is_repeatable,
+                    "min_repeats": section_template.min_repeats,
+                    "max_repeats": section_template.max_repeats,
+                }
+
             payload.append(
                 {
                     "id": str(field_template.pk),
                     "field_key": field_template.field_key,
                     "label": field_label,
                     "data_type": field_template.data_type,
+                    "display_order": field_template.display_order,
+                    "section_template": section_payload,
                     "data_semantic": field_definition.data_semantic if field_definition else None,
                     "comments": field_definition.comments if field_definition else None,
                     "unit": field_definition.unit if field_definition else None,
@@ -155,11 +189,13 @@ class CrfTemplateQueryService:
                     "pattern": field_definition.pattern if field_definition else None,
                     "ui_config": {
                         "control_type": ui_config.control_type if ui_config else None,
+                        "control_layout": ui_config.control_layout if ui_config else None,
                         "layout": ui_config.layout if ui_config else None,
                         "text": ui_config.text if ui_config else None,
                         "behavior": ui_config.behavior if ui_config else None,
                         "options": ui_config.options if ui_config else None,
                         "style": ui_config.style if ui_config else None,
+                        "classes": ui_config.classes if ui_config else None,
                     },
                 }
             )

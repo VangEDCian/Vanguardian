@@ -53,3 +53,29 @@ def shared_picker_value(value, format_name):
     if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
         return date_format(value, format_name)
     return str(value)
+
+
+@register.simple_tag
+def subject_date_picker_i18n():
+    return {
+        "day_label": _("Day"),
+        "month_label": _("Month"),
+        "year_label": _("Year"),
+        "day_placeholder": _("DD"),
+        "month_empty_option": _("--"),
+        "year_placeholder": _("YYYY"),
+        "months": (
+            {"value": "1", "label": _("January")},
+            {"value": "2", "label": _("February")},
+            {"value": "3", "label": _("March")},
+            {"value": "4", "label": _("April")},
+            {"value": "5", "label": _("May")},
+            {"value": "6", "label": _("June")},
+            {"value": "7", "label": _("July")},
+            {"value": "8", "label": _("August")},
+            {"value": "9", "label": _("September")},
+            {"value": "10", "label": _("October")},
+            {"value": "11", "label": _("November")},
+            {"value": "12", "label": _("December")},
+        ),
+    }

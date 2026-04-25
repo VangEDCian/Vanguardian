@@ -33,7 +33,7 @@
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  gap: 12px;
+  gap: 139px;
 }
 
 .top-nav__menu {
@@ -102,7 +102,8 @@
 .common-select--site .common-select__native,
 .common-select--role .common-select__trigger,
 .common-select--role .common-select__native {
-  min-width: 130px;
+  min-width: 89px;
+  white-space: nowrap;
 }
 
 .top-nav__divider {
@@ -891,9 +892,9 @@
     justify-content: flex-end; */
   }
 
-  .common-select--top-nav .common-select__trigger {
+  /* .common-select--top-nav .common-select__trigger {
     min-width: 168px;
-  }
+  } */
 
   /* .dashboard-breadcrumb__detail-meta {
     width: 100%;
@@ -925,7 +926,7 @@
 
 @media (max-width: 840px) {
   .top-nav__inner {
-    gap: 8px;
+    gap: 16px;
   }
 
   .top-nav__menu {
