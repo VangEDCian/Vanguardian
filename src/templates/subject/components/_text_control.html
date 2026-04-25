@@ -1,0 +1,7 @@
+{% load subject_form_tags %}
+{% subject_text_control_i18n as text_control_i18n %}
+<input class="{{ input_class }}"
+       type="text"
+       readonly
+       value=""
+       placeholder="{{ field.placeholder_text|default:text_control_i18n.placeholder }}" />

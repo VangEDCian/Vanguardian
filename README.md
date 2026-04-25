@@ -8,7 +8,6 @@ From a product perspective, Vanguardian aims to reduce data fragmentation, impro
 
 - The default architecture is a modular monolith, and each bounded context must keep clear ownership and boundaries.
 - Business schema changes do not use Django migrations as the source of truth; schema updates must go through `db/dbdiagram.dbml` and `db/migrations/*.sql`.
-- Read `src/AGENT.md` before extending domain logic or project structure.
 
 ## Local Setup
 
