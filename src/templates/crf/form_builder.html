@@ -1,0 +1,111 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ page_title }} | {% trans "CRF Form Builder | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+    <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/_old_select2_single_choice.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}">
+    <link rel="stylesheet" href="{% static 'crf/css/form_builder.css' %}">
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        <form class="user-detail-form crf-builder-form" method="post" action="{% url 'crf:form_field_create' form_id=template.id %}">
+            {% csrf_token %}
+            <div hidden>
+                <input type="hidden" name="delete_section_id" value="{{ selected_section_id|default:'' }}">
+                <input type="hidden" name="delete_field_id" value="{{ selected_field_id|default:'' }}">
+            </div>
+            <div class="user-detail-form__content">
+                {% include "study/components/_study_detail_tabs.html" with study_active_tab="crf_templates" %}
+
+                <section class="user-detail-section" hidden>
+                    <h2 class="user-detail-section__title">{% trans "FORM BUILDER" %}</h2>
+                    <div class="user-detail-section__body">
+                        <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
+                            <div class="crf-definition-panel__field" style="display: block;">
+                                <div class="input-group crf-input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Code" %}</span>
+                                    </div>
+                                    {{ template_translation_form.code }}
+                                </div>
+                                <div class="user-detail-field__error">{{ template_translation_form.code.errors }}</div>
+                            </div>
+                            <div class="crf-definition-panel__field" style="display: block;">
+                                <div class="input-group crf-input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Version" %}</span>
+                                    </div>
+                                    {{ template_translation_form.version }}
+                                </div>
+                                <div class="user-detail-field__error">{{ template_translation_form.version.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
+                            <div class="crf-definition-panel__field" style="display: block;">
+                                <div class="input-group crf-input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Name EN" %}</span>
+                                    </div>
+                                    {{ template_translation_form.name_en }}
+                                </div>
+                                <div class="user-detail-field__error">{{ template_translation_form.name_en.errors }}</div>
+                            </div>
+                            <div class="crf-definition-panel__field" style="display: block;">
+                                <div class="input-group crf-input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Name VI" %}</span>
+                                    </div>
+                                    {{ template_translation_form.name_vi }}
+                                </div>
+                                <div class="user-detail-field__error">{{ template_translation_form.name_vi.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="submit" name="builder_action" value="template" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Save Form Translation" %}</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="user-detail-section" data-builder-landing>
+                    <div class="user-detail-section__body" style="display:flex; justify-content:center; gap:16px; padding:24px 0 12px;">
+                        <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary" data-sections-show>{% trans "Sections" %}</button>
+                        <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary" data-fields-show>{% trans "Fields" %}</button>
+                        <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-section-add>{% trans "Add Section" %}</button>
+                        <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-field-add>{% trans "Add Field" %}</button>
+                    </div>
+                </section>
+
+                {% include "crf/components/_form_builder_sections_panel.html" %}
+                {% include "crf/components/_form_builder_fields_panel.html" %}
+            </div>
+        </form>
+    </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        window.CRF_FORM_BUILDER_I18N = {
+            createField: '{% trans "Create Field" %}',
+            fieldPrefix: '{% trans "Field" %}',
+            noStyle: '{% trans "Chưa có style" %}',
+            manage: '{% trans "Quản lý" %}',
+            targetLabel: '{% trans "Target:" %}',
+            validationRule: '{% trans "Validation Rule" %}',
+            ruleType: '{% trans "Rule Type" %}',
+            condition: '{% trans "Condition" %}',
+            severity: '{% trans "Severity" %}',
+            mode: '{% trans "Mode" %}',
+            messageMultiLang: '{% trans "Message (Multi-lang)" %}',
+            addMessage: '{% trans "+ Add Message" %}',
+        };
+    </script>
+    <script src="{% static 'crf/js/form_builder.js' %}"></script>
+{% endblock %}

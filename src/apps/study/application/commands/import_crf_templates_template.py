@@ -6,6 +6,8 @@ from django.utils import timezone
 from apps.crf.public import (
     CrfContextAdapter,
 )
+from apps.crf.domain.exceptions import StudyScopeViolationError
+from apps.shared.context_processors import StudyDropdownHandler
 
 
 @dataclass(frozen=True)
@@ -105,7 +107,25 @@ class ImportStudyCrfTemplatesTemplateService:
     def __init__(self, crf_context_adapter=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
 
-    def execute(self, command: ImportStudyCrfTemplatesTemplateCommand) -> ImportStudyCrfTemplatesTemplateResult:
+    @staticmethod
+    def _resolve_selected_study_id(request):
+        try:
+            selected_study_id = StudyDropdownHandler(request=request).build().selected_id
+        except Exception as exc:
+            raise StudyScopeViolationError("No study is selected in the current context.") from exc
+        if selected_study_id is None:
+            raise StudyScopeViolationError("No study is selected in the current context.")
+        return int(selected_study_id)
+
+    @classmethod
+    def _ensure_current_study_scope(cls, *, request, study_id):
+        selected_study_id = cls._resolve_selected_study_id(request)
+        if int(study_id) != selected_study_id:
+            raise StudyScopeViolationError("Command study scope does not match the selected study.")
+        return selected_study_id
+
+    def execute(self, command: ImportStudyCrfTemplatesTemplateCommand, *, request) -> ImportStudyCrfTemplatesTemplateResult:
+        self._ensure_current_study_scope(request=request, study_id=command.study_id)
         workbook_rows_by_sheet = self._load_rows_from_workbook(
             file_name=command.file_name,
             file_content=command.file_content,
@@ -120,6 +140,7 @@ class ImportStudyCrfTemplatesTemplateService:
             identifier = self._build_form_template_identifier(row_data)
             try:
                 import_outcome, imported_template_id, imported_template_code = self._import_form_template_row(
+                    request=request,
                     study_id=command.study_id,
                     row_data=row_data,
                     row_number=row_number,
@@ -147,6 +168,7 @@ class ImportStudyCrfTemplatesTemplateService:
             identifier = self._build_section_template_identifier(row_data)
             try:
                 row_created_count, row_updated_count = self._import_section_template_row(
+                    request=request,
                     study_id=command.study_id,
                     row_data=row_data,
                     row_number=row_number,
@@ -180,7 +202,7 @@ class ImportStudyCrfTemplatesTemplateService:
             warnings=(),
         )
 
-    def _import_form_template_row(self, *, study_id, row_data, row_number, actor_user_id):
+    def _import_form_template_row(self, *, request, study_id, row_data, row_number, actor_user_id):
         code = self._require_text(
             row_data.get("code"),
             field_label="Code",
@@ -203,6 +225,7 @@ class ImportStudyCrfTemplatesTemplateService:
         )
 
         import_outcome = self.crf_context_adapter.upsert_crf_template(
+            request=request,
             study_id=study_id,
             code=code,
             version=version,
@@ -221,6 +244,7 @@ class ImportStudyCrfTemplatesTemplateService:
     def _import_section_template_row(
         self,
         *,
+        request,
         study_id,
         row_data,
         row_number,
@@ -295,6 +319,7 @@ class ImportStudyCrfTemplatesTemplateService:
         updated_count = 0
         for template_id in template_ids:
             import_outcome = self.crf_context_adapter.upsert_section_template(
+                request=request,
                 crf_template_id=template_id,
                 section_code=section_code,
                 vi_name=vi_name,
