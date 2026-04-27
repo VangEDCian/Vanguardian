@@ -12,6 +12,9 @@
     <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}">
     <link rel="stylesheet" href="{% static 'crf/css/form_builder.css' %}">
 {% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+{% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
         <form class="user-detail-form crf-builder-form" method="post" action="{% url 'crf:form_field_create' form_id=template.id %}">

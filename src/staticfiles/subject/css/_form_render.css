@@ -1,6 +1,8 @@
 @import url("./_field_render.css");
 @import url("./_field_card_render.css");
 @import url("./_date_picker_control.css");
+@import url("./_section_table_render.css");
+@import url("./_field_table_row_render.css");
 
 .subject-form-panel {
   padding: 0;
@@ -15,11 +17,6 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.subject-form-section {
-  /* border-bottom: 1px solid #d7e1e8; */
-  margin-bottom: 8px;
 }
 
 .subject-form-section__title {

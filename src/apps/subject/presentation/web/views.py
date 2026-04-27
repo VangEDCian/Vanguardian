@@ -295,6 +295,193 @@ class SubjectDetailView(
         return "normal"
 
     @staticmethod
+    def _normalize_section_layout_type(raw_layout_type):
+        normalized_value = str(raw_layout_type or "").strip().lower()
+        if normalized_value in {"section", "table"}:
+            return normalized_value
+        return "section"
+
+    @staticmethod
+    def _normalize_schema_boolean(raw_value, *, default):
+        if raw_value is None:
+            return default
+        if isinstance(raw_value, bool):
+            return raw_value
+        normalized_value = str(raw_value).strip().lower()
+        if normalized_value in {"1", "true", "yes", "on"}:
+            return True
+        if normalized_value in {"0", "false", "no", "off"}:
+            return False
+        return default
+
+    @classmethod
+    def _default_table_layout_schema(cls):
+        return {
+            "show_table_header": True,
+            "response_direction": "horizontal",
+            "columns": [
+                {
+                    "key": "index",
+                    "label": "#",
+                    "width": "40px",
+                    "source": "display_order",
+                    "header_class": "subject-form-table-section__head--index",
+                    "cell_class": "subject-form-table-row__cell--index",
+                },
+                {
+                    "key": "criterion",
+                    "label": _("Criterion"),
+                    "width": "",
+                    "source": "label",
+                    "header_class": "subject-form-table-section__head--criterion",
+                    "cell_class": "subject-form-table-row__cell--criterion",
+                },
+                {
+                    "key": "response",
+                    "label": _("Response"),
+                    "width": "239px",
+                    "source": "control",
+                    "header_class": "subject-form-table-section__head--response",
+                    "cell_class": "subject-form-table-row__cell--response",
+                },
+            ],
+        }
+
+    @classmethod
+    def _normalize_table_column_schema(cls, raw_column):
+        if not isinstance(raw_column, dict):
+            return None
+
+        source = str(raw_column.get("source") or raw_column.get("key") or "").strip().lower()
+        source_aliases = {
+            "ordinal": "display_order",
+            "index": "display_order",
+            "#": "display_order",
+            "criterion": "label",
+            "response": "control",
+        }
+        normalized_source = source_aliases.get(source, source)
+        if normalized_source not in {"display_order", "label", "control", "field_key", "data_type"}:
+            return None
+
+        default_schema = {
+            "display_order": {
+                "key": "index",
+                "label": "#",
+                "cell_class": "subject-form-table-row__cell--index",
+                "header_class": "subject-form-table-section__head--index",
+            },
+            "label": {
+                "key": "criterion",
+                "label": _("Criterion"),
+                "cell_class": "subject-form-table-row__cell--criterion",
+                "header_class": "subject-form-table-section__head--criterion",
+            },
+            "control": {
+                "key": "response",
+                "label": _("Response"),
+                "cell_class": "subject-form-table-row__cell--response",
+                "header_class": "subject-form-table-section__head--response",
+            },
+            "field_key": {
+                "key": "field_key",
+                "label": _("Field Key"),
+                "cell_class": "subject-form-table-row__cell--field-key",
+                "header_class": "subject-form-table-section__head--field-key",
+            },
+            "data_type": {
+                "key": "data_type",
+                "label": _("Data Type"),
+                "cell_class": "subject-form-table-row__cell--data-type",
+                "header_class": "subject-form-table-section__head--data-type",
+            },
+        }[normalized_source]
+
+        return {
+            "key": str(raw_column.get("key") or default_schema["key"]).strip() or default_schema["key"],
+            "label": raw_column.get("label") or default_schema["label"],
+            "width": str(raw_column.get("width") or "").strip(),
+            "source": normalized_source,
+            "header_class": (
+                str(raw_column.get("header_class") or default_schema["header_class"]).strip()
+            ),
+            "cell_class": (
+                str(raw_column.get("cell_class") or default_schema["cell_class"]).strip()
+            ),
+        }
+
+    @classmethod
+    def _normalize_table_layout_schema(cls, raw_schema):
+        default_schema = cls._default_table_layout_schema()
+        if not isinstance(raw_schema, dict):
+            return default_schema
+
+        raw_columns = raw_schema.get("columns")
+        normalized_columns = []
+        if isinstance(raw_columns, list):
+            for raw_column in raw_columns:
+                normalized_column = cls._normalize_table_column_schema(raw_column)
+                if normalized_column is not None:
+                    normalized_columns.append(normalized_column)
+        if not normalized_columns:
+            normalized_columns = default_schema["columns"]
+
+        response_direction = str(raw_schema.get("response_direction") or "").strip().lower()
+        if response_direction not in {"horizontal", "vertical"}:
+            response_direction = default_schema["response_direction"]
+
+        return {
+            "show_table_header": cls._normalize_schema_boolean(
+                raw_schema.get("show_table_header"),
+                default=default_schema["show_table_header"],
+            ),
+            "response_direction": response_direction,
+            "columns": normalized_columns,
+        }
+
+    @classmethod
+    def _build_table_row_cells(cls, field, columns):
+        row_cells = []
+        for column in columns:
+            source = column.get("source")
+            cell_payload = {
+                "key": column.get("key"),
+                "source": source,
+                "cell_class": column.get("cell_class") or "",
+            }
+            if source == "control":
+                row_cells.append(
+                    {
+                        **cell_payload,
+                        "kind": "control",
+                    }
+                )
+                continue
+
+            if source == "display_order":
+                value = field.get("display_order")
+            elif source == "label":
+                value = field.get("label") or field.get("field_key")
+            elif source == "field_key":
+                value = field.get("field_key")
+            elif source == "data_type":
+                value = field.get("data_type")
+            else:
+                value = field.get(source)
+
+            row_cells.append(
+                {
+                    **cell_payload,
+                    "kind": "text",
+                    "text": value if value not in (None, "") else "—",
+                    "show_required": source == "label" and field.get("is_required"),
+                    "helper_text": field.get("helper_text") if source == "label" else "",
+                }
+            )
+
+        return row_cells
+
+    @staticmethod
     def _parse_choice_options(raw_value):
         if not raw_value:
             return []
@@ -377,6 +564,13 @@ class SubjectDetailView(
             section_order = section_template.get("display_order")
             if section_order is None:
                 section_order = 999999
+            section_layout_config = section_template.get("layout_config") or {}
+            section_layout_type = self._normalize_section_layout_type(
+                section_layout_config.get("layout_type")
+            )
+            table_layout = self._normalize_table_layout_schema(
+                section_layout_config.get("custom_layout_schema")
+            )
 
             section_key = (
                 section_template.get("id")
@@ -385,8 +579,20 @@ class SubjectDetailView(
             )
             if section_key not in sections_by_key:
                 sections_by_key[section_key] = {
+                    "id": section_template.get("id"),
+                    "code": section_template.get("code"),
+                    "code_class": str(section_template.get("code") or "").strip().lower(),
                     "title": section_title,
                     "order": section_order,
+                    "layout_type": section_layout_type,
+                    "layout_schema": section_layout_config.get("custom_layout_schema") or {},
+                    "table_layout": table_layout,
+                    "layout_css_class": (
+                        section_layout_config.get("custom_css_class") or ""
+                    ).strip(),
+                    "show_section_header": section_layout_config.get(
+                        "show_section_header", True
+                    ),
                     "fields": [],
                     "columns": 1,
                 }
@@ -439,6 +645,20 @@ class SubjectDetailView(
                 section["columns"] = 2
             else:
                 section["columns"] = 3
+            if section.get("layout_type") == "table":
+                section["table_layout"] = self._normalize_table_layout_schema(
+                    section.get("layout_schema")
+                )
+                section["fields"] = [
+                    {
+                        **field,
+                        "table_row_cells": self._build_table_row_cells(
+                            field,
+                            section["table_layout"]["columns"],
+                        ),
+                    }
+                    for field in section["fields"]
+                ]
             payload.append(section)
         return payload
 

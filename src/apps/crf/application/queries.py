@@ -114,7 +114,7 @@ class CrfTemplateQueryService:
                 deleted=False,
                 is_active=True,
             )
-            .select_related("section_template")
+            .select_related("section_template", "section_template__layout_config")
             .prefetch_related("translations", "section_template__translations")
             .order_by(
                 "section_template__display_order",
@@ -156,6 +156,23 @@ class CrfTemplateQueryService:
             section_template = field_template.section_template
             section_payload = None
             if section_template is not None:
+                layout_config = getattr(section_template, "layout_config", None)
+                layout_payload = None
+                if layout_config is not None and not layout_config.deleted:
+                    layout_payload = {
+                        "layout_type": layout_config.layout_type,
+                        "column_count": layout_config.column_count,
+                        "label_position": layout_config.label_position,
+                        "density": layout_config.density,
+                        "section_style": layout_config.section_style,
+                        "is_collapsible": layout_config.is_collapsible,
+                        "is_expanded_by_default": layout_config.is_expanded_by_default,
+                        "show_section_header": layout_config.show_section_header,
+                        "show_border": layout_config.show_border,
+                        "show_background": layout_config.show_background,
+                        "custom_css_class": layout_config.custom_css_class,
+                        "custom_layout_schema": layout_config.custom_layout_schema,
+                    }
                 section_payload = {
                     "id": str(section_template.pk),
                     "code": section_template.section_code,
@@ -170,6 +187,7 @@ class CrfTemplateQueryService:
                     "is_repeatable": section_template.is_repeatable,
                     "min_repeats": section_template.min_repeats,
                     "max_repeats": section_template.max_repeats,
+                    "layout_config": layout_payload,
                 }
 
             payload.append(

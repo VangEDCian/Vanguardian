@@ -21,6 +21,10 @@ from apps.crf.domain.exceptions import FormBuilderDomainValidationError, FormSco
 from apps.crf.presentation.web.forms import CrfFieldCreateForm, CrfFieldUpdateForm, CrfSectionTemplateForm, CrfTemplateTranslationForm
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateView
+from apps.study.application.queries.study_directory import (
+    StudyDirectoryQueryService,
+    StudyNotFoundError,
+)
 
 
 class CrfFormDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
@@ -79,6 +83,7 @@ class CrfFormBuilderView(LoginRequiredMixin, PermissionRequiredMixin, Authentica
     orchestration_service_class = FormBuilderOrchestrationService
     template_service_class = CrfTemplateApplicationService
     audit_service_class = CrfFormBuilderAuditService
+    study_directory_query_service_class = StudyDirectoryQueryService
     section_form_prefix = "section"
 
     @staticmethod
@@ -108,6 +113,9 @@ class CrfFormBuilderView(LoginRequiredMixin, PermissionRequiredMixin, Authentica
 
     def get_audit_service(self):
         return self.audit_service_class()
+
+    def get_study_directory_query_service(self):
+        return self.study_directory_query_service_class()
 
     def get_create_field_form(self):
         if not hasattr(self, "_create_field_form"):
@@ -321,9 +329,17 @@ class CrfFormBuilderView(LoginRequiredMixin, PermissionRequiredMixin, Authentica
         context = super().get_context_data(**kwargs)
         builder = self.get_builder()
         selected_study_id = self.ensure_study_scope(builder)
+        try:
+            study_detail_model = self.get_study_directory_query_service().get_study_detail(
+                study_id=selected_study_id,
+            )
+        except StudyNotFoundError as exc:
+            raise Http404 from exc
+
         context.update(builder)
-        context["detail_study"] = {"id": int(selected_study_id)}
-        context["layout_breadcrumb_label"] = builder["template"]["code"]
+        context["detail_study"] = study_detail_model["detail_study"]
+        context["layout_breadcrumb_label"] = study_detail_model["layout_breadcrumb_label"]
+        context["layout_detail_meta_items"] = study_detail_model["layout_detail_meta_items"]
         context["page_title"] = builder["template"]["name"] or builder["template"]["code"]
         context["builder_json"] = json.dumps(builder, ensure_ascii=False, indent=2, default=str)
         context["selected_section_id"] = self.get_selected_section_id()

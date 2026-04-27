@@ -1,0 +1,29 @@
+{% load i18n subject_form_tags %}
+<tr class="subject-form-table-row{% if field.classes %} {{ field.classes }}{% endif %}">
+    {% for cell in field.table_row_cells %}
+        <td class="subject-form-table-row__cell{% if cell.cell_class %} {{ cell.cell_class }}{% endif %}">
+            {% if cell.kind == "control" %}
+                {% subject_control_template field.control_type as control_template %}
+                {% if control_template %}
+                    {% with table_choice_list_class="subject-form-table-row__choice-list subject-form-table-row__choice-list--"|add:section.table_layout.response_direction %}
+                        {% include control_template with field=field input_class="subject-form-table-row__input" textarea_class="subject-form-table-row__textarea" choice_list_class=table_choice_list_class readonly_input_class="subject-form-table-row__input subject-form-table-row__input--readonly" %}
+                    {% endwith %}
+                {% else %}
+                    <div class="subject-form-table-row__unsupported">
+                        {% trans 'Unsupported control type:' %} {{ field.raw_control_type|default:'N/A' }}
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="subject-form-table-row__text{% if cell.source == 'label' %} subject-form-table-row__criterion-text{% endif %}">
+                    {{ cell.text }}
+                    {% if cell.show_required %}
+                        <span class="subject-form-table-row__required">*</span>
+                    {% endif %}
+                </div>
+                {% if cell.helper_text %}
+                    <div class="subject-form-table-row__helper">{{ cell.helper_text }}</div>
+                {% endif %}
+            {% endif %}
+        </td>
+    {% endfor %}
+</tr>

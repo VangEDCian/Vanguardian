@@ -9,16 +9,16 @@ register = template.Library()
 
 
 _CONTROL_TEMPLATE_MAP = {
-    CrfFieldControlTypeChoices.TEXT: "subject/components/_text_control.html",
-    CrfFieldControlTypeChoices.TEXTAREA: "subject/components/_textarea_control.html",
-    CrfFieldControlTypeChoices.NUMBER: "subject/components/_number_control.html",
-    CrfFieldControlTypeChoices.SELECT: "subject/components/_select_control.html",
-    CrfFieldControlTypeChoices.RADIO: "subject/components/_radio_control.html",
-    CrfFieldControlTypeChoices.CHECKBOX: "subject/components/_checkbox_control.html",
-    CrfFieldControlTypeChoices.MULTI_SELECT: "subject/components/_multi_select_control.html",
-    CrfFieldControlTypeChoices.DATE: "subject/components/_date_picker_control.html",
-    CrfFieldControlTypeChoices.DATETIME: "subject/components/_datetime_control.html",
-    CrfFieldControlTypeChoices.LABEL_ONLY: "subject/components/_label_only_control.html",
+    CrfFieldControlTypeChoices.TEXT: "subject/components/controls/_text_control.html",
+    CrfFieldControlTypeChoices.TEXTAREA: "subject/components/controls/_textarea_control.html",
+    CrfFieldControlTypeChoices.NUMBER: "subject/components/controls/_number_control.html",
+    CrfFieldControlTypeChoices.SELECT: "subject/components/controls/_select_control.html",
+    CrfFieldControlTypeChoices.RADIO: "subject/components/controls/_radio_control.html",
+    CrfFieldControlTypeChoices.CHECKBOX: "subject/components/controls/_checkbox_control.html",
+    CrfFieldControlTypeChoices.MULTI_SELECT: "subject/components/controls/_multi_select_control.html",
+    CrfFieldControlTypeChoices.DATE: "subject/components/controls/_date_picker_control.html",
+    CrfFieldControlTypeChoices.DATETIME: "subject/components/controls/_datetime_control.html",
+    CrfFieldControlTypeChoices.LABEL_ONLY: "subject/components/controls/_label_only_control.html",
 }
 
 

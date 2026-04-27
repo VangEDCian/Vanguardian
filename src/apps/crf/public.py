@@ -3,6 +3,7 @@ from apps.crf.application import (
     CrfTemplateApplicationService,
     CrfTemplateNotFoundError,
 )
+from apps.crf.models import CrfSectionTemplate
 
 
 class CrfContextAdapter:
@@ -71,16 +72,16 @@ class CrfContextAdapter:
         *,
         request,
         crf_template_id,
-        section_template_id,
+        section_template_id=None,
         section_code,
         vi_name,
         en_name,
-        vi_description,
-        en_description,
-        vi_help_text,
-        en_help_text,
-        vi_instruction_text,
-        en_instruction_text,
+        vi_description=None,
+        en_description=None,
+        vi_help_text=None,
+        en_help_text=None,
+        vi_instruction_text=None,
+        en_instruction_text=None,
         display_order,
         is_required,
         is_repeatable,
@@ -89,19 +90,42 @@ class CrfContextAdapter:
         actor_user_id,
         now=None,
     ):
-        return self.crf_template_service.upsert_section_template(
+        is_legacy_import_contract = (
+            section_template_id is None
+            and vi_description is None
+            and en_description is None
+            and vi_help_text is None
+            and en_help_text is None
+            and vi_instruction_text is None
+            and en_instruction_text is None
+        )
+
+        import_outcome = None
+        resolved_section_template_id = section_template_id
+        if resolved_section_template_id is None:
+            existing_section_template = CrfSectionTemplate.objects.filter(
+                crf_template_id=crf_template_id,
+                section_code=section_code,
+            ).first()
+            if existing_section_template is not None:
+                resolved_section_template_id = existing_section_template.pk
+                import_outcome = "updated"
+            else:
+                import_outcome = "created"
+
+        result = self.crf_template_service.upsert_section_template(
             request=request,
             crf_template_id=crf_template_id,
-            section_template_id=section_template_id,
+            section_template_id=resolved_section_template_id,
             section_code=section_code,
             vi_name=vi_name,
             en_name=en_name,
-            vi_description=vi_description,
-            en_description=en_description,
-            vi_help_text=vi_help_text,
-            en_help_text=en_help_text,
-            vi_instruction_text=vi_instruction_text,
-            en_instruction_text=en_instruction_text,
+            vi_description=vi_description or "",
+            en_description=en_description or "",
+            vi_help_text=vi_help_text or "",
+            en_help_text=en_help_text or "",
+            vi_instruction_text=vi_instruction_text or "",
+            en_instruction_text=en_instruction_text or "",
             display_order=display_order,
             is_required=is_required,
             is_repeatable=is_repeatable,
@@ -110,6 +134,9 @@ class CrfContextAdapter:
             actor_user_id=actor_user_id,
             now=now,
         )
+        if is_legacy_import_contract:
+            return import_outcome or "updated"
+        return result
 
 
 def get_crf_template_model():

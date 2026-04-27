@@ -94,14 +94,22 @@ class CrfTemplateListTable(tables.Table):
     @staticmethod
     def render_actions(record):
         return format_html(
-            '<div class="flex gap-2">'
-            '<a class="entity-table__footer-button entity-table__footer-button--secondary" href="{}">{}</a>'
-            '<a class="entity-table__footer-button entity-table__footer-button--primary" href="{}">{}</a>'
+            '<div class="crf-template-actions" data-dropdown>'
+            '<button type="button" class="crf-template-actions__trigger" data-dropdown-trigger aria-expanded="false" aria-label="{}">'
+            '<span class="crf-template-actions__value" data-dropdown-value>{}</span>'
+            '<span class="svg-icon crf-template-actions__icon" aria-hidden="true" style="--icon-url: url(\'{}\')"></span>'
+            '</button>'
+            '<div class="crf-template-actions__menu" data-dropdown-menu hidden>'
+            '<a class="crf-template-actions__item" href="{}" data-dropdown-option>{}</a>'
+            '<a class="crf-template-actions__item" href="{}" data-dropdown-option>{}</a>'
             '</div>',
+            _("Open actions menu"),
+            _("Actions"),
+            static("images/table/ellipsis-vertical-svgrepo-com.svg"),
             reverse("crf:form_detail", kwargs={"form_id": record.pk}),
             _("Detail"),
             reverse("crf:form_builder", kwargs={"form_id": record.pk}),
-            _("Builder"),
+            _("Form Builder"),
         )
 
     class Meta:
