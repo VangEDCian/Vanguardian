@@ -26,7 +26,7 @@ from apps.study.application.services.site_audit import SiteAuditService
 from apps.study.infrastructure.persistence.models import Site, Study
 from apps.study.presentation.web.formpackages.site import SiteForm, SitesToolbarForm
 from apps.study.presentation.web.tables import SiteListTable
-from apps.study.presentation.web.viewpackages._helpers import _user_has_study_access
+from apps.study.presentation.web.views.helpers import _user_has_study_access
 
 
 class SiteAbstractVerifyStudy(View):

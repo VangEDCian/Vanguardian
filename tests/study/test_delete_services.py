@@ -55,80 +55,80 @@ def _make_site(**kwargs):
 
 class DeleteStudyServiceTests(SimpleTestCase):
     @patch("apps.study.application.commands.delete_study.build_soft_deleted_unique_value")
-    @patch("apps.study.application.commands.delete_study.Study")
-    def test_marks_study_deleted_and_suffixes_code(self, mock_study_cls, mock_suffix_builder):
+    def test_marks_study_deleted_and_suffixes_code(self, mock_suffix_builder):
         study = _make_study(pk=1, code="STUDY-001")
-        mock_study_cls.objects.filter.return_value.first.return_value = study
         mock_suffix_builder.return_value = "STUDY-001_deleted_deadbeef"
+        repository = MagicMock()
+        repository.get_study.return_value = study
+        repository.save_study.side_effect = lambda item: item
 
         result = DeleteStudyService.execute.__wrapped__(
-            DeleteStudyService(),
+            DeleteStudyService(repository=repository),
             DeleteStudyCommand(study_id=1, actor_user_id=42),
         )
 
         self.assertEqual(result.code, "STUDY-001_deleted_deadbeef")
         self.assertTrue(result.deleted)
         self.assertFalse(result.is_active)
-        self.assertEqual(result.updated_by_id, 42)
         mock_suffix_builder.assert_called_once_with("STUDY-001")
-        study.save.assert_called_once()
+        repository.touch_study.assert_called_once_with(study, actor_user_id=42)
+        repository.save_study.assert_called_once_with(study)
 
-    @patch("apps.study.application.commands.delete_study.Study")
-    def test_raises_when_study_not_found(self, mock_study_cls):
-        mock_study_cls.objects.filter.return_value.first.return_value = None
+    def test_raises_when_study_not_found(self):
+        repository = MagicMock()
+        repository.get_study.return_value = None
 
         with self.assertRaises(StudyNotFoundError):
             DeleteStudyService.execute.__wrapped__(
-                DeleteStudyService(),
+                DeleteStudyService(repository=repository),
                 DeleteStudyCommand(study_id=999, actor_user_id=1),
             )
 
 
 class DeleteSiteServiceTests(SimpleTestCase):
     @patch("apps.study.application.commands.site.build_soft_deleted_unique_value")
-    @patch("apps.study.application.commands.site.Site")
-    def test_marks_site_deleted_and_suffixes_code(self, mock_site_cls, mock_suffix_builder):
+    def test_marks_site_deleted_and_suffixes_code(self, mock_suffix_builder):
         site = _make_site(pk=7, study_id=3, code="SITE-001")
-        mock_site_cls.objects.filter.return_value.first.return_value = site
         mock_suffix_builder.return_value = "SITE-001_deleted_deadbeef"
+        repository = MagicMock()
+        repository.get_site.return_value = site
+        repository.save_site.side_effect = lambda item: item
 
         result = DeleteSiteService.execute.__wrapped__(
-            DeleteSiteService(),
+            DeleteSiteService(repository=repository),
             DeleteSiteCommand(site_id=7, actor_user_id=21),
         )
 
         self.assertEqual(result.code, "SITE-001_deleted_deadbeef")
         self.assertTrue(result.deleted)
         self.assertFalse(result.is_active)
-        self.assertEqual(result.updated_by_id, 21)
         self.assertEqual(result.study_id, 3)
         mock_suffix_builder.assert_called_once_with("SITE-001")
-        site.save.assert_called_once()
+        repository.touch_site.assert_called_once_with(site, actor_user_id=21)
+        repository.save_site.assert_called_once_with(site)
 
-    @patch("apps.study.application.commands.site.Site")
-    def test_raises_when_site_not_found(self, mock_site_cls):
-        mock_site_cls.objects.filter.return_value.first.return_value = None
+    def test_raises_when_site_not_found(self):
+        repository = MagicMock()
+        repository.get_site.return_value = None
 
         with self.assertRaises(SiteNotFoundError):
             DeleteSiteService.execute.__wrapped__(
-                DeleteSiteService(),
+                DeleteSiteService(repository=repository),
                 DeleteSiteCommand(site_id=999, actor_user_id=1),
             )
 
 
 class DeleteRandomizationSchemeServiceTests(SimpleTestCase):
-    @patch("apps.study.application.commands.delete_randomization.RandomizationArm")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationSlot")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationScheme")
-    def test_raises_when_scheme_has_assigned_slots(self, mock_scheme_model, mock_slot_model, mock_arm_model):
+    def test_raises_when_scheme_has_assigned_slots(self):
         scheme = MagicMock(pk=13, code="SCH-001", deleted=False)
-        mock_scheme_model.objects.filter.return_value.first.return_value = scheme
-        mock_slot_model.objects.filter.return_value.exists.return_value = True
+        repository = MagicMock()
+        repository.get_scheme.return_value = scheme
+        repository.scheme_has_assigned_slots.return_value = True
 
-        service = DeleteRandomizationSchemeService(randomization_audit_service=MagicMock())
-        service.randomization_scheme_model = mock_scheme_model
-        service.randomization_slot_model = mock_slot_model
-        service.randomization_arm_model = mock_arm_model
+        service = DeleteRandomizationSchemeService(
+            randomization_audit_service=MagicMock(),
+            repository=repository,
+        )
 
         with self.assertRaises(RandomizationDeleteBlockedError):
             DeleteRandomizationSchemeService.execute.__wrapped__(
@@ -136,33 +136,23 @@ class DeleteRandomizationSchemeServiceTests(SimpleTestCase):
                 DeleteRandomizationSchemeCommand(actor_user_id=5, study_id=2, scheme_id=13),
             )
 
-    @patch("apps.study.application.commands.delete_randomization.timezone")
     @patch("apps.study.application.commands.delete_randomization.build_soft_deleted_unique_value")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationArm")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationSlot")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationScheme")
-    def test_soft_deletes_scheme_and_related_entities(self, mock_scheme_model, mock_slot_model, mock_arm_model, mock_suffix_builder, mock_timezone):
+    def test_soft_deletes_scheme_and_related_entities(self, mock_suffix_builder):
         now = MagicMock()
-        mock_timezone.now.return_value = now
         mock_suffix_builder.return_value = "SCH-001_deleted_deadbeef"
         scheme = MagicMock(pk=13, study_id=2, code="SCH-001", deleted=False)
-        mock_scheme_model.objects.filter.return_value.first.return_value = scheme
-
-        assigned_qs = MagicMock()
-        assigned_qs.exists.return_value = False
-        delete_slot_qs = MagicMock()
-        delete_slot_qs.update.return_value = 7
-        mock_slot_model.objects.filter.side_effect = [assigned_qs, delete_slot_qs]
-
-        delete_arm_qs = MagicMock()
-        delete_arm_qs.update.return_value = 2
-        mock_arm_model.objects.filter.return_value = delete_arm_qs
+        repository = MagicMock()
+        repository.get_scheme.return_value = scheme
+        repository.scheme_has_assigned_slots.return_value = False
+        repository.now.return_value = now
+        repository.soft_delete_slots_for_scheme.return_value = 7
+        repository.soft_delete_arms_for_scheme.return_value = 2
 
         audit_service = MagicMock()
-        service = DeleteRandomizationSchemeService(randomization_audit_service=audit_service)
-        service.randomization_scheme_model = mock_scheme_model
-        service.randomization_slot_model = mock_slot_model
-        service.randomization_arm_model = mock_arm_model
+        service = DeleteRandomizationSchemeService(
+            randomization_audit_service=audit_service,
+            repository=repository,
+        )
 
         result = DeleteRandomizationSchemeService.execute.__wrapped__(
             service,
@@ -173,21 +163,21 @@ class DeleteRandomizationSchemeServiceTests(SimpleTestCase):
         self.assertEqual(result.deleted_arm_count, 2)
         self.assertEqual(scheme.code, "SCH-001_deleted_deadbeef")
         self.assertTrue(scheme.deleted)
-        scheme.save.assert_called_once_with(update_fields=["code", "deleted", "updated_at"])
+        repository.save_scheme.assert_called_once_with(scheme, update_fields=["code", "deleted", "updated_at"])
         audit_service.record_scheme_deleted.assert_called_once()
 
 
 class DeleteRandomizationArmServiceTests(SimpleTestCase):
-    @patch("apps.study.application.commands.delete_randomization.RandomizationSlot")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationArm")
-    def test_raises_when_arm_has_assigned_slots(self, mock_arm_model, mock_slot_model):
+    def test_raises_when_arm_has_assigned_slots(self):
         arm = MagicMock(pk=19, arm_code="ARM-A", deleted=False)
-        mock_arm_model.objects.select_related.return_value.filter.return_value.first.return_value = arm
-        mock_slot_model.objects.filter.return_value.exists.return_value = True
+        repository = MagicMock()
+        repository.get_arm.return_value = arm
+        repository.arm_has_assigned_slots.return_value = True
 
-        service = DeleteRandomizationArmService(randomization_audit_service=MagicMock())
-        service.randomization_arm_model = mock_arm_model
-        service.randomization_slot_model = mock_slot_model
+        service = DeleteRandomizationArmService(
+            randomization_audit_service=MagicMock(),
+            repository=repository,
+        )
 
         with self.assertRaises(RandomizationDeleteBlockedError):
             DeleteRandomizationArmService.execute.__wrapped__(
@@ -195,27 +185,22 @@ class DeleteRandomizationArmServiceTests(SimpleTestCase):
                 DeleteRandomizationArmCommand(actor_user_id=6, study_id=2, arm_id=19),
             )
 
-    @patch("apps.study.application.commands.delete_randomization.timezone")
     @patch("apps.study.application.commands.delete_randomization.build_soft_deleted_unique_value")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationSlot")
-    @patch("apps.study.application.commands.delete_randomization.RandomizationArm")
-    def test_soft_deletes_arm_and_related_slots(self, mock_arm_model, mock_slot_model, mock_suffix_builder, mock_timezone):
+    def test_soft_deletes_arm_and_related_slots(self, mock_suffix_builder):
         now = MagicMock()
-        mock_timezone.now.return_value = now
         mock_suffix_builder.return_value = "ARM-A_deleted_deadbeef"
         arm = MagicMock(pk=19, arm_code="ARM-A", deleted=False)
-        mock_arm_model.objects.select_related.return_value.filter.return_value.first.return_value = arm
-
-        assigned_qs = MagicMock()
-        assigned_qs.exists.return_value = False
-        delete_slot_qs = MagicMock()
-        delete_slot_qs.update.return_value = 4
-        mock_slot_model.objects.filter.side_effect = [assigned_qs, delete_slot_qs]
+        repository = MagicMock()
+        repository.get_arm.return_value = arm
+        repository.arm_has_assigned_slots.return_value = False
+        repository.now.return_value = now
+        repository.soft_delete_slots_for_arm.return_value = 4
 
         audit_service = MagicMock()
-        service = DeleteRandomizationArmService(randomization_audit_service=audit_service)
-        service.randomization_arm_model = mock_arm_model
-        service.randomization_slot_model = mock_slot_model
+        service = DeleteRandomizationArmService(
+            randomization_audit_service=audit_service,
+            repository=repository,
+        )
 
         result = DeleteRandomizationArmService.execute.__wrapped__(
             service,
@@ -226,6 +211,5 @@ class DeleteRandomizationArmServiceTests(SimpleTestCase):
         self.assertEqual(arm.arm_code, "ARM-A_deleted_deadbeef")
         self.assertTrue(arm.deleted)
         self.assertFalse(arm.is_active)
-        arm.save.assert_called_once_with(update_fields=["arm_code", "deleted", "is_active", "updated_at"])
+        repository.save_arm.assert_called_once_with(arm, update_fields=["arm_code", "deleted", "is_active", "updated_at"])
         audit_service.record_arm_deleted.assert_called_once()
-

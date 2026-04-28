@@ -5,6 +5,7 @@ from django.db import transaction
 
 from apps.crf.application.form_builder_audit import CrfFormBuilderAuditService
 from apps.crf.domain import (
+    FieldKeyExistsError,
     FieldScopeViolationError,
     FieldTemplateAggregate,
     FormBuilderDomainValidationError,

@@ -12,7 +12,7 @@ from apps.crf.public import (
 from apps.crf.domain.exceptions import StudyScopeViolationError
 from apps.shared.constants import EventFormEntryModeChoices
 from apps.shared.context_processors import StudyDropdownHandler
-from apps.study.models import EventDefinition, EventFormBinding
+from apps.study.infrastructure.repositories import DjangoStudyEventRepository
 
 
 @dataclass(frozen=True)
@@ -55,6 +55,7 @@ class EventFormBindingImportFormatError(EventFormBindingImportTemplateError):
 
 class ImportStudyEventFormBindingsTemplateService:
     crf_context_adapter_class = CrfContextAdapter
+    repository_class = DjangoStudyEventRepository
     expected_columns = (
         "Event Code",
         "Form Code",
@@ -84,8 +85,9 @@ class ImportStudyEventFormBindingsTemplateService:
         # "query_response": EventFormEntryModeChoices.QUERY_RESPONSE,
     }
 
-    def __init__(self, crf_context_adapter=None):
+    def __init__(self, crf_context_adapter=None, repository=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
+        self.repository = repository or self.repository_class()
 
     @staticmethod
     def _resolve_selected_study_id(request):
@@ -189,13 +191,13 @@ class ImportStudyEventFormBindingsTemplateService:
         }
 
         with transaction.atomic():
-            binding = EventFormBinding.objects.filter(
+            binding = self.repository.get_event_form_binding(
                 event_definition_id=event_definition.pk,
                 form_definition_id=form_definition.pk,
-            ).first()
+            )
 
             if binding is None:
-                EventFormBinding.objects.create(
+                self.repository.create_event_form_binding(
                     event_definition_id=event_definition.pk,
                     form_definition_id=form_definition.pk,
                     created_at=now,
@@ -208,23 +210,22 @@ class ImportStudyEventFormBindingsTemplateService:
 
             for field_name, value in defaults.items():
                 setattr(binding, field_name, value)
-            binding.save(update_fields=list(defaults.keys()))
+            self.repository.save_event_form_binding(binding, update_fields=list(defaults.keys()))
             return "updated"
 
     def _resolve_event_definition(self, *, study_id, event_code):
-        queryset = EventDefinition.objects.filter(
+        event_definitions = list(self.repository.list_active_event_definitions_by_code(
             study_id=study_id,
-            deleted=False,
-            code__iexact=event_code,
-        ).order_by("pk")
-        count = queryset.count()
+            code=event_code,
+        ))
+        count = len(event_definitions)
         if count == 0:
             raise EventFormBindingImportFormatError("Event Code was not found.")
         if count > 1:
             raise EventFormBindingImportFormatError(
                 "Event Code matched multiple event definitions. Please make the code unique across study versions."
             )
-        return queryset.first()
+        return event_definitions[0]
 
     def _resolve_form_definition(self, *, study_id, form_code):
         try:

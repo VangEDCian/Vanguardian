@@ -3,7 +3,7 @@ from datetime import date
 
 from apps.study.application.commands.exceptions import StudyCodeAlreadyExistsError, StudyDateRangeError
 from apps.study.application.queries.study_directory import StudyNotFoundError
-from apps.study.infrastructure.persistence.models import Study
+from apps.study.infrastructure.repositories import DjangoStudyCommandRepository
 
 
 @dataclass(frozen=True)
@@ -20,8 +20,13 @@ class UpdateStudyCommand:
 
 
 class UpdateStudyService:
-    def execute(self, command: UpdateStudyCommand) -> Study:
-        study = Study.objects.filter(pk=command.study_id, deleted=False).first()
+    repository_class = DjangoStudyCommandRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    def execute(self, command: UpdateStudyCommand):
+        study = self.repository.get_study(study_id=command.study_id)
         if study is None:
             raise StudyNotFoundError(command.study_id)
 
@@ -35,23 +40,15 @@ class UpdateStudyService:
         study.start_date = command.start_date
         study.end_date = command.end_date
         study.is_active = command.is_active
-        study.updated_at = self._now()
-        study.updated_by_id = command.actor_user_id
-        study.save()
+        self.repository.touch_study(study, actor_user_id=command.actor_user_id)
 
-        return study
+        return self.repository.save_study(study)
 
-    @staticmethod
-    def _validate_code_unique(code, exclude_id):
-        if Study.objects.filter(code=code.strip(), deleted=False).exclude(pk=exclude_id).exists():
+    def _validate_code_unique(self, code, exclude_id):
+        if self.repository.study_code_exists(code=code, exclude_id=exclude_id):
             raise StudyCodeAlreadyExistsError(code)
 
     @staticmethod
     def _validate_date_range(start_date, end_date):
         if start_date and end_date and end_date < start_date:
             raise StudyDateRangeError(start_date, end_date)
-
-    @staticmethod
-    def _now():
-        from django.utils import timezone
-        return timezone.now()

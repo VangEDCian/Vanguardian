@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 
-from apps.audit.infrastructure.persistence.repositories import DjangoAuditEventRepository
+from apps.audit.infrastructure.repositories import DjangoAuditEventRepository
 
 
 @dataclass(frozen=True)

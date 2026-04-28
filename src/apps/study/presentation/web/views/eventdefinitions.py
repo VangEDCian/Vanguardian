@@ -30,7 +30,7 @@ from apps.study.presentation.web.forms import (
     EventFormBindingImportTemplateForm,
 )
 from apps.study.presentation.web.tables import EventDefinitionListTable
-from apps.study.presentation.web.viewpackages._helpers import _user_has_study_access
+from apps.study.presentation.web.views.helpers import _user_has_study_access
 
 __all__ = [
     "StudyEventDefinitionListView",

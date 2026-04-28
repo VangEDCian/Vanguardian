@@ -5,15 +5,11 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.choices.study import RandomizationSlotStatusChoice
-from apps.study.models import (
-    RandomizationArm,
-    RandomizationEligibility,
-    RandomizationScheme,
-    RandomizationSlot,
-)
+from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
 
 class StudyRandomizationDirectoryQueryService:
+    repository_class = DjangoStudyDirectoryRepository
     randomization_scheme_headers = (
         {"label": _("CODE")},
         {"label": _("NAME")},
@@ -64,39 +60,14 @@ class StudyRandomizationDirectoryQueryService:
         {"label": _("SCREENING STATUS")},
     )
 
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
     def get_overview(self, *, study_id):
-        schemes = list(
-            RandomizationScheme.objects.filter(
-                study_id=study_id,
-                deleted=False,
-            ).order_by("code")
-        )
-        arms = list(
-            RandomizationArm.objects.select_related("scheme")
-            .filter(
-                scheme__study_id=study_id,
-                scheme__deleted=False,
-                deleted=False,
-            )
-            .order_by("scheme_id", "display_order", "arm_code")
-        )
-        slots = list(
-            RandomizationSlot.objects.select_related("scheme", "arm")
-            .filter(
-                scheme__study_id=study_id,
-                scheme__deleted=False,
-                deleted=False,
-            )
-            .order_by("scheme__code", "sequence_no", "id")
-        )
-        eligibilities = list(
-            RandomizationEligibility.objects.select_related("scheme")
-            .filter(
-                study_id=study_id,
-                deleted=False,
-            )
-            .order_by("-evaluated_at", "scheme__code", "subject_id")
-        )
+        schemes = list(self.repository.list_randomization_schemes(study_id=study_id))
+        arms = list(self.repository.list_randomization_arms(study_id=study_id))
+        slots = list(self.repository.list_randomization_slots(study_id=study_id))
+        eligibilities = list(self.repository.list_randomization_eligibilities(study_id=study_id))
 
         return {
             "randomization_scheme_headers": self.randomization_scheme_headers,

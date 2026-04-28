@@ -4,7 +4,7 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
 from apps.study.application.queries.study_filters import StudyFilterQueryService
-from apps.study.infrastructure.persistence.models import Study
+from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
 
 class StudyNotFoundError(Exception):
@@ -12,6 +12,7 @@ class StudyNotFoundError(Exception):
 
 
 class StudyDirectoryQueryService:
+    repository_class = DjangoStudyDirectoryRepository
     studies_table_headers = (
         {"key": "code", "label": _("CODE")},
         {"key": "name", "label": _("NAME")},
@@ -37,7 +38,8 @@ class StudyDirectoryQueryService:
         "status": ("is_active", "code"),
     }
 
-    def __init__(self, *, registered_filter_query_service_classes=()):
+    def __init__(self, *, registered_filter_query_service_classes=(), repository=None):
+        self.repository = repository or self.repository_class()
         self.registered_filter_query_services = [
             filter_query_service_class() for filter_query_service_class in registered_filter_query_service_classes
         ]
@@ -65,18 +67,10 @@ class StudyDirectoryQueryService:
         if normalized_sort_key not in self.studies_sort_map:
             normalized_sort_key = "code"
 
-        studies_queryset = Study.objects.filter(deleted=False).order_by(
-            *self._build_order_by(normalized_sort_key, normalized_sort_direction)
+        studies_queryset = self.repository.list_studies(
+            order_by=self._build_order_by(normalized_sort_key, normalized_sort_direction),
+            user=user,
         )
-
-        # Data scope: only Django superusers bypass membership filtering.
-        if user is not None and not user.is_superuser:
-            from apps.identity.infrastructure.persistence.models import StudyMembership
-
-            member_study_ids = StudyMembership.objects.filter(user=user, deleted=False).values_list(
-                "study_id", flat=True
-            )
-            studies_queryset = studies_queryset.filter(pk__in=member_study_ids)
 
         active_filter_query_service = self._get_active_filter_query_service(normalized_filter_key)
         if active_filter_query_service is not None:
@@ -126,7 +120,7 @@ class StudyDirectoryQueryService:
         }
 
     def get_study_detail(self, *, study_id):
-        study = Study.objects.filter(pk=study_id, deleted=False).first()
+        study = self.repository.get_study(study_id=study_id)
         if study is None:
             raise StudyNotFoundError(study_id)
 

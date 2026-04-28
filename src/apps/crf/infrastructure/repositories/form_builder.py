@@ -12,7 +12,6 @@ from apps.crf.models import (
     CrfFieldUiConfig,
     CrfFieldValidationRule,
     CrfSectionTemplate,
-    CrfSectionLayoutConfig,
     CrfTemplate,
 )
 
@@ -152,7 +151,7 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
             actor_user_id=actor_user_id,
             now=now,
         )
-        validation_rules = self._replace_validation_rules(
+        self._replace_validation_rules(
             field_template_id=field.pk,
             snapshots=snapshot["field_validation_rules"],
             actor_user_id=actor_user_id,

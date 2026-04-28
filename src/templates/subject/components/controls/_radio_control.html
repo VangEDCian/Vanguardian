@@ -3,7 +3,7 @@
 <div class="{{ choice_list_class }}">
     {% for option in field.options %}
         <label>
-            <input type="radio" disabled name="field_{{ field.id }}" />
+            <input type="radio" name="field_{{ field.id }}" />
             {{ option.label }}
         </label>
     {% empty %}

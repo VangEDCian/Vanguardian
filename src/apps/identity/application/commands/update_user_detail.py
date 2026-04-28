@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 
-from django.contrib.auth.models import Group
 from django.db import transaction
 
 from apps.identity.application.queries import IdentityUserNotFoundError
-from apps.identity.models import User
+from apps.identity.infrastructure.repositories import DjangoIdentityUserRepository
 
 
 class IdentityUserEmailAlreadyExistsError(Exception):
@@ -31,9 +30,14 @@ class UpdateIdentityUserDetailCommand:
 
 
 class UpdateIdentityUserDetailService:
+    repository_class = DjangoIdentityUserRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
     @transaction.atomic
-    def execute(self, command: UpdateIdentityUserDetailCommand) -> User:
-        user = User.objects.prefetch_related("groups").filter(pk=command.user_id).first()
+    def execute(self, command: UpdateIdentityUserDetailCommand):
+        user = self.repository.get_user_with_groups(user_id=command.user_id)
         if user is None:
             raise IdentityUserNotFoundError(command.user_id)
 
@@ -56,12 +60,12 @@ class UpdateIdentityUserDetailService:
             user.set_password(command.new_password)
             user.attempt_login = 0
 
-        user.save()
+        self.repository.save_user(user)
 
         if command.can_manage_permissions:
             user.groups.set(self._resolve_groups(command.permission_group_ids))
 
-        return User.objects.prefetch_related("groups").get(pk=user.pk)
+        return self.repository.reload_user_with_groups(user)
 
     @staticmethod
     def _normalize_optional_identifier(value):
@@ -71,20 +75,18 @@ class UpdateIdentityUserDetailService:
         normalized_value = value.strip()
         return normalized_value or None
 
-    @staticmethod
-    def _validate_unique_email(email, *, exclude_user_id):
+    def _validate_unique_email(self, email, *, exclude_user_id):
         if not email:
             return
 
-        if User.objects.filter(email__iexact=email).exclude(pk=exclude_user_id).exists():
+        if self.repository.email_exists(email=email, exclude_user_id=exclude_user_id):
             raise IdentityUserEmailAlreadyExistsError(email)
 
-    @staticmethod
-    def _validate_unique_phone_number(phone_number, *, exclude_user_id):
+    def _validate_unique_phone_number(self, phone_number, *, exclude_user_id):
         if not phone_number:
             return
 
-        if User.objects.filter(phone_number=phone_number).exclude(pk=exclude_user_id).exists():
+        if self.repository.phone_number_exists(phone_number=phone_number, exclude_user_id=exclude_user_id):
             raise IdentityUserPhoneNumberAlreadyExistsError(phone_number)
 
     @staticmethod
@@ -103,8 +105,7 @@ class UpdateIdentityUserDetailService:
         user.is_superuser = False
         user.is_staff = False
 
-    @staticmethod
-    def _resolve_groups(permission_group_ids):
+    def _resolve_groups(self, permission_group_ids):
         normalized_group_ids = []
         seen_group_ids = set()
         for permission_group_id in permission_group_ids or ():
@@ -114,4 +115,4 @@ class UpdateIdentityUserDetailService:
             seen_group_ids.add(normalized_group_id)
             normalized_group_ids.append(normalized_group_id)
 
-        return Group.objects.filter(pk__in=normalized_group_ids).order_by("name")
+        return self.repository.list_groups_by_ids(normalized_group_ids)

@@ -4,37 +4,24 @@ from apps.crf.application.exceptions import (
 )
 from django.utils.translation import get_language
 
-from apps.crf.models import (
-    CrfFieldDefinition,
-    CrfFieldTemplate,
-    CrfFieldUiConfig,
-    CrfTemplate,
-)
+from apps.crf.infrastructure.repositories import DjangoCrfTemplateRepository
 
 
 class CrfTemplateQueryService:
-    template_model = CrfTemplate
-    field_template_model = CrfFieldTemplate
-    field_definition_model = CrfFieldDefinition
-    field_ui_config_model = CrfFieldUiConfig
+    repository_class = DjangoCrfTemplateRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
 
     def get_crf_template_model(self):
-        return self.template_model
+        return self.repository.get_crf_template_model()
 
     def list_study_templates_for_listing(self, *, study_id):
-        return self.template_model.objects.filter(
-            study_id=study_id,
-            deleted=False,
-        ).prefetch_related("translations")
+        return self.repository.list_study_templates_for_listing(study_id=study_id)
 
     def list_study_crf_navigation(self, *, study_id):
         current_language = self._normalize_language_code(get_language())
-        crf_templates = list(
-            self.template_model.objects.filter(
-                study_id=study_id,
-                deleted=False,
-            ).prefetch_related("translations").order_by("code", "id")
-        )
+        crf_templates = list(self.repository.list_study_crf_navigation_templates(study_id=study_id))
 
         payload = []
         for crf_template in crf_templates:
@@ -59,21 +46,14 @@ class CrfTemplateQueryService:
         return payload
 
     def list_study_templates_by_code(self, *, study_id, code):
-        return list(
-            self.template_model.objects.filter(
-                study_id=study_id,
-                deleted=False,
-                code=code,
-            ).order_by("version", "id")
-        )
+        return list(self.repository.list_study_templates_by_code(study_id=study_id, code=code))
 
     def resolve_unique_template_by_code_version(self, *, study_id, code, version):
-        queryset = self.template_model.objects.filter(
+        queryset = self.repository.find_unique_template_by_code_version(
             study_id=study_id,
-            deleted=False,
             code=code,
             version=version,
-        ).order_by("pk")
+        )
 
         count = queryset.count()
         if count == 0:
@@ -87,12 +67,11 @@ class CrfTemplateQueryService:
         return queryset.first()
 
     def resolve_unique_template_by_code(self, *, study_id, code, case_insensitive=False):
-        lookup_key = "code__iexact" if case_insensitive else "code"
-        queryset = self.template_model.objects.filter(
+        queryset = self.repository.find_unique_template_by_code(
             study_id=study_id,
-            deleted=False,
-            **{lookup_key: code},
-        ).order_by("pk")
+            code=code,
+            case_insensitive=case_insensitive,
+        )
 
         count = queryset.count()
         if count == 0:
@@ -107,39 +86,18 @@ class CrfTemplateQueryService:
 
     def list_template_fields_with_ui_config(self, *, template_id):
         current_language = self._normalize_language_code(get_language())
-        field_templates = list(
-            self.field_template_model.objects.filter(
-                crf_template_id=template_id,
-                section_template_id__isnull=False,
-                deleted=False,
-                is_active=True,
-            )
-            .select_related("section_template", "section_template__layout_config")
-            .prefetch_related("translations", "section_template__translations")
-            .order_by(
-                "section_template__display_order",
-                "section_template__id",
-                "display_order",
-                "id",
-            )
-        )
+        field_templates = list(self.repository.list_template_fields_with_related_config(template_id=template_id))
         if not field_templates:
             return []
 
         field_template_ids = [field_template.pk for field_template in field_templates]
         field_definition_map = {
             field_definition.field_template_id: field_definition
-            for field_definition in self.field_definition_model.objects.filter(
-                field_template_id__in=field_template_ids,
-                deleted=False,
-            )
+            for field_definition in self.repository.list_field_definitions_by_field_template_ids(field_template_ids)
         }
         ui_config_map = {
             ui_config.field_template_id: ui_config
-            for ui_config in self.field_ui_config_model.objects.filter(
-                field_template_id__in=field_template_ids,
-                deleted=False,
-            )
+            for ui_config in self.repository.list_field_ui_configs_by_field_template_ids(field_template_ids)
         }
 
         payload = []

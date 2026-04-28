@@ -2,11 +2,12 @@ import json
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.audit.infrastructure.persistence.models import AuditEvent
-from apps.shared.constants.audit_events import AuditEventAction, AuditEventObjectType
+from apps.shared.constants.audit_events import AuditEventAction
+from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
 
 class StudyHistoryQueryService:
+    repository_class = DjangoStudyDirectoryRepository
     _action_labels = {
         AuditEventAction.STUDY_CREATED: _("Created"),
         AuditEventAction.STUDY_UPDATED: _("Updated"),
@@ -14,16 +15,11 @@ class StudyHistoryQueryService:
         AuditEventAction.STUDY_DELETED: _("Deleted"),
     }
 
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
     def list_events(self, *, study_id):
-        events = (
-            AuditEvent.objects.filter(
-                object_type=AuditEventObjectType.STUDY,
-                object_id=str(study_id),
-                deleted=False,
-            )
-            .select_related("created_by")
-            .order_by("-created_at")
-        )
+        events = self.repository.list_study_history_events(study_id=study_id)
 
         return {
             "history_rows": [self._build_row(event) for event in events],

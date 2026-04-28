@@ -25,7 +25,7 @@ from apps.study.application import (
     RandomizationImportDependencyError,
     RandomizationImportFormatError,
 )
-from apps.study.presentation.web.viewpackages.randomization import (
+from apps.study.presentation.web.views.randomization import (
     StudyRandomizationCommitBaseView,
     StudyRandomizationImportBaseView,
 )
@@ -118,12 +118,12 @@ class RandomizationArmImportPreviewTests(SimpleTestCase):
             [column.label.strip() for column in RandomizationArmImportPreviewUseCase.columns],
         )
 
-    @patch("apps.study.application.commands.import_randomization.PreviewStudyRandomizationArmsImportService.randomization_scheme_model")
-    def test_preview_service_adds_issue_for_unknown_scheme_code(self, mock_scheme_model):
-        mock_values_list = MagicMock(return_value=["SCH-EXISTING"])
-        mock_scheme_model.objects.filter.return_value.values_list = mock_values_list
+    def test_preview_service_adds_issue_for_unknown_scheme_code(self):
+        repository = MagicMock()
+        repository.list_active_scheme_map.return_value = {"sch-existing": SimpleNamespace(code="SCH-EXISTING")}
+        repository.list_arm_map.return_value = {}
 
-        preview_service = PreviewStudyRandomizationArmsImportService()
+        preview_service = PreviewStudyRandomizationArmsImportService(repository=repository)
         command = PreviewRandomizationImportCommand(
             actor_user_id=9,
             study_id=3,
@@ -175,7 +175,7 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
         with self.assertRaises(RandomizationImportValidationError):
             self.service.execute(self.command)
 
-    @patch("apps.study.application.commands.import_randomization.transaction.atomic")
+    @patch("apps.study.application.commands.import_randomization.commit_services.transaction.atomic")
     def test_execute_counts_created_and_updated_rows(self, mock_atomic):
         mock_atomic.return_value.__enter__.return_value = None
         mock_atomic.return_value.__exit__.return_value = None
@@ -216,11 +216,10 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
             before_data={"code": "SCH-002"},
         )
 
-    @patch("apps.study.application.commands.import_randomization.RandomizationScheme")
-    def test_upsert_scheme_create_uses_expected_payload(self, mock_scheme_model):
-        mock_scheme_model.objects.filter.return_value.first.return_value = None
-        service = CommitStudyRandomizationSchemesImportService()
-        service.randomization_scheme_model = mock_scheme_model
+    def test_upsert_scheme_create_uses_expected_payload(self):
+        repository = MagicMock()
+        repository.get_scheme_by_code.return_value = None
+        service = CommitStudyRandomizationSchemesImportService(repository=repository)
         parsed_row = RandomizationImportParsedRow(
             row_number=2,
             identifier="SCH-001",
@@ -244,7 +243,7 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
 
         self.assertEqual(outcome[0], "created")
         self.assertEqual(outcome[2], {})
-        mock_scheme_model.objects.create.assert_called_once_with(
+        repository.create_scheme.assert_called_once_with(
             study_id=3,
             code="SCH-001",
             status="draft",
@@ -265,8 +264,7 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
             updated_at=ANY,
         )
 
-    @patch("apps.study.application.commands.import_randomization.RandomizationScheme")
-    def test_upsert_scheme_update_preserves_existing_status_when_import_status_empty(self, mock_scheme_model):
+    def test_upsert_scheme_update_preserves_existing_status_when_import_status_empty(self):
         existing_scheme = SimpleNamespace(
             study_id=3,
             code="SCH-001",
@@ -284,9 +282,9 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
             notes=None,
             save=MagicMock(),
         )
-        mock_scheme_model.objects.filter.return_value.first.return_value = existing_scheme
-        service = CommitStudyRandomizationSchemesImportService()
-        service.randomization_scheme_model = mock_scheme_model
+        repository = MagicMock()
+        repository.get_scheme_by_code.return_value = existing_scheme
+        service = CommitStudyRandomizationSchemesImportService(repository=repository)
         parsed_row = RandomizationImportParsedRow(
             row_number=2,
             identifier="SCH-001",
@@ -313,10 +311,9 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
         self.assertEqual(outcome[1], existing_scheme)
         self.assertEqual(outcome[2]["status"], "active")
         self.assertEqual(existing_scheme.status, "active")
-        existing_scheme.save.assert_called_once()
+        repository.save_scheme.assert_called_once()
 
-    @patch("apps.study.application.commands.import_randomization.RandomizationScheme")
-    def test_upsert_scheme_update_overrides_status_when_import_has_status(self, mock_scheme_model):
+    def test_upsert_scheme_update_overrides_status_when_import_has_status(self):
         existing_scheme = SimpleNamespace(
             study_id=3,
             code="SCH-001",
@@ -334,9 +331,9 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
             notes=None,
             save=MagicMock(),
         )
-        mock_scheme_model.objects.filter.return_value.first.return_value = existing_scheme
-        service = CommitStudyRandomizationSchemesImportService()
-        service.randomization_scheme_model = mock_scheme_model
+        repository = MagicMock()
+        repository.get_scheme_by_code.return_value = existing_scheme
+        service = CommitStudyRandomizationSchemesImportService(repository=repository)
         parsed_row = RandomizationImportParsedRow(
             row_number=2,
             identifier="SCH-001",
@@ -363,7 +360,7 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
         self.assertEqual(outcome[1], existing_scheme)
         self.assertEqual(outcome[2]["status"], "draft")
         self.assertEqual(existing_scheme.status, "active")
-        existing_scheme.save.assert_called_once()
+        repository.save_scheme.assert_called_once()
 
 
 class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
@@ -397,7 +394,7 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
         with self.assertRaises(RandomizationImportValidationError):
             self.service.execute(self.command)
 
-    @patch("apps.study.application.commands.import_randomization.transaction.atomic")
+    @patch("apps.study.application.commands.import_randomization.commit_services.transaction.atomic")
     def test_execute_counts_created_and_updated_rows(self, mock_atomic):
         mock_atomic.return_value.__enter__.return_value = None
         mock_atomic.return_value.__exit__.return_value = None
@@ -440,11 +437,10 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
             before_data={"arm_code": "ARM-B"},
         )
 
-    @patch("apps.study.application.commands.import_randomization.RandomizationArm")
-    def test_upsert_arm_create_uses_expected_payload(self, mock_arm_model):
-        mock_arm_model.objects.filter.return_value.first.return_value = None
-        service = CommitStudyRandomizationArmsImportService()
-        service.randomization_arm_model = mock_arm_model
+    def test_upsert_arm_create_uses_expected_payload(self):
+        repository = MagicMock()
+        repository.get_arm_by_code.return_value = None
+        service = CommitStudyRandomizationArmsImportService(repository=repository)
         parsed_row = RandomizationImportParsedRow(
             row_number=2,
             identifier="SCH-001 / ARM-A",
@@ -465,7 +461,7 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
 
         self.assertEqual(outcome[0], "created")
         self.assertEqual(outcome[3], {})
-        mock_arm_model.objects.create.assert_called_once_with(
+        repository.create_arm.assert_called_once_with(
             scheme=ANY,
             arm_code="ARM-A",
             current_count=0,

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from apps.study.application.commands.exceptions import StudyCodeAlreadyExistsError, StudyDateRangeError
-from apps.study.infrastructure.persistence.models import Study
+from apps.study.infrastructure.repositories import DjangoStudyCommandRepository
 
 
 @dataclass(frozen=True)
@@ -18,12 +18,16 @@ class CreateStudyCommand:
 
 
 class CreateStudyService:
-    def execute(self, command: CreateStudyCommand) -> Study:
+    repository_class = DjangoStudyCommandRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    def execute(self, command: CreateStudyCommand):
         self._validate_code_unique(command.code)
         self._validate_date_range(command.start_date, command.end_date)
 
-        now = self._now()
-        return Study.objects.create(
+        return self.repository.create_study(
             code=command.code.strip(),
             name=command.name.strip(),
             sponsor=command.sponsor.strip(),
@@ -31,23 +35,14 @@ class CreateStudyService:
             start_date=command.start_date,
             end_date=command.end_date,
             is_active=command.is_active,
-            created_at=now,
-            updated_at=now,
-            created_by_id=command.actor_user_id,
-            updated_by_id=command.actor_user_id,
+            actor_user_id=command.actor_user_id,
         )
 
-    @staticmethod
-    def _validate_code_unique(code):
-        if Study.objects.filter(code=code.strip(), deleted=False).exists():
+    def _validate_code_unique(self, code):
+        if self.repository.study_code_exists(code=code):
             raise StudyCodeAlreadyExistsError(code)
 
     @staticmethod
     def _validate_date_range(start_date, end_date):
         if start_date and end_date and end_date < start_date:
             raise StudyDateRangeError(start_date, end_date)
-
-    @staticmethod
-    def _now():
-        from django.utils import timezone
-        return timezone.now()

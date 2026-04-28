@@ -1,19 +1,14 @@
 from django.core import serializers
 
-from apps.identity.infrastructure.persistence.models import StudyMembership
-from apps.study.infrastructure.persistence.models import Study, Site
+from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
 
 class StudySiteDirectoryQueryService:
+    repository_class = DjangoStudyDirectoryRepository
+
     @classmethod
     def get_active_studies(cls, user):
-        studies = Study.objects.filter(deleted=False)
-        if not user.is_superuser:
-            study_ids = StudyMembership.objects.filter(user=user, deleted=False).values_list(
-                "study_id", flat=True,
-            )
-            studies = studies.filter(pk__in=study_ids)
-        return studies.order_by("code")
+        return cls.repository_class().list_active_studies(user=user)
 
     @classmethod
     def study_choices(cls, studies):
@@ -32,13 +27,13 @@ class StudySiteDirectoryQueryService:
         ]
 
     @classmethod
-    def get_study_id(cls, study_id) -> Study | None:
+    def get_study_id(cls, study_id):
         if study_id:
-            return Study.objects.filter(pk=study_id, deleted=False).first()
+            return cls.repository_class().get_study(study_id=study_id)
         return None
 
     @classmethod
-    def snapshot_site_obj(cls, site: Site, refresh_from_db: bool = False) -> str:
+    def snapshot_site_obj(cls, site, refresh_from_db: bool = False) -> str:
         if refresh_from_db:
             site.refresh_from_db()
         return serializers.serialize("json", [site])

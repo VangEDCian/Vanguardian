@@ -20,7 +20,8 @@ from apps.study.application.commands.import_event_definitions_template import (
 
 class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
     def setUp(self):
-        self.service = ImportStudyEventDefinitionsTemplateService()
+        self.repository = MagicMock()
+        self.service = ImportStudyEventDefinitionsTemplateService(repository=self.repository)
         self.event_definition = MagicMock(name="event_definition")
 
     def test_static_template_headers_match_expected_columns(self):
@@ -33,21 +34,19 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
 
         self.assertEqual(headers, list(self.service.expected_columns))
 
-    @patch("apps.study.application.commands.import_event_definitions_template.transaction.atomic")
+    @patch("apps.study.application.commands.import_event_definitions_template.service.transaction.atomic")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_sync_transition_rule")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_resolve_study_version", return_value="v1.0")
-    @patch("apps.study.application.commands.import_event_definitions_template.EventDefinition")
     def test_import_row_maps_new_event_definition_and_transition_fields(
         self,
-        mock_event_definition,
         mock_resolve_study_version,
         mock_sync_transition_rule,
         mock_atomic,
     ):
         mock_atomic.return_value = nullcontext()
         created_event_definition = MagicMock(name="created_event_definition")
-        mock_event_definition.objects.filter.return_value.first.return_value = None
-        mock_event_definition.objects.create.return_value = created_event_definition
+        self.service.repository.get_event_definition_for_import.return_value = None
+        self.service.repository.create_event_definition.return_value = created_event_definition
 
         outcome = self.service._import_row(
             study_id=3,
@@ -84,7 +83,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
 
         self.assertEqual(outcome, "created")
         mock_resolve_study_version.assert_called_once_with(study_id=3, raw_study_version="v1.0")
-        mock_event_definition.objects.create.assert_called_once_with(
+        self.service.repository.create_event_definition.assert_called_once_with(
             code="RAND",
             created_at=ANY,
             created_by_id=99,
@@ -127,21 +126,19 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             now=ANY,
         )
 
-    @patch("apps.study.application.commands.import_event_definitions_template.transaction.atomic")
+    @patch("apps.study.application.commands.import_event_definitions_template.service.transaction.atomic")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_sync_transition_rule")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_resolve_study_version", return_value="v1.0")
-    @patch("apps.study.application.commands.import_event_definitions_template.EventDefinition")
     def test_import_row_ignores_transition_columns_when_precondition_is_blank(
         self,
-        mock_event_definition,
         mock_resolve_study_version,
         mock_sync_transition_rule,
         mock_atomic,
     ):
         mock_atomic.return_value = nullcontext()
         created_event_definition = MagicMock(name="created_event_definition")
-        mock_event_definition.objects.filter.return_value.first.return_value = None
-        mock_event_definition.objects.create.return_value = created_event_definition
+        self.service.repository.get_event_definition_for_import.return_value = None
+        self.service.repository.create_event_definition.return_value = created_event_definition
 
         outcome = self.service._import_row(
             study_id=3,
@@ -199,13 +196,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             now=ANY,
         )
 
-    @patch("apps.study.application.commands.import_event_definitions_template.EventTransitionRule")
-    def test_sync_transition_rule_soft_deletes_existing_rules_when_precondition_removed(self, mock_transition_rule):
-        existing_transition_rules = MagicMock()
-        active_transition_rules = MagicMock()
-        mock_transition_rule.objects.filter.return_value = existing_transition_rules
-        existing_transition_rules.filter.return_value = active_transition_rules
-
+    def test_sync_transition_rule_soft_deletes_existing_rules_when_precondition_removed(self):
         self.service._sync_transition_rule(
             event_definition=self.event_definition,
             study_id=3,
@@ -227,39 +218,21 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             now="2026-04-13T21:45:00",
         )
 
-        mock_transition_rule.objects.filter.assert_called_once_with(
+        self.service.repository.soft_delete_transition_rules_for_event.assert_called_once_with(
             study_id=3,
             study_version="v1.0",
             to_event_definition=self.event_definition,
-        )
-        existing_transition_rules.filter.assert_called_once_with(deleted=False)
-        active_transition_rules.update.assert_called_once_with(
-            deleted=True,
+            actor_user_id=42,
             updated_at="2026-04-13T21:45:00",
-            updated_by_id=42,
         )
 
-    @patch("apps.study.application.commands.import_event_definitions_template.EventTransitionRule")
-    @patch("apps.study.application.commands.import_event_definitions_template.EventDefinition")
     def test_sync_transition_rule_replaces_stale_incoming_rule_when_precondition_changes(
         self,
-        mock_event_definition,
-        mock_transition_rule,
     ):
         from_event_definition = MagicMock(name="from_event_definition")
-        mock_event_definition.objects.filter.return_value.first.return_value = from_event_definition
-
-        existing_transition_rules = MagicMock()
-        stale_transition_rules = MagicMock()
-        active_stale_transition_rules = MagicMock()
-        matching_transition_rules = MagicMock()
         transition_rule = MagicMock()
-
-        mock_transition_rule.objects.filter.return_value = existing_transition_rules
-        existing_transition_rules.exclude.return_value = stale_transition_rules
-        stale_transition_rules.filter.return_value = active_stale_transition_rules
-        existing_transition_rules.filter.return_value = matching_transition_rules
-        matching_transition_rules.first.return_value = transition_rule
+        self.service.repository.get_active_event_definition_by_code.return_value = from_event_definition
+        self.service.repository.get_transition_rule.return_value = transition_rule
 
         self.service._sync_transition_rule(
             event_definition=self.event_definition,
@@ -282,14 +255,20 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             now="2026-04-13T21:46:00",
         )
 
-        existing_transition_rules.exclude.assert_called_once_with(from_event_definition=from_event_definition)
-        stale_transition_rules.filter.assert_called_once_with(deleted=False)
-        active_stale_transition_rules.update.assert_called_once_with(
-            deleted=True,
+        self.service.repository.soft_delete_transition_rules_for_event.assert_called_once_with(
+            study_id=3,
+            study_version="v1.0",
+            to_event_definition=self.event_definition,
+            exclude_from_event_definition=from_event_definition,
+            actor_user_id=84,
             updated_at="2026-04-13T21:46:00",
-            updated_by_id=84,
         )
-        existing_transition_rules.filter.assert_called_once_with(from_event_definition=from_event_definition)
+        self.service.repository.get_transition_rule.assert_called_once_with(
+            study_id=3,
+            study_version="v1.0",
+            to_event_definition=self.event_definition,
+            from_event_definition=from_event_definition,
+        )
         self.assertEqual(transition_rule.transition_type, EventTransitionTypeChoices.AUTOMATIC)
         self.assertEqual(transition_rule.condition_scope, EventTransitionConditionScopeChoices.ELIGIBILITY)
         self.assertEqual(transition_rule.condition_code, "eligible")
@@ -301,4 +280,4 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
         self.assertTrue(transition_rule.auto_create)
         self.assertFalse(transition_rule.requires_previous_completion)
         self.assertTrue(transition_rule.allow_skip)
-        transition_rule.save.assert_called_once()
+        self.service.repository.save_transition_rule.assert_called_once()

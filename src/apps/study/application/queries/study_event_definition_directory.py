@@ -2,17 +2,19 @@ from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.choices import EventDefinitionTypeChoices
-from apps.study.models import EventDefinition, EventTransitionRule
+from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
 
 class StudyEventDefinitionDirectoryQueryService:
+    repository_class = DjangoStudyDirectoryRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
     def list_event_definitions(self, *, study_id, search_query="", sort_query=""):
         normalized_search_query = (search_query or "").strip()
 
-        event_definitions_queryset = EventDefinition.objects.filter(
-            study_id=study_id,
-            deleted=False,
-        ).order_by("study_version", "sequence_no", "code", "pk")
+        event_definitions_queryset = self.repository.list_event_definitions(study_id=study_id)
 
         if normalized_search_query:
             event_definitions_queryset = event_definitions_queryset.filter(
@@ -46,14 +48,7 @@ class StudyEventDefinitionDirectoryQueryService:
 
     def build_diagram_context(self, *, study_id, event_definitions):
         transition_rules = list(
-            EventTransitionRule.objects.select_related("from_event_definition", "to_event_definition")
-            .filter(
-                study_id=study_id,
-                deleted=False,
-                from_event_definition__deleted=False,
-                to_event_definition__deleted=False,
-            )
-            .order_by("study_version", "display_order", "id")
+            self.repository.list_event_transition_rules(study_id=study_id)
         )
         diagram_nodes = self._build_diagram_nodes(event_definitions)
         diagram_links = self._build_diagram_links(event_definitions, transition_rules)

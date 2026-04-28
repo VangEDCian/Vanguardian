@@ -46,9 +46,9 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
         self.assertEqual(allocation["ARM-C"], 4)
 
     def test_validate_target_total_capacity_raises_when_assigned_exceeds_target(self):
-        slot_manager = MagicMock()
-        slot_manager.filter.return_value = _CountQuery(7)
-        self.service.randomization_slot_model = SimpleNamespace(objects=slot_manager)
+        repository = MagicMock()
+        repository.count_assigned_slots_for_scheme.return_value = 7
+        self.service.repository = repository
 
         scheme = SimpleNamespace(pk=11, target_randomized_total=5)
 
@@ -56,8 +56,7 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
             self.service.validate_target_total_capacity(scheme=scheme)
 
     def test_generate_slots_returns_when_scheme_not_active(self):
-        self.service.randomization_slot_model = SimpleNamespace(objects=MagicMock())
-        self.service.randomization_arm_model = SimpleNamespace(objects=MagicMock())
+        self.service.repository = MagicMock()
 
         scheme = SimpleNamespace(
             pk=1,
@@ -70,7 +69,7 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
         result = self.service.generate_slots_for_scheme_arm(scheme=scheme, arm=arm)
 
         self.assertIsNone(result)
-        self.service.randomization_slot_model.objects.filter.assert_not_called()
+        self.service.repository.list_slots_for_scheme.assert_not_called()
 
     def test_generate_slots_reconciles_available_slots_with_ratio(self):
         # Existing: assigned=1, available=7 (A:5, B:1, C:1), void=1
@@ -117,31 +116,16 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
             available_other_slot,
         ]
 
-        update_query = _UpdateQuery()
-
-        def slot_filter(**kwargs):
-            if kwargs.get("status") == RandomizationSlotStatusChoice.ASSIGNED:
-                return _CountQuery(1)
-            if "pk__in" in kwargs:
-                return update_query
-            return _OrderByQuery(existing_slots)
-
-        slot_manager = MagicMock()
-        slot_manager.filter.side_effect = slot_filter
-        slot_manager.bulk_create = MagicMock()
-
         active_arms = [
             SimpleNamespace(pk=201, arm_code="ARM-A"),
             SimpleNamespace(pk=202, arm_code="ARM-B"),
         ]
-        arm_manager = MagicMock()
-        arm_manager.filter.return_value = active_arms
-
-        slot_model_factory = MagicMock(side_effect=lambda **kwargs: SimpleNamespace(**kwargs))
-        slot_model_factory.objects = slot_manager
-
-        self.service.randomization_slot_model = slot_model_factory
-        self.service.randomization_arm_model = SimpleNamespace(objects=arm_manager)
+        repository = MagicMock()
+        repository.count_assigned_slots_for_scheme.return_value = 1
+        repository.list_active_arms_for_scheme.return_value = active_arms
+        repository.list_slots_for_scheme.return_value = existing_slots
+        repository.build_slot.side_effect = lambda **kwargs: SimpleNamespace(**kwargs)
+        self.service.repository = repository
 
         scheme = SimpleNamespace(
             pk=55,
@@ -155,23 +139,12 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
 
         self.assertIsNone(result)
 
-        update_query.update.assert_called_once()
-        update_kwargs = update_query.update.call_args.kwargs
-        self.assertIn("status", update_kwargs)
-        self.assertEqual(update_kwargs["status"], RandomizationSlotStatusChoice.VOID)
-        self.assertEqual(update_kwargs["void_reason"], "allocated slot")
-        self.assertIn("updated_at", update_kwargs)
+        repository.void_available_slots.assert_called_once()
+        self.assertCountEqual(repository.void_available_slots.call_args.kwargs["slot_ids"], [5, 7])
+        self.assertIn("updated_at", repository.void_available_slots.call_args.kwargs)
 
-        delete_filter_kwargs = [
-            call.kwargs
-            for call in slot_manager.filter.mock_calls
-            if call.kwargs.get("pk__in") is not None
-        ][0]
-        self.assertCountEqual(delete_filter_kwargs["pk__in"], [5, 7])
-        self.assertEqual(delete_filter_kwargs["status"], RandomizationSlotStatusChoice.AVAILABLE)
-
-        slot_manager.bulk_create.assert_called_once()
-        created_slots = slot_manager.bulk_create.call_args.args[0]
+        repository.bulk_create_slots.assert_called_once()
+        created_slots = repository.bulk_create_slots.call_args.args[0]
         self.assertEqual(len(created_slots), 2)
         self.assertEqual({slot.scheme_id for slot in created_slots}, {55})
         self.assertEqual({slot.arm_id for slot in created_slots}, {202})
@@ -182,18 +155,9 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
         self.assertEqual([slot.sequence_no for slot in created_slots], [10, 11])
 
     def test_generate_slots_raises_when_ratio_contains_inactive_or_missing_arm(self):
-        slot_manager = MagicMock()
-        slot_manager.filter.side_effect = lambda **kwargs: _CountQuery(
-            0,
-        ) if "status__in" in kwargs else _OrderByQuery([])
-        slot_model_factory = MagicMock(side_effect=lambda **kwargs: SimpleNamespace(**kwargs))
-        slot_model_factory.objects = slot_manager
-
-        arm_manager = MagicMock()
-        arm_manager.filter.return_value = [SimpleNamespace(pk=300, arm_code="ARM-A")]
-
-        self.service.randomization_slot_model = slot_model_factory
-        self.service.randomization_arm_model = SimpleNamespace(objects=arm_manager)
+        repository = MagicMock()
+        repository.list_active_arms_for_scheme.return_value = [SimpleNamespace(pk=300, arm_code="ARM-A")]
+        self.service.repository = repository
 
         scheme = SimpleNamespace(
             pk=77,
@@ -223,23 +187,11 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
         )
         existing_slots = [assigned_slot, void_slot]
 
-        def slot_filter(**kwargs):
-            if kwargs.get("status") == RandomizationSlotStatusChoice.ASSIGNED:
-                return _CountQuery(1)
-            return _OrderByQuery(existing_slots)
-
-        slot_manager = MagicMock()
-        slot_manager.filter.side_effect = slot_filter
-        slot_manager.bulk_create = MagicMock()
-
-        arm_manager = MagicMock()
-        arm_manager.filter.return_value = [SimpleNamespace(pk=501, arm_code="ARM-A")]
-
-        slot_model_factory = MagicMock(side_effect=lambda **kwargs: SimpleNamespace(**kwargs))
-        slot_model_factory.objects = slot_manager
-
-        self.service.randomization_slot_model = slot_model_factory
-        self.service.randomization_arm_model = SimpleNamespace(objects=arm_manager)
+        repository = MagicMock()
+        repository.count_assigned_slots_for_scheme.return_value = 1
+        repository.list_active_arms_for_scheme.return_value = [SimpleNamespace(pk=501, arm_code="ARM-A")]
+        repository.list_slots_for_scheme.return_value = existing_slots
+        self.service.repository = repository
 
         scheme = SimpleNamespace(
             pk=88,
@@ -253,4 +205,3 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
                 scheme=scheme,
                 arm=SimpleNamespace(arm_code="ARM-A"),
             )
-

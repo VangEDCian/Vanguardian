@@ -70,6 +70,7 @@ docker-compose.override.yml
 # agents
 .agents/
 .codex
+AGENTS.md
 AGENT.md
 
 *.dbml
@@ -79,3 +80,5 @@ node_modules
 
 test-results/
 seeders/
+
+migrations/*.py

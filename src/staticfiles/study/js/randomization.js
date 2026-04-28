@@ -10,7 +10,7 @@ class RandomizationImportController {
 
     buildDom() {
         return {
-            toggleButtons: document.querySelectorAll("[data-import-toggle-target]"),
+            importForms: document.querySelectorAll("[data-randomization-import-form]"),
             importInputs: document.querySelectorAll("[data-randomization-import-input]"),
             modal: document.getElementById("scheme-import-modal"),
             modalTitle: document.getElementById("scheme-import-modal-title"),
@@ -43,9 +43,8 @@ class RandomizationImportController {
     }
 
     init() {
-        this.bindPanelToggles();
         this.bindModal();
-        this.bindImportInputs();
+        this.bindImportForms();
         this.bindConfirmImport();
         this.bindExpandableCells();
         this.bindDeleteForms();
@@ -152,26 +151,6 @@ class RandomizationImportController {
         }
     }
 
-    bindPanelToggles() {
-        this.dom.toggleButtons.forEach((button) => {
-            button.addEventListener("click", () => {
-                const targetId = button.getAttribute("data-import-toggle-target");
-                if (!targetId) {
-                    return;
-                }
-
-                const targetPanel = document.getElementById(targetId);
-                if (!targetPanel) {
-                    return;
-                }
-
-                const isOpen = !targetPanel.hidden;
-                targetPanel.hidden = isOpen;
-                button.setAttribute("aria-expanded", String(!isOpen));
-            });
-        });
-    }
-
     bindModal() {
         this.dom.closeModalButtons.forEach((button) => {
             button.addEventListener("click", () => this.closeModal());
@@ -188,11 +167,18 @@ class RandomizationImportController {
         });
     }
 
-    bindImportInputs() {
-        this.dom.importInputs.forEach((input) => {
-            input.addEventListener("change", async (event) => {
-                const file = event.target.files?.[0];
-                await this.handleImportFile(input, file);
+    bindImportForms() {
+        this.dom.importForms.forEach((form) => {
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const input = form.querySelector("[data-randomization-import-input]");
+                if (!(input instanceof HTMLInputElement)) {
+                    this.setStatus(this.msg.unexpectedError, "error");
+                    this.openModal();
+                    return;
+                }
+
+                await this.handleImportFile(input, input.files?.[0]);
             });
         });
     }
@@ -228,6 +214,7 @@ class RandomizationImportController {
         this.setImportButtonDisabled(true);
         this.clearPreview();
         this.setStatus(this.msg.uploadingPreview, "info");
+        this.closeSourceImportModal(input);
         this.openModal();
 
         const response = await this.postFile(previewUrl, file);
@@ -423,6 +410,13 @@ class RandomizationImportController {
 
         this.dom.modal.hidden = false;
         this.dom.modal.setAttribute("aria-hidden", "false");
+    }
+
+    closeSourceImportModal(input) {
+        const sourceModal = input.closest(".modal-backdrop");
+        if (sourceModal) {
+            sourceModal.classList.remove("is-open");
+        }
     }
 
     closeModal() {

@@ -1,17 +1,17 @@
-from django.contrib.auth.models import Group
 from django.db.models import Q
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
 from apps.identity.application.queries.user_filters import IdentityUserFilterQueryService
-from apps.identity.models import User
+from apps.identity.infrastructure.repositories import DjangoIdentityUserRepository
 
 class IdentityUserNotFoundError(Exception):
     pass
 
 
 class IdentityUserDirectoryQueryService:
+    repository_class = DjangoIdentityUserRepository
     users_table_headers = (
         {"key": "username", "label": _("USERNAME")},
         {"key": "display_name", "label": _("DISPLAY NAME")},
@@ -41,7 +41,8 @@ class IdentityUserDirectoryQueryService:
         "last_login": ("last_login", "username"),
     }
 
-    def __init__(self, *, registered_filter_query_service_classes=()):
+    def __init__(self, *, registered_filter_query_service_classes=(), repository=None):
+        self.repository = repository or self.repository_class()
         self.registered_filter_query_services = [
             filter_query_service_class() for filter_query_service_class in registered_filter_query_service_classes
         ]
@@ -56,9 +57,9 @@ class IdentityUserDirectoryQueryService:
         if normalized_sort_key not in self.users_sort_map:
             normalized_sort_key = "username"
 
-        users_queryset = User.objects.filter(
-            deleted=False
-        ).order_by(*self._build_order_by(normalized_sort_key, normalized_sort_direction))
+        users_queryset = self.repository.list_users(
+            order_by=self._build_order_by(normalized_sort_key, normalized_sort_direction),
+        )
 
         active_filter_query_service = self._get_active_filter_query_service(normalized_filter_key)
         if active_filter_query_service is not None:
@@ -105,11 +106,7 @@ class IdentityUserDirectoryQueryService:
         }
 
     def get_user_detail(self, *, user_id, include_deleted=False):
-        user_queryset = User.objects.prefetch_related("groups").filter(pk=user_id)
-        if not include_deleted:
-            user_queryset = user_queryset.filter(deleted=False)
-
-        user = user_queryset.first()
+        user = self.repository.get_user_for_detail(user_id=user_id, include_deleted=include_deleted)
         if user is None:
             raise IdentityUserNotFoundError(user_id)
 
@@ -320,10 +317,9 @@ class IdentityUserDirectoryQueryService:
             )
         ]
 
-    @staticmethod
-    def _build_permission_group_options(selected_permission_groups):
+    def _build_permission_group_options(self, selected_permission_groups):
         selected_group_ids = {str(group.pk) for group in selected_permission_groups}
-        group_records = list(Group.objects.order_by("name"))
+        group_records = list(self.repository.list_groups())
 
         return [
             {

@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.crf.domain.exceptions import StudyScopeViolationError
-from apps.crf.models import CrfSectionTemplate, CrfTemplate
+from apps.crf.infrastructure.repositories import DjangoCrfTemplateRepository
 from apps.shared.context_processors import StudyDropdownHandler
 
 
@@ -40,8 +40,10 @@ class UpsertSectionTemplateCommand:
 
 
 class CrfTemplateCommandService:
-    template_model = CrfTemplate
-    section_template_model = CrfSectionTemplate
+    repository_class = DjangoCrfTemplateRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
 
     @staticmethod
     def _resolve_selected_study_id(request):
@@ -71,14 +73,14 @@ class CrfTemplateCommandService:
             "updated_by_id": command.actor_user_id,
         }
 
-        crf_template = self.template_model.objects.filter(
+        crf_template = self.repository.get_template_for_upsert(
             study_id=command.study_id,
             code=command.code,
             version=command.version,
-        ).first()
+        )
 
         if crf_template is None:
-            crf_template = self.template_model(
+            crf_template = self.repository.build_template(
                 study_id=command.study_id,
                 code=command.code,
                 version=command.version,
@@ -94,16 +96,13 @@ class CrfTemplateCommandService:
 
         self._set_translated_value(crf_template, "name", "vi", command.vi_name)
         self._set_translated_value(crf_template, "name", "en", command.en_name)
-        crf_template.save()
+        self.repository.save_template(crf_template)
         return import_outcome
 
     @transaction.atomic
     def upsert_section_template(self, command: UpsertSectionTemplateCommand, *, request, now=None):
         selected_study_id = self._resolve_selected_study_id(request)
-        crf_template = self.template_model.objects.filter(
-            pk=command.crf_template_id,
-            deleted=False,
-        ).first()
+        crf_template = self.repository.get_template(template_id=command.crf_template_id)
         if crf_template is None:
             raise StudyScopeViolationError("CRF template is not found in the selected study scope.")
         if int(crf_template.study_id) != selected_study_id:
@@ -124,24 +123,22 @@ class CrfTemplateCommandService:
 
         section_template = None
         if command.section_template_id:
-            section_template = self.section_template_model.objects.filter(
-                pk=command.section_template_id,
+            section_template = self.repository.get_section_template(
+                section_template_id=command.section_template_id,
                 crf_template_id=command.crf_template_id,
-            ).first()
+            )
 
         if section_template is None:
-            section_template = self.section_template_model(
+            section_template = self.repository.build_section_template(
                 crf_template_id=command.crf_template_id,
                 section_code=command.section_code,
                 created_at=timestamp,
                 created_by_id=command.actor_user_id,
                 **defaults,
             )
-            import_outcome = "created"
         else:
             for field_name, value in defaults.items():
                 setattr(section_template, field_name, value)
-            import_outcome = "updated"
 
         self._set_translated_value(section_template, "section_name", "vi", command.vi_name)
         self._set_translated_value(section_template, "section_name", "en", command.en_name)
@@ -151,7 +148,7 @@ class CrfTemplateCommandService:
         self._set_translated_value(section_template, "help_text", "en", command.en_help_text)
         self._set_translated_value(section_template, "instruction_text", "vi", command.vi_instruction_text)
         self._set_translated_value(section_template, "instruction_text", "en", command.en_instruction_text)
-        section_template.save()
+        self.repository.save_section_template(section_template)
         return section_template
 
     @staticmethod

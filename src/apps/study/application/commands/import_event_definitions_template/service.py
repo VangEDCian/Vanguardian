@@ -1,8 +1,4 @@
-from dataclasses import dataclass
-from io import BytesIO
-
 from django.db import transaction
-from django.utils import timezone
 
 from apps.core.choices import (
     EventDefinitionCategoryChoices,
@@ -12,48 +8,23 @@ from apps.core.choices import (
     EventTransitionConditionScopeChoices,
     EventTransitionTypeChoices,
 )
-from apps.study.infrastructure.persistence.models import EventDefinition, EventTransitionRule
+from apps.study.application.commands.import_event_definitions_template.transitions import EventDefinitionTransitionMixin
+from apps.study.application.commands.import_event_definitions_template.types import (
+    EventDefinitionImportFormatError,
+    EventDefinitionImportIssue,
+    ImportStudyEventDefinitionsTemplateCommand,
+    ImportStudyEventDefinitionsTemplateResult,
+)
+from apps.study.application.commands.import_event_definitions_template.workbook import EventDefinitionWorkbookMixin
+from apps.study.infrastructure.repositories import DjangoStudyEventRepository
 
 
-@dataclass(frozen=True)
-class ImportStudyEventDefinitionsTemplateCommand:
-    actor_user_id: int
-    study_id: int
-    file_name: str
-    file_content: bytes
+class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin, EventDefinitionWorkbookMixin):
+    repository_class = DjangoStudyEventRepository
 
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
 
-@dataclass(frozen=True)
-class EventDefinitionImportIssue:
-    row_number: int
-    study_code: str
-    code: str
-    reason: str
-
-
-@dataclass(frozen=True)
-class ImportStudyEventDefinitionsTemplateResult:
-    total_rows: int
-    created_count: int
-    updated_count: int
-    skipped_count: int
-    issues: tuple[EventDefinitionImportIssue, ...] = ()
-    warnings: tuple[str, ...] = ()
-
-
-class EventDefinitionImportTemplateError(Exception):
-    """Base error raised for event definition template import failures."""
-
-
-class EventDefinitionImportDependencyError(EventDefinitionImportTemplateError):
-    """Raised when the Excel parser dependency is missing."""
-
-
-class EventDefinitionImportFormatError(EventDefinitionImportTemplateError):
-    """Raised when the uploaded workbook shape is invalid."""
-
-
-class ImportStudyEventDefinitionsTemplateService:
     expected_columns = (
         "Study Version",
         "Code",
@@ -321,14 +292,14 @@ class ImportStudyEventDefinitionsTemplateService:
         }
 
         with transaction.atomic():
-            event_definition = EventDefinition.objects.filter(
+            event_definition = self.repository.get_event_definition_for_import(
                 study_id=study_id,
                 study_version=study_version,
                 code=code,
-            ).first()
+            )
 
             if event_definition is None:
-                event_definition = EventDefinition.objects.create(
+                event_definition = self.repository.create_event_definition(
                     code=code,
                     created_at=now,
                     created_by_id=actor_user_id,
@@ -358,7 +329,7 @@ class ImportStudyEventDefinitionsTemplateService:
 
             for field_name, value in defaults.items():
                 setattr(event_definition, field_name, value)
-            event_definition.save(update_fields=list(defaults.keys()))
+            self.repository.save_event_definition(event_definition, update_fields=list(defaults.keys()))
             self._sync_transition_rule(
                 event_definition=event_definition,
                 study_id=study_id,
@@ -380,237 +351,3 @@ class ImportStudyEventDefinitionsTemplateService:
                 now=now,
             )
             return "updated"
-
-    def _sync_transition_rule(
-        self,
-        *,
-        event_definition,
-        study_id,
-        study_version,
-        sequence_no,
-        precondition_code,
-        transition_type,
-        condition_scope,
-        condition_code,
-        condition_expression,
-        offset_days,
-        window_before_days,
-        window_after_days,
-        auto_open,
-        auto_create,
-        requires_previous_completion,
-        allow_skip,
-        actor_user_id,
-        now,
-    ):
-        existing_transition_rules = EventTransitionRule.objects.filter(
-            study_id=study_id,
-            study_version=study_version,
-            to_event_definition=event_definition,
-        )
-
-        if not precondition_code:
-            existing_transition_rules.filter(deleted=False).update(
-                deleted=True,
-                updated_at=now,
-                updated_by_id=actor_user_id,
-            )
-            return
-
-        from_event_definition = EventDefinition.objects.filter(
-            study_id=study_id,
-            study_version=study_version,
-            code__iexact=precondition_code,
-            deleted=False,
-        ).first()
-        if from_event_definition is None:
-            raise EventDefinitionImportFormatError(
-                f"Precondition event {precondition_code!r} was not found in study version {study_version!r}."
-            )
-
-        existing_transition_rules.exclude(from_event_definition=from_event_definition).filter(deleted=False).update(
-            deleted=True,
-            updated_at=now,
-            updated_by_id=actor_user_id,
-        )
-
-        transition_defaults = {
-            "transition_type": transition_type,
-            "condition_scope": condition_scope,
-            "condition_code": condition_code,
-            "condition_expression": condition_expression,
-            "offset_days": offset_days,
-            "window_before_days": window_before_days,
-            "window_after_days": window_after_days,
-            "auto_open": auto_open,
-            "auto_create": auto_create,
-            "requires_previous_completion": requires_previous_completion,
-            "allow_skip": allow_skip,
-            "display_order": sequence_no,
-            "is_enabled": True,
-            "deleted": False,
-            "updated_at": now,
-            "updated_by_id": actor_user_id,
-        }
-
-        transition_rule = existing_transition_rules.filter(
-            from_event_definition=from_event_definition,
-        ).first()
-
-        if transition_rule is None:
-            EventTransitionRule.objects.create(
-                study_id=study_id,
-                study_version=study_version,
-                from_event_definition=from_event_definition,
-                to_event_definition=event_definition,
-                created_at=now,
-                created_by_id=actor_user_id,
-                **transition_defaults,
-            )
-            return
-
-        for field_name, value in transition_defaults.items():
-            setattr(transition_rule, field_name, value)
-        transition_rule.save(update_fields=list(transition_defaults.keys()))
-
-    def _load_rows_from_workbook(self, *, file_name, file_content):
-        file_name_lower = (file_name or "").strip().lower()
-        if file_name_lower.endswith(".xlsx"):
-            return self._load_xlsx_rows(file_content)
-        if file_name_lower.endswith(".xls"):
-            return self._load_xls_rows(file_content)
-        raise EventDefinitionImportFormatError("Only .xlsx and .xls files are supported.")
-
-    def _load_xlsx_rows(self, file_content):
-        try:
-            from openpyxl import load_workbook
-        except ModuleNotFoundError as exc:
-            raise EventDefinitionImportDependencyError(
-                "Excel import support for .xlsx is not installed. Install openpyxl first."
-            ) from exc
-
-        workbook = load_workbook(filename=BytesIO(file_content), data_only=True, read_only=True)
-        worksheet = workbook.worksheets[0]
-        rows = list(worksheet.iter_rows(values_only=True))
-        return self._map_rows(rows)
-
-    def _load_xls_rows(self, file_content):
-        try:
-            import xlrd
-        except ModuleNotFoundError as exc:
-            raise EventDefinitionImportDependencyError(
-                "Excel import support for .xls is not installed. Install xlrd first."
-            ) from exc
-
-        workbook = xlrd.open_workbook(file_contents=file_content)
-        worksheet = workbook.sheet_by_index(0)
-        rows = [worksheet.row_values(index) for index in range(worksheet.nrows)]
-        return self._map_rows(rows)
-
-    def _map_rows(self, rows):
-        if not rows:
-            raise EventDefinitionImportFormatError("The workbook is empty.")
-
-        headers = [self._normalize_header(value) for value in rows[0]]
-        missing_headers = [
-            header
-            for header in self.expected_columns
-            if self._normalize_header(header) not in headers
-        ]
-        if missing_headers:
-            raise EventDefinitionImportFormatError(
-                "Missing required columns: " + ", ".join(missing_headers)
-            )
-
-        header_keys = [self.expected_header_map.get(header) for header in headers]
-        mapped_rows = []
-        for row_index, row_values in enumerate(rows[1:], start=2):
-            if self._is_blank_row(row_values):
-                continue
-
-            row_data = {}
-            for column_index, header_key in enumerate(header_keys):
-                if not header_key:
-                    continue
-                row_data[header_key] = row_values[column_index] if column_index < len(row_values) else None
-
-            mapped_rows.append((row_index, row_data))
-
-        return mapped_rows
-
-    @staticmethod
-    def _normalize_header(value):
-        return " ".join(str(value or "").strip().lower().split())
-
-    @staticmethod
-    def _is_blank_row(row_values):
-        return all(str(value or "").strip() == "" for value in row_values)
-
-    @staticmethod
-    def _as_text(value):
-        if value is None:
-            return ""
-        if isinstance(value, float) and value.is_integer():
-            return str(int(value))
-        return str(value).strip()
-
-    def _nullable_text(self, value):
-        normalized = self._as_text(value)
-        return normalized or None
-
-    def _resolve_study_version(self, *, study_id, raw_study_version):
-        normalized_study_version = self._as_text(raw_study_version)
-        existing_study_version = (
-            EventDefinition.objects.filter(
-                study_id=study_id,
-                study_version__iexact=normalized_study_version,
-            )
-            .values_list("study_version", flat=True)
-            .first()
-        )
-        if existing_study_version:
-            return existing_study_version
-        return normalized_study_version
-
-    def _coerce_bool(self, value, *, allow_blank=False, default=None):
-        normalized = self._as_text(value).lower()
-        if not normalized:
-            if allow_blank:
-                return default
-            raise EventDefinitionImportFormatError(f"Invalid boolean value: {value!r}")
-        if normalized in self.true_values:
-            return True
-        if normalized in self.false_values:
-            return False
-        raise EventDefinitionImportFormatError(f"Invalid boolean value: {value!r}")
-
-    def _coerce_int(self, value, *, field_label, allow_blank=False, default=None):
-        normalized = self._as_text(value)
-        if not normalized:
-            if allow_blank:
-                return None
-            if default is not None:
-                return default
-            raise EventDefinitionImportFormatError(f"{field_label} is required.")
-
-        try:
-            return int(float(normalized))
-        except ValueError as exc:
-            raise EventDefinitionImportFormatError(f"{field_label} must be a number.") from exc
-
-    def _normalize_choice(self, *, raw_value, aliases, field_label, allow_blank=False):
-        normalized = self._as_text(raw_value).lower().replace("-", " ").replace("_", " ")
-        normalized = " ".join(normalized.split())
-        if not normalized:
-            if allow_blank:
-                return None
-            raise EventDefinitionImportFormatError(f"{field_label} is required.")
-
-        resolved_value = aliases.get(normalized)
-        if resolved_value is None:
-            raise EventDefinitionImportFormatError(f"Invalid {field_label}: {raw_value!r}")
-        return resolved_value
-
-    @staticmethod
-    def _now():
-        return timezone.now()

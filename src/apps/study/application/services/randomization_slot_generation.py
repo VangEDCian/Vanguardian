@@ -4,10 +4,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy
 
 from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
-from apps.study.infrastructure.persistence.models import (
-    RandomizationArm, RandomizationScheme,
-    RandomizationSlot,
-)
+from apps.study.infrastructure.repositories import DjangoRandomizationRepository
 
 
 @dataclass(frozen=True)
@@ -28,13 +25,15 @@ class RandomizationSlotGenerationError(Exception):
 
 
 class StudyRandomizationSlotGenerationService:
-    randomization_arm_model = RandomizationArm
-    randomization_slot_model = RandomizationSlot
+    repository_class = DjangoRandomizationRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
 
     def check_target_total_capacity(
             self,
             *,
-            scheme: RandomizationScheme,
+            scheme,
             target_total: int | None = None,
     ) -> RandomizationSlotCapacityCheckResult:
         """Check whether ``target_total`` can accommodate current assigned slots.
@@ -45,18 +44,16 @@ class StudyRandomizationSlotGenerationService:
         normalized_total = int(
             target_total if target_total is not None else (scheme.target_randomized_total or 0),
         )
-        assigned_count = self.randomization_slot_model.objects.filter(
+        assigned_count = self.repository.count_assigned_slots_for_scheme(
             scheme_id=scheme.pk,
-            deleted=False,
-            status=RandomizationSlotStatusChoice.ASSIGNED,
-        ).count()
+        )
         return RandomizationSlotCapacityCheckResult(
             target_total=max(normalized_total, 0),
             assigned_count=assigned_count,
         )
 
     def validate_target_total_capacity(
-            self, *, scheme: RandomizationScheme, target_total: int | None = None,
+            self, *, scheme, target_total: int | None = None,
     ):
         """Validate assigned-slot capacity and raise domain error when invalid."""
         check_result = self.check_target_total_capacity(
@@ -77,7 +74,7 @@ class StudyRandomizationSlotGenerationService:
             ),
         )
 
-    def generate_slots_for_scheme_arm(self, scheme: RandomizationScheme, arm: RandomizationArm):
+    def generate_slots_for_scheme_arm(self, scheme, arm):
         """Reconcile available slots to match scheme ratio and target total.
 
         This method is idempotent for stable inputs and may be called from
@@ -102,13 +99,7 @@ class StudyRandomizationSlotGenerationService:
         if str(getattr(arm, "arm_code", "")).strip() not in ratio_map:
             return None
 
-        active_arms = list(
-            self.randomization_arm_model.objects.filter(
-                scheme_id=scheme.pk,
-                deleted=False,
-                is_active=True,
-            ),
-        )
+        active_arms = list(self.repository.list_active_arms_for_scheme(scheme_id=scheme.pk))
         arm_by_code = {str(item.arm_code).strip(): item for item in active_arms}
 
         missing_codes = [arm_code for arm_code in ratio_map if arm_code not in arm_by_code]
@@ -129,12 +120,7 @@ class StudyRandomizationSlotGenerationService:
             target_total=target_total,
         )
 
-        slots = list(
-            self.randomization_slot_model.objects.filter(
-                scheme_id=scheme.pk,
-                deleted=False,
-            ).order_by("sequence_no", "id"),
-        )
+        slots = list(self.repository.list_slots_for_scheme(scheme_id=scheme.pk))
         assigned_count = sum(1 for slot in slots if slot.status == RandomizationSlotStatusChoice.ASSIGNED)
         void_count = sum(1 for slot in slots if slot.status == RandomizationSlotStatusChoice.VOID)
         if assigned_count + void_count > target_total:
@@ -177,13 +163,8 @@ class StudyRandomizationSlotGenerationService:
                 slot_ids_to_release.extend(slot.pk for slot in surplus_slots)
 
         if slot_ids_to_release:
-            self.randomization_slot_model.objects.filter(
-                pk__in=slot_ids_to_release,
-                deleted=False,
-                status=RandomizationSlotStatusChoice.AVAILABLE,
-            ).update(
-                status=RandomizationSlotStatusChoice.VOID,
-                void_reason="allocated slot",
+            self.repository.void_available_slots(
+                slot_ids=slot_ids_to_release,
                 updated_at=now,
             )
 
@@ -198,7 +179,7 @@ class StudyRandomizationSlotGenerationService:
             for _ in range(missing_count):
                 max_sequence += 1
                 slots_to_create.append(
-                    self.randomization_slot_model(
+                    self.repository.build_slot(
                         scheme_id=scheme.pk,
                         arm_id=arm_instance.pk,
                         sequence_no=max_sequence,
@@ -217,7 +198,7 @@ class StudyRandomizationSlotGenerationService:
                 )
 
         if slots_to_create:
-            self.randomization_slot_model.objects.bulk_create(slots_to_create)
+            self.repository.bulk_create_slots(slots_to_create)
         return None
 
     @staticmethod

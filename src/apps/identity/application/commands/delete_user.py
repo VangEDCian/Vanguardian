@@ -1,17 +1,14 @@
 import json
 from dataclasses import dataclass
 
-from django.contrib.auth.models import Group
 from django.db import transaction
 
-from apps.audit.infrastructure.persistence.models import AuditEvent
 from apps.identity.application.queries import IdentityUserNotFoundError
-from apps.identity.models import User
+from apps.identity.infrastructure.repositories import DjangoIdentityUserRepository
 from apps.shared.application.services.soft_delete import (
     build_soft_deleted_optional_unique_value,
     build_soft_deleted_unique_value,
 )
-from apps.shared.constants import AuditEventAction, AuditEventObjectType
 
 
 @dataclass(frozen=True)
@@ -31,9 +28,14 @@ class IdentityUserRestoreDataNotFoundError(Exception):
 
 
 class DeleteIdentityUserService:
+    repository_class = DjangoIdentityUserRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
     @transaction.atomic
     def execute(self, command: DeleteIdentityUserCommand) -> None:
-        user = User.objects.prefetch_related("groups").filter(pk=command.user_id).first()
+        user = self.repository.get_user_with_groups(user_id=command.user_id)
         if user is None:
             raise IdentityUserNotFoundError(command.user_id)
 
@@ -44,13 +46,18 @@ class DeleteIdentityUserService:
         user.is_active = False
         user.is_staff = False
         user.is_superuser = False
-        user.save()
+        self.repository.save_user(user)
 
 
 class RestoreIdentityUserService:
+    repository_class = DjangoIdentityUserRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
     @transaction.atomic
-    def execute(self, command: RestoreIdentityUserCommand) -> User:
-        user = User.objects.prefetch_related("groups").filter(pk=command.user_id).first()
+    def execute(self, command: RestoreIdentityUserCommand):
+        user = self.repository.get_user_with_groups(user_id=command.user_id)
         if user is None:
             raise IdentityUserNotFoundError(command.user_id)
 
@@ -74,25 +81,19 @@ class RestoreIdentityUserService:
         user.deleted = False
         user.is_active = bool(snapshot.get("is_active", True))
         self._apply_role_flags(user, snapshot.get("role_key"))
-        user.save()
+        self.repository.save_user(user)
 
         restored_group_names = [
             group_name
             for group_name in snapshot.get("permission_groups", [])
             if group_name
         ]
-        user.groups.set(Group.objects.filter(name__in=restored_group_names).order_by("name"))
+        user.groups.set(self.repository.list_groups_by_names(restored_group_names))
 
-        return User.objects.prefetch_related("groups").get(pk=user.pk)
+        return self.repository.reload_user_with_groups(user)
 
-    @staticmethod
-    def _load_deleted_snapshot(user_id):
-        deleted_event = AuditEvent.objects.filter(
-            deleted=False,
-            action=AuditEventAction.IDENTITY_USER_DELETED,
-            object_type=AuditEventObjectType.IDENTITY_USER,
-            object_id=str(user_id),
-        ).order_by("-created_at").first()
+    def _load_deleted_snapshot(self, user_id):
+        deleted_event = self.repository.get_latest_user_deleted_event(user_id=user_id)
         if deleted_event is None:
             raise IdentityUserRestoreDataNotFoundError(user_id)
 
@@ -113,28 +114,29 @@ class RestoreIdentityUserService:
         normalized_value = str(value).strip()
         return normalized_value or None
 
-    @staticmethod
-    def _validate_unique_username(username, *, exclude_user_id):
+    def _validate_unique_username(self, username, *, exclude_user_id):
         if not username:
             return
 
-        if User.objects.filter(username__iexact=username, deleted=False).exclude(pk=exclude_user_id).exists():
+        if self.repository.username_exists(username=username, exclude_user_id=exclude_user_id, deleted=False):
             raise IdentityUserRestoreDataNotFoundError(username)
 
-    @staticmethod
-    def _validate_unique_email(email, *, exclude_user_id):
+    def _validate_unique_email(self, email, *, exclude_user_id):
         if not email:
             return
 
-        if User.objects.filter(email__iexact=email, deleted=False).exclude(pk=exclude_user_id).exists():
+        if self.repository.email_exists(email=email, exclude_user_id=exclude_user_id, deleted=False):
             raise IdentityUserRestoreDataNotFoundError(email)
 
-    @staticmethod
-    def _validate_unique_phone_number(phone_number, *, exclude_user_id):
+    def _validate_unique_phone_number(self, phone_number, *, exclude_user_id):
         if not phone_number:
             return
 
-        if User.objects.filter(phone_number=phone_number, deleted=False).exclude(pk=exclude_user_id).exists():
+        if self.repository.phone_number_exists(
+            phone_number=phone_number,
+            exclude_user_id=exclude_user_id,
+            deleted=False,
+        ):
             raise IdentityUserRestoreDataNotFoundError(phone_number)
 
     @staticmethod
