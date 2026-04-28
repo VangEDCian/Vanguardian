@@ -69,6 +69,28 @@
                                     {% endif %}
                                     {{ cell.value }}
                                 </span>
+                            {% elif cell.kind == "expandable_text" %}
+                                <div class="entity-table__expandable" data-expandable-text>
+                                    <span class="entity-table__expandable-content" data-expandable-content>{{ cell.value }}</span>
+                                    <button type="button"
+                                            class="entity-table__expandable-toggle"
+                                            data-expand-toggle
+                                            data-more-label="{% trans 'See more' %}"
+                                            data-less-label="{% trans 'See less' %}">
+                                        {% trans "See more" %}
+                                    </button>
+                                </div>
+                            {% elif cell.kind == "post_action" %}
+                                <form method="post"
+                                      action="{{ cell.action }}"
+                                      class="entity-table__post-action"
+                                      data-randomization-delete-form
+                                      {% if cell.confirm_message %}data-confirm-message="{{ cell.confirm_message }}"{% endif %}>
+                                    {% csrf_token %}
+                                    <button type="submit" class="{{ cell.button_class|default:'entity-table__post-action-btn' }}">
+                                        {{ cell.label }}
+                                    </button>
+                                </form>
                             {% else %}
                                 {{ cell.value }}
                             {% endif %}

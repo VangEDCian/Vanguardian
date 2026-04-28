@@ -1,6 +1,6 @@
 from django.db import models
 
-from .study import Study
+from apps.core.choices.study import RandomizationSlotStatusChoice, RandomizationSchemeStatusChoice
 
 
 class RandomizationScheme(models.Model):
@@ -9,7 +9,7 @@ class RandomizationScheme(models.Model):
     deleted = models.BooleanField(default=False)
 
     study = models.ForeignKey(
-        Study,
+        "study.Study",
         on_delete=models.DO_NOTHING,
         db_column="study_id",
         related_name="randomization_schemes",
@@ -19,14 +19,18 @@ class RandomizationScheme(models.Model):
     name = models.CharField(max_length=255)
 
     randomization_type = models.CharField(max_length=32)
-    allocation_ratio_json = models.TextField(null=True, blank=True)
+    allocation_ratio_json = models.JSONField(null=True, blank=True)
 
-    target_randomized_total = models.IntegerField()
+    target_randomized_total = models.PositiveIntegerField()
     eligibility_rule_code = models.CharField(max_length=64, null=True, blank=True)
     requires_screening_pass = models.BooleanField(default=True)
     is_open_label = models.BooleanField(default=True)
 
-    status = models.CharField(max_length=32, default="draft")
+    status = models.CharField(
+        max_length=32,
+        choices=RandomizationSchemeStatusChoice,
+        default=RandomizationSchemeStatusChoice.DRAFT,
+    )
     effective_from = models.DateTimeField(null=True, blank=True)
     effective_to = models.DateTimeField(null=True, blank=True)
 
@@ -120,7 +124,11 @@ class RandomizationSlot(models.Model):
     block_no = models.IntegerField(null=True, blank=True)
     stratum_code = models.CharField(max_length=64, null=True, blank=True)
 
-    status = models.CharField(max_length=32, default="available")
+    status = models.CharField(
+        max_length=32,
+        choices=RandomizationSlotStatusChoice,
+        default="available",
+    )
     assigned_subject_id = models.BigIntegerField(null=True, blank=True)
     assigned_event_id = models.BigIntegerField(null=True, blank=True)
     assigned_at = models.DateTimeField(null=True, blank=True)
@@ -162,7 +170,7 @@ class RandomizationEligibility(models.Model):
     deleted = models.BooleanField(default=False)
 
     study = models.ForeignKey(
-        Study,
+        "study.Study",
         on_delete=models.DO_NOTHING,
         db_column="study_id",
         related_name="randomization_eligibilities",

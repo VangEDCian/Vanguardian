@@ -1,6 +1,10 @@
+from collections import Counter
+import json
+
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.choices.study import RandomizationSlotStatusChoice
 from apps.study.models import (
     RandomizationArm,
     RandomizationEligibility,
@@ -14,10 +18,19 @@ class StudyRandomizationDirectoryQueryService:
         {"label": _("CODE")},
         {"label": _("NAME")},
         {"label": _("TYPE")},
+        {"label": _("ALLOCATION RATIO")},
         {"label": _("TARGET TOTAL")},
         {"label": _("ELIGIBILITY RULE")},
+        {"label": _("REQUIRES SCREENING PASS")},
+        {"label": _("IS OPEN LABEL")},
         {"label": _("STATUS")},
         {"label": _("EFFECTIVE FROM")},
+        {"label": _("EFFECTIVE TO")},
+        {"label": _("CREATED BY")},
+        {"label": _("APPROVED BY")},
+        {"label": _("NOTES")},
+        {"label": _("CREATED AT")},
+        {"label": _("UPDATED AT")},
     )
     randomization_arm_headers = (
         {"label": _("SCHEME")},
@@ -27,6 +40,9 @@ class StudyRandomizationDirectoryQueryService:
         {"label": _("CURRENT COUNT")},
         {"label": _("ORDER")},
         {"label": _("ACTIVE")},
+        {"label": _("NOTES")},
+        {"label": _("CREATED AT")},
+        {"label": _("UPDATED AT")},
     )
     randomization_slot_headers = (
         {"label": _("SCHEME")},
@@ -36,6 +52,8 @@ class StudyRandomizationDirectoryQueryService:
         {"label": _("BLOCK")},
         {"label": _("SUBJECT ID")},
         {"label": _("ASSIGNED AT")},
+        {"label": _("VOID REASON")},
+        {"label": _("NOTES")},
     )
     randomization_eligibility_headers = (
         {"label": _("SCHEME")},
@@ -60,7 +78,7 @@ class StudyRandomizationDirectoryQueryService:
                 scheme__deleted=False,
                 deleted=False,
             )
-            .order_by("scheme__code", "display_order", "arm_code")
+            .order_by("scheme_id", "display_order", "arm_code")
         )
         slots = list(
             RandomizationSlot.objects.select_related("scheme", "arm")
@@ -98,6 +116,7 @@ class StudyRandomizationDirectoryQueryService:
             "randomization_slot_headers": self.randomization_slot_headers,
             "randomization_slot_rows": [self._build_slot_row(slot) for slot in slots],
             "randomization_slot_total": len(slots),
+            "randomization_slot_status_summary": self._build_slot_status_summary(slots),
             "randomization_slot_empty_text": _(
                 "No randomization slots have been configured for this study."
             ),
@@ -121,18 +140,41 @@ class StudyRandomizationDirectoryQueryService:
                     "value": scheme.code,
                     "column_class": "entity-table__primary",
                 },
-                self._build_text_cell(scheme.name),
+                self._build_text_cell(
+                    scheme.name,
+                    column_class="entity-table__wrap entity-table__scheme-name",
+                ),
                 self._build_text_cell(
                     self._humanize_choice_value(scheme.randomization_type)
                 ),
-                self._build_text_cell(str(scheme.target_randomized_total)),
-                self._build_text_cell(scheme.eligibility_rule_code),
-                self._build_text_cell(self._humanize_choice_value(scheme.status)),
                 self._build_text_cell(
-                    date_format(scheme.effective_from, "DATETIME_FORMAT")
-                    if scheme.effective_from
+                    json.dumps(scheme.allocation_ratio_json, ensure_ascii=True)
+                    if scheme.allocation_ratio_json not in (None, "")
                     else ""
                 ),
+                self._build_text_cell(str(scheme.target_randomized_total)),
+                self._build_text_cell(scheme.eligibility_rule_code),
+                self._build_boolean_state_cell(scheme.requires_screening_pass),
+                self._build_boolean_state_cell(scheme.is_open_label),
+                self._build_text_cell(self._humanize_choice_value(scheme.status)),
+                self._build_datetime_cell(scheme.effective_from),
+                self._build_datetime_cell(scheme.effective_to),
+                self._build_text_cell(
+                    str(scheme.created_by_id)
+                    if scheme.created_by_id is not None
+                    else ""
+                ),
+                self._build_text_cell(
+                    str(scheme.approved_by_id)
+                    if scheme.approved_by_id is not None
+                    else ""
+                ),
+                self._build_expandable_text_cell(
+                    scheme.notes,
+                    column_class="entity-table__scheme-notes",
+                ),
+                self._build_datetime_cell(scheme.created_at),
+                self._build_datetime_cell(scheme.updated_at),
             ],
         }
 
@@ -146,7 +188,7 @@ class StudyRandomizationDirectoryQueryService:
                     "value": arm.arm_code,
                     "column_class": "entity-table__primary",
                 },
-                self._build_text_cell(arm.arm_name),
+                self._build_text_cell(arm.arm_name, column_class="entity-table__wrap"),
                 self._build_text_cell(str(arm.target_count)),
                 self._build_text_cell(str(arm.current_count)),
                 self._build_text_cell(str(arm.display_order)),
@@ -155,6 +197,12 @@ class StudyRandomizationDirectoryQueryService:
                     "value": _("Active") if arm.is_active else _("Inactive"),
                     "tone": "active" if arm.is_active else "inactive",
                 },
+                self._build_expandable_text_cell(
+                    arm.notes,
+                    column_class="entity-table__arm-notes",
+                ),
+                self._build_datetime_cell(arm.created_at),
+                self._build_datetime_cell(arm.updated_at),
             ],
         }
 
@@ -179,8 +227,31 @@ class StudyRandomizationDirectoryQueryService:
                     if slot.assigned_at
                     else ""
                 ),
+                self._build_text_cell(slot.void_reason),
+                self._build_expandable_text_cell(slot.notes, column_class="entity-table__slot-notes"),
             ],
         }
+
+    @staticmethod
+    def _build_slot_status_summary(slots):
+        status_counter = Counter(slot.status for slot in slots)
+        return (
+            {
+                "key": RandomizationSlotStatusChoice.AVAILABLE,
+                "label": _("Available"),
+                "count": status_counter.get(RandomizationSlotStatusChoice.AVAILABLE, 0),
+            },
+            {
+                "key": RandomizationSlotStatusChoice.ASSIGNED,
+                "label": _("Assigned"),
+                "count": status_counter.get(RandomizationSlotStatusChoice.ASSIGNED, 0),
+            },
+            {
+                "key": RandomizationSlotStatusChoice.VOID,
+                "label": _("Void"),
+                "count": status_counter.get(RandomizationSlotStatusChoice.VOID, 0),
+            },
+        )
 
     def _build_eligibility_row(self, eligibility):
         return {
@@ -208,10 +279,41 @@ class StudyRandomizationDirectoryQueryService:
         }
 
     @staticmethod
-    def _build_text_cell(value):
+    def _build_text_cell(value, *, column_class=None):
         if value not in (None, ""):
-            return {"kind": "text", "value": value}
-        return {"kind": "muted", "value": "—"}
+            cell = {"kind": "text", "value": value}
+        else:
+            cell = {"kind": "muted", "value": "—"}
+        if column_class:
+            cell["column_class"] = column_class
+        return cell
+
+    @staticmethod
+    def _build_expandable_text_cell(value, *, column_class=None):
+        if value in (None, ""):
+            return StudyRandomizationDirectoryQueryService._build_text_cell(
+                value,
+                column_class=column_class,
+            )
+        cell = {"kind": "expandable_text", "value": str(value)}
+        if column_class:
+            cell["column_class"] = column_class
+        return cell
+
+    @staticmethod
+    def _build_datetime_cell(value):
+        if value:
+            return {"kind": "text", "value": date_format(value, "DATETIME_FORMAT")}
+        return {"kind": "muted", "value": "-"}
+
+    @staticmethod
+    def _build_boolean_state_cell(value):
+        is_active = bool(value)
+        return {
+            "kind": "state",
+            "value": _("Yes") if is_active else _("No"),
+            "tone": "active" if is_active else "inactive",
+        }
 
     @staticmethod
     def _humanize_choice_value(value):

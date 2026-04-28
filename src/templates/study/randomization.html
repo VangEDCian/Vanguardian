@@ -12,6 +12,7 @@
 {% block extra_js %}
     {{ block.super }}
     <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+    <script src="{% static 'study/js/randomization.js' %}"></script>
 {% endblock %}
 {% block dashboard_breadcrumb_prefix %}
     <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
@@ -26,8 +27,35 @@
                         <h2 class="randomization-section__title">{% trans "Randomization Scheme" %}</h2>
                         <p class="randomization-section__description">{% trans "Study-level randomization configuration and lifecycle." %}</p>
                     </div>
-                    <span class="randomization-section__count">{{ randomization_scheme_total }}</span>
+                    <div class="randomization-section__actions">
+                        <span class="randomization-section__count">{{ randomization_scheme_total }}</span>
+                        {% if can_manage_randomization_import %}
+                            <button type="button"
+                                    class="randomization-import-toggle"
+                                    data-import-toggle-target="randomization-scheme-import"
+                                    aria-expanded="false">
+                                {% trans "Import from file" %}
+                            </button>
+                        {% endif %}
+                    </div>
                 </header>
+                <div id="randomization-scheme-import" class="randomization-import-panel" hidden>
+                    <div class="randomization-import-panel__controls">
+                        <input type="file"
+                               name="randomization_scheme_import_file"
+                               class="randomization-import-panel__input"
+                               accept=".xlsx,.xls,.csv"
+                               data-randomization-import-input
+                               data-import-kind="scheme"
+                               data-preview-url="{{ randomization_scheme_preview_url }}"
+                               data-commit-url="{{ randomization_scheme_commit_url }}"
+                               data-preview-title="{% trans 'Randomization Scheme Preview' %}"
+                        >
+                        <a href="{% static 'study/templates/randomization_scheme_template.xlsx' %}" class="randomization-import-panel__download" download>
+                            {% trans "Download template" %}
+                        </a>
+                    </div>
+                </div>
                 {% include "shared/components/_common_table.html" with headers=randomization_scheme_headers rows=randomization_scheme_rows empty_text=randomization_scheme_empty_text %}
             </section>
             <section class="randomization-section">
@@ -38,8 +66,35 @@
                             {% trans "Allocation arms defined under each randomization scheme." %}
                         </p>
                     </div>
-                    <span class="randomization-section__count">{{ randomization_arm_total }}</span>
+                    <div class="randomization-section__actions">
+                        <span class="randomization-section__count">{{ randomization_arm_total }}</span>
+                        {% if can_manage_randomization_import %}
+                            <button type="button"
+                                    class="randomization-import-toggle"
+                                    data-import-toggle-target="randomization-arm-import"
+                                    aria-expanded="false">
+                                {% trans "Import from file" %}
+                            </button>
+                        {% endif %}
+                    </div>
                 </header>
+                <div id="randomization-arm-import" class="randomization-import-panel" hidden>
+                    <div class="randomization-import-panel__controls">
+                        <input type="file"
+                               name="randomization_arm_import_file"
+                               class="randomization-import-panel__input"
+                               accept=".xlsx,.xls,.csv"
+                               data-randomization-import-input
+                               data-import-kind="arm"
+                               data-preview-url="{{ randomization_arm_preview_url }}"
+                               data-commit-url="{{ randomization_arm_commit_url }}"
+                               data-preview-title="{% trans 'Randomization Arm Preview' %}"
+                        >
+                        <a href="{% static 'study/templates/randomization_arms_template.xlsx' %}" class="randomization-import-panel__download" download>
+                            {% trans "Download template" %}
+                        </a>
+                    </div>
+                </div>
                 {% include "shared/components/_common_table.html" with headers=randomization_arm_headers rows=randomization_arm_rows empty_text=randomization_arm_empty_text %}
             </section>
             <section class="randomization-section">
@@ -50,7 +105,17 @@
                             {% trans "Concrete assignment slots available for subject randomization." %}
                         </p>
                     </div>
-                    <span class="randomization-section__count">{{ randomization_slot_total }}</span>
+                    <div class="randomization-section__actions randomization-section__actions--summary">
+                        <span class="randomization-section__count">{{ randomization_slot_total }}</span>
+                        <div class="randomization-slot-status" aria-label="{% trans 'Slot status summary' %}">
+                            {% for item in randomization_slot_status_summary %}
+                                <span class="randomization-slot-status__item randomization-slot-status__item--{{ item.key }}">
+                                    <span class="randomization-slot-status__label">{{ item.label }}</span>
+                                    <strong class="randomization-slot-status__count">{{ item.count }}</strong>
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </header>
                 {% include "shared/components/_common_table.html" with headers=randomization_slot_headers rows=randomization_slot_rows empty_text=randomization_slot_empty_text %}
             </section>
@@ -66,6 +131,46 @@
                 </header>
                 {% include "shared/components/_common_table.html" with headers=randomization_eligibility_headers rows=randomization_eligibility_rows empty_text=randomization_eligibility_empty_text %}
             </section>
+        </div>
+
+        <div id="scheme-import-i18n"
+             data-no-file="{% trans 'Please select a file first.' %}"
+             data-preview-truncated="{% trans 'Preview truncated to %(max)s rows (total rows: %(total)s).' %}"
+             data-importing="{% trans 'Importing...' %}"
+             data-import-success="{% trans 'Import completed successfully.' %}"
+             data-import-error="{% trans 'Import failed. Please try again.' %}"
+             data-preview-error="{% trans 'Could not preview the selected file.' %}"
+             data-uploading-preview="{% trans 'Uploading file for preview...' %}"
+             data-network-error="{% trans 'The request could not be completed. Please try again.' %}"
+             data-invalid-cells="{% trans 'Some cells contain invalid values. Please review the details below.' %}"
+             data-validation-error-title="{% trans 'Import validation issues' %}"
+             data-unexpected-error="{% trans 'An unexpected error occurred.' %}"
+             data-delete-error="{% trans 'Delete failed. Please try again.' %}"
+        >
+        </div>
+        <div id="scheme-import-modal" class="randomization-modal" aria-hidden="true" hidden>
+            <div class="randomization-modal__backdrop" data-scheme-modal-close></div>
+            <div class="randomization-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="scheme-import-modal-title">
+                <div class="randomization-modal__header">
+                    <h3 id="scheme-import-modal-title" class="randomization-modal__title">{% trans "Import Preview" %}</h3>
+                    <button type="button" class="randomization-modal__close" data-scheme-modal-close aria-label="{% trans 'Close' %}">&times;</button>
+                </div>
+                <div class="randomization-modal__body">
+                    <p id="scheme-import-modal-meta" class="randomization-modal__meta"></p>
+                    <div class="randomization-preview-table-wrap">
+                        <table id="scheme-import-preview-table" class="randomization-preview-table"></table>
+                    </div>
+                    <p id="scheme-import-modal-status" class="randomization-modal__status" role="status" aria-live="polite"></p>
+                </div>
+                <div class="randomization-modal__footer">
+                    <button type="button" class="randomization-modal__btn randomization-modal__btn--secondary" data-scheme-modal-close>
+                        {% trans "Cancel" %}
+                    </button>
+                    <button type="button" id="scheme-import-confirm" class="randomization-modal__btn randomization-modal__btn--primary" disabled>
+                        {% trans "Import" %}
+                    </button>
+                </div>
+            </div>
         </div>
     </section>
 {% endblock %}
