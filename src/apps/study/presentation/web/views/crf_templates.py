@@ -156,15 +156,13 @@ class StudyCrfTemplateListView(
         uploaded_file = import_form.cleaned_data["import_file"]
         command = ImportStudyCrfTemplatesTemplateCommand(
             actor_user_id=request.user.pk,
+            selected_study_id=self._study.pk,
             study_id=self._study.pk,
             file_name=uploaded_file.name,
             file_content=uploaded_file.read(),
         )
         try:
-            import_result = self.get_import_crf_templates_template_service().execute(
-                command,
-                request=request,
-            )
+            import_result = self.get_import_crf_templates_template_service().execute(command)
         except (CrfTemplateImportDependencyError, CrfTemplateImportFormatError) as exc:
             import_form.add_error(None, str(exc))
             return self.render_to_response(

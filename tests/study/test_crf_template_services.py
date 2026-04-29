@@ -5,10 +5,8 @@ from unittest.mock import MagicMock, patch
 from django.test import SimpleTestCase
 from openpyxl import load_workbook
 
-from apps.study.application.commands.import_crf_templates_template import (
+from apps.study.application.services import (
     ImportStudyCrfTemplatesTemplateService,
-)
-from apps.study.application.queries.study_crf_template_directory import (
     StudyCrfTemplateDirectoryQueryService,
 )
 
@@ -58,33 +56,35 @@ class ImportStudyCrfTemplatesTemplateServiceTests(SimpleTestCase):
             read_only=True,
         )
 
-        self.assertEqual(workbook.sheetnames, ["CRF Templates"])
+        self.assertEqual(workbook.sheetnames, ["Form Templates", "Section Templates"])
         self.assertEqual(
-            list(next(workbook["CRF Templates"].iter_rows(values_only=True))),
-            list(self.service.expected_columns["CRF Templates"]),
+            list(next(workbook["Form Templates"].iter_rows(values_only=True))),
+            list(self.service.expected_columns["Form Templates"]),
         )
 
     @patch.object(
         ImportStudyCrfTemplatesTemplateService,
         "_load_rows_from_workbook",
         return_value={
-            "CRF Templates": [
+            "Form Templates": [
                 (2, {"code": "AE", "vi_name": "Bien co bat loi", "en_name": "Adverse Event", "version": "v1"})
             ],
+            "Section Templates": [],
         },
     )
     def test_execute_imports_crf_sheet(self, mock_load_rows):
         call_order = []
 
-        def import_crf_template_row(**kwargs):
+        def import_form_template_row(**kwargs):
             call_order.append(("crf", kwargs["row_number"]))
-            return "created"
+            return "created", 101, "AE"
 
-        self.service._import_crf_template_row = import_crf_template_row
+        self.service._import_form_template_row = import_form_template_row
 
         result = self.service.execute(
             command=SimpleNamespace(
                 actor_user_id=7,
+                selected_study_id=3,
                 study_id=3,
                 file_name="crf_templates_import_template.xlsx",
                 file_content=b"xlsx",
@@ -99,12 +99,14 @@ class ImportStudyCrfTemplatesTemplateServiceTests(SimpleTestCase):
     def test_import_crf_template_row_calls_context_adapter(self):
         mock_adapter = MagicMock()
         mock_adapter.upsert_crf_template.return_value = "updated"
+        mock_adapter.resolve_unique_template_by_code_version.return_value = SimpleNamespace(pk=17, code="AE")
 
         service = ImportStudyCrfTemplatesTemplateService(
             crf_context_adapter=mock_adapter,
         )
 
-        outcome = service._import_crf_template_row(
+        outcome = service._import_form_template_row(
+            selected_study_id=7,
             study_id=7,
             row_data={
                 "code": "AE",
@@ -116,5 +118,5 @@ class ImportStudyCrfTemplatesTemplateServiceTests(SimpleTestCase):
             actor_user_id=11,
         )
 
-        self.assertEqual(outcome, "updated")
+        self.assertEqual(outcome, ("updated", 17, "AE"))
         mock_adapter.upsert_crf_template.assert_called_once()

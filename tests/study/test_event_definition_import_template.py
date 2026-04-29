@@ -13,9 +13,7 @@ from apps.core.choices import (
     EventTransitionConditionScopeChoices,
     EventTransitionTypeChoices,
 )
-from apps.study.application.commands.import_event_definitions_template import (
-    ImportStudyEventDefinitionsTemplateService,
-)
+from apps.study.application.services import ImportStudyEventDefinitionsTemplateService
 
 
 class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
@@ -34,7 +32,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
 
         self.assertEqual(headers, list(self.service.expected_columns))
 
-    @patch("apps.study.application.commands.import_event_definitions_template.service.transaction.atomic")
+    @patch("apps.study.application.services.import_event_definitions_template.transaction.atomic")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_sync_transition_rule")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_resolve_study_version", return_value="v1.0")
     def test_import_row_maps_new_event_definition_and_transition_fields(
@@ -126,7 +124,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             now=ANY,
         )
 
-    @patch("apps.study.application.commands.import_event_definitions_template.service.transaction.atomic")
+    @patch("apps.study.application.services.import_event_definitions_template.transaction.atomic")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_sync_transition_rule")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_resolve_study_version", return_value="v1.0")
     def test_import_row_ignores_transition_columns_when_precondition_is_blank(

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ImportStudyCrfTemplatesTemplateCommand:
     actor_user_id: int
+    selected_study_id: int
     study_id: int
     file_name: str
     file_content: bytes

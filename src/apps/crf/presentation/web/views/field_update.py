@@ -6,6 +6,7 @@ from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 
+from apps.audit.public import build_audit_request_context
 from apps.crf.application.form_builder_orchestration import (
     FormBuilderOrchestrationService,
     StudyScopeViolationError,
@@ -145,9 +146,12 @@ class CrfFieldUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Authentica
             return self.render_to_response(self.get_context_data(field_form=form))
 
         command = UpdateFieldAggregateCommand(
+            selected_study_id=int(selected_study_id),
             study_id=int(selected_study_id),
             field_id=field.pk,
             actor_user_id=request.user.pk,
+            ip_address=build_audit_request_context(request)["ip_address"],
+            user_agent=build_audit_request_context(request)["user_agent"],
             field_key=form.cleaned_data["field_key"],
             data_type=form.cleaned_data["data_type"],
             is_active=form.cleaned_data.get("is_active", True),
@@ -161,7 +165,7 @@ class CrfFieldUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Authentica
         )
 
         try:
-            self.get_orchestration_service().update_field(request=request, command=command)
+            self.get_orchestration_service().update_field(command=command)
         except StudyScopeViolationError as exc:
             raise Http404 from exc
         except FormBuilderDomainValidationError as exc:

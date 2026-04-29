@@ -1,7 +1,7 @@
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.study.application.commands.import_randomization.base import BaseRandomizationImportValidationService
+from apps.study.application.services.import_randomization_base import BaseRandomizationImportValidationService
 from apps.study.application.commands.import_randomization.types import PreviewRandomizationImportCommand
 from apps.study.application.use_cases.randomization_import_preview import (
     RandomizationArmImportPreviewUseCase,

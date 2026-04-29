@@ -1,16 +1,15 @@
-from apps.study.presentation.web.formpackages.crftemplates import (
+from apps.study.presentation.web.forms.crftemplates import (
     CrfTemplateImportTemplateForm,
     CrfTemplatesToolbarForm,
 )
-from apps.study.presentation.web.formpackages.eventformbindings import \
-    EventFormBindingImportTemplateForm
-from apps.study.presentation.web.formpackages.eventdefinitions import (
+from apps.study.presentation.web.forms.eventdefinitions import (
     EventDefinitionImportTemplateForm,
     EventDefinitionsToolbarForm,
 )
-from apps.study.presentation.web.formpackages.randomization import RandomizationImportFileForm
-from apps.study.presentation.web.formpackages.study import StudyForm
-from apps.study.presentation.web.formpackages.site import SiteForm, SiteMembershipForm
+from apps.study.presentation.web.forms.eventformbindings import EventFormBindingImportTemplateForm
+from apps.study.presentation.web.forms.randomization import RandomizationImportFileForm
+from apps.study.presentation.web.forms.site import SiteForm, SiteMembershipForm
+from apps.study.presentation.web.forms.study import StudyForm
 
 __all__ = [
     "StudyForm",

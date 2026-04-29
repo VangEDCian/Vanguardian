@@ -4,10 +4,8 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from apps.shared.context_processors import SiteDropdownHandler
-from apps.subject.application.commands.create_subject import (
-    CreateSubjectCommand,
-    CreateSubjectService,
-)
+from apps.subject.application.commands.create_subject import CreateSubjectCommand
+from apps.subject.application.services import CreateSubjectService
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 class SubjectCreateView(

@@ -5,6 +5,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
+from apps.audit.public import build_audit_request_context
 from apps.shared.views import AuthenticateTemplateView
 from apps.study.application import (
     StudyAuditService,
@@ -232,9 +233,9 @@ class StudyDetailView(
             return self.render_to_response(self.get_context_data(form=form))
 
         self.get_study_audit_service().record_updated(
-            request=request,
             study=updated_study,
             before_data=before_data,
+            **build_audit_request_context(request),
         )
 
         return redirect(

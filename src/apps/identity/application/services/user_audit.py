@@ -28,67 +28,79 @@ class IdentityUserAuditService:
     def __init__(self, audit_context_adapter=None):
         self.audit_context_adapter = audit_context_adapter or self.audit_context_adapter_class()
 
-    def record_created(self, *, request, user):
+    def record_created(self, *, user, actor_user_id=None, ip_address=None, user_agent=None):
         self.audit_context_adapter.record_event(
             action=AuditEventAction.IDENTITY_USER_CREATED,
             object_type=AuditEventObjectType.IDENTITY_USER,
             object_id=str(user.pk),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             user_id=user.pk,
             before_data={},
             after_data=serialize_identity_user_snapshot(user),
         )
 
-    def record_updated(self, *, request, user, before_data):
+    def record_updated(self, *, user, before_data, actor_user_id=None, ip_address=None, user_agent=None):
         self.audit_context_adapter.record_event(
             action=AuditEventAction.IDENTITY_USER_UPDATED,
             object_type=AuditEventObjectType.IDENTITY_USER,
             object_id=str(user.pk),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             user_id=user.pk,
             before_data=before_data,
             after_data=serialize_identity_user_snapshot(user),
         )
 
-    def record_deleted(self, *, request, user_id, before_data):
+    def record_deleted(self, *, user_id, before_data, actor_user_id=None, ip_address=None, user_agent=None):
         self.audit_context_adapter.record_event(
             action=AuditEventAction.IDENTITY_USER_DELETED,
             object_type=AuditEventObjectType.IDENTITY_USER,
             object_id=str(user_id),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             user_id=user_id,
             before_data=before_data,
             after_data={**before_data, "deleted": True, "is_active": False},
         )
 
-    def record_restored(self, *, request, user, before_data):
+    def record_restored(self, *, user, before_data, actor_user_id=None, ip_address=None, user_agent=None):
         self.audit_context_adapter.record_event(
             action=AuditEventAction.IDENTITY_USER_RESTORED,
             object_type=AuditEventObjectType.IDENTITY_USER,
             object_id=str(user.pk),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             user_id=user.pk,
             before_data=before_data,
             after_data=serialize_identity_user_snapshot(user),
         )
 
-    def record_user_change_password(self, request, user):
+    def record_user_change_password(self, *, user, actor_user_id=None, ip_address=None, user_agent=None):
         self.audit_context_adapter.record_event(
             action=AuditEventActionEnum.IDENTITY_USER_CHANGE_PASSWORD,
             object_type=AuditEventObjectTypeEnum.IDENTITY_USER,
             object_id=str(user.pk),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             user_id=user.pk,
             before_data={},
             after_data={},
         )
 
-    def record_admin_set_password(self, *, request, user):
+    def record_admin_set_password(self, *, user, actor_user_id=None, ip_address=None, user_agent=None):
         self.audit_context_adapter.record_event(
             action=AuditEventActionEnum.IDENTITY_USER_ADMIN_SET_PASSWORD,
             object_type=AuditEventObjectTypeEnum.IDENTITY_USER,
             object_id=str(user.pk),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             user_id=user.pk,
             before_data={},
             after_data={},

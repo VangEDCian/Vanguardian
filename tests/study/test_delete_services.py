@@ -2,17 +2,20 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
-from apps.study.application.commands.delete_study import DeleteStudyCommand, DeleteStudyService
+from apps.study.application.commands.delete_study import DeleteStudyCommand
 from apps.study.application.commands.delete_randomization import (
     DeleteRandomizationArmCommand,
-    DeleteRandomizationArmService,
     DeleteRandomizationSchemeCommand,
-    DeleteRandomizationSchemeService,
     RandomizationDeleteBlockedError,
 )
-from apps.study.application.commands.site import DeleteSiteService
 from apps.study.application.commands.site_data import DeleteSiteCommand, SiteNotFoundError
 from apps.study.application.queries.study_directory import StudyNotFoundError
+from apps.study.application.services import (
+    DeleteRandomizationArmService,
+    DeleteRandomizationSchemeService,
+    DeleteSiteService,
+    DeleteStudyService,
+)
 
 
 def _make_study(**kwargs):
@@ -54,7 +57,7 @@ def _make_site(**kwargs):
 
 
 class DeleteStudyServiceTests(SimpleTestCase):
-    @patch("apps.study.application.commands.delete_study.build_soft_deleted_unique_value")
+    @patch("apps.study.application.services.delete_study.build_soft_deleted_unique_value")
     def test_marks_study_deleted_and_suffixes_code(self, mock_suffix_builder):
         study = _make_study(pk=1, code="STUDY-001")
         mock_suffix_builder.return_value = "STUDY-001_deleted_deadbeef"
@@ -86,7 +89,7 @@ class DeleteStudyServiceTests(SimpleTestCase):
 
 
 class DeleteSiteServiceTests(SimpleTestCase):
-    @patch("apps.study.application.commands.site.build_soft_deleted_unique_value")
+    @patch("apps.study.application.services.site.build_soft_deleted_unique_value")
     def test_marks_site_deleted_and_suffixes_code(self, mock_suffix_builder):
         site = _make_site(pk=7, study_id=3, code="SITE-001")
         mock_suffix_builder.return_value = "SITE-001_deleted_deadbeef"
@@ -136,7 +139,7 @@ class DeleteRandomizationSchemeServiceTests(SimpleTestCase):
                 DeleteRandomizationSchemeCommand(actor_user_id=5, study_id=2, scheme_id=13),
             )
 
-    @patch("apps.study.application.commands.delete_randomization.build_soft_deleted_unique_value")
+    @patch("apps.study.application.services.delete_randomization.build_soft_deleted_unique_value")
     def test_soft_deletes_scheme_and_related_entities(self, mock_suffix_builder):
         now = MagicMock()
         mock_suffix_builder.return_value = "SCH-001_deleted_deadbeef"
@@ -185,7 +188,7 @@ class DeleteRandomizationArmServiceTests(SimpleTestCase):
                 DeleteRandomizationArmCommand(actor_user_id=6, study_id=2, arm_id=19),
             )
 
-    @patch("apps.study.application.commands.delete_randomization.build_soft_deleted_unique_value")
+    @patch("apps.study.application.services.delete_randomization.build_soft_deleted_unique_value")
     def test_soft_deletes_arm_and_related_slots(self, mock_suffix_builder):
         now = MagicMock()
         mock_suffix_builder.return_value = "ARM-A_deleted_deadbeef"

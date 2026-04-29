@@ -2,8 +2,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core.choices.study import RandomizationSchemeStatusChoice
-from apps.study.application.commands.import_randomization.base import BaseRandomizationImportValidationService
-from apps.study.application.commands.import_randomization.preview_services import (
+from apps.study.application.services.import_randomization_base import BaseRandomizationImportValidationService
+from apps.study.application.services.import_randomization_preview import (
     PreviewStudyRandomizationArmsImportService,
     PreviewStudyRandomizationSchemesImportService,
 )

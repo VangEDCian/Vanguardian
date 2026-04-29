@@ -23,9 +23,7 @@ from apps.study.application import (
     StudyNotFoundError,
     StudyRandomizationDirectoryQueryService,
 )
-from apps.study.application.commands.import_randomization import (
-    BaseRandomizationImportValidationService,
-)
+from apps.study.application.services import BaseRandomizationImportValidationService
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import RandomizationImportFileForm
 from apps.study.presentation.web.views.helpers import _user_has_study_access

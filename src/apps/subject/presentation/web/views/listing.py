@@ -9,9 +9,10 @@ from django_tables2 import SingleTableMixin
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.models import Subject
-from apps.subject.presentation.web.formpackages import SubjectsToolbarForm
+from apps.subject.presentation.web.forms import SubjectsToolbarForm
 from apps.subject.presentation.web.tables import SubjectListTable
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
+
 
 class SubjectListView(
     LoginRequiredMixin,

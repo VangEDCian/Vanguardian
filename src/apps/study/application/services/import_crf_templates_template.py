@@ -1,6 +1,5 @@
 from apps.crf.domain.exceptions import StudyScopeViolationError
 from apps.crf.public import CrfContextAdapter
-from apps.shared.context_processors import StudyDropdownHandler
 from apps.study.application.commands.import_crf_templates_template.types import (
     CrfTemplateImportFormatError,
     CrfTemplateImportIssue,
@@ -70,24 +69,23 @@ class ImportStudyCrfTemplatesTemplateService(CrfTemplateWorkbookMixin):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
 
     @staticmethod
-    def _resolve_selected_study_id(request):
-        try:
-            selected_study_id = StudyDropdownHandler(request=request).build().selected_id
-        except Exception as exc:
-            raise StudyScopeViolationError("No study is selected in the current context.") from exc
+    def _normalize_selected_study_id(selected_study_id):
         if selected_study_id is None:
             raise StudyScopeViolationError("No study is selected in the current context.")
         return int(selected_study_id)
 
     @classmethod
-    def _ensure_current_study_scope(cls, *, request, study_id):
-        selected_study_id = cls._resolve_selected_study_id(request)
+    def _ensure_current_study_scope(cls, *, selected_study_id, study_id):
+        selected_study_id = cls._normalize_selected_study_id(selected_study_id)
         if int(study_id) != selected_study_id:
             raise StudyScopeViolationError("Command study scope does not match the selected study.")
         return selected_study_id
 
-    def execute(self, command: ImportStudyCrfTemplatesTemplateCommand, *, request) -> ImportStudyCrfTemplatesTemplateResult:
-        self._ensure_current_study_scope(request=request, study_id=command.study_id)
+    def execute(self, command: ImportStudyCrfTemplatesTemplateCommand) -> ImportStudyCrfTemplatesTemplateResult:
+        self._ensure_current_study_scope(
+            selected_study_id=command.selected_study_id,
+            study_id=command.study_id,
+        )
         workbook_rows_by_sheet = self._load_rows_from_workbook(
             file_name=command.file_name,
             file_content=command.file_content,
@@ -102,7 +100,7 @@ class ImportStudyCrfTemplatesTemplateService(CrfTemplateWorkbookMixin):
             identifier = self._build_form_template_identifier(row_data)
             try:
                 import_outcome, imported_template_id, imported_template_code = self._import_form_template_row(
-                    request=request,
+                    selected_study_id=command.selected_study_id,
                     study_id=command.study_id,
                     row_data=row_data,
                     row_number=row_number,
@@ -130,7 +128,7 @@ class ImportStudyCrfTemplatesTemplateService(CrfTemplateWorkbookMixin):
             identifier = self._build_section_template_identifier(row_data)
             try:
                 row_created_count, row_updated_count = self._import_section_template_row(
-                    request=request,
+                    selected_study_id=command.selected_study_id,
                     study_id=command.study_id,
                     row_data=row_data,
                     row_number=row_number,
@@ -164,7 +162,7 @@ class ImportStudyCrfTemplatesTemplateService(CrfTemplateWorkbookMixin):
             warnings=(),
         )
 
-    def _import_form_template_row(self, *, request, study_id, row_data, row_number, actor_user_id):
+    def _import_form_template_row(self, *, selected_study_id, study_id, row_data, row_number, actor_user_id):
         code = self._require_text(
             row_data.get("code"),
             field_label="Code",
@@ -187,7 +185,7 @@ class ImportStudyCrfTemplatesTemplateService(CrfTemplateWorkbookMixin):
         )
 
         import_outcome = self.crf_context_adapter.upsert_crf_template(
-            request=request,
+            selected_study_id=selected_study_id,
             study_id=study_id,
             code=code,
             version=version,
@@ -206,7 +204,7 @@ class ImportStudyCrfTemplatesTemplateService(CrfTemplateWorkbookMixin):
     def _import_section_template_row(
         self,
         *,
-        request,
+        selected_study_id,
         study_id,
         row_data,
         row_number,
@@ -281,7 +279,7 @@ class ImportStudyCrfTemplatesTemplateService(CrfTemplateWorkbookMixin):
         updated_count = 0
         for template_id in template_ids:
             import_outcome = self.crf_context_adapter.upsert_section_template(
-                request=request,
+                selected_study_id=selected_study_id,
                 crf_template_id=template_id,
                 section_code=section_code,
                 vi_name=vi_name,

@@ -1,9 +1,9 @@
+from django.utils.translation import get_language
+
 from apps.crf.application.exceptions import (
     CrfTemplateAmbiguousError,
     CrfTemplateNotFoundError,
 )
-from django.utils.translation import get_language
-
 from apps.crf.infrastructure.repositories import DjangoCrfTemplateRepository
 
 
@@ -201,3 +201,6 @@ class CrfTemplateQueryService:
     def _normalize_language_code(language_code):
         normalized = (language_code or "en").strip().lower()
         return normalized.split("-", 1)[0]
+
+
+__all__ = ["CrfTemplateQueryService"]

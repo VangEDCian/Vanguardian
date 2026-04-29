@@ -47,7 +47,7 @@ class CrfContextAdapter:
     def upsert_crf_template(
         self,
         *,
-        request,
+        selected_study_id,
         study_id,
         code,
         version,
@@ -57,7 +57,7 @@ class CrfContextAdapter:
         now=None,
     ):
         return self.crf_template_service.upsert_crf_template(
-            request=request,
+            selected_study_id=selected_study_id,
             study_id=study_id,
             code=code,
             version=version,
@@ -70,7 +70,7 @@ class CrfContextAdapter:
     def upsert_section_template(
         self,
         *,
-        request,
+        selected_study_id,
         crf_template_id,
         section_template_id=None,
         section_code,
@@ -114,7 +114,7 @@ class CrfContextAdapter:
                 import_outcome = "created"
 
         result = self.crf_template_service.upsert_section_template(
-            request=request,
+            selected_study_id=selected_study_id,
             crf_template_id=crf_template_id,
             section_template_id=resolved_section_template_id,
             section_code=section_code,

@@ -1,9 +1,9 @@
 from apps.crf.application.commands import (
-    CrfTemplateCommandService,
     UpsertCrfTemplateCommand,
     UpsertSectionTemplateCommand,
 )
-from apps.crf.application.queries import CrfTemplateQueryService
+from apps.crf.application.services.crf_template_command import CrfTemplateCommandService
+from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 
 
 class CrfTemplateApplicationService:
@@ -54,7 +54,7 @@ class CrfTemplateApplicationService:
     def upsert_crf_template(
         self,
         *,
-        request,
+        selected_study_id,
         study_id,
         code,
         version,
@@ -65,6 +65,7 @@ class CrfTemplateApplicationService:
     ):
         return self.command_service.upsert_crf_template(
             UpsertCrfTemplateCommand(
+                selected_study_id=selected_study_id,
                 study_id=study_id,
                 code=code,
                 version=version,
@@ -72,14 +73,13 @@ class CrfTemplateApplicationService:
                 en_name=en_name,
                 actor_user_id=actor_user_id,
             ),
-            request=request,
             now=now,
         )
 
     def upsert_section_template(
         self,
         *,
-        request,
+        selected_study_id,
         crf_template_id,
         section_template_id,
         section_code,
@@ -101,6 +101,7 @@ class CrfTemplateApplicationService:
     ):
         return self.command_service.upsert_section_template(
             UpsertSectionTemplateCommand(
+                selected_study_id=selected_study_id,
                 crf_template_id=crf_template_id,
                 section_template_id=section_template_id,
                 section_code=section_code,
@@ -119,7 +120,6 @@ class CrfTemplateApplicationService:
                 max_repeats=max_repeats,
                 actor_user_id=actor_user_id,
             ),
-            request=request,
             now=now,
         )
 
@@ -127,3 +127,6 @@ class CrfTemplateApplicationService:
         return self.query_service.list_template_fields_with_ui_config(
             template_id=template_id,
         )
+
+
+__all__ = ["CrfTemplateApplicationService"]

@@ -1,4 +1,3 @@
-from apps.study.application.commands.import_event_definitions_template.service import ImportStudyEventDefinitionsTemplateService
 from apps.study.application.commands.import_event_definitions_template.types import (
     EventDefinitionImportDependencyError,
     EventDefinitionImportFormatError,
@@ -15,5 +14,4 @@ __all__ = [
     "EventDefinitionImportTemplateError",
     "ImportStudyEventDefinitionsTemplateCommand",
     "ImportStudyEventDefinitionsTemplateResult",
-    "ImportStudyEventDefinitionsTemplateService",
 ]

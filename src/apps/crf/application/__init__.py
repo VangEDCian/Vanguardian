@@ -1,5 +1,4 @@
 from apps.crf.application.commands import (
-    CrfTemplateCommandService,
     UpsertCrfTemplateCommand,
     UpsertSectionTemplateCommand,
 )
@@ -7,8 +6,11 @@ from apps.crf.application.exceptions import (
     CrfTemplateAmbiguousError,
     CrfTemplateNotFoundError,
 )
-from apps.crf.application.queries import CrfTemplateQueryService
-from apps.crf.application.services import CrfTemplateApplicationService
+from apps.crf.application.services import (
+    CrfTemplateApplicationService,
+    CrfTemplateCommandService,
+    CrfTemplateQueryService,
+)
 from apps.crf.application.form_builder_orchestration import (
     FormBuilderOrchestrationService,
     SaveFieldAggregateCommand,

@@ -2,7 +2,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.views import View
 
-from apps.study.application.queries.site_directory import StudySiteDirectoryQueryService
+from apps.study.application.services import StudySiteDirectoryQueryService
 from apps.study.presentation.web.views.helpers import _user_has_study_access
 
 class SubjectAbstractVerifyStudy(View):

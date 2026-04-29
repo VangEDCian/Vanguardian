@@ -6,14 +6,6 @@ from unittest.mock import ANY, MagicMock, patch
 from django.test import SimpleTestCase
 from openpyxl import load_workbook
 
-from apps.study.application.commands.import_randomization import (
-    CommitRandomizationImportCommand,
-    CommitStudyRandomizationArmsImportService,
-    CommitStudyRandomizationSchemesImportService,
-    PreviewRandomizationImportCommand,
-    PreviewStudyRandomizationArmsImportService,
-    RandomizationImportValidationError,
-)
 from apps.study.application.use_cases.randomization_import_preview import (
     RandomizationArmImportPreviewUseCase,
     RandomizationImportIssue,
@@ -24,6 +16,16 @@ from apps.study.application.use_cases.randomization_import_preview import (
 from apps.study.application import (
     RandomizationImportDependencyError,
     RandomizationImportFormatError,
+)
+from apps.study.application.commands.import_randomization import (
+    CommitRandomizationImportCommand,
+    PreviewRandomizationImportCommand,
+    RandomizationImportValidationError,
+)
+from apps.study.application.services import (
+    CommitStudyRandomizationArmsImportService,
+    CommitStudyRandomizationSchemesImportService,
+    PreviewStudyRandomizationArmsImportService,
 )
 from apps.study.presentation.web.views.randomization import (
     StudyRandomizationCommitBaseView,
@@ -51,8 +53,8 @@ class RandomizationSchemeImportPreviewUseCaseTests(SimpleTestCase):
     def test_execute_parses_csv_and_converts_integer_and_boolean_columns(self):
         csv_content = "\n".join(
             [
-                "Code,Name,Type,Target Randomized Total,Is Open Label,Requires Screening Pass,Eligibility Rule Code",
-                "SCH-001,Main Scheme,block,100,Yes,No,ELIG-01",
+                "Code,Name,Type,Allocation Ratio,Target Randomized Total,Is Open Label,Requires Screening Pass,Eligibility Rule Code",
+                "SCH-001,Main Scheme,block,,100,Yes,No,ELIG-01",
             ]
         ).encode("utf-8")
 
@@ -63,9 +65,10 @@ class RandomizationSchemeImportPreviewUseCaseTests(SimpleTestCase):
 
         self.assertEqual(result.total_rows, 1)
         self.assertEqual(result.issues, ())
-        self.assertEqual(result.preview_rows[0].values[3], 100)
-        self.assertTrue(result.preview_rows[0].values[4])
-        self.assertFalse(result.preview_rows[0].values[5])
+        self.assertEqual(result.preview_rows[0].values[3], "")
+        self.assertEqual(result.preview_rows[0].values[4], 100)
+        self.assertTrue(result.preview_rows[0].values[5])
+        self.assertFalse(result.preview_rows[0].values[6])
         self.assertEqual(result.parsed_rows[0].values["target_randomized_total"], 100)
 
     def test_execute_reports_duplicate_scheme_codes(self):
@@ -175,7 +178,7 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
         with self.assertRaises(RandomizationImportValidationError):
             self.service.execute(self.command)
 
-    @patch("apps.study.application.commands.import_randomization.commit_services.transaction.atomic")
+    @patch("apps.study.application.services.import_randomization_commit.transaction.atomic")
     def test_execute_counts_created_and_updated_rows(self, mock_atomic):
         mock_atomic.return_value.__enter__.return_value = None
         mock_atomic.return_value.__exit__.return_value = None
@@ -394,7 +397,7 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
         with self.assertRaises(RandomizationImportValidationError):
             self.service.execute(self.command)
 
-    @patch("apps.study.application.commands.import_randomization.commit_services.transaction.atomic")
+    @patch("apps.study.application.services.import_randomization_commit.transaction.atomic")
     def test_execute_counts_created_and_updated_rows(self, mock_atomic):
         mock_atomic.return_value.__enter__.return_value = None
         mock_atomic.return_value.__exit__.return_value = None

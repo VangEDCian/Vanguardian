@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
+from apps.audit.public import build_audit_request_context
 from apps.shared.views import AuthenticateTemplateView
 from apps.study.application import (
     CreateStudyCommand,
@@ -94,7 +95,10 @@ class StudyCreateView(
             form.add_error("end_date", _("End date must be on or after start date."))
             return self._render_form(request, form)
 
-        self.get_study_audit_service().record_created(request=request, study=study)
+        self.get_study_audit_service().record_created(
+            study=study,
+            **build_audit_request_context(request),
+        )
 
         return redirect(reverse("study:study_detail", kwargs={"study_id": study.pk}))
 
@@ -215,9 +219,9 @@ class StudyUpdateView(
             return self._render_form(request, form)
 
         self.get_study_audit_service().record_updated(
-            request=request,
             study=updated_study,
             before_data=before_data,
+            **build_audit_request_context(request),
         )
 
         return redirect(
@@ -256,7 +260,8 @@ class StudyToggleStatusView(LoginRequiredMixin, PermissionRequiredMixin, View):
             raise Http404
 
         self.get_study_audit_service().record_status_changed(
-            request=request, study=study
+            study=study,
+            **build_audit_request_context(request),
         )
 
         return redirect(reverse("study:study_detail", kwargs={"study_id": study_id}))
@@ -290,8 +295,8 @@ class StudyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
             )
         )
         self.get_study_audit_service().record_deleted(
-            request=request,
             study=deleted_study,
             before_data=before_data,
+            **build_audit_request_context(request),
         )
         return redirect(reverse("study:study_list"))

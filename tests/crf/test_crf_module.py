@@ -3,14 +3,12 @@ from unittest.mock import MagicMock, patch
 
 from django.test import RequestFactory, SimpleTestCase
 
-from apps.crf.application.commands import (
-    CrfTemplateCommandService,
-    UpsertCrfTemplateCommand,
-)
+from apps.crf.application.commands import UpsertCrfTemplateCommand
 from apps.crf.application.form_builder_orchestration import (
     FormBuilderOrchestrationService,
     SaveFieldAggregateCommand,
 )
+from apps.crf.application.services import CrfTemplateCommandService
 from apps.crf.domain.aggregate import FieldTemplateAggregate
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError
 from apps.crf.infrastructure.repositories.form_builder import DjangoOrmFormBuilderRepository
@@ -30,24 +28,18 @@ class CrfTemplateListTableTests(SimpleTestCase):
 
 
 class CrfTemplateCommandServiceTests(SimpleTestCase):
-    @patch.object(CrfTemplateCommandService, "_resolve_selected_study_id", return_value=5)
-    def test_upsert_crf_template_sets_bilingual_name_translations(self, _mock_selected_study):
+    def test_upsert_crf_template_sets_bilingual_name_translations(self):
         template_instance = MagicMock()
-        template_model = MagicMock()
-        template_model.objects.filter.return_value.first.return_value = None
-        template_model.return_value = template_instance
+        repository = MagicMock()
+        repository.get_template_for_upsert.return_value = None
+        repository.build_template.return_value = template_instance
 
-        service = CrfTemplateCommandService()
-        service.template_model = template_model
-
-        request = SimpleNamespace(
-            user=SimpleNamespace(is_authenticated=True, is_superuser=True),
-            COOKIES={"study_dropdown": "5"},
-        )
+        service = CrfTemplateCommandService(repository=repository)
 
         outcome = CrfTemplateCommandService.upsert_crf_template.__wrapped__(
             service,
             UpsertCrfTemplateCommand(
+                selected_study_id=5,
                 study_id=5,
                 code="AE",
                 version="v1.0",
@@ -55,7 +47,6 @@ class CrfTemplateCommandServiceTests(SimpleTestCase):
                 en_name="Adverse Event",
                 actor_user_id=9,
             ),
-            request=request,
             now="2026-04-24T10:00:00",
         )
 
@@ -63,7 +54,7 @@ class CrfTemplateCommandServiceTests(SimpleTestCase):
         template_instance.set_current_language.assert_any_call("vi", initialize=True)
         template_instance.set_current_language.assert_any_call("en", initialize=True)
         self.assertEqual(template_instance.name, "Adverse Event")
-        template_instance.save.assert_called_once()
+        repository.save_template.assert_called_once_with(template_instance)
 
 
 class FieldTemplateAggregateTests(SimpleTestCase):
@@ -114,8 +105,7 @@ class FieldTemplateAggregateTests(SimpleTestCase):
 
 
 class FormBuilderOrchestrationServiceTests(SimpleTestCase):
-    @patch.object(FormBuilderOrchestrationService, "_resolve_selected_study_id", return_value=3)
-    def test_save_field_records_audit_log_for_created_field(self, _mock_selected_study):
+    def test_save_field_records_audit_log_for_created_field(self):
         repository = MagicMock()
         audit_service = MagicMock()
         field = SimpleNamespace(
@@ -135,14 +125,13 @@ class FormBuilderOrchestrationServiceTests(SimpleTestCase):
             audit_service=audit_service,
         )
 
-        request = SimpleNamespace(
-            user=SimpleNamespace(is_authenticated=True, is_superuser=True),
-            COOKIES={"study_dropdown": "3"},
-        )
         command = SaveFieldAggregateCommand(
+            selected_study_id=3,
             study_id=3,
             form_id=7,
             actor_user_id=11,
+            ip_address="127.0.0.1",
+            user_agent="test-agent",
             field_id=None,
             field_key="VISIT_DATE",
             data_type="DATE",
@@ -187,7 +176,6 @@ class FormBuilderOrchestrationServiceTests(SimpleTestCase):
 
         result = FormBuilderOrchestrationService.save_field.__wrapped__(
             service,
-            request=request,
             command=command,
         )
 

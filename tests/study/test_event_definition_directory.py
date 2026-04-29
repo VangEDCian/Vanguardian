@@ -2,9 +2,7 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from apps.study.application.queries.study_event_definition_directory import (
-    StudyEventDefinitionDirectoryQueryService,
-)
+from apps.study.application.services import StudyEventDefinitionDirectoryQueryService
 
 
 def _make_event_definition(

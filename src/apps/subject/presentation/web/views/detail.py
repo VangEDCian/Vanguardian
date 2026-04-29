@@ -9,6 +9,7 @@ from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 from apps.subject.presentation.web.views.detail_navigation import SubjectDetailNavigationMixin
 from apps.subject.presentation.web.views.detail_rendering import SubjectDetailRenderingMixin
 
+
 class SubjectDetailView(
     SubjectDetailNavigationMixin,
     SubjectDetailRenderingMixin,

@@ -6,6 +6,7 @@ from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 
+from apps.audit.public import build_audit_request_context
 from apps.crf.application.form_builder_audit import CrfFormBuilderAuditService
 from apps.crf.application.form_builder_orchestration import (
     FormBuilderOrchestrationService,
@@ -22,10 +23,7 @@ from apps.crf.presentation.web.forms import (
 )
 from apps.crf.presentation.web.views.builder_support import CrfFormBuilderSupportMixin
 from apps.shared.views import AuthenticateTemplateView
-from apps.study.application.queries.study_directory import (
-    StudyDirectoryQueryService,
-    StudyNotFoundError,
-)
+from apps.study.application import StudyDirectoryQueryService, StudyNotFoundError
 
 
 class CrfFormBuilderView(
@@ -116,11 +114,11 @@ class CrfFormBuilderView(
                 raise Http404
 
             self.get_audit_service().record_field_deleted(
-                request=request,
                 study_id=int(selected_study_id),
                 form_id=self.kwargs["form_id"],
                 field_template_id=field.pk,
                 before_data=before_data,
+                **build_audit_request_context(request),
             )
             return redirect(reverse("crf:form_builder", kwargs={"form_id": self.kwargs["form_id"]}))
 
@@ -148,7 +146,6 @@ class CrfFormBuilderView(
                 raise Http404
 
             self.get_audit_service().record_section_template_deleted(
-                request=request,
                 study_id=int(selected_study_id),
                 form_id=self.kwargs["form_id"],
                 section_object_id=section_id,
@@ -158,6 +155,7 @@ class CrfFormBuilderView(
                     "is_required": section.get("is_required", True),
                     "is_repeatable": section.get("is_repeatable", False),
                 },
+                **build_audit_request_context(request),
             )
             return redirect(reverse("crf:form_builder", kwargs={"form_id": self.kwargs["form_id"]}))
 
@@ -169,7 +167,7 @@ class CrfFormBuilderView(
 
             try:
                 self.get_template_service().upsert_crf_template(
-                    request=request,
+                    selected_study_id=int(selected_study_id),
                     study_id=int(selected_study_id),
                     code=form.cleaned_data["code"],
                     version=form.cleaned_data["version"],
@@ -178,7 +176,6 @@ class CrfFormBuilderView(
                     actor_user_id=request.user.pk,
                 )
                 self.get_audit_service().record_template_saved(
-                    request=request,
                     study_id=int(selected_study_id),
                     template_id=form.cleaned_data.get("template_id") or self.kwargs["form_id"],
                     after_data={
@@ -187,6 +184,7 @@ class CrfFormBuilderView(
                         "name_en": form.cleaned_data.get("name_en", "") or "",
                         "name_vi": form.cleaned_data.get("name_vi", "") or "",
                     },
+                    **build_audit_request_context(request),
                 )
             except StudyScopeViolationError as exc:
                 raise Http404 from exc
@@ -201,7 +199,7 @@ class CrfFormBuilderView(
 
             try:
                 section_template = self.get_template_service().upsert_section_template(
-                    request=request,
+                    selected_study_id=int(selected_study_id),
                     crf_template_id=self.kwargs["form_id"],
                     section_template_id=form.cleaned_data.get("section_template_id"),
                     section_code=form.cleaned_data["section_code"],
@@ -221,7 +219,6 @@ class CrfFormBuilderView(
                     actor_user_id=request.user.pk,
                 )
                 self.get_audit_service().record_section_template_saved(
-                    request=request,
                     study_id=int(selected_study_id),
                     form_id=self.kwargs["form_id"],
                     section_object_id=form.cleaned_data.get("section_template_id") or form.cleaned_data["section_code"],
@@ -231,6 +228,7 @@ class CrfFormBuilderView(
                         "is_required": form.cleaned_data.get("is_required", True),
                         "is_repeatable": form.cleaned_data.get("is_repeatable", False),
                     },
+                    **build_audit_request_context(request),
                 )
             except StudyScopeViolationError as exc:
                 raise Http404 from exc
@@ -250,9 +248,12 @@ class CrfFormBuilderView(
             return self.render_to_response(self.get_context_data())
 
         command = SaveFieldAggregateCommand(
+            selected_study_id=int(selected_study_id),
             study_id=int(selected_study_id),
             form_id=self.kwargs["form_id"],
             actor_user_id=request.user.pk,
+            ip_address=build_audit_request_context(request)["ip_address"],
+            user_agent=build_audit_request_context(request)["user_agent"],
             field_id=form.cleaned_data.get("field_id"),
             field_key=form.cleaned_data["field_key"],
             data_type=form.cleaned_data["data_type"],
@@ -267,7 +268,7 @@ class CrfFormBuilderView(
         )
 
         try:
-            self.get_orchestration_service().save_field(request=request, command=command)
+            self.get_orchestration_service().save_field(command=command)
         except StudyScopeViolationError as exc:
             raise Http404 from exc
         except FormBuilderDomainValidationError as exc:

@@ -1,26 +1,24 @@
 from apps.identity.application.commands import (
     CreateIdentityUserCommand,
-    CreateIdentityUserService,
     DeleteIdentityUserCommand,
-    DeleteIdentityUserService,
     IdentityUserRestoreDataNotFoundError,
     IdentityUserEmailAlreadyExistsError,
     IdentityUserPhoneNumberAlreadyExistsError,
     IdentityUsernameAlreadyExistsError,
     RestoreIdentityUserCommand,
-    RestoreIdentityUserService,
     UpdateIdentityUserDetailCommand,
-    UpdateIdentityUserDetailService,
 )
-from apps.identity.application.queries import (
+from apps.identity.application.queries import IdentityUserNotFoundError
+from apps.identity.application.services import (
+    CreateIdentityUserService,
+    DeleteIdentityUserService,
+    IdentityLoginAuditService,
+    IdentityUserAuditService,
     IdentityUserDirectoryQueryService,
     IdentityUserFilterActiveQueryService,
     IdentityUserFilterInactiveQueryService,
-    IdentityUserNotFoundError,
-)
-from apps.identity.application.services import (
-    IdentityLoginAuditService,
-    IdentityUserAuditService,
+    RestoreIdentityUserService,
+    UpdateIdentityUserDetailService,
     serialize_identity_user_snapshot,
 )
 

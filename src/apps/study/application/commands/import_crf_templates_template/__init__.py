@@ -1,4 +1,3 @@
-from apps.study.application.commands.import_crf_templates_template.service import ImportStudyCrfTemplatesTemplateService
 from apps.study.application.commands.import_crf_templates_template.types import (
     CrfTemplateImportDependencyError,
     CrfTemplateImportFormatError,
@@ -15,5 +14,4 @@ __all__ = [
     "CrfTemplateImportTemplateError",
     "ImportStudyCrfTemplatesTemplateCommand",
     "ImportStudyCrfTemplatesTemplateResult",
-    "ImportStudyCrfTemplatesTemplateService",
 ]

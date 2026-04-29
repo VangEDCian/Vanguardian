@@ -302,15 +302,13 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
         uploaded_file = binding_import_form.cleaned_data["import_file"]
         command = ImportStudyEventFormBindingsTemplateCommand(
             actor_user_id=request.user.pk,
+            selected_study_id=self._study.pk,
             study_id=self._study.pk,
             file_name=uploaded_file.name,
             file_content=uploaded_file.read(),
         )
         try:
-            binding_import_result = self.get_import_event_form_bindings_template_service().execute(
-                command,
-                request=request,
-            )
+            binding_import_result = self.get_import_event_form_bindings_template_service().execute(command)
         except (EventFormBindingImportDependencyError, EventFormBindingImportFormatError) as exc:
             binding_import_form.add_error(None, str(exc))
             return self.render_to_response(

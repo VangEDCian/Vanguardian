@@ -13,14 +13,16 @@ from apps.crf.domain import (
     StudyScopeViolationError,
 )
 from apps.crf.infrastructure.repositories import DjangoOrmFormBuilderRepository
-from apps.shared.context_processors import StudyDropdownHandler
 
 
 @dataclass(frozen=True)
 class SaveFieldAggregateCommand:
+    selected_study_id: int
     study_id: int
     form_id: int
     actor_user_id: int
+    ip_address: str | None
+    user_agent: str
     field_id: int | None
 
     field_key: str
@@ -38,9 +40,12 @@ class SaveFieldAggregateCommand:
 
 @dataclass(frozen=True)
 class CreateFieldAggregateCommand:
+    selected_study_id: int
     study_id: int
     form_id: int
     actor_user_id: int
+    ip_address: str | None
+    user_agent: str
 
     field_key: str
     data_type: str
@@ -57,9 +62,12 @@ class CreateFieldAggregateCommand:
 
 @dataclass(frozen=True)
 class UpdateFieldAggregateCommand:
+    selected_study_id: int
     study_id: int
     field_id: int
     actor_user_id: int
+    ip_address: str | None
+    user_agent: str
 
     field_key: str
     data_type: str
@@ -83,18 +91,14 @@ class FormBuilderOrchestrationService:
         self.audit_service = audit_service or self.audit_service_class()
 
     @staticmethod
-    def _resolve_selected_study_id(request):
-        try:
-            selected_study_id = StudyDropdownHandler(request=request).build().selected_id
-        except Exception as exc:
-            raise StudyScopeViolationError("No study is selected in the current context.") from exc
+    def _normalize_selected_study_id(selected_study_id):
         if selected_study_id is None:
             raise StudyScopeViolationError("No study is selected in the current context.")
         return int(selected_study_id)
 
     @classmethod
-    def _ensure_current_study_scope(cls, *, request, study_id):
-        selected_study_id = cls._resolve_selected_study_id(request)
+    def _ensure_current_study_scope(cls, *, selected_study_id, study_id):
+        selected_study_id = cls._normalize_selected_study_id(selected_study_id)
         if int(study_id) != selected_study_id:
             raise StudyScopeViolationError("Command study scope does not match the selected study.")
         return selected_study_id
@@ -169,8 +173,11 @@ class FormBuilderOrchestrationService:
         )
 
     @transaction.atomic
-    def save_field(self, *, request, command: SaveFieldAggregateCommand):
-        self._ensure_current_study_scope(request=request, study_id=command.study_id)
+    def save_field(self, *, command: SaveFieldAggregateCommand):
+        self._ensure_current_study_scope(
+            selected_study_id=command.selected_study_id,
+            study_id=command.study_id,
+        )
         form = self.repository.get_form_by_scope(
             study_id=command.study_id,
             form_id=command.form_id,
@@ -223,11 +230,13 @@ class FormBuilderOrchestrationService:
         }
         if action == "created":
             self.audit_service.record_field_created(
-                request=request,
                 study_id=command.study_id,
                 form_id=command.form_id,
                 field_template_id=field.pk,
                 after_data=after_data,
+                actor_user_id=command.actor_user_id,
+                ip_address=command.ip_address,
+                user_agent=command.user_agent,
             )
         else:
             before_data = {
@@ -238,19 +247,24 @@ class FormBuilderOrchestrationService:
                 "metadata": self._model_metadata_snapshot(existing_field),
             }
             self.audit_service.record_field_updated(
-                request=request,
                 study_id=command.study_id,
                 form_id=command.form_id,
                 field_template_id=field.pk,
                 before_data=before_data,
                 after_data=after_data,
+                actor_user_id=command.actor_user_id,
+                ip_address=command.ip_address,
+                user_agent=command.user_agent,
             )
 
         return {"action": action, "field_id": field.pk}
 
     @transaction.atomic
-    def create_field(self, *, request, command: CreateFieldAggregateCommand):
-        self._ensure_current_study_scope(request=request, study_id=command.study_id)
+    def create_field(self, *, command: CreateFieldAggregateCommand):
+        self._ensure_current_study_scope(
+            selected_study_id=command.selected_study_id,
+            study_id=command.study_id,
+        )
         form = self.repository.get_form_by_scope(
             study_id=command.study_id,
             form_id=command.form_id,
@@ -283,7 +297,6 @@ class FormBuilderOrchestrationService:
         )
 
         self.audit_service.record_field_created(
-            request=request,
             study_id=command.study_id,
             form_id=command.form_id,
             field_template_id=field.pk,
@@ -295,13 +308,19 @@ class FormBuilderOrchestrationService:
                 "validation_rules_count": len(validation_rules),
                 "metadata": self._aggregate_metadata_snapshot(aggregate),
             },
+            actor_user_id=command.actor_user_id,
+            ip_address=command.ip_address,
+            user_agent=command.user_agent,
         )
 
         return {"action": "created", "field_id": field.pk}
 
     @transaction.atomic
-    def update_field(self, *, request, command: UpdateFieldAggregateCommand):
-        self._ensure_current_study_scope(request=request, study_id=command.study_id)
+    def update_field(self, *, command: UpdateFieldAggregateCommand):
+        self._ensure_current_study_scope(
+            selected_study_id=command.selected_study_id,
+            study_id=command.study_id,
+        )
         existing_field = self.repository.get_field_aggregate_by_scope(
             study_id=command.study_id,
             field_id=command.field_id,
@@ -343,7 +362,6 @@ class FormBuilderOrchestrationService:
         )
 
         self.audit_service.record_field_updated(
-            request=request,
             study_id=command.study_id,
             form_id=existing_field.crf_template_id,
             field_template_id=field.pk,
@@ -356,6 +374,9 @@ class FormBuilderOrchestrationService:
                 "validation_rules_count": len(validation_rules),
                 "metadata": self._aggregate_metadata_snapshot(aggregate),
             },
+            actor_user_id=command.actor_user_id,
+            ip_address=command.ip_address,
+            user_agent=command.user_agent,
         )
 
         return {"action": "updated", "field_id": field.pk}

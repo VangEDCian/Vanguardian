@@ -11,20 +11,22 @@ from django.views.generic import DetailView, ListView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
+from apps.audit.public import build_audit_request_context
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateView, AuthenticateTemplateContextMixin
-from apps.study.application.commands.site import (
-    DeleteSiteService, CreateSiteService,
-    UpdateSiteService,
-)
 from apps.study.application.commands.site_data import (
     SiteNotFoundError, DeleteSiteCommand,
     SiteCodeAlreadyExistsError, CreateSiteCommand, UpdateSiteCommand,
 )
-from apps.study.application.queries.site_directory import StudySiteDirectoryQueryService
+from apps.study.application.services import (
+    CreateSiteService,
+    DeleteSiteService,
+    StudySiteDirectoryQueryService,
+    UpdateSiteService,
+)
 from apps.study.application.services.site_audit import SiteAuditService
 from apps.study.infrastructure.persistence.models import Site, Study
-from apps.study.presentation.web.formpackages.site import SiteForm, SitesToolbarForm
+from apps.study.presentation.web.forms.site import SiteForm, SitesToolbarForm
 from apps.study.presentation.web.tables import SiteListTable
 from apps.study.presentation.web.views.helpers import _user_has_study_access
 
@@ -179,10 +181,11 @@ class SiteDetailView(
         )
 
         # snapshot after change
-        SiteAuditService(request=request).record_updated(
+        SiteAuditService().record_updated(
             object_id=site.id,
             before_data=snapshot_before_data,
             after_data=StudySiteDirectoryQueryService.snapshot_site_obj(site=site),
+            **build_audit_request_context(request),
         )
 
         return redirect(
@@ -274,9 +277,10 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractV
             form.add_error("code", _("This site code already exists in the current study."))
             return self.render_to_response(self.get_context_data(form=form))
 
-        SiteAuditService(request=request).record_created(
+        SiteAuditService().record_created(
             object_id=site.id,
             after_data=StudySiteDirectoryQueryService.snapshot_site_obj(site),
+            **build_audit_request_context(request),
         )
 
         return redirect(
@@ -312,9 +316,10 @@ class SiteDeleteView(LoginRequiredMixin, DetailView, SiteAbstractVerifyStudy):
             raise Http404
 
         # snapshot after change
-        SiteAuditService(request=request).record_deleted(
+        SiteAuditService().record_deleted(
             object_id=site.id,
             before_data=snapshot_before_data,
+            **build_audit_request_context(request),
         )
 
         return redirect(reverse("study:site_list", kwargs={'study_id': self.get_study_id()}))

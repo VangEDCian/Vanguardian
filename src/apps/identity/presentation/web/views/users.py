@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
+from apps.audit.public import build_audit_request_context
 from apps.identity.application import (
     CreateIdentityUserCommand,
     CreateIdentityUserService,
@@ -139,8 +140,8 @@ class IdentityUserCreateView(LoginRequiredMixin, AuthenticateTemplateView):
             return self.render_to_response(self.get_context_data(form=form))
 
         self.get_identity_user_audit_service().record_created(
-            request=request,
             user=created_user,
+            **build_audit_request_context(request),
         )
         return redirect(reverse("identity:user_detail", kwargs={"user_id": created_user.pk}))
 
@@ -303,15 +304,15 @@ class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
             return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
 
         self.get_identity_user_audit_service().record_updated(
-            request=request,
             user=updated_user,
             before_data=before_data,
+            **build_audit_request_context(request),
         )
 
         if new_password:
             self.get_identity_user_audit_service().record_admin_set_password(
-                request=request,
                 user=updated_user,
+                **build_audit_request_context(request),
             )
 
         return JsonResponse(
@@ -402,9 +403,9 @@ class IdentityUserDeleteView(LoginRequiredMixin, View):
             )
         )
         self.get_identity_user_audit_service().record_deleted(
-            request=request,
             user_id=target_user.pk,
             before_data=before_data,
+            **build_audit_request_context(request),
         )
         return redirect(f"{reverse('identity:user_detail', kwargs={'user_id': target_user.pk})}?include_deleted=1")
 
@@ -440,8 +441,8 @@ class IdentityUserRestoreView(LoginRequiredMixin, View):
             raise Http404 from exc
 
         self.get_identity_user_audit_service().record_restored(
-            request=request,
             user=restored_user,
             before_data=before_data,
+            **build_audit_request_context(request),
         )
         return redirect(reverse("identity:user_detail", kwargs={"user_id": restored_user.pk}))

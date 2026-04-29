@@ -1,15 +1,17 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from django.test import SimpleTestCase
 
 from apps.identity.application.commands.delete_user import (
     DeleteIdentityUserCommand,
-    DeleteIdentityUserService,
     IdentityUserRestoreDataNotFoundError,
     RestoreIdentityUserCommand,
-    RestoreIdentityUserService,
 )
 from apps.identity.application.queries import IdentityUserNotFoundError
+from apps.identity.application.services import (
+    DeleteIdentityUserService,
+    RestoreIdentityUserService,
+)
 
 
 def _make_user(**kwargs):
@@ -44,82 +46,71 @@ def _make_user(**kwargs):
 
 
 class DeleteIdentityUserServiceTests(SimpleTestCase):
-    @patch("apps.identity.application.commands.delete_user.build_soft_deleted_optional_unique_value")
-    @patch("apps.identity.application.commands.delete_user.build_soft_deleted_unique_value")
-    @patch("apps.identity.application.commands.delete_user.User")
-    def test_marks_user_deleted_and_suffixes_unique_identifiers(
-        self,
-        mock_user_cls,
-        mock_suffix_builder,
-        mock_optional_suffix_builder,
-    ):
+    def test_marks_user_deleted_and_suffixes_unique_identifiers(self):
         user = _make_user(pk=7)
-        mock_user_cls.objects.prefetch_related.return_value.filter.return_value.first.return_value = user
-        mock_suffix_builder.return_value = "demo-user_deleted_deadbeef"
-        mock_optional_suffix_builder.side_effect = [
-            "demo@example.com_deleted_deadbeef",
-            "123_deleted_deadbeef",
-        ]
+        repository = MagicMock()
+        repository.get_user_with_groups.return_value = user
+        repository.save_user.side_effect = lambda item: item
+
+        service = DeleteIdentityUserService(repository=repository)
 
         DeleteIdentityUserService.execute.__wrapped__(
-            DeleteIdentityUserService(),
+            service,
             DeleteIdentityUserCommand(user_id=7, actor_user_id=1),
         )
 
-        self.assertEqual(user.username, "demo-user_deleted_deadbeef")
+        self.assertTrue(user.username.startswith("demo-user_deleted_"))
         self.assertEqual(user.first_name, "Demo")
         self.assertEqual(user.last_name, "User")
         self.assertEqual(user.display_name, "Demo User")
-        self.assertEqual(user.email, "demo@example.com_deleted_deadbeef")
-        self.assertEqual(user.phone_number, "123_deleted_deadbeef")
+        self.assertTrue(user.email.startswith("demo@example.com_deleted_"))
+        self.assertTrue(user.phone_number.startswith("123_deleted_"))
         self.assertFalse(user.is_active)
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.deleted)
-        mock_suffix_builder.assert_called_once_with("demo-user")
-        mock_optional_suffix_builder.assert_any_call("demo@example.com")
-        mock_optional_suffix_builder.assert_any_call("123")
-        user.save.assert_called_once()
+        repository.save_user.assert_called_once_with(user)
         user.groups.set.assert_not_called()
 
-    @patch("apps.identity.application.commands.delete_user.User")
-    def test_raises_when_user_not_found(self, mock_user_cls):
-        mock_user_cls.objects.prefetch_related.return_value.filter.return_value.first.return_value = None
+    def test_raises_when_user_not_found(self):
+        repository = MagicMock()
+        repository.get_user_with_groups.return_value = None
 
         with self.assertRaises(IdentityUserNotFoundError):
             DeleteIdentityUserService.execute.__wrapped__(
-                DeleteIdentityUserService(),
+                DeleteIdentityUserService(repository=repository),
                 DeleteIdentityUserCommand(user_id=999, actor_user_id=1),
             )
 
 
 class RestoreIdentityUserServiceTests(SimpleTestCase):
-    @patch("apps.identity.application.commands.delete_user.AuditEvent")
-    @patch("apps.identity.application.commands.delete_user.User")
-    @patch("apps.identity.application.commands.delete_user.Group")
-    def test_restores_user_from_latest_deleted_snapshot(self, mock_group_cls, mock_user_cls, mock_audit_event_cls):
+    def test_restores_user_from_latest_deleted_snapshot(self):
         user = _make_user(
             pk=9,
-            username="demo-user",
+            username="demo-user_deleted_deadbeef",
             is_active=False,
             is_staff=False,
             is_superuser=False,
             deleted=True,
         )
-        mock_user_cls.objects.prefetch_related.return_value.filter.return_value.first.return_value = user
-        mock_user_cls.objects.filter.return_value.exclude.return_value.exists.return_value = False
-        mock_group_cls.objects.filter.return_value.order_by.return_value = ["group-a"]
-
         deleted_event = MagicMock()
         deleted_event.before_data = (
             '{"username": "demo-user", "display_name": "Demo User", "first_name": "Demo", '
             '"last_name": "User", "email": "demo@example.com", "phone_number": "123", '
             '"role_key": "staff", "is_active": true, "permission_groups": ["Investigators"]}'
         )
-        mock_audit_event_cls.objects.filter.return_value.order_by.return_value.first.return_value = deleted_event
+
+        repository = MagicMock()
+        repository.get_user_with_groups.return_value = user
+        repository.get_latest_user_deleted_event.return_value = deleted_event
+        repository.username_exists.return_value = False
+        repository.email_exists.return_value = False
+        repository.phone_number_exists.return_value = False
+        repository.list_groups_by_names.return_value = ["group-a"]
+        repository.reload_user_with_groups.return_value = user
 
         restored_user = RestoreIdentityUserService.execute.__wrapped__(
-            RestoreIdentityUserService(),
+            RestoreIdentityUserService(repository=repository),
             RestoreIdentityUserCommand(user_id=9, actor_user_id=1),
         )
 
@@ -133,19 +124,18 @@ class RestoreIdentityUserServiceTests(SimpleTestCase):
         self.assertTrue(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertFalse(user.deleted)
-        user.save.assert_called_once()
+        repository.save_user.assert_called_once_with(user)
         user.groups.set.assert_called_once_with(["group-a"])
-        self.assertIs(restored_user, mock_user_cls.objects.prefetch_related.return_value.get.return_value)
+        self.assertIs(restored_user, user)
 
-    @patch("apps.identity.application.commands.delete_user.AuditEvent")
-    @patch("apps.identity.application.commands.delete_user.User")
-    def test_raises_when_restore_snapshot_missing(self, mock_user_cls, mock_audit_event_cls):
+    def test_raises_when_restore_snapshot_missing(self):
         user = _make_user(pk=11, username="demo-user", is_active=False, deleted=True)
-        mock_user_cls.objects.prefetch_related.return_value.filter.return_value.first.return_value = user
-        mock_audit_event_cls.objects.filter.return_value.order_by.return_value.first.return_value = None
+        repository = MagicMock()
+        repository.get_user_with_groups.return_value = user
+        repository.get_latest_user_deleted_event.return_value = None
 
         with self.assertRaises(IdentityUserRestoreDataNotFoundError):
             RestoreIdentityUserService.execute.__wrapped__(
-                RestoreIdentityUserService(),
+                RestoreIdentityUserService(repository=repository),
                 RestoreIdentityUserCommand(user_id=11, actor_user_id=1),
             )

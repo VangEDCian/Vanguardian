@@ -1,42 +1,10 @@
-from dataclasses import dataclass
-
 from django.db import transaction
 from django.utils import timezone
 
+from apps.crf.application.commands.upsert_crf_template import UpsertCrfTemplateCommand
+from apps.crf.application.commands.upsert_section_template import UpsertSectionTemplateCommand
 from apps.crf.domain.exceptions import StudyScopeViolationError
 from apps.crf.infrastructure.repositories import DjangoCrfTemplateRepository
-from apps.shared.context_processors import StudyDropdownHandler
-
-
-@dataclass(frozen=True)
-class UpsertCrfTemplateCommand:
-    study_id: int
-    code: str
-    version: str
-    vi_name: str
-    en_name: str
-    actor_user_id: int
-
-
-@dataclass(frozen=True)
-class UpsertSectionTemplateCommand:
-    crf_template_id: int
-    section_template_id: int | None
-    section_code: str
-    vi_name: str
-    en_name: str
-    vi_description: str
-    en_description: str
-    vi_help_text: str
-    en_help_text: str
-    vi_instruction_text: str
-    en_instruction_text: str
-    display_order: int
-    is_required: bool
-    is_repeatable: bool
-    min_repeats: int
-    max_repeats: int | None
-    actor_user_id: int
 
 
 class CrfTemplateCommandService:
@@ -46,25 +14,24 @@ class CrfTemplateCommandService:
         self.repository = repository or self.repository_class()
 
     @staticmethod
-    def _resolve_selected_study_id(request):
-        try:
-            selected_study_id = StudyDropdownHandler(request=request).build().selected_id
-        except Exception as exc:
-            raise StudyScopeViolationError("No study is selected in the current context.") from exc
+    def _normalize_selected_study_id(selected_study_id):
         if selected_study_id is None:
             raise StudyScopeViolationError("No study is selected in the current context.")
         return int(selected_study_id)
 
     @classmethod
-    def _ensure_current_study_scope(cls, *, request, study_id):
-        selected_study_id = cls._resolve_selected_study_id(request)
+    def _ensure_current_study_scope(cls, *, selected_study_id, study_id):
+        selected_study_id = cls._normalize_selected_study_id(selected_study_id)
         if int(study_id) != selected_study_id:
             raise StudyScopeViolationError("Command study scope does not match the selected study.")
         return selected_study_id
 
     @transaction.atomic
-    def upsert_crf_template(self, command: UpsertCrfTemplateCommand, *, request, now=None):
-        self._ensure_current_study_scope(request=request, study_id=command.study_id)
+    def upsert_crf_template(self, command: UpsertCrfTemplateCommand, *, now=None):
+        self._ensure_current_study_scope(
+            selected_study_id=command.selected_study_id,
+            study_id=command.study_id,
+        )
         timestamp = now or timezone.now()
         defaults = {
             "deleted": False,
@@ -100,8 +67,8 @@ class CrfTemplateCommandService:
         return import_outcome
 
     @transaction.atomic
-    def upsert_section_template(self, command: UpsertSectionTemplateCommand, *, request, now=None):
-        selected_study_id = self._resolve_selected_study_id(request)
+    def upsert_section_template(self, command: UpsertSectionTemplateCommand, *, now=None):
+        selected_study_id = self._normalize_selected_study_id(command.selected_study_id)
         crf_template = self.repository.get_template(template_id=command.crf_template_id)
         if crf_template is None:
             raise StudyScopeViolationError("CRF template is not found in the selected study scope.")
@@ -155,3 +122,6 @@ class CrfTemplateCommandService:
     def _set_translated_value(instance, field_name, language_code, value):
         instance.set_current_language(language_code, initialize=True)
         setattr(instance, field_name, value)
+
+
+__all__ = ["CrfTemplateCommandService"]

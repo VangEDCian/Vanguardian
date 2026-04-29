@@ -9,6 +9,7 @@ from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import TemplateView
 
+from apps.audit.public import build_audit_request_context
 from apps.identity.application import IdentityLoginAuditService, IdentityUserAuditService
 from apps.identity.models import User
 from apps.identity.presentation.web.forms import (
@@ -35,9 +36,12 @@ class IdentityLoginView(LoginView):
 
         # log
         self.get_login_audit_service().record_login_succeeded(
-            request=self.request,
             user=authenticated_user,
             identifier=self._get_login_identifier(),
+            **build_audit_request_context(
+                self.request,
+                actor_user_id=getattr(authenticated_user, "pk", None),
+            ),
         )
 
         # check must be User Object ** has attempt_login and method save
@@ -65,9 +69,9 @@ class IdentityLoginView(LoginView):
 
     def form_invalid(self, form):
         self.get_login_audit_service().record_login_failed(
-            request=self.request,
             identifier=self._get_login_identifier(),
             form_errors=form.errors.get_json_data(),
+            **build_audit_request_context(self.request),
         )
         return super().form_invalid(form)
 
@@ -136,7 +140,8 @@ class IdentityUserFirstLoginView(LoginRequiredMixin, TemplateView):
 
         # audit log
         IdentityUserAuditService().record_user_change_password(
-            request=request, user=request.user,
+            user=request.user,
+            **build_audit_request_context(request),
         )
 
         return redirect(str(self.success_url))
