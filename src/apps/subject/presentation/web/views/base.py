@@ -5,6 +5,7 @@ from django.views import View
 from apps.study.application.services import StudySiteDirectoryQueryService
 from apps.study.presentation.web.views.helpers import _user_has_study_access
 
+
 class SubjectAbstractVerifyStudy(View):
     study_obj = None
 

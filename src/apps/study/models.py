@@ -1,14 +1,14 @@
 from apps.study.infrastructure.persistence.models import (
     EventDefinition,
+    EventFormBinding,
+    EventTransitionRule,
     RandomizationArm,
     RandomizationEligibility,
     RandomizationScheme,
     RandomizationSlot,
-    Study,
     Site,
     SiteMembership,
-    EventFormBinding,
-    EventTransitionRule,
+    Study,
 )
 
 __all__ = [

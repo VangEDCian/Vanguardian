@@ -1,5 +1,5 @@
-from collections import Counter
 import json
+from collections import Counter
 
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _

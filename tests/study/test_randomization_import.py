@@ -6,13 +6,6 @@ from unittest.mock import ANY, MagicMock, patch
 from django.test import SimpleTestCase
 from openpyxl import load_workbook
 
-from apps.study.application.use_cases.randomization_import_preview import (
-    RandomizationArmImportPreviewUseCase,
-    RandomizationImportIssue,
-    RandomizationImportParsedRow,
-    RandomizationImportPreviewResult,
-    RandomizationSchemeImportPreviewUseCase,
-)
 from apps.study.application import (
     RandomizationImportDependencyError,
     RandomizationImportFormatError,
@@ -26,6 +19,13 @@ from apps.study.application.services import (
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,
     PreviewStudyRandomizationArmsImportService,
+)
+from apps.study.application.use_cases.randomization_import_preview import (
+    RandomizationArmImportPreviewUseCase,
+    RandomizationImportIssue,
+    RandomizationImportParsedRow,
+    RandomizationImportPreviewResult,
+    RandomizationSchemeImportPreviewUseCase,
 )
 from apps.study.presentation.web.views.randomization import (
     StudyRandomizationCommitBaseView,

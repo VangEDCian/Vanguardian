@@ -11,9 +11,9 @@ from apps.identity.presentation.web.views import (
     IdentityUserCreateView,
     IdentityUserDeleteView,
     IdentityUserDetailView,
+    IdentityUserFirstLoginView,
     IdentityUserRestoreView,
     IdentityUsersView,
-    IdentityUserFirstLoginView,
 )
 
 app_name = "identity"

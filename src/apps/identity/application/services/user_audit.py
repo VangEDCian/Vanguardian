@@ -1,6 +1,8 @@
 from apps.audit.public import AuditContextAdapter
 from apps.shared.constants import (
-    AuditEventAction, AuditEventObjectType, AuditEventActionEnum,
+    AuditEventAction,
+    AuditEventActionEnum,
+    AuditEventObjectType,
     AuditEventObjectTypeEnum,
 )
 

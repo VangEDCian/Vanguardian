@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 class StudyNotFoundError(Exception):
     pass
 

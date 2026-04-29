@@ -1,0 +1,5 @@
+[flake8]
+# Chỉ chạy những mã lỗi được liệt kê ở đây
+select =
+    C90
+# Nếu muốn thêm rule riêng của bạn (ví dụ từ một plugin), hãy điền mã của nó vào đây

@@ -1,7 +1,8 @@
 from django.http import HttpResponse
 
 from apps.shared.context_processors import (
-    StudyDropdownHandler, SiteDropdownHandler,
+    SiteDropdownHandler,
+    StudyDropdownHandler,
 )
 
 

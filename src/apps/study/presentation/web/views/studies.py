@@ -26,6 +26,7 @@ from apps.study.presentation.web.views.helpers import (
     _user_has_study_access,
 )
 
+
 class StudyListView(
     LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView
 ):

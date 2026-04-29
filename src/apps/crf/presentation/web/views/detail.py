@@ -6,6 +6,7 @@ from apps.crf.domain.exceptions import FormScopeViolationError
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateView
 
+
 class CrfFormDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
     permission_required = "study.view_study_detail"
     raise_exception = True

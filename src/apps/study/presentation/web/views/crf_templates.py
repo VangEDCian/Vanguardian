@@ -26,6 +26,7 @@ from apps.study.presentation.web.forms import (
 from apps.study.presentation.web.tables import CrfTemplateListTable
 from apps.study.presentation.web.views.helpers import _user_has_study_access
 
+
 class StudyCrfTemplateListView(
     LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
     SingleTableMixin, FilterView, ListView,

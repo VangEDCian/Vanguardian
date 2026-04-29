@@ -2,9 +2,9 @@ from django.db import models
 
 from apps.core.choices import (
     EventDefinitionCategoryChoices,
-    EventExecutionModeChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
+    EventExecutionModeChoices,
     EventTransitionConditionScopeChoices,
     EventTransitionTypeChoices,
 )

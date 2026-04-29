@@ -2,12 +2,12 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
-from apps.study.application.commands.delete_study import DeleteStudyCommand
 from apps.study.application.commands.delete_randomization import (
     DeleteRandomizationArmCommand,
     DeleteRandomizationSchemeCommand,
     RandomizationDeleteBlockedError,
 )
+from apps.study.application.commands.delete_study import DeleteStudyCommand
 from apps.study.application.commands.site_data import DeleteSiteCommand, SiteNotFoundError
 from apps.study.application.queries.study_directory import StudyNotFoundError
 from apps.study.application.services import (

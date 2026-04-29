@@ -4,12 +4,12 @@ from io import BytesIO
 from django.db import transaction
 from django.utils import timezone
 
+from apps.crf.domain.exceptions import StudyScopeViolationError
 from apps.crf.public import (
     CrfContextAdapter,
     CrfTemplateAmbiguousError,
     CrfTemplateNotFoundError,
 )
-from apps.crf.domain.exceptions import StudyScopeViolationError
 from apps.shared.constants import EventFormEntryModeChoices
 from apps.study.infrastructure.repositories import DjangoStudyEventRepository
 

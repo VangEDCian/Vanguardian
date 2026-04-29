@@ -1,5 +1,4 @@
 import django_tables2 as tables
-
 from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
 from django.utils.formats import date_format

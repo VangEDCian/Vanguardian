@@ -13,10 +13,13 @@ from django_tables2 import SingleTableMixin
 
 from apps.audit.public import build_audit_request_context
 from apps.shared.context_processors import StudyDropdownHandler
-from apps.shared.views import AuthenticateTemplateView, AuthenticateTemplateContextMixin
+from apps.shared.views import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application.commands.site_data import (
-    SiteNotFoundError, DeleteSiteCommand,
-    SiteCodeAlreadyExistsError, CreateSiteCommand, UpdateSiteCommand,
+    CreateSiteCommand,
+    DeleteSiteCommand,
+    SiteCodeAlreadyExistsError,
+    SiteNotFoundError,
+    UpdateSiteCommand,
 )
 from apps.study.application.services import (
     CreateSiteService,

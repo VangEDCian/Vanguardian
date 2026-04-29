@@ -19,6 +19,7 @@ from apps.crf.presentation.web.views.builder import CrfFormBuilderView
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateView
 
+
 class CrfFieldUpdateView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
     permission_required = "study.view_study_detail"
     raise_exception = True

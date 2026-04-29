@@ -18,6 +18,7 @@ from apps.identity.presentation.web.forms import (
 )
 from apps.shared.application.services.cookies import CookiesService
 
+
 class IdentityLoginView(LoginView):
     template_name = "identity/login.html"
     authentication_form = StyledAuthenticationForm

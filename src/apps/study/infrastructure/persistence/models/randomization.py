@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.core.choices.study import RandomizationSlotStatusChoice, RandomizationSchemeStatusChoice
+from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
 
 
 class RandomizationScheme(models.Model):

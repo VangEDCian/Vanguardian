@@ -20,10 +20,10 @@ from apps.identity.application import (
     IdentityUserEmailAlreadyExistsError,
     IdentityUserFilterActiveQueryService,
     IdentityUserFilterInactiveQueryService,
+    IdentityUsernameAlreadyExistsError,
     IdentityUserNotFoundError,
     IdentityUserPhoneNumberAlreadyExistsError,
     IdentityUserRestoreDataNotFoundError,
-    IdentityUsernameAlreadyExistsError,
     RestoreIdentityUserCommand,
     RestoreIdentityUserService,
     UpdateIdentityUserDetailCommand,
@@ -36,6 +36,7 @@ from apps.identity.presentation.web.forms import (
     IdentityUserDetailForm,
 )
 from apps.shared.views.generic import AuthenticateTemplateView
+
 
 class IdentityUsersView(LoginRequiredMixin, AuthenticateTemplateView):
     template_name = "identity/users.html"

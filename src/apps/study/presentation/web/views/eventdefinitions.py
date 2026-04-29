@@ -11,22 +11,22 @@ from django_tables2 import SingleTableMixin
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.shared.views.generic import AuthenticateTemplateView
 from apps.study.application import (
-    EventFormBindingImportDependencyError,
-    EventFormBindingImportFormatError,
     EventDefinitionImportDependencyError,
     EventDefinitionImportFormatError,
-    ImportStudyEventFormBindingsTemplateCommand,
-    ImportStudyEventFormBindingsTemplateService,
+    EventFormBindingImportDependencyError,
+    EventFormBindingImportFormatError,
     ImportStudyEventDefinitionsTemplateCommand,
     ImportStudyEventDefinitionsTemplateService,
+    ImportStudyEventFormBindingsTemplateCommand,
+    ImportStudyEventFormBindingsTemplateService,
     StudyDirectoryQueryService,
     StudyEventDefinitionDirectoryQueryService,
     StudyNotFoundError,
 )
 from apps.study.infrastructure.persistence.models import EventDefinition, Study
 from apps.study.presentation.web.forms import (
-    EventDefinitionsToolbarForm,
     EventDefinitionImportTemplateForm,
+    EventDefinitionsToolbarForm,
     EventFormBindingImportTemplateForm,
 )
 from apps.study.presentation.web.tables import EventDefinitionListTable

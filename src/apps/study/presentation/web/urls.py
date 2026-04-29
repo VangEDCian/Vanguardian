@@ -1,30 +1,29 @@
-from django.urls import path, include
+from django.urls import include, path
 
 from apps.study.presentation.web.views import (
-    StudyRandomizationArmDeleteView,
-    StudyRandomizationArmImportCommitView,
-    StudyRandomizationArmImportPreviewView,
+    SiteCreateView,
+    SiteDeleteView,
+    SiteDetailView,
+    SiteListView,
     StudyCreateView,
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
+    StudyDeleteView,
+    StudyDetailView,
     StudyEventDefinitionCreateView,
-    StudyEventFormBindingImportTemplateView,
     StudyEventDefinitionImportTemplateView,
     StudyEventDefinitionListView,
+    StudyEventFormBindingImportTemplateView,
+    StudyListView,
+    StudyRandomizationArmDeleteView,
+    StudyRandomizationArmImportCommitView,
+    StudyRandomizationArmImportPreviewView,
     StudyRandomizationSchemeDeleteView,
     StudyRandomizationSchemeImportCommitView,
     StudyRandomizationSchemeImportPreviewView,
     StudyRandomizationView,
-    StudyDeleteView,
-    StudyDetailView,
-    StudyListView,
     StudyToggleStatusView,
     StudyUpdateView,
-
-    SiteListView,
-    SiteDetailView,
-    SiteCreateView,
-    SiteDeleteView,
 )
 
 app_name = "study"

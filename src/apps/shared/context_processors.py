@@ -11,10 +11,8 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext_lazy as _
 
-from apps.identity.infrastructure.persistence.models import StudyMembership
-from apps.identity.infrastructure.persistence.models import StudySiteMembership
-
-from apps.study.infrastructure.persistence.models import Study, Site
+from apps.identity.infrastructure.persistence.models import StudyMembership, StudySiteMembership
+from apps.study.infrastructure.persistence.models import Site, Study
 
 
 @dataclass
