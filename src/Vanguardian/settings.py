@@ -55,6 +55,7 @@ X_INSTALLED_APPS = [
     "apps.study.apps.StudyConfig",
     "apps.crf.apps.CrfConfig",
     "apps.subject.apps.SubjectConfig",
+    "apps.datacapture.apps.DatacaptureConfig",
 ]
 
 INSTALLED_APPS = [
