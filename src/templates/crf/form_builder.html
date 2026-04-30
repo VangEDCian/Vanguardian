@@ -5,7 +5,7 @@
 {% endblock %}
 {% block extra_css %}
     {{ block.super }}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+    <link rel="stylesheet" href="{% static 'select2/dist/css/select2.min.css' %}">
     <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
     <link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}">
     <link rel="stylesheet" href="{% static 'shared/css/components/_old_select2_single_choice.css' %}">
@@ -29,8 +29,8 @@
                 <section class="user-detail-section" hidden>
                     <h2 class="user-detail-section__title">{% trans "FORM BUILDER" %}</h2>
                     <div class="user-detail-section__body">
-                        <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                            <div class="crf-definition-panel__field" style="display: block;">
+                        <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                            <div class="crf-definition-panel__field crf-field-block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Code" %}</span>
@@ -39,7 +39,7 @@
                                 </div>
                                 <div class="user-detail-field__error">{{ template_translation_form.code.errors }}</div>
                             </div>
-                            <div class="crf-definition-panel__field" style="display: block;">
+                            <div class="crf-definition-panel__field crf-field-block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Version" %}</span>
@@ -49,8 +49,8 @@
                                 <div class="user-detail-field__error">{{ template_translation_form.version.errors }}</div>
                             </div>
                         </div>
-                        <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                            <div class="crf-definition-panel__field" style="display: block;">
+                        <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                            <div class="crf-definition-panel__field crf-field-block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Name EN" %}</span>
@@ -59,7 +59,7 @@
                                 </div>
                                 <div class="user-detail-field__error">{{ template_translation_form.name_en.errors }}</div>
                             </div>
-                            <div class="crf-definition-panel__field" style="display: block;">
+                            <div class="crf-definition-panel__field crf-field-block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Name VI" %}</span>
@@ -76,7 +76,7 @@
                 </section>
 
                 <section class="user-detail-section" data-builder-landing>
-                    <div class="user-detail-section__body" style="display:flex; justify-content:center; gap:16px; padding:24px 0 12px;">
+                    <div class="user-detail-section__body crf-landing-actions">
                         <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary" data-sections-show>{% trans "Sections" %}</button>
                         <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary" data-fields-show>{% trans "Fields" %}</button>
                         <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-section-add>{% trans "Add Section" %}</button>
@@ -92,8 +92,8 @@
 {% endblock %}
 {% block extra_js %}
     {{ block.super }}
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{% static 'jquery/dist/jquery.min.js' %}"></script>
+    <script src="{% static 'select2/dist/js/select2.full.min.js' %}"></script>
     <script>
         window.CRF_FORM_BUILDER_I18N = {
             createField: '{% trans "Create Field" %}',

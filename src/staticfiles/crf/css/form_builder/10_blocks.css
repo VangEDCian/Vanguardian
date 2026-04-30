@@ -102,10 +102,6 @@
     margin-top: auto;
 }
 
-.crf-builder-form [data-builder-landing] {
-    padding-top: 12px;
-}
-
 .crf-builder-form [data-builder-landing] .entity-table__footer-button {
     min-width: 140px;
     height: 42px;
@@ -174,8 +170,46 @@
     min-height: 40px;
 }
 
+.crf-builder-form .form-input-control {
+    display: grid;
+    gap: 8px;
+}
+
+.crf-builder-form .form-input-control__label {
+    display: block;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: #334155;
+}
+
+.crf-builder-form .form-input-control__field {
+    min-width: 0;
+}
+
+.crf-builder-form .form-input-control__field .old-textbox,
+.crf-builder-form .form-input-control__field select,
+.crf-builder-form .form-input-control__field textarea,
+.crf-builder-form .form-input-control__field input:not([type="checkbox"]) {
+    width: 100%;
+}
+
+.crf-builder-form .form-input-control__field textarea.old-textbox,
+.crf-builder-form .form-input-control__field textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.crf-builder-form .form-input-control--checkbox .form-input-control__field {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+}
+
 .crf-builder-form .crf-builder-select-wrap input[type="checkbox"],
-.crf-builder-form .user-detail-inline-field__control-wrap input[type="checkbox"] {
+.crf-builder-form .user-detail-inline-field__control-wrap input[type="checkbox"],
+.crf-builder-form .form-input-control__field input[type="checkbox"] {
     width: 18px;
     height: 18px;
     margin: 0;
@@ -314,14 +348,12 @@
     background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin-bottom: 12px;
 }
 
 .crf-builder-form .crf-definition-panel.is-active {
     border-color: #2196c4;
-    box-shadow: 0 0 0 4px rgba(33, 150, 196, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .crf-builder-form .crf-definition-panel.crf-definition-panel--entering {
@@ -333,7 +365,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 14px 20px;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid #e2e8f0;
     cursor: pointer;
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(255, 255, 255, 0.8) 100%);
@@ -669,6 +701,10 @@
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 14px;
     padding-top: 12px;
+}
+
+.crf-builder-form [data-builder-panel="sections"] [data-builder-panel-mode="list"] .crf-collection-grid {
+    padding-top: 0;
 }
 
 .crf-builder-form .crf-entity-card {

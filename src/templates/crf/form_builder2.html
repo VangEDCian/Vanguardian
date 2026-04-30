@@ -1,0 +1,131 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ page_title }} | {% trans "CRF Form Builder | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'select2/dist/css/select2.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/jstree/themes/default/style.min.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/_old_textbox.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/_old_select2_single_choice.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}">
+    <link rel="stylesheet" href="{% static 'crf/css/form_builder.css' %}">
+    <link rel="stylesheet" href="{% static 'crf/css/form_builder/30_templates.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        <form class="user-detail-form crf-builder-form builder2-form" method="post" action="{% url 'crf:form_field_create' form_id=template.id %}">
+            {% csrf_token %}
+            <div hidden>
+                <input type="hidden" name="delete_section_id" value="{{ selected_section_id|default:'' }}">
+                <input type="hidden" name="delete_field_id" value="{{ selected_field_id|default:'' }}">
+            </div>
+            <div class="user-detail-form__content">
+                {% include "study/components/_study_detail_tabs.html" with study_active_tab="crf_templates" %}
+
+                <div class="builder2-layout">
+                    <aside class="builder2-left">
+                        {% comment %} <h2 class="builder2-tree-title">{% trans "Form Tree" %}</h2> {% endcomment %}
+                        <div class="builder2-tree">
+                            <div id="builder2-jstree" aria-label="{% trans 'Form tree navigation' %}">
+                                <ul>
+                                    {% for section in sections %}
+                                    <li {% if section.id %}data-section-id="{{ section.id }}"{% endif %} data-jstree='{"opened": true}'>
+                                        {{ section.section_name|default:section.section_code|default:'SECTION' }}
+                                        <ul>
+                                            {% for field in section.fields %}
+                                            <li data-field-id="{{ field.id }}"{% if section.id %} data-section-id="{{ section.id }}"{% endif %}>
+                                                {{ field.field_template.label|default:field.field_template.field_key|default:'FIELD' }}
+                                            </li>
+                                            {% empty %}
+                                            <li data-jstree='{"disabled": true}'>{% trans "No fields" %}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                    {% empty %}
+                                    <li data-jstree='{"disabled": true}'>{% trans "No sections" %}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <div class="builder2-right">
+                        {% include "crf/components/_form_builder_sections_panel.html" %}
+
+                        <section class="user-detail-section" data-builder-landing>
+                            <div class="user-detail-section__body">
+                                <button type="button" class="builder2-section-cta" data-section-add>
+                                    {% trans "Bấm vào để thêm mới Section" %}
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+            </div>
+            <div class="entity-table__footer">
+                <button type="button" class="entity-table__footer-button">
+                    {% trans "Save Change" %}
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'jquery/dist/jquery.min.js' %}"></script>
+    <script src="{% static 'vendor/jstree/jstree.min.js' %}"></script>
+    <script src="{% static 'select2/dist/js/select2.full.min.js' %}"></script>
+    <script>
+        window.CRF_FORM_BUILDER_INITIAL = JSON.parse('{{ builder_json|escapejs }}');
+        window.CRF_FORM_BUILDER_I18N = {
+            createField: '{% trans "Create Field" %}',
+            fieldPrefix: '{% trans "Field" %}',
+            sectionPrefix: '{% trans "Section" %}',
+            noStyle: '{% trans "Chưa có style" %}',
+            manage: '{% trans "Quản lý" %}',
+            targetLabel: '{% trans "Target:" %}',
+            validationRule: '{% trans "Validation Rule" %}',
+            ruleType: '{% trans "Rule Type" %}',
+            condition: '{% trans "Condition" %}',
+            severity: '{% trans "Severity" %}',
+            mode: '{% trans "Mode" %}',
+            messageMultiLang: '{% trans "Message (Multi-lang)" %}',
+            addMessage: '{% trans "+ Add Message" %}',
+        };
+
+        (function ($) {
+            var $tree = $("#builder2-jstree");
+            if (!$tree.length || typeof $.fn.jstree !== "function") {
+                return;
+            }
+
+            $tree
+                .jstree({
+                    core: {
+                        animation: 120,
+                        themes: {
+                            icons: false,
+                        },
+                    },
+                    plugins: ["wholerow"],
+                })
+                .on("select_node.jstree", function (_event, data) {
+                    var attrs = data.node && data.node.li_attr ? data.node.li_attr : {};
+                    var sectionId = attrs["data-section-id"];
+                    var fieldId = attrs["data-field-id"];
+
+                    if (sectionId && !fieldId && window.CRF_FORM_BUILDER && typeof window.CRF_FORM_BUILDER.expandSectionPanel === "function") {
+                        window.CRF_FORM_BUILDER.expandSectionPanel(sectionId);
+                    }
+                });
+        })(window.jQuery);
+    </script>
+    <script src="{% static 'crf/js/form_builder.js' %}"></script>
+{% endblock %}

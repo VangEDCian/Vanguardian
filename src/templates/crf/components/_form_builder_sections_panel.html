@@ -1,13 +1,6 @@
 {% load i18n %}
 <section class="user-detail-section" data-builder-panel="sections" hidden>
-
             <div data-builder-panel-view="sections" data-builder-panel-mode="list">
-                <div style="display:flex; justify-content:flex-end; padding:0 0 16px;">
-                    <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-section-add>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                        {% trans "Add Section" %}
-                    </button>
-                </div>
             {% if sections %}
                 <div class="crf-collection-grid">
                     {% for section in sections %}
@@ -68,9 +61,6 @@
             </div>
 
             <div data-builder-panel-view="sections" data-builder-panel-mode="form" hidden>
-                <div style="display:flex; justify-content:flex-end; padding:8px 0 12px;">
-                    <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-section-panel-add>{% trans "Add Section" %}</button>
-                </div>
                 <div data-section-draft-panels>
                     <div class="crf-definition-panel" data-section-draft-panel data-section-draft-index="1">
                         <div class="crf-definition-panel__header">
@@ -113,132 +103,114 @@
                                 {% endif %}
                                 <div hidden>{{ section_template_form.section_template_id }}</div>
 
-            <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Section Code" %}</span>
-                        </div>
-                        {{ section_template_form.section_code }}
+            <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.section_code.id_for_label }}">{% trans "Section Code" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.section_code }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.section_code.errors }}</div>
                 </div>
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Display Order" %}</span>
-                        </div>
-                        {{ section_template_form.display_order }}
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.display_order.id_for_label }}">{% trans "Display Order" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.display_order }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.display_order.errors }}</div>
                 </div>
+            </div>
+            <div class="crf-definition-panel__grid crf-panel-grid--mb16">
                 <div class="crf-definition-panel__field">
-                    <label class="crf-builder-field__label">{% trans "Is Required" %}</label>
-                    <div class="crf-builder-select-wrap">{{ section_template_form.is_required }}</div>
+                    <div class="form-input-control form-input-control--checkbox">
+                        <label class="form-input-control__label" for="{{ section_template_form.is_required.id_for_label }}">{% trans "Is Required" %}</label>
+                        <div class="form-input-control__field form-input-control__field--checkbox">{{ section_template_form.is_required }}</div>
+                    </div>
                     <div class="user-detail-field__error">{{ section_template_form.is_required.errors }}</div>
                 </div>
-            </div>
-            <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
                 <div class="crf-definition-panel__field">
-                    <label class="crf-builder-field__label">{% trans "Is Repeatable" %}</label>
-                    <div class="crf-builder-select-wrap">{{ section_template_form.is_repeatable }}</div>
+                    <div class="form-input-control form-input-control--checkbox">
+                        <label class="form-input-control__label" for="{{ section_template_form.is_repeatable.id_for_label }}">{% trans "Is Repeatable" %}</label>
+                        <div class="form-input-control__field form-input-control__field--checkbox">{{ section_template_form.is_repeatable }}</div>
+                    </div>
                     <div class="user-detail-field__error">{{ section_template_form.is_repeatable.errors }}</div>
                 </div>
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Min Repeats" %}</span>
-                        </div>
-                        {{ section_template_form.min_repeats }}
+            </div>
+            <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.min_repeats.id_for_label }}">{% trans "Min Repeats" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.min_repeats }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.min_repeats.errors }}</div>
                 </div>
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Max Repeats" %}</span>
-                        </div>
-                        {{ section_template_form.max_repeats }}
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.max_repeats.id_for_label }}">{% trans "Max Repeats" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.max_repeats }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.max_repeats.errors }}</div>
                 </div>
             </div>
-            <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Section Name EN" %}</span>
-                        </div>
-                        {{ section_template_form.section_name_en }}
+            <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.section_name_en.id_for_label }}">{% trans "Section Name EN" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.section_name_en }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.section_name_en.errors }}</div>
                 </div>
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Section Name VI" %}</span>
-                        </div>
-                        {{ section_template_form.section_name_vi }}
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.section_name_vi.id_for_label }}">{% trans "Section Name VI" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.section_name_vi }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.section_name_vi.errors }}</div>
                 </div>
             </div>
-            <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Description EN" %}</span>
-                        </div>
-                        {{ section_template_form.description_en }}
+            <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.description_en.id_for_label }}">{% trans "Description EN" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.description_en }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.description_en.errors }}</div>
                 </div>
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Description VI" %}</span>
-                        </div>
-                        {{ section_template_form.description_vi }}
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.description_vi.id_for_label }}">{% trans "Description VI" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.description_vi }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.description_vi.errors }}</div>
                 </div>
             </div>
-            <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Help Text EN" %}</span>
-                        </div>
-                        {{ section_template_form.help_text_en }}
+            <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.help_text_en.id_for_label }}">{% trans "Help Text EN" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.help_text_en }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.help_text_en.errors }}</div>
                 </div>
-                <div class="crf-definition-panel__field" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Help Text VI" %}</span>
-                        </div>
-                        {{ section_template_form.help_text_vi }}
+                <div class="crf-definition-panel__field">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.help_text_vi.id_for_label }}">{% trans "Help Text VI" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.help_text_vi }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.help_text_vi.errors }}</div>
                 </div>
             </div>
-            <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                <div class="crf-definition-panel__field crf-definition-panel__field--full" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Instruction Text EN" %}</span>
-                        </div>
-                        {{ section_template_form.instruction_text_en }}
+            <div class="crf-definition-panel__grid crf-panel-grid--mb16">
+                <div class="crf-definition-panel__field crf-definition-panel__field--full">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.instruction_text_en.id_for_label }}">{% trans "Instruction Text EN" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.instruction_text_en }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.instruction_text_en.errors }}</div>
                 </div>
-                <div class="crf-definition-panel__field crf-definition-panel__field--full" style="display: block;">
-                    <div class="input-group crf-input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">{% trans "Instruction Text VI" %}</span>
-                        </div>
-                        {{ section_template_form.instruction_text_vi }}
+                <div class="crf-definition-panel__field crf-definition-panel__field--full">
+                    <div class="form-input-control">
+                        <label class="form-input-control__label" for="{{ section_template_form.instruction_text_vi.id_for_label }}">{% trans "Instruction Text VI" %}</label>
+                        <div class="form-input-control__field">{{ section_template_form.instruction_text_vi }}</div>
                     </div>
                     <div class="user-detail-field__error">{{ section_template_form.instruction_text_vi.errors }}</div>
                 </div>

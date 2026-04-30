@@ -226,9 +226,9 @@ body:has(.crf-builder-form) {
     margin-bottom: 6px;
 }
 
-.crf-builder-form .user-detail-section__body {
+/* .crf-builder-form .user-detail-section__body {
     padding: 0 6px 4px;
-}
+} */
 
 .crf-builder-form .entity-table-panel {
     margin-bottom: 6px;

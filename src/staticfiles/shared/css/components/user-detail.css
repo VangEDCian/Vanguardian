@@ -33,10 +33,10 @@
 }
 
 .user-detail-section {
-  margin: 0 0 12px;
+  /* margin: 0 0 12px;
   border-top: 1px solid #cfcfcf;
   border-bottom: 1px solid #d9d9d9;
-  background: #fff;
+  background: #fff; */
 }
 
 .user-detail-section__title {
@@ -52,9 +52,9 @@
 }
 
 .user-detail-section__body {
-  padding: 0 8px 8px;
-  border-top: 1px solid #e4e4e4;
-  background: #f8fbff;
+  /* padding: 0 8px 8px; */
+  /* border-top: 1px solid #e4e4e4;
+  background: #f8fbff; */
 }
 
 .user-detail-inline-row {

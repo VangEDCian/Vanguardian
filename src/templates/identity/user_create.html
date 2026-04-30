@@ -6,7 +6,7 @@
 {% block extra_css %}
     {{ block.super }}
     <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+          href="{% static 'select2/dist/css/select2.min.css' %}" />
     <link rel="stylesheet"
           href="{% static 'shared/css/components/common-table.css' %}" />
     <link rel="stylesheet"
@@ -178,7 +178,7 @@
 {% endblock %}
 {% block extra_js %}
     {{ block.super }}
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{% static 'jquery/dist/jquery.min.js' %}"></script>
+    <script src="{% static 'select2/dist/js/select2.full.min.js' %}"></script>
     <script src="{% static 'identity/js/user-create.js' %}"></script>
 {% endblock %}

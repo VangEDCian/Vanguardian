@@ -34,7 +34,7 @@ class CrfFormBuilderView(
 ):
     permission_required = "study.view_study_detail"
     raise_exception = True
-    template_name = "crf/form_builder.html"
+    template_name = "crf/form_builder2.html"
     layout_nav_key = "STUDIES"
     layout_show_breadcrumb_trail = False
     read_model_service_class = FormBuilderReadModelService

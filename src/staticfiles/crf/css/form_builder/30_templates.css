@@ -1,0 +1,132 @@
+.crf-builder-form .crf-inline-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0 16px;
+}
+
+.crf-builder-form .crf-inline-toolbar--compact {
+    padding: 8px 0 12px;
+}
+
+.crf-builder-form .crf-panel-grid--mb16 {
+    margin-bottom: 16px;
+}
+
+.crf-builder-form .crf-panel-grid--mt16 {
+    margin-top: 16px;
+}
+
+.crf-builder-form .crf-field-block {
+    display: block;
+}
+
+.crf-builder-form .crf-summary-box--mb12 {
+    margin-bottom: 12px;
+}
+
+.crf-builder-form .crf-reset-button {
+    height: 32px;
+    border-radius: 16px;
+    margin-left: 8px;
+}
+
+.crf-builder-form .crf-landing-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding: 24px 0 12px;
+}
+
+.crf-builder-form .crf-landing-actions--compact {
+    padding: 8px 0 12px;
+}
+
+.builder2-layout {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+    padding: 1rem;
+}
+
+.builder2-left {
+    grid-column: span 3;
+    max-height: calc(100vh - 240px);
+    overflow: auto;
+}
+
+.builder2-right {
+    grid-column: span 9;
+    min-width: 0;
+}
+
+.builder2-tree-title {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin: 0 0 10px;
+}
+
+.builder2-tree {
+    height: 100%;
+    border: 1px solid #d7e0e8;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 6px 0;
+}
+
+#builder2-jstree {
+    min-height: 100%;
+    padding: 4px 8px 8px;
+}
+
+#builder2-jstree .jstree-anchor {
+    font-size: 14px;
+}
+
+#builder2-jstree .jstree-clicked {
+    background: #d9ecff;
+}
+
+@media (max-width: 1240px) {
+    /* .builder2-right {
+        grid-column: span 8;
+    }
+
+    .builder2-left {
+    grid-column: span 4;
+    } */
+}
+
+.builder2-section-cta {
+    width: 100%;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.builder2-section-cta:hover {
+    border-color: #94a3b8;
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.builder2-form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.builder2-form .user-detail-form__content {
+    flex: 1 1 auto;
+    min-height: 0;
+}

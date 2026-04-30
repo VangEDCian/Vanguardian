@@ -17,12 +17,16 @@
     const sdtmDomainInput = document.querySelector('[data-sdtm-domain]');
     const sdtmVariableInput = document.querySelector('[data-sdtm-variable]');
     const sdtmRoleInput = document.querySelector('[data-sdtm-role]');
-    const sectionAddButton = document.querySelector('[data-section-add]');
+    const sectionAddButtons = Array.from(document.querySelectorAll('[data-section-add]'));
+    const sectionDraftPanelsContainer = document.querySelector('[data-section-draft-panels]');
     const styleModal = document.querySelector('[data-ui-config-modal]');
     const styleCloseButtons = Array.from(document.querySelectorAll('[data-ui-config-modal-close], [data-ui-config-modal-cancel]'));
     const styleSaveButton = document.querySelector('[data-ui-config-modal-save]');
     const styleAddButton = document.querySelector('[data-ui-config-modal-add]');
     const styleItemsContainer = document.querySelector('[data-ui-config-modal-items]');
+    const isBuilder2 = Boolean(builderForm?.classList.contains('builder2-form'));
+    const builderInitial = window.CRF_FORM_BUILDER_INITIAL || null;
+    let sectionDraftTemplate = null;
 
     function normalizeObject(value) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -149,7 +153,9 @@
         setCollapsiblePanelState(panelName, false);
 
         if (focusFirstField) {
-            const focusSelector = panelName === 'sections' ? '[name="section_code"]' : '[name="field_key"]';
+            const focusSelector = panelName === 'sections'
+                ? '[name="section_code"], [name$="-section_code"]'
+                : '[name="field_key"], [name$="-field_key"]';
             const firstField = document.querySelector(focusSelector);
             if (firstField && typeof firstField.focus === 'function') {
                 firstField.focus();
@@ -178,7 +184,7 @@
             field.value = '';
         });
 
-        const sectionTemplateIdInput = panel.querySelector('input[name="section_template_id"]');
+        const sectionTemplateIdInput = getSectionFieldControl(panel, 'section_template_id');
         if (sectionTemplateIdInput) {
             sectionTemplateIdInput.value = '';
         }
@@ -197,37 +203,41 @@
             'min_repeats',
             'max_repeats'
         ].forEach((fieldName) => {
-            panel.querySelectorAll(`[name="${fieldName}"]`).forEach((field) => {
-                if (field.type === 'checkbox') {
-                    field.checked = false;
-                    return;
-                }
+            const field = getSectionFieldControl(panel, fieldName);
+            if (!field) {
+                return;
+            }
 
-                if (field.tagName === 'SELECT') {
-                    field.selectedIndex = 0;
-                    field.dispatchEvent(new Event('change', { bubbles: true }));
-                    return;
-                }
+            if (field.type === 'checkbox') {
+                field.checked = false;
+                return;
+            }
 
-                field.value = '';
-            });
+            if (field.tagName === 'SELECT') {
+                field.selectedIndex = 0;
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+                return;
+            }
+
+            field.value = '';
         });
 
-        const isRequiredField = panel.querySelector('[name="is_required"]');
+        const isRequiredField = getSectionFieldControl(panel, 'is_required');
         if (isRequiredField) {
             isRequiredField.checked = true;
         }
 
-        const isRepeatableField = panel.querySelector('[name="is_repeatable"]');
+        const isRepeatableField = getSectionFieldControl(panel, 'is_repeatable');
         if (isRepeatableField) {
             isRepeatableField.checked = false;
         }
+
+        panel.dataset.sectionId = '';
     }
 
     function getSectionDraftPanels() {
-        const container = document.querySelector('[data-section-draft-panels]');
-        if (!container) return [];
-        return Array.from(container.querySelectorAll('[data-section-draft-panel]'));
+        if (!sectionDraftPanelsContainer) return [];
+        return Array.from(sectionDraftPanelsContainer.querySelectorAll('[data-section-draft-panel]'));
     }
 
     function getActiveSectionDraftPanel() {
@@ -239,14 +249,71 @@
         return panels.length ? panels[panels.length - 1] : null;
     }
 
+    function getSectionDraftTemplate() {
+        if (!sectionDraftPanelsContainer) {
+            return null;
+        }
+
+        if (!sectionDraftTemplate) {
+            const sourcePanel = sectionDraftPanelsContainer.querySelector('[data-section-draft-panel]');
+            if (!sourcePanel) {
+                return null;
+            }
+            sectionDraftTemplate = sourcePanel.cloneNode(true);
+        }
+
+        return sectionDraftTemplate.cloneNode(true);
+    }
+
+    function getSectionFieldControl(panel, fieldName) {
+        if (!panel || !fieldName) {
+            return null;
+        }
+
+        return panel.querySelector(`[name="${fieldName}"], [name$="-${fieldName}"]`);
+    }
+
+    function setSectionFieldValue(panel, fieldName, value) {
+        const field = getSectionFieldControl(panel, fieldName);
+        if (!field) {
+            return;
+        }
+
+        if (field.type === 'checkbox') {
+            field.checked = Boolean(value);
+            return;
+        }
+
+        if (value === null || value === undefined) {
+            field.value = '';
+            return;
+        }
+
+        field.value = String(value);
+    }
+
     function cleanupClonedSectionPanel(panel, panelIndex) {
         if (!panel) return;
         panel.removeAttribute('data-section-draft-initialized');
         panel.removeAttribute('data-section-draft-active');
         panel.dataset.sectionDraftIndex = String(panelIndex);
+        panel.dataset.sectionId = '';
 
         panel.querySelectorAll('.user-detail-field__error').forEach((el) => {
             el.innerHTML = '';
+        });
+
+        panel.querySelectorAll('input, select, textarea').forEach((control, index) => {
+            if (!control.id) {
+                return;
+            }
+
+            const previousId = control.id;
+            const nextId = `${previousId}--panel-${panelIndex}-${index}`;
+            panel.querySelectorAll(`label[for="${previousId}"]`).forEach((label) => {
+                label.setAttribute('for', nextId);
+            });
+            control.id = nextId;
         });
     }
 
@@ -255,7 +322,92 @@
         const title = panel.querySelector('[data-section-draft-title]');
         if (!title) return;
         const panelIndex = Number(panel.dataset.sectionDraftIndex || '1') || 1;
-        title.textContent = `${i18n.sectionPrefix || 'Section'} ${panelIndex}`;
+        const sectionCode = getSectionFieldControl(panel, 'section_code')?.value?.trim() || '';
+        const sectionNameEn = getSectionFieldControl(panel, 'section_name_en')?.value?.trim() || '';
+        const sectionNameVi = getSectionFieldControl(panel, 'section_name_vi')?.value?.trim() || '';
+        const displayTitle = sectionNameEn || sectionNameVi || sectionCode;
+        title.textContent = displayTitle || `${i18n.sectionPrefix || 'Section'} ${panelIndex}`;
+    }
+
+    function bindSectionDraftPanelTitleSync(panel) {
+        ['section_code', 'section_name_en', 'section_name_vi'].forEach((fieldName) => {
+            const control = getSectionFieldControl(panel, fieldName);
+            if (!control || control.dataset.sectionTitleBound === 'true') {
+                return;
+            }
+            control.dataset.sectionTitleBound = 'true';
+            control.addEventListener('input', () => updateSectionDraftPanelTitle(panel));
+        });
+    }
+
+    function populateSectionDraftPanel(panel, sectionData) {
+        if (!panel) {
+            return;
+        }
+
+        const translations = sectionData?.translations || {};
+        const enTranslation = translations.en || {};
+        const viTranslation = translations.vi || {};
+
+        setSectionFieldValue(panel, 'section_template_id', sectionData?.id || '');
+        setSectionFieldValue(panel, 'section_code', sectionData?.section_code || '');
+        setSectionFieldValue(panel, 'section_name_en', enTranslation.section_name || sectionData?.section_name || '');
+        setSectionFieldValue(panel, 'section_name_vi', viTranslation.section_name || sectionData?.section_name || '');
+        setSectionFieldValue(panel, 'description_en', enTranslation.description || '');
+        setSectionFieldValue(panel, 'description_vi', viTranslation.description || '');
+        setSectionFieldValue(panel, 'help_text_en', enTranslation.help_text || '');
+        setSectionFieldValue(panel, 'help_text_vi', viTranslation.help_text || '');
+        setSectionFieldValue(panel, 'instruction_text_en', enTranslation.instruction_text || '');
+        setSectionFieldValue(panel, 'instruction_text_vi', viTranslation.instruction_text || '');
+        setSectionFieldValue(panel, 'display_order', sectionData?.display_order ?? 1);
+        setSectionFieldValue(panel, 'is_required', sectionData?.is_required ?? true);
+        setSectionFieldValue(panel, 'is_repeatable', sectionData?.is_repeatable ?? false);
+        setSectionFieldValue(panel, 'min_repeats', sectionData?.min_repeats ?? 0);
+        setSectionFieldValue(panel, 'max_repeats', sectionData?.max_repeats ?? '');
+
+        panel.dataset.sectionId = sectionData?.id ? String(sectionData.id) : '';
+        updateSectionDraftPanelTitle(panel);
+    }
+
+    function setAllSectionDraftPanelsInactive() {
+        getSectionDraftPanels().forEach((draftPanel) => {
+            draftPanel.dataset.sectionDraftActive = 'false';
+            draftPanel.classList.remove('is-active');
+            draftPanel.querySelectorAll('input, select, textarea, button[type="submit"]').forEach((control) => {
+                control.disabled = true;
+            });
+        });
+    }
+
+    function collapseOtherSectionPanels(exceptPanel = null) {
+        getSectionDraftPanels().forEach((draftPanel) => {
+            setSectionDefinitionCollapsed(draftPanel, draftPanel !== exceptPanel);
+        });
+    }
+
+    function buildSectionDraftPanel(sectionData = null) {
+        if (!sectionDraftPanelsContainer) {
+            return null;
+        }
+
+        const panel = getSectionDraftTemplate();
+        if (!panel) {
+            return null;
+        }
+
+        const nextIndex = getSectionDraftPanels().length + 1;
+        cleanupClonedSectionPanel(panel, nextIndex);
+        sectionDraftPanelsContainer.appendChild(panel);
+        initializeSectionDraftPanel(panel);
+
+        if (sectionData) {
+            populateSectionDraftPanel(panel, sectionData);
+        } else {
+            switchSectionFormToCreateMode(panel);
+            updateSectionDraftPanelTitle(panel);
+        }
+
+        return panel;
     }
 
     function setSectionDefinitionCollapsed(panel, isCollapsed) {
@@ -282,30 +434,23 @@
     function activateSectionDraftPanel(panel, options = {}) {
         if (!panel) return;
         const { focusFirstField = true } = options;
+        collapseOtherSectionPanels(panel);
         setSectionDraftPanelActive(panel, true);
         setSectionDefinitionCollapsed(panel, false);
         if (focusFirstField) {
-            const firstField = panel.querySelector('[name="section_code"]');
+            const firstField = getSectionFieldControl(panel, 'section_code');
             firstField?.focus?.();
         }
     }
 
     function cloneSectionDraftPanel(sourcePanel) {
-        const container = document.querySelector('[data-section-draft-panels]');
-        if (!container || !sourcePanel) return null;
+        if (!sourcePanel && !sectionDraftPanelsContainer) return null;
+        const clonedPanel = buildSectionDraftPanel();
+        if (!clonedPanel) {
+            return null;
+        }
 
-        const nextIndex = getSectionDraftPanels().length + 1;
-        const clonedPanel = sourcePanel.cloneNode(true);
-        cleanupClonedSectionPanel(clonedPanel, nextIndex);
-        updateSectionDraftPanelTitle(clonedPanel);
-
-        getSectionDraftPanels().forEach((existingPanel) => {
-            setSectionDefinitionCollapsed(existingPanel, true);
-        });
-
-        container.appendChild(clonedPanel);
-        initializeSectionDraftPanel(clonedPanel);
-        switchSectionFormToCreateMode(clonedPanel);
+        collapseOtherSectionPanels(clonedPanel);
 
         clonedPanel.classList.add('crf-definition-panel--entering');
         clonedPanel.addEventListener('animationend', () => {
@@ -327,15 +472,26 @@
         if (!panel || panel.dataset.sectionDraftInitialized === 'true') return;
         panel.dataset.sectionDraftInitialized = 'true';
         updateSectionDraftPanelTitle(panel);
+        bindSectionDraftPanelTitleSync(panel);
 
+        const header = panel.querySelector('.crf-definition-panel__header');
         const toggleButton = panel.querySelector('[data-section-definition-toggle]');
         const deleteButton = panel.querySelector('[data-delete-section-draft]');
+
+        header?.addEventListener('click', (event) => {
+            if (event.target.closest('button')) {
+                return;
+            }
+            activateSectionDraftPanel(panel, { focusFirstField: false });
+        });
 
         toggleButton?.addEventListener('click', (event) => {
             event.stopPropagation();
             const isCollapsed = panel.classList.contains('is-collapsed');
             setSectionDefinitionCollapsed(panel, !isCollapsed);
-            setSectionDraftPanelActive(panel, true);
+            if (isCollapsed) {
+                setSectionDraftPanelActive(panel, true);
+            }
         });
 
         deleteButton?.addEventListener('click', (event) => {
@@ -375,15 +531,18 @@
         openBuilderPanel('fields', { focusFirstField: false });
     }
 
-    function showSectionsForm() {
+    function showSectionsForm(options = {}) {
+        const { focusFirstField = true, expandActivePanel = true } = options;
         setBuilderPanelVisibility('fields', false);
         setBuilderPanelVisibility('sections', true);
-        openBuilderPanel('sections');
         setBuilderPanelView('sections', 'form');
+        openBuilderPanel('sections', { focusFirstField, scrollIntoView: false });
 
         const activePanel = getActiveSectionDraftPanel() || getLastSectionDraftPanel();
-        if (activePanel) {
+        if (activePanel && expandActivePanel) {
             activateSectionDraftPanel(activePanel, { focusFirstField: false });
+        } else if (!expandActivePanel) {
+            setAllSectionDraftPanelsInactive();
         }
     }
 
@@ -399,6 +558,53 @@
         const activePanel = getActiveFieldDraftPanel() || getLastFieldDraftPanel();
         if (activePanel) {
             activateFieldDraftPanel(activePanel, { focusFirstField: false });
+        }
+    }
+
+    function expandSectionPanelById(sectionId, options = {}) {
+        const normalizedSectionId = String(sectionId || '').trim();
+        if (!normalizedSectionId) {
+            return;
+        }
+
+        showSectionsForm({ focusFirstField: false, expandActivePanel: false });
+        const targetPanel = getSectionDraftPanels().find((panel) => String(panel.dataset.sectionId || '') === normalizedSectionId);
+        if (!targetPanel) {
+            return;
+        }
+
+        collapseOtherSectionPanels(targetPanel);
+        activateSectionDraftPanel(targetPanel, { focusFirstField: false });
+
+        if (options.scrollIntoView !== false && typeof targetPanel.scrollIntoView === 'function') {
+            targetPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function initializeBuilder2SectionPanels() {
+        if (!isBuilder2 || !sectionDraftPanelsContainer) {
+            return;
+        }
+
+        const existingSections = Array.isArray(builderInitial?.sections)
+            ? builderInitial.sections.filter((section) => section && section.id)
+            : [];
+
+        getSectionDraftTemplate();
+        sectionDraftPanelsContainer.innerHTML = '';
+
+        existingSections.forEach((sectionData) => {
+            const panel = buildSectionDraftPanel(sectionData);
+            if (panel) {
+                setSectionDefinitionCollapsed(panel, true);
+            }
+        });
+
+        showSectionsForm({ focusFirstField: false, expandActivePanel: false });
+        setAllSectionDraftPanelsInactive();
+
+        if (sectionIdMatch) {
+            expandSectionPanelById(sectionIdMatch[1], { scrollIntoView: false });
         }
     }
 
@@ -903,11 +1109,21 @@
         sdtmModal.setAttribute('aria-hidden', 'true');
     }
 
-    if (sectionAddButton) {
-        sectionAddButton.addEventListener('click', () => {
-            showSectionsForm();
+    sectionAddButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!isBuilder2) {
+                showSectionsForm();
+                return;
+            }
+
+            showSectionsForm({ focusFirstField: false, expandActivePanel: false });
+            const sourcePanel = getActiveSectionDraftPanel() || getLastSectionDraftPanel() || getSectionDraftTemplate();
+            if (!sourcePanel) {
+                return;
+            }
+            cloneSectionDraftPanel(sourcePanel);
         });
-    }
+    });
 
     if (sectionsShowButton) {
         sectionsShowButton.addEventListener('click', () => {
@@ -989,13 +1205,14 @@
             initializeSectionDraftPanel(panel);
         });
 
-        if (panels.length > 0) {
+        if (panels.length > 0 && !isBuilder2) {
             activateSectionDraftPanel(panels[0], { focusFirstField: false });
         }
     }
 
     initializeFieldDraftPanelsOnLoad();
     initializeSectionDraftPanelsOnLoad();
+    initializeBuilder2SectionPanels();
 
     bindCollapsiblePanels();
     setCollapsiblePanelState('sections', false);
@@ -1004,9 +1221,12 @@
 
     if (fieldIdMatch) {
         showFieldsForm();
-    } else if (sectionIdMatch) {
+    } else if (sectionIdMatch && !isBuilder2) {
         showSectionsForm();
     }
+
+    window.CRF_FORM_BUILDER = window.CRF_FORM_BUILDER || {};
+    window.CRF_FORM_BUILDER.expandSectionPanel = expandSectionPanelById;
 
     sdtmCloseButtons.forEach((button) => {
         button.addEventListener('click', closeSdtmModal);

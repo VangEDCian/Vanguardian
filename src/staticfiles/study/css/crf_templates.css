@@ -50,15 +50,15 @@ body {
 }
 
 .crf-template-actions__trigger {
-  width: 32px;
-  height: 32px;
+  /* width: 32px;
+  height: 32px; */
   /* border: 1px solid #d7e1e8; */
   border-radius: 6px;
   /* background: #ffffff; */
   color: #4d6473;
-  display: inline-flex;
+  /* display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: center; */
   cursor: pointer;
   transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
 }
