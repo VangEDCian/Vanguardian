@@ -8,6 +8,7 @@ from apps.study.application.commands.import_randomization.types import (
     PreviewRandomizationImportCommand,
     RandomizationImportValidationError,
 )
+from apps.study.application.use_cases.randomization_import_preview import RandomizationImportIssue
 from apps.study.application.services.import_randomization_base import BaseRandomizationImportValidationService
 from apps.study.application.services.import_randomization_preview import (
     PreviewStudyRandomizationArmsImportService,
@@ -18,7 +19,10 @@ from apps.study.application.services.randomization_audit import (
     serialize_randomization_arm_snapshot,
     serialize_randomization_scheme_snapshot,
 )
-from apps.study.application.services.randomization_slot_generation import StudyRandomizationSlotGenerationService
+from apps.study.application.services.randomization_slot_generation import (
+    RandomizationSlotGenerationError,
+    StudyRandomizationSlotGenerationService,
+)
 from apps.study.infrastructure.repositories import DjangoRandomizationRepository
 
 
@@ -181,6 +185,7 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
         updated_count = 0
         now = timezone.now()
         scheme_map = self._build_scheme_map(study_id=command.study_id)
+        impacted_schemes: dict[int, tuple[object, object]] = {}
 
         with transaction.atomic():
             for parsed_row in preview_result.parsed_rows:
@@ -202,7 +207,13 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
                         actor_user_id=command.actor_user_id,
                         before_data=before_data,
                     )
-                self._generate_slots_for_active_arm(scheme=scheme, arm=arm)
+                impacted_schemes[scheme.pk] = (scheme, parsed_row)
+
+            for scheme, parsed_row in impacted_schemes.values():
+                self._generate_slots_for_impacted_scheme(
+                    scheme=scheme,
+                    parsed_row=parsed_row,
+                )
 
         return CommitRandomizationImportResult(
             total_rows=preview_result.total_rows,
@@ -248,13 +259,31 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
         self.repository.save_arm(arm, update_fields=list(defaults.keys()))
         return "updated", scheme, arm, before_data
 
-    def _generate_slots_for_active_arm(self, *, scheme, arm):
+    def _generate_slots_for_impacted_scheme(self, *, scheme, parsed_row):
         if getattr(scheme, "status", None) != RandomizationSchemeStatusChoice.ACTIVE:
             return
-        if not getattr(arm, "is_active", False):
+
+        active_arms = list(
+            self.repository.list_active_arms_for_scheme(
+                scheme_id=scheme.pk,
+            ),
+        )
+        if not active_arms:
             return
 
-        self.slot_generation_service.generate_slots_for_scheme_arm(
-            scheme=scheme,
-            arm=arm,
-        )
+        try:
+            self.slot_generation_service.generate_slots_for_scheme_arm(
+                scheme=scheme,
+                arm=active_arms[0],
+            )
+        except RandomizationSlotGenerationError as exc:
+            raise RandomizationImportValidationError(
+                (
+                    RandomizationImportIssue(
+                        row_number=parsed_row.row_number,
+                        identifier=parsed_row.identifier,
+                        column_label="Scheme Code",
+                        reason=str(exc),
+                    ),
+                ),
+            ) from exc

@@ -20,6 +20,9 @@ from apps.study.application.services import (
     CommitStudyRandomizationSchemesImportService,
     PreviewStudyRandomizationArmsImportService,
 )
+from apps.study.application.services.randomization_slot_generation import (
+    RandomizationSlotGenerationError,
+)
 from apps.study.application.use_cases.randomization_import_preview import (
     RandomizationArmImportPreviewUseCase,
     RandomizationImportIssue,
@@ -423,6 +426,7 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
                 ("updated", scheme, updated_arm, {"arm_code": "ARM-B"}),
             ]
         )
+        self.service._generate_slots_for_impacted_scheme = MagicMock()
         self.service.randomization_audit_service = MagicMock()
 
         result = self.service.execute(self.command)
@@ -439,6 +443,50 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
             actor_user_id=9,
             before_data={"arm_code": "ARM-B"},
         )
+        self.service._generate_slots_for_impacted_scheme.assert_called_once_with(
+            scheme=scheme,
+            parsed_row=preview_result.parsed_rows[1],
+        )
+
+    @patch("apps.study.application.services.import_randomization_commit.transaction.atomic")
+    def test_execute_raises_validation_error_when_slot_generation_fails(self, mock_atomic):
+        mock_atomic.return_value.__enter__.return_value = None
+        mock_atomic.return_value.__exit__.return_value = None
+        preview_result = RandomizationImportPreviewResult(
+            columns=(),
+            preview_rows=(),
+            parsed_rows=(
+                RandomizationImportParsedRow(2, "SCH-001 / ARM-A", {"scheme_code": "SCH-001", "arm_code": "ARM-A"}),
+            ),
+            total_rows=1,
+            issues=(),
+        )
+        self.service.preview_service = MagicMock()
+        self.service.preview_service.execute.return_value = preview_result
+        self.service._build_scheme_map = MagicMock(return_value={"sch-001": SimpleNamespace(pk=11)})
+        scheme = SimpleNamespace(pk=11, status="active")
+        created_arm = SimpleNamespace(pk=201, is_active=True)
+        self.service._upsert_arm = MagicMock(
+            return_value=("created", scheme, created_arm, {}),
+        )
+        self.service._generate_slots_for_impacted_scheme = MagicMock(
+            side_effect=RandomizationImportValidationError(
+                (
+                    RandomizationImportIssue(
+                        row_number=2,
+                        identifier="SCH-001 / ARM-A",
+                        column_label="Scheme Code",
+                        reason="Allocation Ratio references inactive or missing arm(s): B.",
+                    ),
+                ),
+            )
+        )
+
+        with self.assertRaises(RandomizationImportValidationError) as exc_info:
+            self.service.execute(self.command)
+
+        self.assertEqual(exc_info.exception.issues[0].column_label, "Scheme Code")
+        self.assertIn("missing arm", exc_info.exception.issues[0].reason)
 
     def test_upsert_arm_create_uses_expected_payload(self):
         repository = MagicMock()
@@ -477,6 +525,32 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
             deleted=False,
             updated_at=ANY,
         )
+
+    def test_generate_slots_for_impacted_scheme_wraps_domain_error(self):
+        repository = MagicMock()
+        repository.list_active_arms_for_scheme.return_value = [SimpleNamespace(pk=201, arm_code="ARM-A")]
+        slot_generation_service = MagicMock()
+        slot_generation_service.generate_slots_for_scheme_arm.side_effect = RandomizationSlotGenerationError(
+            "Allocation Ratio references inactive or missing arm(s): B.",
+        )
+        service = CommitStudyRandomizationArmsImportService(
+            repository=repository,
+            slot_generation_service=slot_generation_service,
+        )
+
+        with self.assertRaises(RandomizationImportValidationError) as exc_info:
+            service._generate_slots_for_impacted_scheme(
+                scheme=SimpleNamespace(pk=11, status="active"),
+                parsed_row=RandomizationImportParsedRow(
+                    row_number=2,
+                    identifier="SCH-001 / ARM-A",
+                    values={"scheme_code": "SCH-001", "arm_code": "ARM-A"},
+                ),
+            )
+
+        self.assertEqual(exc_info.exception.issues[0].row_number, 2)
+        self.assertEqual(exc_info.exception.issues[0].column_label, "Scheme Code")
+        self.assertIn("B", exc_info.exception.issues[0].reason)
 
 
 class StudyRandomizationImportBaseViewTests(SimpleTestCase):
