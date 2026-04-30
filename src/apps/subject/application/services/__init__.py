@@ -1,9 +1,13 @@
 from importlib import import_module
 
-__all__ = ["CreateSubjectService"]
+__all__ = [
+    "CreateSubjectService",
+    "SubjectEventTransitionService",
+]
 
 _MODULE_BY_NAME = {
     "CreateSubjectService": "apps.subject.application.services.create_subject",
+    "SubjectEventTransitionService": "apps.subject.application.services.event_lifecycle",
 }
 
 

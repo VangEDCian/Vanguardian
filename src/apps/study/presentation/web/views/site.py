@@ -97,9 +97,23 @@ class SiteDetailView(
         return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
 
     def get_layout_breadcrumb_label(self):
-        if self.object:
-            return self.object.code
         return super().get_layout_breadcrumb_label()
+
+    def get_layout_show_breadcrumb_trail(self):
+        return False
+
+    def get_layout_detail_meta_items(self):
+        if not getattr(self, "object", None):
+            return super().get_layout_detail_meta_items()
+        return (
+            {
+                "label": _("Site Code"),
+                "value": self.object.code,
+            },
+            {
+                "value": _("Active") if self.object.is_active else _("Inactive"),
+            },
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

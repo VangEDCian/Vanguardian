@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.study.infrastructure.persistence.models import EventDefinition, Site, Study
+from apps.study.infrastructure.persistence.models import EventDefinition, EventTransitionRule, Site, Study
 
 
 class Subject(models.Model):
@@ -245,3 +245,94 @@ class SubjectEventInstance(models.Model):
         ]
         verbose_name = "subject event instance"
         verbose_name_plural = "subject event instances"
+
+
+class SubjectEventInstanceTransitionLog(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="subject_event_instance_transition_logs",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="event_instance_transition_logs",
+    )
+    source_event_instance = models.ForeignKey(
+        SubjectEventInstance,
+        on_delete=models.DO_NOTHING,
+        db_column="source_event_instance_id",
+        related_name="outgoing_transition_logs",
+    )
+    target_event_instance = models.ForeignKey(
+        SubjectEventInstance,
+        on_delete=models.DO_NOTHING,
+        db_column="target_event_instance_id",
+        related_name="incoming_transition_logs",
+        null=True,
+        blank=True,
+    )
+    transition_rule = models.ForeignKey(
+        EventTransitionRule,
+        on_delete=models.DO_NOTHING,
+        db_column="transition_rule_id",
+        related_name="event_instance_transition_logs",
+        null=True,
+        blank=True,
+    )
+
+    from_event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="from_event_definition_id",
+        related_name="outgoing_event_instance_transition_logs",
+    )
+    to_event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="to_event_definition_id",
+        related_name="incoming_event_instance_transition_logs",
+        null=True,
+        blank=True,
+    )
+
+    from_status = models.CharField(max_length=32)
+    to_status = models.CharField(max_length=32)
+    trigger_source = models.CharField(max_length=64, default="system")
+    result = models.CharField(max_length=32, default="applied")
+    reason = models.CharField(max_length=128, null=True, blank=True)
+    facts_json = models.TextField(null=True, blank=True)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventinstance_transition_log"
+        managed = False
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["study", "subject", "created_at"],
+                name="study_evtins_trlog_st_sub_cr_idx",
+            ),
+            models.Index(
+                fields=["source_event_instance", "created_at"],
+                name="study_evtins_trlog_src_cr_idx",
+            ),
+            models.Index(
+                fields=["target_event_instance", "created_at"],
+                name="study_evtins_trlog_tgt_cr_idx",
+            ),
+            models.Index(
+                fields=["transition_rule", "created_at"],
+                name="study_evtins_trlog_rule_cr_idx",
+            ),
+        ]
+        verbose_name = "subject event instance transition log"
+        verbose_name_plural = "subject event instance transition logs"
