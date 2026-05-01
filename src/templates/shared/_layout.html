@@ -139,8 +139,10 @@
                                     <strong>{{ auth_user.display_name|default:auth_user.username }}</strong>
                                     <span>{{ auth_user.email|default:auth_user.username }}</span>
                                 </div>
-                                <button type="button" class="avatar-menu__item">{% trans "Profile" %}</button>
-                                <button type="button" class="avatar-menu__item">{% trans "Change Password" %}</button>
+                                <a href="{% url 'identity:current_user_profile' %}"
+                                   class="avatar-menu__item">{% trans "Profile" %}</a>
+                                <a href="{% url 'identity:current_user_change_password' %}"
+                                   class="avatar-menu__item">{% trans "Change Password" %}</a>
                                 <a href="{% url 'identity:logout' %}"
                                    class="avatar-menu__item avatar-menu__item--danger">{% trans "Logout" %}</a>
                             </div>

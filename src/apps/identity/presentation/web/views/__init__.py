@@ -1,3 +1,7 @@
+from apps.identity.presentation.web.views.account import (
+    CurrentUserChangePasswordView,
+    CurrentUserProfileView,
+)
 from apps.identity.presentation.web.views.auth import (
     IdentityForgotPasswordView,
     IdentityLoginView,
@@ -15,6 +19,8 @@ from apps.identity.presentation.web.views.users import (
 )
 
 __all__ = [
+    "CurrentUserChangePasswordView",
+    "CurrentUserProfileView",
     "IdentityForgotPasswordView",
     "IdentityLoginView",
     "IdentityLogoutView",
