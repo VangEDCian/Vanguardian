@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
@@ -28,7 +27,7 @@ from apps.study.presentation.web.views.helpers import _user_has_study_access
 
 
 class StudyCrfTemplateListView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
+    AuthenticateTemplateContextMixin,
     SingleTableMixin, FilterView, ListView,
 ):
     permission_required = "study.view_study_detail"

@@ -1,6 +1,5 @@
 import json
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.db import IntegrityError
 from django.http import Http404
 from django.shortcuts import redirect
@@ -28,8 +27,6 @@ from apps.study.application import StudyDirectoryQueryService, StudyNotFoundErro
 
 class CrfFormBuilderView(
     CrfFormBuilderSupportMixin,
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
     AuthenticateTemplateView,
 ):
     permission_required = "study.view_study_detail"

@@ -3,6 +3,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 
+from apps.identity.infrastructure.auth.constants import PASSWORD_RESET_BYPASS_SESSION_KEY
 from apps.identity.infrastructure.persistence.models import (
     StudyMembership,
     StudySiteMembership,
@@ -71,8 +72,16 @@ class CheckFirstLoginMiddleware:
                 request.user.is_authenticated
                 and hasattr(request.user, "attempt_login")
                 and request.user.attempt_login <= 0
+                and not self._has_password_reset_bypass(request)
                 and not is_excluded_path
         ):
             return HttpResponseRedirect(reverse('identity:first_login'))
         response = self.get_response(request)
         return response
+
+    def _has_password_reset_bypass(self, request):
+        if not getattr(request.user, "pk", None):
+            return False
+        session = getattr(request, "session", {})
+        bypass_user_ids = set(session.get(PASSWORD_RESET_BYPASS_SESSION_KEY, []))
+        return str(request.user.pk) in bypass_user_ids

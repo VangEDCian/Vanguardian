@@ -1,6 +1,5 @@
 import json
 
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, JsonResponse
@@ -35,10 +34,10 @@ from apps.identity.presentation.web.forms import (
     IdentityUserCreateForm,
     IdentityUserDetailForm,
 )
-from apps.shared.views.generic import AuthenticateTemplateView
+from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 
 
-class IdentityUsersView(LoginRequiredMixin, AuthenticateTemplateView):
+class IdentityUsersView(AuthenticateTemplateView):
     template_name = "identity/users.html"
     layout_nav_key = "USERS"
     layout_breadcrumb_label = _("USERS")
@@ -66,7 +65,7 @@ class IdentityUsersView(LoginRequiredMixin, AuthenticateTemplateView):
         return context
 
 
-class IdentityUserCreateView(LoginRequiredMixin, AuthenticateTemplateView):
+class IdentityUserCreateView(AuthenticateTemplateView):
     template_name = "identity/user_create.html"
     layout_nav_key = "USERS"
     layout_breadcrumb_label = _("NEW USER")
@@ -171,7 +170,7 @@ class IdentityUserCreateView(LoginRequiredMixin, AuthenticateTemplateView):
         ]
 
 
-class IdentityUserDetailView(LoginRequiredMixin, AuthenticateTemplateView):
+class IdentityUserDetailView(AuthenticateTemplateView):
     template_name = "identity/user_detail.html"
     layout_nav_key = "USERS"
     user_directory_query_service_class = IdentityUserDirectoryQueryService
@@ -378,7 +377,7 @@ def target_user_role_key(user):
     return "user"
 
 
-class IdentityUserDeleteView(LoginRequiredMixin, View):
+class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
     delete_user_service_class = DeleteIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService
 
@@ -411,7 +410,7 @@ class IdentityUserDeleteView(LoginRequiredMixin, View):
         return redirect(f"{reverse('identity:user_detail', kwargs={'user_id': target_user.pk})}?include_deleted=1")
 
 
-class IdentityUserRestoreView(LoginRequiredMixin, View):
+class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
     restore_user_service_class = RestoreIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService
 

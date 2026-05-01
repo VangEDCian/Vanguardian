@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.http import Http404
 
 from apps.crf.application.form_builder_queries import FormBuilderReadModelService
@@ -7,7 +6,7 @@ from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateView
 
 
-class CrfFormDetailView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
+class CrfFormDetailView(AuthenticateTemplateView):
     permission_required = "study.view_study_detail"
     raise_exception = True
     template_name = "crf/form_detail.html"

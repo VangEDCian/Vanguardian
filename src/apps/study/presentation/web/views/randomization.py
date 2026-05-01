@@ -1,14 +1,13 @@
 import json
 import logging
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, JsonResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
-from apps.shared.views.generic import AuthenticateTemplateView
+from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application import (
     CommitRandomizationImportCommand,
     CommitStudyRandomizationArmsImportService,
@@ -67,8 +66,6 @@ class StudyRandomizationAccessMixin(View):
 
 class StudyRandomizationView(
     StudyRandomizationAccessMixin,
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
     AuthenticateTemplateView,
 ):
     permission_required = "study.view_study_detail"
@@ -176,8 +173,7 @@ class StudyRandomizationView(
 
 class StudyRandomizationImportBaseView(
     StudyRandomizationAccessMixin,
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
+    AuthenticateTemplateContextMixin,
     View,
 ):
     permission_required = "study.update_study"

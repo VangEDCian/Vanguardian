@@ -1,6 +1,8 @@
 from apps.identity.presentation.web.views.auth import (
+    IdentityForgotPasswordView,
     IdentityLoginView,
     IdentityLogoutView,
+    IdentityResetPasswordConfirmView,
     IdentityUserFirstLoginView,
 )
 from apps.identity.presentation.web.views.users import (
@@ -13,8 +15,10 @@ from apps.identity.presentation.web.views.users import (
 )
 
 __all__ = [
+    "IdentityForgotPasswordView",
     "IdentityLoginView",
     "IdentityLogoutView",
+    "IdentityResetPasswordConfirmView",
     "IdentityUserCreateView",
     "IdentityUserDeleteView",
     "IdentityUserDetailView",

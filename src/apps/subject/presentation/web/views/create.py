@@ -1,17 +1,16 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 
 from apps.shared.context_processors import SiteDropdownHandler
+from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.commands.create_subject import CreateSubjectCommand
 from apps.subject.application.services import CreateSubjectService
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 
 class SubjectCreateView(
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
+    AuthenticateTemplateContextMixin,
     SubjectAbstractVerifyStudy,
 ):
     permission_required = "subject.create_subject"

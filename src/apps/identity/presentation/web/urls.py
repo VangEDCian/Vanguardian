@@ -1,13 +1,11 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from apps.identity.presentation.web.forms import (
-    StyledPasswordResetForm,
-    StyledSetPasswordForm,
-)
 from apps.identity.presentation.web.views import (
+    IdentityForgotPasswordView,
     IdentityLoginView,
     IdentityLogoutView,
+    IdentityResetPasswordConfirmView,
     IdentityUserCreateView,
     IdentityUserDeleteView,
     IdentityUserDetailView,
@@ -33,13 +31,7 @@ urlpatterns = [
     ),
     path(
         "forgot-password/",
-        auth_views.PasswordResetView.as_view(
-            template_name="identity/forgot_password.html",
-            email_template_name="identity/password_reset_email.txt",
-            subject_template_name="identity/password_reset_subject.txt",
-            form_class=StyledPasswordResetForm,
-            success_url="/forgot-password/done/",
-        ),
+        IdentityForgotPasswordView.as_view(),
         name="forgot_password",
     ),
     path(
@@ -51,11 +43,7 @@ urlpatterns = [
     ),
     path(
         "reset-password/<uidb64>/<token>/",
-        auth_views.PasswordResetConfirmView.as_view(
-            template_name="identity/reset_password.html",
-            form_class=StyledSetPasswordForm,
-            success_url="/reset-password/done/",
-        ),
+        IdentityResetPasswordConfirmView.as_view(),
         name="reset_password",
     ),
     path(

@@ -1,5 +1,4 @@
 from django.contrib.auth.decorators import permission_required
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
@@ -49,7 +48,7 @@ class SiteAbstractVerifyStudy(View):
 
 
 class SiteListView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
+    AuthenticateTemplateContextMixin,
     SingleTableMixin, FilterView, ListView,
     SiteAbstractVerifyStudy,
 ):
@@ -84,7 +83,7 @@ class SiteListView(
 
 
 class SiteDetailView(
-    LoginRequiredMixin, AuthenticateTemplateContextMixin, DetailView, SiteAbstractVerifyStudy,
+    AuthenticateTemplateContextMixin, DetailView, SiteAbstractVerifyStudy,
 ):
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("SITES")
@@ -212,7 +211,7 @@ class SiteDetailView(
         )
 
 
-class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractVerifyStudy):
+class SiteCreateView(AuthenticateTemplateView, SiteAbstractVerifyStudy):
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("NEW SITE")
     template_name = "study/site_create.html"
@@ -307,7 +306,7 @@ class SiteCreateView(LoginRequiredMixin, AuthenticateTemplateView, SiteAbstractV
         )
 
 
-class SiteDeleteView(LoginRequiredMixin, DetailView, SiteAbstractVerifyStudy):
+class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractVerifyStudy):
     pk_url_kwarg = 'site_id'
     model = Site
 

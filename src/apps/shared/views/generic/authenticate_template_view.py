@@ -1,17 +1,42 @@
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from django.http import HttpRequest
 from django.views.generic import TemplateView
 from django.views.generic.base import ContextMixin
 
 
-class AuthenticateTemplateContextMixin(ContextMixin):
-    """
-    Shared context mixin that always exposes a stable user payload for layout
-    rendering and future template helpers.
-    """
+class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
+    login_url = "/login/"
+    redirect_field_name = "next"
 
     layout_nav_key = ""
     layout_breadcrumb_label = ""
     request: HttpRequest
+
+    def get_permission_required(self):
+        permission_required = getattr(self, "permission_required", None)
+        if permission_required is None:
+            return ()
+        if isinstance(permission_required, str):
+            return (permission_required,)
+        return tuple(permission_required)
+
+    def has_permission(self):
+        required_permissions = self.get_permission_required()
+        if not required_permissions:
+            return True
+        return self.request.user.has_perms(required_permissions)
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect_to_login(
+                request.get_full_path(),
+                self.get_login_url(),
+                self.get_redirect_field_name(),
+            )
+        if not self.has_permission():
+            return self.handle_no_permission()
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

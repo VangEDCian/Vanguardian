@@ -24,6 +24,10 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ("127.0.0.1", "localhost")),
     CSRF_TRUSTED_ORIGINS=(list, ()),
+    EMAIL_PORT=(int, 587),
+    EMAIL_TIMEOUT=(float, 10.0),
+    EMAIL_USE_TLS=(bool, False),
+    EMAIL_USE_STARTTLS=(bool, True),
 )
 ENV_FILE = BASE_DIR / ".env"
 if ENV_FILE.exists():
@@ -209,7 +213,25 @@ AUTHENTICATION_BACKENDS = [
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/login/"
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    cast=str,
+    default="apps.identity.infrastructure.email_backend.AioSmtpEmailBackend",
+)
+EMAIL_HOST = (env("EMAIL_HOST", cast=str, default="localhost") or "localhost").strip()
+EMAIL_PORT = env("EMAIL_PORT", cast=int)
+EMAIL_HOST_USER = (env("EMAIL_HOST_USER", cast=str, default="") or "").strip()
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", cast=str, default="") or ""
+EMAIL_USE_TLS = env("EMAIL_USE_TLS", cast=bool)
+EMAIL_USE_STARTTLS = env("EMAIL_USE_STARTTLS", cast=bool)
+EMAIL_TIMEOUT = env("EMAIL_TIMEOUT", cast=float)
+if EMAIL_USE_TLS:
+    EMAIL_USE_STARTTLS = False
+DEFAULT_FROM_EMAIL = (
+    (env("DEFAULT_FROM_EMAIL", cast=str, default="") or "").strip()
+    or EMAIL_HOST_USER
+    or "no-reply@vanguardian.local"
+)
 
 #
 # Django Tables 2

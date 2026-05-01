@@ -15,3 +15,19 @@ DATABASE_URL=
 CACHE_URL=
 
 # If source runs inside the same docker network, switch to service DNS names:
+
+# -----------------------------------------------------------------------------
+# SMTP settings (password reset email via aiosmtplib backend)
+# -----------------------------------------------------------------------------
+EMAIL_BACKEND=
+EMAIL_HOST=
+EMAIL_PORT=
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+EMAIL_USE_TLS=
+EMAIL_USE_STARTTLS=
+EMAIL_TIMEOUT=
+DEFAULT_FROM_EMAIL=
+
+
+PASSWORD_RESET_TIMEOUT=

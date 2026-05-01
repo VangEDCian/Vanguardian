@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
@@ -13,8 +12,6 @@ from apps.subject.presentation.web.views.detail_rendering import SubjectDetailRe
 class SubjectDetailView(
     SubjectDetailNavigationMixin,
     SubjectDetailRenderingMixin,
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
     AuthenticateTemplateContextMixin,
     DetailView,
     SubjectAbstractVerifyStudy,

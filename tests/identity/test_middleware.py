@@ -4,6 +4,7 @@ from typing import Any, cast
 from django.test import RequestFactory, SimpleTestCase
 from django.urls import reverse
 
+from apps.identity.infrastructure.auth.constants import PASSWORD_RESET_BYPASS_SESSION_KEY
 from apps.identity.infrastructure.auth.middleware import CheckFirstLoginMiddleware
 
 
@@ -68,10 +69,22 @@ class CheckFirstLoginMiddlewareTests(SimpleTestCase):
         middleware = self._build_middleware()
         request = self.factory.get(reverse("identity:logout"))
         request.user = cast(Any, self._first_login_user(attempt_login=0))
+        request.session = {}
 
         response = middleware(request)
 
         self.assertEqual(response.status_code, 200)
 
+    def test_allows_protected_path_when_password_reset_bypass_exists(self):
+        middleware = self._build_middleware()
+        request = self.factory.get("/dashboard/")
+        request.user = cast(Any, SimpleNamespace(is_authenticated=True, attempt_login=0, pk=7))
+        request.session = {
+            PASSWORD_RESET_BYPASS_SESSION_KEY: ["7"],
+        }
+
+        response = middleware(request)
+
+        self.assertEqual(response.status_code, 200)
 
 

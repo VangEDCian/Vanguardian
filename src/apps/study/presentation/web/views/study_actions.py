@@ -1,6 +1,5 @@
 import datetime
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
@@ -9,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from apps.audit.public import build_audit_request_context
-from apps.shared.views import AuthenticateTemplateView
+from apps.shared.views import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application import (
     CreateStudyCommand,
     CreateStudyService,
@@ -33,7 +32,7 @@ from apps.study.presentation.web.views.helpers import (
 
 
 class StudyCreateView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView
+    AuthenticateTemplateView
 ):
     permission_required = "study.create_study"
     raise_exception = True
@@ -109,7 +108,7 @@ class StudyCreateView(
 
 
 class StudyUpdateView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView
+    AuthenticateTemplateView
 ):
     permission_required = "study.update_study"
     raise_exception = True
@@ -234,7 +233,7 @@ class StudyUpdateView(
         return self.render_to_response(context)
 
 
-class StudyToggleStatusView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class StudyToggleStatusView(AuthenticateTemplateContextMixin, View):
     """POST-only endpoint. Flips the is_active flag of a study."""
 
     permission_required = "study.change_study_status"
@@ -268,7 +267,7 @@ class StudyToggleStatusView(LoginRequiredMixin, PermissionRequiredMixin, View):
         return redirect(reverse("study:study_detail", kwargs={"study_id": study_id}))
 
 
-class StudyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class StudyDeleteView(AuthenticateTemplateContextMixin, View):
     permission_required = "study.delete_study"
     raise_exception = True
     delete_study_service_class = DeleteStudyService

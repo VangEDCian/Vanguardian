@@ -1,12 +1,12 @@
 import logging
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, JsonResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
+from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.study.application import (
     DeleteRandomizationArmCommand,
     DeleteRandomizationArmService,
@@ -22,8 +22,7 @@ logger = logging.getLogger(__name__)
 
 class StudyRandomizationSchemeDeleteView(
     StudyRandomizationAccessMixin,
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
+    AuthenticateTemplateContextMixin,
     View,
 ):
     permission_required = "study.update_study"
@@ -80,8 +79,7 @@ class StudyRandomizationSchemeDeleteView(
 
 class StudyRandomizationArmDeleteView(
     StudyRandomizationAccessMixin,
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
+    AuthenticateTemplateContextMixin,
     View,
 ):
     permission_required = "study.update_study"

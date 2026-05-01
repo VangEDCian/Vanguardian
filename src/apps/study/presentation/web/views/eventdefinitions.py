@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
@@ -41,7 +40,7 @@ __all__ = [
 
 
 class StudyEventDefinitionListView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateContextMixin,
+    AuthenticateTemplateContextMixin,
     SingleTableMixin, FilterView, ListView,
 ):
     permission_required = "study.view_study_detail"
@@ -219,7 +218,7 @@ class StudyEventDefinitionListView(
         )
 
 
-class StudyEventDefinitionCreateView(LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView):
+class StudyEventDefinitionCreateView(AuthenticateTemplateView):
     permission_required = "study.create_study_eventdefinition"
     raise_exception = True
     template_name = "study/event_definition_form.html"

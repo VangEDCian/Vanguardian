@@ -1,7 +1,7 @@
 from typing import Any, cast
 
 from django.contrib.auth import logout, update_session_auth_hash
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetView
 from django.contrib.auth.views import LoginView
 from django.db.models import F
 from django.shortcuts import redirect
@@ -11,10 +11,13 @@ from django.views.generic import TemplateView
 
 from apps.audit.public import build_audit_request_context
 from apps.identity.application import IdentityLoginAuditService, IdentityUserAuditService
+from apps.identity.infrastructure.auth.constants import PASSWORD_RESET_BYPASS_SESSION_KEY
 from apps.identity.models import User
 from apps.identity.presentation.web.forms import (
     IdentityUserChangePasswordForm,
     StyledAuthenticationForm,
+    StyledPasswordResetForm,
+    StyledSetPasswordForm,
 )
 from apps.shared.application.services.cookies import CookiesService
 
@@ -53,11 +56,12 @@ class IdentityLoginView(LoginView):
         ):
             # check first-login
             if authenticated_user.attempt_login <= 0:
-                return redirect(reverse('identity:first_login'))
-
-            # increase attempt login number
-            authenticated_user.attempt_login = F('attempt_login') + 1
-            authenticated_user.save(update_fields=['attempt_login'])
+                if not self._can_skip_first_login(authenticated_user):
+                    return redirect(reverse('identity:first_login'))
+            else:
+                # increase attempt login number
+                authenticated_user.attempt_login = F('attempt_login') + 1
+                authenticated_user.save(update_fields=['attempt_login'])
 
             # clear outdate cookies value if exists
             CookiesService.reset_cookies(response=response)
@@ -79,18 +83,59 @@ class IdentityLoginView(LoginView):
     def _get_login_identifier(self):
         return (self.request.POST.get("username") or "").strip()
 
+    def _can_skip_first_login(self, user):
+        if not user or not getattr(user, "pk", None):
+            return False
+        session = getattr(self.request, "session", {})
+        bypass_user_ids = set(session.get(PASSWORD_RESET_BYPASS_SESSION_KEY, []))
+        return str(user.pk) in bypass_user_ids
+
 
 class IdentityLogoutView(View):
     def get(self, request, *args, **kwargs):
+        if hasattr(request, "session"):
+            request.session.pop(PASSWORD_RESET_BYPASS_SESSION_KEY, None)
         logout(request)
         return redirect("identity:login")
 
     def post(self, request, *args, **kwargs):
         response = self.get(request, *args, **kwargs)
+        if hasattr(request, "session"):
+            request.session.pop(PASSWORD_RESET_BYPASS_SESSION_KEY, None)
         CookiesService.reset_cookies(response=response)
         return response
 
-class IdentityUserFirstLoginView(LoginRequiredMixin, TemplateView):
+
+class IdentityForgotPasswordView(PasswordResetView):
+    template_name = "identity/forgot_password.html"
+    email_template_name = "identity/password_reset_email.txt"
+    html_email_template_name = "identity/password_reset_email.html"
+    subject_template_name = "identity/password_reset_subject.txt"
+    form_class = StyledPasswordResetForm
+    success_url = reverse_lazy("identity:forgot_password_done")
+    extra_email_context = {
+        "system_name": "Vanguardian",
+    }
+
+
+class IdentityResetPasswordConfirmView(PasswordResetConfirmView):
+    template_name = "identity/reset_password.html"
+    form_class = StyledSetPasswordForm
+    success_url = reverse_lazy("identity:login")
+
+    def form_valid(self, form: StyledSetPasswordForm):
+        user = form.user
+        response = super().form_valid(form)
+
+        if hasattr(self.request, "session"):
+            bypass_user_ids = set(self.request.session.get(PASSWORD_RESET_BYPASS_SESSION_KEY, []))
+            bypass_user_ids.add(str(user.pk))
+            self.request.session[PASSWORD_RESET_BYPASS_SESSION_KEY] = sorted(bypass_user_ids)
+            self.request.session.modified = True
+        return response
+
+
+class IdentityUserFirstLoginView(TemplateView):
     template_name = "identity/first_login.html"
     success_url = reverse_lazy("dashboard:main")
 

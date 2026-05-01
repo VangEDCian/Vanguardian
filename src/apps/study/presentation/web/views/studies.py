@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
@@ -28,7 +27,7 @@ from apps.study.presentation.web.views.helpers import (
 
 
 class StudyListView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView
+    AuthenticateTemplateView
 ):
     permission_required = "study.view_study_list"
     raise_exception = True
@@ -75,7 +74,7 @@ class StudyListView(
 
 
 class StudyDetailView(
-    LoginRequiredMixin, PermissionRequiredMixin, AuthenticateTemplateView
+    AuthenticateTemplateView
 ):
     permission_required = "study.view_study_detail"
     raise_exception = True

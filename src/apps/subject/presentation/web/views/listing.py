@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -15,8 +14,6 @@ from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 
 class SubjectListView(
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
     AuthenticateTemplateContextMixin,
     SingleTableMixin,
     FilterView,
