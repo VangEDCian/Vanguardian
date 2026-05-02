@@ -29,7 +29,12 @@
         <div class="entity-table__toolbar">
             <div class="entity-table__summary">{% trans 'New User' %}</div>
         </div>
-        <form class="user-detail-form" method="post" action="{{ create_url }}">
+        <form class="user-detail-form"
+              method="post"
+              action="{{ create_url }}"
+              data-user-create-form
+              data-api-studies-url="{{ api_studies_url }}"
+              data-api-study-sites-url="{{ api_study_sites_url }}">
             {% csrf_token %}
             <div class="user-detail-form__content">
                 <section class="user-detail-section">
@@ -144,6 +149,32 @@
                                     {% trans 'Select role' as select_role_placeholder %}
                                     {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.role.id_for_label select_name=form.role.html_name select_options=role_options select_placeholder=select_role_placeholder %}
                                     {% for error in form.role.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.studies.id_for_label }}">{% trans 'Studies' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans 'Select studies' as select_studies_placeholder %}
+                                    {% include 'shared/components/_old_select2_multiple_choice.html' with select_id=form.studies.id_for_label select_name=form.studies.html_name select_options=study_options select_placeholder=select_studies_placeholder select_class='user-membership-studies-select' %}
+                                    {% for error in form.studies.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.sites.id_for_label }}">{% trans 'Sites' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans 'Select sites' as select_sites_placeholder %}
+                                    {% if has_selected_studies %}
+                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id=form.sites.id_for_label select_name=form.sites.html_name select_options=site_options select_placeholder=select_sites_placeholder select_class='user-membership-sites-select' %}
+                                    {% else %}
+                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id=form.sites.id_for_label select_name=form.sites.html_name select_options=site_options select_placeholder=select_sites_placeholder select_class='user-membership-sites-select' select_disabled='disabled' %}
+                                    {% endif %}
+                                    {% for error in form.sites.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
                                 </div>
                             </div>
                         </div>

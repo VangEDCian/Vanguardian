@@ -38,13 +38,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const hasUpper = /[A-Z]/.test(value);
     const hasLower = /[a-z]/.test(value);
-    const hasDigitOrSymbol = /[\d\W_]/.test(value);
+    const hasDigit = /\d/.test(value);
+    const hasSpecial = /[^A-Za-z0-9]/.test(value);
 
-    if (value.length < 8 || !(hasUpper && hasLower)) {
+    if (value.length < 12 || !(hasUpper && hasLower)) {
       return { visible: true, width: "33%", color: "#f44336", label: weakLabel };
     }
 
-    if (!hasDigitOrSymbol || value.length < 10) {
+    if (!hasDigit || !hasSpecial) {
       return { visible: true, width: "66%", color: "#ff9800", label: mediumLabel };
     }
 

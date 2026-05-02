@@ -5,6 +5,7 @@ from apps.identity.infrastructure.persistence.models import (
     StudyMembership,
     StudySiteMembership,
     User,
+    UserRole,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "RolePermission",
     "StudyMembership",
     "StudySiteMembership",
+    "UserRole",
 ]

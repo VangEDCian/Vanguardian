@@ -9,6 +9,8 @@ from apps.identity.presentation.web.views import (
     IdentityLoginView,
     IdentityLogoutView,
     IdentityResetPasswordConfirmView,
+    IdentityStudyOptionsApiView,
+    IdentityStudySiteOptionsApiView,
     IdentityUserCreateView,
     IdentityUserDeleteView,
     IdentityUserDetailView,
@@ -64,6 +66,8 @@ urlpatterns = [
     path("users/<int:user_id>", IdentityUserDetailView.as_view(), name="user_detail"),
     path("users/<int:user_id>/delete", IdentityUserDeleteView.as_view(), name="user_delete"),
     path("users/<int:user_id>/restore", IdentityUserRestoreView.as_view(), name="user_restore"),
+    path("api/studies", IdentityStudyOptionsApiView.as_view(), name="api_studies"),
+    path("api/studies/sites", IdentityStudySiteOptionsApiView.as_view(), name="api_study_sites"),
     path(
         "first-login",
         IdentityUserFirstLoginView.as_view(), name="first_login",

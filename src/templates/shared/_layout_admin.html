@@ -30,12 +30,18 @@
                 <nav class="admin-sidebar__nav">
                     <a href="{{ admin_profile_url }}"
                        class="admin-sidebar__nav-item{% if active_admin_section == 'profile' %} is-active{% endif %}">
-                        <span class="admin-nav-icon admin-nav-icon--user" aria-hidden="true"></span>
+                        <img src="{% static 'images/navigation/user.svg' %}"
+                             alt=""
+                             class="admin-sidebar__nav-icon"
+                             aria-hidden="true">
                         <span>{% trans "Personal Information" %}</span>
                     </a>
                     <a href="{{ admin_change_password_url }}"
                        class="admin-sidebar__nav-item{% if active_admin_section == 'change_password' %} is-active{% endif %}">
-                        <span class="admin-nav-icon admin-nav-icon--key" aria-hidden="true"></span>
+                        <img src="{% static 'images/admin/password-lock.svg' %}"
+                             alt=""
+                             class="admin-sidebar__nav-icon"
+                             aria-hidden="true">
                         <span>{% trans "Change Password" %}</span>
                     </a>
                     <span class="admin-sidebar__nav-item is-disabled" aria-disabled="true">
@@ -55,21 +61,12 @@
                     {% trans "Select language" as select_language_aria_label %}
                     {% include "shared/components/_common_select.html" with select_mode="native" select_id="language-select-admin" select_name="language" select_value=CURRENT_LANGUAGE|slice:":2" select_options=shared_language_select_options select_wrapper_class="common-select--language common-select--admin-language" select_aria_label=select_language_aria_label select_auto_submit=1 %}
                 </form>
-                <a href="{% url 'identity:logout' %}" class="admin-sidebar__logout">
+                <a href="{% url 'dashboard:main' %}" class="admin-sidebar__logout">
                     <span class="admin-nav-icon admin-nav-icon--logout" aria-hidden="true"></span>
-                    <span>{% trans "Logout" %}</span>
+                    <span>{% trans "Back to Home" %}</span>
                 </a>
             </aside>
             <section class="admin-workspace">
-                <header class="admin-topbar">
-                    <div>
-                        <h1>{% trans "Account Management" %}</h1>
-                        <p>{% trans "Configure personal information and security settings" %}</p>
-                    </div>
-                    <a href="{{ admin_back_url|default:'/' }}"
-                       class="admin-topbar__close"
-                       aria-label="{% trans 'Close' %}">×</a>
-                </header>
                 <main class="admin-main">
                     {% block admin_content %}{% endblock %}
                 </main>

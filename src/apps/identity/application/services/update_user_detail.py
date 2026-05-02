@@ -33,14 +33,25 @@ class UpdateIdentityUserDetailService:
         user.phone_number = normalized_phone_number
         user.is_active = bool(command.is_active)
 
-        if command.can_manage_permissions:
-            self._apply_role_flags(user, command.role_key)
-
         if command.new_password:
             user.set_password(command.new_password)
             user.attempt_login = 0
 
         self.repository.save_user(user)
+
+        if command.can_manage_permissions:
+            self.repository.set_user_roles(user=user, role_ids=self._build_role_ids(command.role_id))
+            self.repository.set_user_study_memberships(
+                user=user,
+                study_ids=command.study_ids,
+                actor_user_id=command.actor_user_id,
+            )
+            self.repository.set_user_site_memberships(
+                user=user,
+                site_ids=command.site_ids,
+                allowed_study_ids=command.study_ids,
+                actor_user_id=command.actor_user_id,
+            )
 
         if command.can_manage_permissions:
             user.groups.set(self._resolve_groups(command.permission_group_ids))
@@ -70,20 +81,11 @@ class UpdateIdentityUserDetailService:
             raise IdentityUserPhoneNumberAlreadyExistsError(phone_number)
 
     @staticmethod
-    def _apply_role_flags(user, role_key):
-        normalized_role_key = (role_key or "user").strip().lower()
-        if normalized_role_key == "administrator":
-            user.is_superuser = True
-            user.is_staff = True
-            return
-
-        if normalized_role_key == "staff":
-            user.is_superuser = False
-            user.is_staff = True
-            return
-
-        user.is_superuser = False
-        user.is_staff = False
+    def _build_role_ids(role_id):
+        normalized_role_id = str(role_id or "").strip()
+        if not normalized_role_id:
+            return ()
+        return (normalized_role_id,)
 
     def _resolve_groups(self, permission_group_ids):
         normalized_group_ids = []

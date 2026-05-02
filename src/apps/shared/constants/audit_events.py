@@ -29,6 +29,7 @@ class AuditEventActionEnum(enum.Enum):
 
     IDENTITY_USER_CHANGE_PASSWORD = "identity.user.change_password"
     IDENTITY_USER_ADMIN_SET_PASSWORD = "identity.user.admin_set_password"
+    IDENTITY_USER_RESET_PASSWORD = "identity.user.reset_password"
 
     STUDY_RANDOMIZATION_SCHEME_INSERTED_BY_IMPORT = "study.randomization_scheme.inserted_by_import"
     STUDY_RANDOMIZATION_SCHEME_UPDATED_BY_IMPORT = "study.randomization_scheme.updated_by_import"
@@ -44,4 +45,3 @@ class AuditEventObjectTypeEnum(enum.Enum):
 
     STUDY_RANDOMIZATION_SCHEME = "study.randomization_scheme"
     STUDY_RANDOMIZATION_ARM = "study.randomization_arm"
-

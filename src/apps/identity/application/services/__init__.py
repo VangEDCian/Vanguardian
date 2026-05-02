@@ -2,6 +2,7 @@ from importlib import import_module
 
 __all__ = [
     "CreateIdentityUserService",
+    "CurrentUserProfileSummaryService",
     "DeleteIdentityUserService",
     "IdentityLoginAuditService",
     "IdentityUserAuditService",
@@ -16,6 +17,7 @@ __all__ = [
 
 _MODULE_BY_NAME = {
     "CreateIdentityUserService": "apps.identity.application.services.create_user",
+    "CurrentUserProfileSummaryService": "apps.identity.application.services.current_user_profile",
     "DeleteIdentityUserService": "apps.identity.application.services.delete_user",
     "IdentityLoginAuditService": "apps.identity.application.services.login_audit",
     "IdentityUserAuditService": "apps.identity.application.services.user_audit",

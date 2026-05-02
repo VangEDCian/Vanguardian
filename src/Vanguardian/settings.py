@@ -151,18 +151,13 @@ STUDY_SUBJECT_CODE_GENERATION_MODE = env(
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": "apps.identity.infrastructure.auth.password_validation.PasswordPolicyValidator",
     },
 ]
+
+IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS = env("IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS", cast=int, default=5)
+IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS", cast=int, default=15 * 60)
+IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS", cast=int, default=15 * 60)
 
 
 # Internationalization

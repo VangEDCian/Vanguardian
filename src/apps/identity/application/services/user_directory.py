@@ -116,7 +116,13 @@ class IdentityUserDirectoryQueryService:
         explicit_display_name = getattr(user, "display_name", "").strip()
         full_name = user.get_full_name().strip()
         display_name = explicit_display_name or full_name or user.get_username()
-        role_key, role_label, role_tone = self._get_role_metadata(user)
+        user_role_records = list(self.repository.list_user_roles(user))
+        role_label = self._build_role_label(user_role_records)
+        selected_role_id = str(user_role_records[0].role_id) if user_role_records else ""
+        study_membership_records = list(self.repository.list_study_memberships_for_user(user))
+        selected_study_ids = [str(record.study_id) for record in study_membership_records]
+        site_membership_records = list(self.repository.list_site_memberships_for_user(user))
+        selected_site_ids = [str(record.site_id) for record in site_membership_records]
         permission_group_records = list(user.groups.order_by("name"))
         permission_groups = [group.name for group in permission_group_records]
 
@@ -142,16 +148,22 @@ class IdentityUserDirectoryQueryService:
                 "email_value": user.email or "",
                 "phone_number": getattr(user, "phone_number", "") or "—",
                 "phone_number_value": getattr(user, "phone_number", "") or "",
-                "role_key": role_key,
                 "role": role_label,
-                "role_tone": role_tone,
-                "role_options": self._build_role_options(role_key),
-                "selected_role": role_key,
+                "role_options": self._build_role_options(selected_role_id),
+                "selected_role": selected_role_id,
                 "permission_groups": permission_groups,
                 "permission_group_options": self._build_permission_group_options(permission_group_records),
+                "study_options": self._build_study_options(selected_study_ids),
+                "selected_study_ids": selected_study_ids,
+                "site_options": self._build_site_options(selected_study_ids, selected_site_ids),
+                "selected_site_ids": selected_site_ids,
                 "is_active": user.is_active,
                 "status": _("Active") if user.is_active else _("Inactive"),
                 "status_tone": "active" if user.is_active else "inactive",
+                "is_superuser": bool(user.is_superuser),
+                "is_staff": bool(user.is_staff),
+                "administrator_label": _("Administrator"),
+                "staff_label": _("Staff"),
                 "date_joined": date_format(user.date_joined, "DATE_FORMAT") if user.date_joined else "—",
                 "date_joined_value": date_format(user.date_joined, "DATE_FORMAT") if user.date_joined else "",
                 "last_login": date_format(user.last_login, "DATETIME_FORMAT") if user.last_login else "—",
@@ -162,6 +174,18 @@ class IdentityUserDirectoryQueryService:
                 "is_deleted": user_is_deleted,
             },
         }
+
+    def list_role_choices(self):
+        return [
+            (str(role.pk), role.name)
+            for role in self.repository.list_roles()
+        ]
+
+    def list_study_choices(self):
+        return [
+            (str(study.pk), self._build_study_option_label(study))
+            for study in self.repository.list_active_studies()
+        ]
 
     def _build_table_row(self, user):
         explicit_display_name = getattr(user, "display_name", "").strip()
@@ -303,19 +327,15 @@ class IdentityUserDirectoryQueryService:
             return "staff", _("Staff"), "staff"
         return "user", _("User"), "user"
 
-    @staticmethod
-    def _build_role_options(selected_role_key):
+    def _build_role_options(self, selected_role_id):
+        role_records = list(self.repository.list_roles())
         return [
             {
-                "value": role_key,
-                "label": role_label,
-                "selected": role_key == selected_role_key,
+                "value": str(role.pk),
+                "label": role.name,
+                "selected": str(role.pk) == str(selected_role_id or ""),
             }
-            for role_key, role_label in (
-                ("administrator", _("Administrator")),
-                ("staff", _("Staff")),
-                ("user", _("User")),
-            )
+            for role in role_records
         ]
 
     def _build_permission_group_options(self, selected_permission_groups):
@@ -330,3 +350,44 @@ class IdentityUserDirectoryQueryService:
             }
             for group in group_records
         ]
+
+    def _build_study_options(self, selected_study_ids):
+        selected_study_ids_set = {str(study_id) for study_id in selected_study_ids}
+        return [
+            {
+                "value": str(study.pk),
+                "label": self._build_study_option_label(study),
+                "selected": str(study.pk) in selected_study_ids_set,
+            }
+            for study in self.repository.list_active_studies()
+        ]
+
+    def _build_site_options(self, selected_study_ids, selected_site_ids):
+        selected_site_ids_set = {str(site_id) for site_id in selected_site_ids}
+        selected_study_ids_int = [int(study_id) for study_id in selected_study_ids if str(study_id).isdigit()]
+        return [
+            {
+                "value": str(site.pk),
+                "label": self._build_site_option_label(site),
+                "selected": str(site.pk) in selected_site_ids_set,
+            }
+            for site in self.repository.list_active_sites(study_ids=selected_study_ids_int)
+        ]
+
+    @staticmethod
+    def _build_role_label(user_role_records):
+        role_names = [user_role.role.name for user_role in user_role_records if getattr(user_role, "role", None)]
+        if not role_names:
+            return "—"
+        return ", ".join(role_names)
+
+    @staticmethod
+    def _build_study_option_label(study):
+        return f"{study.code} - {study.name}".strip()
+
+    @staticmethod
+    def _build_site_option_label(site):
+        site_name = (site.name or "").strip()
+        if site_name:
+            return f"{site.code} - {site_name}"
+        return site.code

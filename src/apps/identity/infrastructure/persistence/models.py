@@ -3,6 +3,7 @@ from django.db import models
 
 
 class User(AbstractUser):
+    is_staff = models.BooleanField(default=True)
     email = models.EmailField(blank=True, null=True, unique=True)
     deleted = models.BooleanField(default=False)
     display_name = models.CharField(max_length=255, blank=True, default="")
@@ -85,6 +86,20 @@ class RolePermission(models.Model):
         permissions = ()
         verbose_name = "role permission mapping"
         verbose_name_plural = "role permission mappings"
+
+
+class UserRole(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="identity_user_roles")
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="identity_user_roles")
+
+    class Meta:
+        db_table = "identity_user_roles"
+        managed = False
+        unique_together = (("user", "role"),)
+        default_permissions = ()
+        permissions = ()
+        verbose_name = "user role mapping"
+        verbose_name_plural = "user role mappings"
 
 
 class StudyMembership(models.Model):

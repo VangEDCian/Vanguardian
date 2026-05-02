@@ -1,0 +1,2 @@
+ALTER TABLE identity_user
+    MODIFY COLUMN is_staff BOOLEAN NOT NULL DEFAULT TRUE;

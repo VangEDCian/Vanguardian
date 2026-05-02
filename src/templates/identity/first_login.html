@@ -100,6 +100,12 @@
                 <p class="field-error">{{ form.retype_new_password.errors|striptags }}</p>
             {% endif %}
         </div>
+        <section class="message-card">
+            <h3>{% trans "Password Requirements" %}</h3>
+            <ul>
+                {% for item in form.password_requirements %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+        </section>
         <button type="submit" class="primary-button">{% trans "Set Password" %}</button>
         <div class="auth-actions auth-actions--center">
             <a href="{% url 'identity:logout' %}" class="auth-link auth-link--muted">{% trans "Back to Sign In" %}</a>

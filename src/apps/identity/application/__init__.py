@@ -1,16 +1,17 @@
 from apps.identity.application.commands import (
     CreateIdentityUserCommand,
     DeleteIdentityUserCommand,
-    IdentityUserRestoreDataNotFoundError,
     IdentityUserEmailAlreadyExistsError,
-    IdentityUserPhoneNumberAlreadyExistsError,
     IdentityUsernameAlreadyExistsError,
+    IdentityUserPhoneNumberAlreadyExistsError,
+    IdentityUserRestoreDataNotFoundError,
     RestoreIdentityUserCommand,
     UpdateIdentityUserDetailCommand,
 )
 from apps.identity.application.queries import IdentityUserNotFoundError
 from apps.identity.application.services import (
     CreateIdentityUserService,
+    CurrentUserProfileSummaryService,
     DeleteIdentityUserService,
     IdentityLoginAuditService,
     IdentityUserAuditService,
@@ -34,6 +35,7 @@ __all__ = [
     "IdentityUsernameAlreadyExistsError",
     "CreateIdentityUserCommand",
     "CreateIdentityUserService",
+    "CurrentUserProfileSummaryService",
     "DeleteIdentityUserCommand",
     "DeleteIdentityUserService",
     "IdentityUserRestoreDataNotFoundError",

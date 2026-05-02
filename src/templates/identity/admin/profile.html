@@ -41,10 +41,17 @@
             </h2>
             <div class="admin-account-form__grid">
                 <div class="admin-account-field">
-                    <label for="{{ form.display_name.id_for_label }}">{% trans "Full Name" %}</label>
-                    {{ form.display_name }}
-                    {% if form.display_name.errors %}
-                        <p class="admin-account-field__error">{{ form.display_name.errors|striptags }}</p>
+                    <label for="{{ form.first_name.id_for_label }}">{% trans "First Name" %}</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                        <p class="admin-account-field__error">{{ form.first_name.errors|striptags }}</p>
+                    {% endif %}
+                </div>
+                <div class="admin-account-field">
+                    <label for="{{ form.last_name.id_for_label }}">{% trans "Last Name" %}</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                        <p class="admin-account-field__error">{{ form.last_name.errors|striptags }}</p>
                     {% endif %}
                 </div>
                 <div class="admin-account-field">
@@ -61,18 +68,11 @@
                         <p class="admin-account-field__error">{{ form.phone_number.errors|striptags }}</p>
                     {% endif %}
                 </div>
-                <div class="admin-account-field">
-                    <label for="{{ form.first_name.id_for_label }}">{% trans "First Name" %}</label>
-                    {{ form.first_name }}
-                    {% if form.first_name.errors %}
-                        <p class="admin-account-field__error">{{ form.first_name.errors|striptags }}</p>
-                    {% endif %}
-                </div>
                 <div class="admin-account-field admin-account-field--full">
-                    <label for="{{ form.last_name.id_for_label }}">{% trans "Last Name" %}</label>
-                    {{ form.last_name }}
-                    {% if form.last_name.errors %}
-                        <p class="admin-account-field__error">{{ form.last_name.errors|striptags }}</p>
+                    <label for="{{ form.display_name.id_for_label }}">{% trans "Display Name" %}</label>
+                    {{ form.display_name }}
+                    {% if form.display_name.errors %}
+                        <p class="admin-account-field__error">{{ form.display_name.errors|striptags }}</p>
                     {% endif %}
                 </div>
             </div>
@@ -92,10 +92,11 @@
                 </div>
                 <div class="admin-account-field">
                     <label>{% trans "Status" %}</label>
-                    <input class="admin-account-field__input"
-                           type="text"
-                           value="{{ profile_summary.status_label }}"
-                           readonly>
+                    <span class="admin-boolean-value{% if not profile_summary.is_active %} admin-boolean-value--inactive{% endif %}">
+                        <img src="{% if profile_summary.is_active %}{% static 'images/status/activate.svg' %}{% else %}{% static 'images/status/deactivate.svg' %}{% endif %}"
+                             alt="">
+                        <span>{{ profile_summary.status_label }}</span>
+                    </span>
                 </div>
                 <div class="admin-account-field">
                     <label>{% trans "Username" %}</label>

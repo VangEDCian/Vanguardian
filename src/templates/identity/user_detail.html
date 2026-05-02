@@ -25,7 +25,9 @@
     <section class="entity-table-panel">
         <form class="user-detail-form"
               data-user-detail-form
-              data-save-url="{{ detail_user.update_url }}">
+              data-save-url="{{ detail_user.update_url }}"
+              data-api-studies-url="{{ api_studies_url }}"
+              data-api-study-sites-url="{{ api_study_sites_url }}">
             {% csrf_token %}
             <p class="user-detail-form__feedback" hidden data-user-detail-feedback></p>
             <div class="user-detail-form__content">
@@ -119,6 +121,32 @@
                                                {% if not can_update_detail %}disabled{% endif %}>
                                         <label for="detail-is-active" class="user-detail-field__checkbox-label">{% trans 'Active' %}</label>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label" for="detail-studies">{% trans 'Studies' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans 'Select studies' as select_studies_placeholder %}
+                                    {% if can_manage_permissions %}
+                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-studies' select_name='studies' select_options=detail_user.study_options select_placeholder=select_studies_placeholder select_class='user-membership-studies-select' %}
+                                    {% else %}
+                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-studies' select_name='studies' select_options=detail_user.study_options select_placeholder=select_studies_placeholder select_class='user-membership-studies-select' select_disabled='disabled' %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label" for="detail-sites">{% trans 'Sites' %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans 'Select sites' as select_sites_placeholder %}
+                                    {% if can_manage_permissions and has_selected_studies %}
+                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-sites' select_name='sites' select_options=detail_user.site_options select_placeholder=select_sites_placeholder select_class='user-membership-sites-select' %}
+                                    {% else %}
+                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-sites' select_name='sites' select_options=detail_user.site_options select_placeholder=select_sites_placeholder select_class='user-membership-sites-select' select_disabled='disabled' %}
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -248,14 +276,6 @@
           }
         });
 
-        $(".old-select2-multiple-choice").select2({
-          width: "100%",
-          closeOnSelect: false,
-          placeholder: function () {
-            return $(this).data("placeholder") || "";
-          }
-        });
-
         const form = document.querySelector("[data-user-detail-form]");
         const saveButton = document.querySelector("[data-user-detail-save]");
         const feedback = document.querySelector("[data-user-detail-feedback]");
@@ -263,9 +283,69 @@
         const passwordPanel = form?.querySelector("[data-user-detail-password-panel]");
         const newPasswordInput = form?.querySelector("#detail-new-password");
         const confirmPasswordInput = form?.querySelector("#detail-confirm-password");
+        const $studySelect = $("#detail-studies");
+        const $siteSelect = $("#detail-sites");
+        const studiesApiUrl = form?.dataset.apiStudiesUrl || "";
+        const studySitesApiUrl = form?.dataset.apiStudySitesUrl || "";
 
         if (!form || !saveButton) {
           return;
+        }
+
+        $(".old-select2-multiple-choice")
+          .not("#detail-studies, #detail-sites")
+          .select2({
+            width: "100%",
+            closeOnSelect: false,
+            placeholder: function () {
+              return $(this).data("placeholder") || "";
+            }
+          });
+
+        if ($studySelect.length > 0) {
+          $studySelect.select2({
+            width: "100%",
+            closeOnSelect: false,
+            placeholder: function () {
+              return $(this).data("placeholder") || "";
+            },
+            ajax: studiesApiUrl ? {
+              url: studiesApiUrl,
+              dataType: "json",
+              delay: 250,
+              data: function (params) {
+                return { q: params.term || "" };
+              },
+              processResults: function (payload) {
+                return { results: payload?.results || [] };
+              }
+            } : undefined
+          });
+        }
+
+        if ($siteSelect.length > 0) {
+          $siteSelect.select2({
+            width: "100%",
+            closeOnSelect: false,
+            placeholder: function () {
+              return $(this).data("placeholder") || "";
+            },
+            ajax: studySitesApiUrl ? {
+              url: studySitesApiUrl,
+              dataType: "json",
+              delay: 250,
+              data: function (params) {
+                const selectedStudyIds = $studySelect.val() || [];
+                return {
+                  q: params.term || "",
+                  study_ids: selectedStudyIds.join(",")
+                };
+              },
+              processResults: function (payload) {
+                return { results: payload?.results || [] };
+              }
+            } : undefined
+          });
         }
 
         const originalSaveLabel = saveButton.textContent.trim();
@@ -295,6 +375,21 @@
             .join(" ");
         }
 
+        function syncSiteSelectState() {
+          if ($studySelect.length === 0 || $siteSelect.length === 0) {
+            return;
+          }
+
+          const selectedStudyIds = $studySelect.val() || [];
+          const hasSelectedStudies = selectedStudyIds.length > 0;
+          const canManagePermissions = {{ can_manage_permissions|yesno:"true,false" }};
+
+          $siteSelect.prop("disabled", !hasSelectedStudies || !canManagePermissions);
+          if (!hasSelectedStudies) {
+            $siteSelect.val(null).trigger("change");
+          }
+        }
+
         function getPayload() {
           const payload = {
             first_name: form.querySelector("#detail-first-name")?.value || "",
@@ -303,7 +398,9 @@
             phone_number: form.querySelector("#detail-phone-number")?.value || "",
             is_active: form.querySelector("#detail-is-active")?.checked || false,
             role: form.querySelector("#detail-role")?.value || "",
-            permission_groups: $("#detail-permission-groups").val() || []
+            permission_groups: $("#detail-permission-groups").val() || [],
+            studies: $studySelect.val() || [],
+            sites: $siteSelect.val() || []
           };
 
           if (enablePasswordChange?.checked) {
@@ -357,6 +454,14 @@
           }
 
           updateSaveButtonState();
+        }
+
+        if ($studySelect.length > 0 && $siteSelect.length > 0) {
+          syncSiteSelectState();
+          $studySelect.on("change", function () {
+            $siteSelect.val(null).trigger("change");
+            syncSiteSelectState();
+          });
         }
 
         if (enablePasswordChange) {
@@ -425,6 +530,9 @@
           window.setTimeout(function () {
             $("#detail-role").trigger("change.select2");
             $("#detail-permission-groups").trigger("change.select2");
+            $("#detail-studies").trigger("change.select2");
+            $("#detail-sites").trigger("change.select2");
+            syncSiteSelectState();
             syncPasswordChangeState();
           }, 0);
         });

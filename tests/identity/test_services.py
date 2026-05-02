@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from django.test import SimpleTestCase
@@ -9,6 +10,7 @@ from apps.identity.application.commands.delete_user import (
 )
 from apps.identity.application.queries import IdentityUserNotFoundError
 from apps.identity.application.services import (
+    CurrentUserProfileSummaryService,
     DeleteIdentityUserService,
     RestoreIdentityUserService,
 )
@@ -139,3 +141,43 @@ class RestoreIdentityUserServiceTests(SimpleTestCase):
                 RestoreIdentityUserService(repository=repository),
                 RestoreIdentityUserCommand(user_id=11, actor_user_id=1),
             )
+
+
+class CurrentUserProfileSummaryServiceTests(SimpleTestCase):
+    def test_builds_role_label_from_user_role_mappings(self):
+        user = _make_user(is_staff=True, is_superuser=False)
+        user.get_full_name.return_value = "Demo User"
+        user.get_username.return_value = "demo-user"
+        user.date_joined = None
+        user.last_login = None
+
+        repository = MagicMock()
+        repository.list_user_roles.return_value = [
+            SimpleNamespace(role=SimpleNamespace(name="Coordinator")),
+            SimpleNamespace(role=SimpleNamespace(name="Investigator")),
+        ]
+
+        summary = CurrentUserProfileSummaryService(repository=repository).build(user)
+
+        self.assertEqual(summary["role_label"], "Coordinator, Investigator")
+        self.assertFalse(summary["is_superuser"])
+        self.assertTrue(summary["is_staff"])
+        self.assertTrue(summary["is_active"])
+        self.assertEqual(summary["administrator_label"], "Administrator")
+        self.assertEqual(summary["staff_label"], "Staff")
+        repository.list_user_roles.assert_called_once_with(user)
+
+    def test_uses_placeholder_when_user_has_no_role_mappings(self):
+        user = _make_user(is_staff=False, is_superuser=False)
+        user.get_full_name.return_value = ""
+        user.get_username.return_value = "demo-user"
+        user.date_joined = None
+        user.last_login = None
+
+        repository = MagicMock()
+        repository.list_user_roles.return_value = []
+
+        summary = CurrentUserProfileSummaryService(repository=repository).build(user)
+
+        self.assertEqual(summary["display_name"], "Demo User")
+        self.assertEqual(summary["role_label"], "—")

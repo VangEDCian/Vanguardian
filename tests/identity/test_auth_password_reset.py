@@ -24,6 +24,8 @@ class IdentityResetPasswordConfirmViewTests(SimpleTestCase):
         request = self.factory.post("/reset-password/mock/mock/")
         request.session = _Session()
         view.request = request
+        audit_service = SimpleNamespace(record_user_reset_password=MagicMock())
+        view.identity_user_audit_service_class = MagicMock(return_value=audit_service)
         form = SimpleNamespace(user=SimpleNamespace(pk=22))
 
         with patch(
@@ -36,6 +38,7 @@ class IdentityResetPasswordConfirmViewTests(SimpleTestCase):
         self.assertEqual(response.url, "/login/")
         self.assertEqual(request.session[PASSWORD_RESET_BYPASS_SESSION_KEY], ["22"])
         self.assertTrue(request.session.modified)
+        audit_service.record_user_reset_password.assert_called_once()
 
 
 class IdentityLoginViewTests(SimpleTestCase):

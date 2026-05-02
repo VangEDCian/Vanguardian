@@ -10,12 +10,13 @@ from apps.identity.presentation.web.views.auth import (
     IdentityUserFirstLoginView,
 )
 from apps.identity.presentation.web.views.users import (
+    IdentityStudyOptionsApiView,
+    IdentityStudySiteOptionsApiView,
     IdentityUserCreateView,
     IdentityUserDeleteView,
     IdentityUserDetailView,
     IdentityUserRestoreView,
     IdentityUsersView,
-    target_user_role_key,
 )
 
 __all__ = [
@@ -25,11 +26,12 @@ __all__ = [
     "IdentityLoginView",
     "IdentityLogoutView",
     "IdentityResetPasswordConfirmView",
+    "IdentityStudyOptionsApiView",
+    "IdentityStudySiteOptionsApiView",
     "IdentityUserCreateView",
     "IdentityUserDeleteView",
     "IdentityUserDetailView",
     "IdentityUserFirstLoginView",
     "IdentityUserRestoreView",
     "IdentityUsersView",
-    "target_user_role_key",
 ]

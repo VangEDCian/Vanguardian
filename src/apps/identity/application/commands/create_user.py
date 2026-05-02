@@ -19,7 +19,9 @@ class CreateIdentityUserCommand:
     last_name: str
     email: str
     phone_number: str
-    role_key: str = "user"
+    role_id: str = ""
+    study_ids: tuple[str, ...] = ()
+    site_ids: tuple[str, ...] = ()
     permission_group_ids: tuple[str, ...] = ()
     can_manage_permissions: bool = False
 

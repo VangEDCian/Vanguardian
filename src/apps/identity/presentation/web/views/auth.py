@@ -1,8 +1,7 @@
 from typing import Any, cast
 
 from django.contrib.auth import logout, update_session_auth_hash
-from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetView
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, PasswordResetConfirmView, PasswordResetView
 from django.db.models import F
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
@@ -122,6 +121,10 @@ class IdentityResetPasswordConfirmView(PasswordResetConfirmView):
     template_name = "identity/reset_password.html"
     form_class = StyledSetPasswordForm
     success_url = reverse_lazy("identity:login")
+    identity_user_audit_service_class = IdentityUserAuditService
+
+    def get_identity_user_audit_service(self):
+        return self.identity_user_audit_service_class()
 
     def form_valid(self, form: StyledSetPasswordForm):
         user = form.user
@@ -132,6 +135,10 @@ class IdentityResetPasswordConfirmView(PasswordResetConfirmView):
             bypass_user_ids.add(str(user.pk))
             self.request.session[PASSWORD_RESET_BYPASS_SESSION_KEY] = sorted(bypass_user_ids)
             self.request.session.modified = True
+        self.get_identity_user_audit_service().record_user_reset_password(
+            user=user,
+            **build_audit_request_context(self.request),
+        )
         return response
 
 
@@ -157,6 +164,7 @@ class IdentityUserFirstLoginView(TemplateView):
         )
 
     def get_first_login_form(self, *args, **kwargs):
+        kwargs.setdefault("user", self.request.user)
         return IdentityUserChangePasswordForm(*args, **kwargs)
 
     def get_context_data(self, **kwargs):

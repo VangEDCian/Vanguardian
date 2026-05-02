@@ -6,7 +6,11 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.audit.public import build_audit_request_context
-from apps.identity.application import IdentityUserAuditService, serialize_identity_user_snapshot
+from apps.identity.application import (
+    CurrentUserProfileSummaryService,
+    IdentityUserAuditService,
+    serialize_identity_user_snapshot,
+)
 from apps.identity.presentation.web.forms import (
     CurrentUserChangePasswordForm,
     CurrentUserProfileForm,
@@ -18,6 +22,7 @@ class CurrentUserProfileView(AuthenticateTemplateView):
     template_name = "identity/admin/profile.html"
     layout_nav_key = "ADMIN_PROFILE"
     profile_form_class = CurrentUserProfileForm
+    profile_summary_service_class = CurrentUserProfileSummaryService
     identity_user_audit_service_class = IdentityUserAuditService
 
     def get_profile_form(self, *args, **kwargs):
@@ -26,6 +31,9 @@ class CurrentUserProfileView(AuthenticateTemplateView):
 
     def get_identity_user_audit_service(self):
         return self.identity_user_audit_service_class()
+
+    def get_profile_summary_service(self):
+        return self.profile_summary_service_class()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -80,19 +88,7 @@ class CurrentUserProfileView(AuthenticateTemplateView):
         }
 
     def _build_profile_summary(self):
-        user = self.request.user
-        full_name = user.get_full_name() or getattr(user, "display_name", "") or user.get_username()
-        return {
-            "display_name": getattr(user, "display_name", "") or full_name,
-            "full_name": full_name,
-            "username": user.get_username(),
-            "email": user.email or _("No email configured"),
-            "role_label": _current_user_role_label(user),
-            "status_label": _("Active") if user.is_active else _("Inactive"),
-            "initials": _build_initials(full_name),
-            "date_joined": user.date_joined,
-            "last_login": user.last_login,
-        }
+        return self.get_profile_summary_service().build(self.request.user)
 
 
 class CurrentUserChangePasswordView(AuthenticateTemplateView):
@@ -129,20 +125,3 @@ class CurrentUserChangePasswordView(AuthenticateTemplateView):
         )
         messages.success(request, _("Password changed successfully."))
         return redirect(reverse("identity:current_user_change_password"))
-
-
-def _current_user_role_label(user):
-    if user.is_superuser:
-        return _("Administrator")
-    if user.is_staff:
-        return _("Staff")
-    return _("User")
-
-
-def _build_initials(value):
-    words = [word for word in (value or "").replace("@", " ").split() if word]
-    if not words:
-        return "U"
-    if len(words) == 1:
-        return words[0][:2].upper()
-    return f"{words[0][0]}{words[-1][0]}".upper()

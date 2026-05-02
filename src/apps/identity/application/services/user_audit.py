@@ -108,6 +108,19 @@ class IdentityUserAuditService:
             after_data={},
         )
 
+    def record_user_reset_password(self, *, user, actor_user_id=None, ip_address=None, user_agent=None):
+        self.audit_context_adapter.record_event(
+            action=AuditEventActionEnum.IDENTITY_USER_RESET_PASSWORD,
+            object_type=AuditEventObjectTypeEnum.IDENTITY_USER,
+            object_id=str(user.pk),
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            user_id=user.pk,
+            before_data={},
+            after_data={},
+        )
+
 
 def _get_role_metadata(user):
     if user.is_superuser:
