@@ -3,6 +3,9 @@ from importlib import import_module
 __all__ = [
     "DataCaptureEventTransitionTriggerResult",
     "DataCapturePageStateEventTransitionService",
+    "DataCaptureSaveSubmitPageService",
+    "SavePageResult",
+    "SubmitPageResult",
 ]
 
 _MODULE_BY_NAME = {
@@ -12,6 +15,11 @@ _MODULE_BY_NAME = {
     "DataCapturePageStateEventTransitionService": (
         "apps.datacapture.application.services.trigger_event_transition"
     ),
+    "DataCaptureSaveSubmitPageService": (
+        "apps.datacapture.application.services.save_submit_page"
+    ),
+    "SavePageResult": "apps.datacapture.application.services.save_submit_page",
+    "SubmitPageResult": "apps.datacapture.application.services.save_submit_page",
 }
 
 

@@ -23,6 +23,7 @@ urlpatterns = [
     path("i18n/", include("django.conf.urls.i18n")),
     path("", RedirectView.as_view(pattern_name="identity:login", permanent=False)),
     path("crf/", include("apps.crf.presentation.web.urls")),
+    path("datacapture/", include("apps.datacapture.presentation.web.urls")),
     path("", include("apps.identity.presentation.web.urls")),
     path("", include("apps.dashboard.presentation.web.urls")),
     path("", include("apps.study.presentation.web.urls")),

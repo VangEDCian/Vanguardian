@@ -1,3 +1,1 @@
-from apps.datacapture.domain.services.fact_mapping import DataCaptureFactMappingEvaluator
-
-__all__ = ["DataCaptureFactMappingEvaluator"]
+"""Domain services live in submodules (e.g. ``fact_mapping``, ``page_capture_save_submit``)."""

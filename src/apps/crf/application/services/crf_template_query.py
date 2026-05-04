@@ -189,6 +189,11 @@ class CrfTemplateQueryService:
             )
             if value not in (None, ""):
                 return value
+            # English UI should not silently fall back to another language when no EN row exists.
+            if language_code == "en":
+                available = list(instance.get_available_languages())
+                if available and "en" not in available:
+                    return default
             fallback = instance.safe_translation_getter(
                 field_name,
                 default=default,

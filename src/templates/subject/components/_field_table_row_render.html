@@ -1,5 +1,6 @@
 {% load i18n subject_form_tags %}
-<tr class="subject-form-table-row{% if field.classes %} {{ field.classes }}{% endif %}">
+<tr class="subject-form-table-row{% if field.classes %} {{ field.classes }}{% endif %}"
+    data-field-key="{{ field.field_key }}">
     {% for cell in field.table_row_cells %}
         <td class="subject-form-table-row__cell{% if cell.cell_class %} {{ cell.cell_class }}{% endif %}">
             {% if cell.kind == "control" %}

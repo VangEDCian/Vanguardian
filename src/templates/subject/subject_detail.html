@@ -85,7 +85,17 @@
             </aside>
             <main class="subject-detail-screen__content">
                 {% if focused_form %}
-                    {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
+                    {% if focused_event and datacapture_save_url %}
+                        <div data-datacapture-form-root
+                             data-save-url="{{ datacapture_save_url|escape }}"
+                             data-submit-url="{{ datacapture_submit_url|escape }}"
+                             data-page-status="{{ focused_page_status|default:''|escape }}"
+                             data-confirmation-message="{{ datacapture_save_confirm_message|default:''|escape }}">
+                            {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
+                        </div>
+                    {% else %}
+                        {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
+                    {% endif %}
                 {% else %}
                     <div class="subject-detail-screen__empty">{% trans "Select a CRF template to continue." %}</div>
                 {% endif %}
@@ -93,17 +103,26 @@
         </div>
         <footer class="subject-detail-screen__footer">
             <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--primary">
+                    class="entity-table__footer-button entity-table__footer-button--primary"
+                    {% if datacapture_save_url %}data-datacapture-save{% endif %}>
                 {% trans "Save" %}
             </button>
             <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--secondary">
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    {% if datacapture_save_url %}data-datacapture-reset{% endif %}>
                 {% trans "Reset" %}
             </button>
             <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--secondary">
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    {% if datacapture_save_url %}data-datacapture-submit{% endif %}>
                 {% trans "Submit for Review" %}
             </button>
         </footer>
     </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    {% if focused_form %}
+        <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>
+    {% endif %}
 {% endblock %}

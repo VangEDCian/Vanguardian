@@ -1,6 +1,8 @@
 from django.urls import reverse
+from django.utils.translation import get_language
 
 from apps.core.choices.study import EventInstanceStatusChoices
+from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.public import CrfContextAdapter
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
@@ -42,10 +44,12 @@ class SubjectDetailNavigationMixin:
             forms = []
             for binding in bindings_map.get(event_instance.event_definition_id, []):
                 template = binding.form_definition
-                template_name = template.safe_translation_getter(
+                lang = CrfTemplateQueryService._normalize_language_code(get_language())
+                template_name = CrfTemplateQueryService._translated_value(
+                    template,
+                    lang,
                     "name",
                     default=template.code,
-                    any_language=True,
                 )
                 forms.append(
                     {

@@ -1,6 +1,6 @@
 from django.db.models import Q
 
-from apps.datacapture.domain import (
+from apps.datacapture.infrastructure.models.capture import (
     DataCaptureFactMappingRule,
     DataCapturePageStateSnapshot,
 )
