@@ -1,5 +1,6 @@
 {% load i18n subject_form_tags %}
-<article class="subject-form-field-card {% if field.classes %}{{ field.classes }}{% endif %}">
+<article class="subject-form-field-card {% if field.classes %}{{ field.classes }}{% endif %}"
+         data-field-key="{{ field.field_key }}">
     <h4 class="subject-form-field__title">
         {{ field.label }}
         {% if field.is_required %}

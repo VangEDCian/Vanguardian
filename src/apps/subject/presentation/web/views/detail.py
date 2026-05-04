@@ -1,7 +1,9 @@
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import activate
 from django.views.generic import DetailView
 
+from apps.datacapture.public import get_page_state_status_for_subject_visit_crf
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.models import Subject
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
@@ -59,6 +61,12 @@ class SubjectDetailView(
         "calculated": "label_only",
     }
 
+    def dispatch(self, request, *args, **kwargs):
+        # Force English on subject detail to keep CRF UI consistent for testing.
+        activate("en")
+        request.LANGUAGE_CODE = "en"
+        return super().dispatch(request, *args, **kwargs)
+
     def get_queryset(self):
         return (
             super()
@@ -108,15 +116,37 @@ class SubjectDetailView(
         focus_form_id = (self.request.GET.get("form") or "").strip()
         focused_form = self._resolve_focus(focused_forms, focus_form_id)
         focused_form_fields = []
+        focused_page_status = ""
+        datacapture_save_url = ""
+        datacapture_submit_url = ""
         if focused_form:
             form_definition_id = focused_form.get("form_definition_id")
             if form_definition_id:
                 try:
-                    focused_form_fields = self.get_crf_context_adapter().list_template_fields_with_ui_config(
-                        template_id=int(form_definition_id),
+                    template_id = int(form_definition_id)
+                    visit_id = int(focused_event["id"]) if focused_event else None
+                    focused_page_status = get_page_state_status_for_subject_visit_crf(
+                        subject_id=subject.pk,
+                        visit_id=visit_id,
+                        crf_template_id=template_id,
                     )
+                    focused_form_fields = self.get_crf_context_adapter().list_template_fields_with_ui_config(
+                        template_id=template_id,
+                    )
+                    if focused_event:
+                        url_kw = {
+                            "study_id": self.get_study_id(),
+                            "subject_id": subject.pk,
+                            "visit_id": int(focused_event["id"]),
+                            "crf_template_id": template_id,
+                        }
+                        datacapture_save_url = reverse("datacapture:page_save", kwargs=url_kw)
+                        datacapture_submit_url = reverse("datacapture:page_submit", kwargs=url_kw)
                 except (TypeError, ValueError):
                     focused_form_fields = []
+                    focused_page_status = ""
+                    datacapture_save_url = ""
+                    datacapture_submit_url = ""
         form_render_sections = self._build_form_render_sections(focused_form_fields)
 
         context["back_url"] = reverse(
@@ -128,7 +158,14 @@ class SubjectDetailView(
         context["focused_event"] = focused_event
         context["focused_forms"] = focused_forms
         context["focused_form"] = focused_form
+        context["focused_page_status"] = focused_page_status
         context["focused_form_fields"] = focused_form_fields
         context["form_render_sections"] = form_render_sections
         context["study_header_label"] = subject.study.name or subject.study.code
+        context["datacapture_save_url"] = datacapture_save_url
+        context["datacapture_submit_url"] = datacapture_submit_url
+        if datacapture_save_url:
+            context["datacapture_save_confirm_message"] = _(
+                "This page was already submitted. Saving will create a correction version. Continue?"
+            )
         return context

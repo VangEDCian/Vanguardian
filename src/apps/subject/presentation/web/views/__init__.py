@@ -1,6 +1,12 @@
+"""Subject web views package.
+
+``SubjectDetailView`` is loaded lazily so importing ``views.base`` (e.g. from
+``apps.subject.public``) does not pull in ``detail`` and avoids cycles with
+``apps.datacapture.public``.
+"""
+
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 from apps.subject.presentation.web.views.create import SubjectCreateView
-from apps.subject.presentation.web.views.detail import SubjectDetailView
 from apps.subject.presentation.web.views.listing import SubjectListView
 
 __all__ = [
@@ -9,3 +15,11 @@ __all__ = [
     "SubjectDetailView",
     "SubjectListView",
 ]
+
+
+def __getattr__(name: str):
+    if name == "SubjectDetailView":
+        from apps.subject.presentation.web.views.detail import SubjectDetailView
+
+        return SubjectDetailView
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
