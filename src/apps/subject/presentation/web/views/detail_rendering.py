@@ -278,9 +278,48 @@ class SubjectDetailRenderingMixin:
 
         return options
 
-    def _build_form_render_sections(self, focused_form_fields):
+    @staticmethod
+    def _normalize_scalar_field_value(raw_value):
+        if raw_value is None:
+            return ""
+        if isinstance(raw_value, bool):
+            return "true" if raw_value else "false"
+        return str(raw_value)
+
+    @staticmethod
+    def _normalize_multi_value(raw_value):
+        if raw_value in (None, ""):
+            return []
+        if isinstance(raw_value, list):
+            return [str(item) for item in raw_value]
+        if isinstance(raw_value, tuple):
+            return [str(item) for item in raw_value]
+        if isinstance(raw_value, str):
+            values = [part.strip() for part in raw_value.split(",") if part.strip()]
+            if values:
+                return values
+            stripped_value = raw_value.strip()
+            return [stripped_value] if stripped_value else []
+        return [str(raw_value)]
+
+    @staticmethod
+    def _resolve_field_payload_value(payload_map, field):
+        field_key = str(field.get("field_key") or "").strip()
+        field_id = field.get("id")
+        aliases = []
+        if field_key:
+            aliases.append(field_key)
+        if field_id not in (None, ""):
+            aliases.append(f"field_{field_id}")
+        for alias in aliases:
+            if alias in payload_map:
+                return alias, payload_map[alias]
+        return field_key, None
+
+    def _build_form_render_sections(self, focused_form_fields, entry_payload_map=None):
         if not focused_form_fields:
             return []
+        payload_map = entry_payload_map if isinstance(entry_payload_map, dict) else {}
 
         sections_by_key = {}
         for field in focused_form_fields:
@@ -328,6 +367,9 @@ class SubjectDetailRenderingMixin:
             options = self._parse_choice_options(ui_config.get("options") or field.get("codelist"))
             placeholder_text = (ui_config.get("text") or "").strip()
             helper_text = (field.get("comments") or "").strip()
+            resolved_alias, resolved_value = self._resolve_field_payload_value(payload_map, field)
+            selected_values = self._normalize_multi_value(resolved_value)
+            normalized_value = self._normalize_scalar_field_value(resolved_value)
 
             sections_by_key[section_key]["fields"].append(
                 {
@@ -344,6 +386,27 @@ class SubjectDetailRenderingMixin:
                     "options": options,
                     "is_required": "required" in (ui_config.get("behavior") or "").lower(),
                     "classes": (ui_config.get("classes") or "").strip(),
+                    "range_min": field.get("range_min"),
+                    "range_max": field.get("range_max"),
+                    "text_min_length": field.get("text_min_length"),
+                    "text_max_length": field.get("text_max_length"),
+                    "pattern": field.get("pattern"),
+                    "pattern_err_msg": field.get("pattern_err_msg"),
+                    "value": normalized_value,
+                    "is_checked": str(normalized_value).lower() in {"1", "true", "yes", "on"},
+                    "selected_values": selected_values,
+                    "date_day": self._normalize_scalar_field_value(
+                        payload_map.get(f"{resolved_alias}__day")
+                    ),
+                    "date_month": self._normalize_scalar_field_value(
+                        payload_map.get(f"{resolved_alias}__month")
+                    ),
+                    "date_year": self._normalize_scalar_field_value(
+                        payload_map.get(f"{resolved_alias}__year")
+                    ),
+                    "date_time": self._normalize_scalar_field_value(
+                        payload_map.get(f"{resolved_alias}__time")
+                    ),
                 }
             )
 

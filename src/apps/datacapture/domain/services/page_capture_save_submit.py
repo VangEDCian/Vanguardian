@@ -2,6 +2,7 @@
 
 import json
 
+from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
 from apps.datacapture.domain.exceptions import (
     InvalidPagePayloadError,
     PageNotEditableError,
@@ -14,7 +15,14 @@ from apps.datacapture.infrastructure.models.capture import (
     SubmitExecutionPlan,
 )
 
-STABLE_EDIT_STATUSES = frozenset({"in_review", "verified", "finalized", "locked"})
+STABLE_EDIT_STATUSES = frozenset(
+    {
+        DataCapturePageStateStatusChoices.IN_REVIEW,
+        DataCapturePageStateStatusChoices.VERIFIED,
+        DataCapturePageStateStatusChoices.FINALIZED,
+        DataCapturePageStateStatusChoices.LOCKED,
+    }
+)
 
 
 def assert_page_editable_for_capture(page_state: DataCapturePageStateSnapshot | None) -> None:
@@ -54,11 +62,11 @@ def resolve_save_draft_execution_plan(
     validate_capture_payload(payload)
     if latest is None:
         return SaveDraftExecutionPlan(branch="create_initial")
-    if latest.status == "draft":
+    if latest.status == DataCapturePageEntryStatusChoices.DRAFT:
         return SaveDraftExecutionPlan(branch="update_draft")
-    if latest.status == "submitted":
+    if latest.status == DataCapturePageEntryStatusChoices.SUBMITTED:
         if same_capture_payload(latest.data, payload):
-            noop_status = page_state.status if page_state is not None else "submitted"
+            noop_status = page_state.status if page_state is not None else DataCapturePageStateStatusChoices.SUBMITTED
             return SaveDraftExecutionPlan(branch="noop_identical_submitted", noop_page_status=noop_status)
         return SaveDraftExecutionPlan(branch="correction_from_submitted")
     raise UnsupportedEntryStatusError(
@@ -77,13 +85,13 @@ def build_submit_execution_plan(
     validate_capture_payload(payload)
     if latest is None:
         return SubmitExecutionPlan(action="initial_submitted")
-    if latest.status == "draft":
+    if latest.status == DataCapturePageEntryStatusChoices.DRAFT:
         return SubmitExecutionPlan(
             action="promote_draft",
             draft_entry_id=latest.id,
             supersede_other_submitted_before_promote=has_other_submitted_entry,
         )
-    if latest.status == "submitted":
+    if latest.status == DataCapturePageEntryStatusChoices.SUBMITTED:
         return SubmitExecutionPlan(
             action="replace_submitted",
             superseded_entry_snapshot=latest,

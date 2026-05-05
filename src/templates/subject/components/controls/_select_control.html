@@ -3,6 +3,6 @@
 <select class="{{ input_class }}" disabled>
     <option value="">{{ select_control_i18n.empty_option }}</option>
     {% for option in field.options %}
-        <option value="{{ option.value }}">{{ option.label }}</option>
+        <option value="{{ option.value }}"{% if option.value == field.value %} selected{% endif %}>{{ option.label }}</option>
     {% endfor %}
 </select>

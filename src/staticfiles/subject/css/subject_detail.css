@@ -1,4 +1,5 @@
 .subject-detail-screen {
+  position: relative;
   padding: 0;
   overflow: hidden;
 }
@@ -188,6 +189,193 @@
   padding: 10px 14px;
   border-top: 1px solid #c5ccd3;
   background: #eceff2;
+}
+
+.subject-detail-screen__footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.subject-detail-screen__reason-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 26, 33, 0.38);
+}
+
+.subject-detail-screen__reason-modal-backdrop[hidden] {
+  display: none;
+}
+
+.subject-detail-screen__reason-modal {
+  width: min(860px, calc(100vw - 32px));
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #adb9c4;
+  background: #f8fafc;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.24);
+}
+
+.subject-detail-screen__reason-modal-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #ccd6df;
+  background: #d8e2eb;
+}
+
+.subject-detail-screen__reason-modal-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #1f2a33;
+  text-transform: uppercase;
+}
+
+.subject-detail-screen__reason-modal-body {
+  overflow: auto;
+}
+
+.subject-detail-screen__reason-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.subject-detail-screen__reason-table th,
+.subject-detail-screen__reason-table td {
+  padding: 8px 10px;
+  border: 1px solid #d6dde4;
+  font-size: 12px;
+  color: #253544;
+  vertical-align: top;
+}
+
+.subject-detail-screen__reason-table th {
+  background: #2d83b0;
+  color: #ffffff;
+  text-align: left;
+}
+
+.subject-detail-screen__reason-table td:last-child {
+  padding: 0;
+}
+
+.subject-detail-screen__reason-input {
+  width: 100%;
+  /* min-height: 40px; */
+  /* border: 1px solid #bfcad4;
+  border-radius: 4px; */
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #21303d;
+  resize: vertical;
+}
+
+.subject-detail-screen__reason-input:focus-visible {
+  outline: none;
+}
+
+.subject-detail-screen__reason-modal-footer {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid #ccd6df;
+  background: #eef3f7;
+}
+
+.subject-detail-screen__loading {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(1px);
+}
+
+.subject-detail-screen__loading[hidden] {
+  display: none;
+}
+
+.subject-detail-screen__loading-body {
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  border: 1px solid #d6dde4;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.subject-detail-screen__loading-spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 3px solid #d7e4ef;
+  border-top-color: #2196c4;
+  animation: subject-detail-loading-spin 0.8s linear infinite;
+}
+
+.subject-detail-screen__loading-message {
+  margin: 0;
+  color: #2e3a45;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subject-detail-screen__notifications {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.subject-detail-screen__notification {
+  min-width: 220px;
+  max-width: min(420px, calc(100vw - 28px));
+  border-radius: 8px;
+  border: 1px solid #d6dde4;
+  background: #ffffff;
+  color: #24323f;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 10px 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+  transform: translateY(0);
+  opacity: 1;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.subject-detail-screen__notification--success {
+  border-left: 4px solid #2e7d32;
+}
+
+.subject-detail-screen__notification--error {
+  border-left: 4px solid #c62828;
+}
+
+.subject-detail-screen__notification.is-leaving {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@keyframes subject-detail-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1200px) {

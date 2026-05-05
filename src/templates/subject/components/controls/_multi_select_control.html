@@ -3,7 +3,10 @@
 <div class="{{ choice_list_class }}">
     {% for option in field.options %}
         <label>
-            <input type="checkbox" disabled />
+            <input type="checkbox"
+                   value="{{ option.value }}"
+                   disabled
+                   {% if option.value in field.selected_values %}checked{% endif %} />
             {{ option.label }}
         </label>
     {% empty %}

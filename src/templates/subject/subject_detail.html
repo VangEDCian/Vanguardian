@@ -85,12 +85,15 @@
             </aside>
             <main class="subject-detail-screen__content">
                 {% if focused_form %}
-                    {% if focused_event and datacapture_save_url %}
+                    {% if focused_event and datacapture_save_url and not is_viewing_submitted_version %}
                         <div data-datacapture-form-root
                              data-save-url="{{ datacapture_save_url|escape }}"
                              data-submit-url="{{ datacapture_submit_url|escape }}"
+                             data-delete-draft-url="{{ datacapture_delete_draft_url|default:''|escape }}"
+                             data-current-entry-id="{{ focused_render_entry.id|default:'' }}"
                              data-page-status="{{ focused_page_status|default:''|escape }}"
-                             data-confirmation-message="{{ datacapture_save_confirm_message|default:''|escape }}">
+                             data-confirmation-message="{{ datacapture_save_confirm_message|default:''|escape }}"
+                             data-delete-draft-confirmation-message="{{ datacapture_delete_draft_confirm_message|default:''|escape }}">
                             {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
                         </div>
                     {% else %}
@@ -102,22 +105,97 @@
             </main>
         </div>
         <footer class="subject-detail-screen__footer">
-            <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--primary"
-                    {% if datacapture_save_url %}data-datacapture-save{% endif %}>
-                {% trans "Save" %}
-            </button>
-            <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--secondary"
-                    {% if datacapture_save_url %}data-datacapture-reset{% endif %}>
-                {% trans "Reset" %}
-            </button>
-            <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--secondary"
-                    {% if datacapture_save_url %}data-datacapture-submit{% endif %}>
-                {% trans "Submit for Review" %}
-            </button>
+            <div class="subject-detail-screen__footer-actions">
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--primary"
+                        {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-save{% else %}disabled{% endif %}>
+                    {% trans "Save" %}
+                </button>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-reset{% else %}disabled{% endif %}>
+                    {% trans "Reset" %}
+                </button>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-submit{% else %}disabled{% endif %}>
+                    {% trans "Submit for Review" %}
+                </button>
+                {% if is_viewing_submitted_version and view_current_url %}
+                    <a href="{{ view_current_url }}"
+                       class="entity-table__footer-button entity-table__footer-button--secondary">
+                        {% trans "View current draft" %}
+                    </a>
+                {% endif %}
+                {% if is_focused_render_draft_version %}
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--danger"
+                            {% if can_delete_current_draft %}data-datacapture-delete-draft{% else %}disabled{% endif %}>
+                        {% trans "Delete Draft" %}
+                    </button>
+                    {% if view_submitted_url %}
+                        <a href="{{ view_submitted_url }}"
+                           class="entity-table__footer-button entity-table__footer-button--secondary">
+                            {% trans "View submitted" %}
+                        </a>
+                    {% else %}
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                disabled>
+                            {% trans "View submitted" %}
+                        </button>
+                    {% endif %}
+                {% endif %}
+            </div>
         </footer>
+        {% if focused_latest_submitted_entry %}
+            {{ previous_submitted_entry_values|json_script:"datacapture-previous-submitted-payload" }}
+        {% endif %}
+        <div class="subject-detail-screen__reason-modal-backdrop"
+             hidden
+             data-datacapture-reason-modal>
+            <div class="subject-detail-screen__reason-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="datacapture-reason-modal-title">
+                <header class="subject-detail-screen__reason-modal-header">
+                    <h3 id="datacapture-reason-modal-title">{% trans "Reason For Changes" %}</h3>
+                </header>
+                <div class="subject-detail-screen__reason-modal-body">
+                    <table class="subject-detail-screen__reason-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date of Entry" %}</th>
+                                <th>{% trans "Field" %}</th>
+                                <th>{% trans "Reason" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody data-datacapture-reason-rows></tbody>
+                    </table>
+                </div>
+                <footer class="subject-detail-screen__reason-modal-footer">
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--primary"
+                            data-datacapture-reason-submit>{% trans "Submit" %}</button>
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--secondary"
+                            data-datacapture-reason-cancel>{% trans "Cancel" %}</button>
+                </footer>
+            </div>
+        </div>
+        <div class="subject-detail-screen__loading"
+             hidden
+             data-datacapture-loading
+             data-default-message="{% trans 'Processing...' %}"
+             data-save-message="{% trans 'Saving data...' %}"
+             data-submit-message="{% trans 'Submitting for review...' %}"
+             data-delete-message="{% trans 'Deleting draft...' %}">
+            <div class="subject-detail-screen__loading-body">
+                <span class="subject-detail-screen__loading-spinner" aria-hidden="true"></span>
+                <p class="subject-detail-screen__loading-message"
+                   data-datacapture-loading-message>{% trans "Processing..." %}</p>
+            </div>
+        </div>
     </section>
 {% endblock %}
 {% block extra_js %}

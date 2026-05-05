@@ -1,5 +1,6 @@
-{% load subject_form_tags %}
+{% load subject_form_tags subject_field_validators %}
 {% subject_date_picker_i18n as date_picker_i18n %}
+{% subject_date_validator_attrs field as date_validator_attrs %}
 <div class="subject-date-picker">
     <div class="subject-date-picker__part">
         <span class="subject-date-picker__label">{{ date_picker_i18n.day_label }}</span>
@@ -9,15 +10,17 @@
                pattern="^(?:[1-9]|[12][0-9]|3[01])$"
                maxlength="2"
                oninput="this.value=this.value.replace(/\D/g,'').slice(0,2);if(this.value){var day=parseInt(this.value,10);if(day<1){this.value='1';}else if(day>31){this.value='31';}}"
+               {{ date_validator_attrs }}
                placeholder="{{ date_picker_i18n.day_placeholder }}"
-               value="">
+               value="{{ field.date_day }}">
     </div>
     <div class="subject-date-picker__part">
         <span class="subject-date-picker__label">{{ date_picker_i18n.month_label }}</span>
-        <select class="subject-date-picker__input subject-date-picker__input--month">
+        <select class="subject-date-picker__input subject-date-picker__input--month"
+                {{ date_validator_attrs }}>
             <option value="">{{ date_picker_i18n.month_empty_option }}</option>
             {% for month in date_picker_i18n.months %}
-                <option value="{{ month.value }}">{{ month.label }}</option>
+                <option value="{{ month.value }}"{% if month.value == field.date_month %} selected{% endif %}>{{ month.label }}</option>
             {% endfor %}
         </select>
     </div>
@@ -29,7 +32,8 @@
                pattern="^\d{4}$"
                maxlength="4"
                oninput="this.value=this.value.replace(/\D/g,'').slice(0,4);"
+               {{ date_validator_attrs }}
                placeholder="{{ date_picker_i18n.year_placeholder }}"
-               value="">
+               value="{{ field.date_year }}">
     </div>
 </div>

@@ -17,7 +17,22 @@
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
-        <form class="user-detail-form crf-builder-form" method="post" action="{% url 'crf:form_field_create' form_id=template.id %}">
+        <form class="user-detail-form crf-builder-form"
+              method="post"
+              action="{% url 'crf:form_field_create' form_id=template.id %}"
+              data-form-builder-i18n-create-field="{% trans 'Create Field' %}"
+              data-form-builder-i18n-field-prefix="{% trans 'Field' %}"
+              data-form-builder-i18n-section-prefix="{% trans 'Section' %}"
+              data-form-builder-i18n-no-style="{% trans 'Chưa có style' %}"
+              data-form-builder-i18n-manage="{% trans 'Quản lý' %}"
+              data-form-builder-i18n-target-label="{% trans 'Target:' %}"
+              data-form-builder-i18n-validation-rule="{% trans 'Validation Rule' %}"
+              data-form-builder-i18n-rule-type="{% trans 'Rule Type' %}"
+              data-form-builder-i18n-condition="{% trans 'Condition' %}"
+              data-form-builder-i18n-severity="{% trans 'Severity' %}"
+              data-form-builder-i18n-mode="{% trans 'Mode' %}"
+              data-form-builder-i18n-message-multi-lang="{% trans 'Message (Multi-lang)' %}"
+              data-form-builder-i18n-add-message="{% trans '+ Add Message' %}">
             {% csrf_token %}
             <div hidden>
                 <input type="hidden" name="delete_section_id" value="{{ selected_section_id|default:'' }}">
@@ -94,21 +109,6 @@
     {{ block.super }}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script>
-        window.CRF_FORM_BUILDER_I18N = {
-            createField: '{% trans "Create Field" %}',
-            fieldPrefix: '{% trans "Field" %}',
-            noStyle: '{% trans "Chưa có style" %}',
-            manage: '{% trans "Quản lý" %}',
-            targetLabel: '{% trans "Target:" %}',
-            validationRule: '{% trans "Validation Rule" %}',
-            ruleType: '{% trans "Rule Type" %}',
-            condition: '{% trans "Condition" %}',
-            severity: '{% trans "Severity" %}',
-            mode: '{% trans "Mode" %}',
-            messageMultiLang: '{% trans "Message (Multi-lang)" %}',
-            addMessage: '{% trans "+ Add Message" %}',
-        };
-    </script>
+    <script src="{% static 'crf/js/form_builder_i18n.js' %}"></script>
     <script src="{% static 'crf/js/form_builder.js' %}"></script>
 {% endblock %}

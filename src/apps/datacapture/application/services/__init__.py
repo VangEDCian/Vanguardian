@@ -4,6 +4,7 @@ __all__ = [
     "DataCaptureEventTransitionTriggerResult",
     "DataCapturePageStateEventTransitionService",
     "DataCaptureSaveSubmitPageService",
+    "DeleteDraftPageResult",
     "SavePageResult",
     "SubmitPageResult",
 ]
@@ -18,6 +19,7 @@ _MODULE_BY_NAME = {
     "DataCaptureSaveSubmitPageService": (
         "apps.datacapture.application.services.save_submit_page"
     ),
+    "DeleteDraftPageResult": "apps.datacapture.application.services.save_submit_page",
     "SavePageResult": "apps.datacapture.application.services.save_submit_page",
     "SubmitPageResult": "apps.datacapture.application.services.save_submit_page",
 }

@@ -60,6 +60,7 @@ X_INSTALLED_APPS = [
     "apps.crf.apps.CrfConfig",
     "apps.subject.apps.SubjectConfig",
     "apps.datacapture.apps.DatacaptureConfig",
+    "apps.reconcile.apps.ReconcileConfig",
 ]
 
 INSTALLED_APPS = [
@@ -107,6 +108,9 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.shared.context_processors.shared_select_options",
             ],
+            "libraries": {
+                "subject_field_validators": "apps.subject.templatetags.subject_field_validators",
+            },
         },
     },
 ]
@@ -215,18 +219,14 @@ EMAIL_BACKEND = env(
 )
 EMAIL_HOST = (env("EMAIL_HOST", cast=str, default="localhost") or "localhost").strip()
 EMAIL_PORT = env("EMAIL_PORT", cast=int)
-EMAIL_HOST_USER = (env("EMAIL_HOST_USER", cast=str, default="") or "").strip()
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", cast=str, default="") or ""
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", cast=str, default="").strip()
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", cast=str, default="")
 EMAIL_USE_TLS = env("EMAIL_USE_TLS", cast=bool)
-EMAIL_USE_STARTTLS = env("EMAIL_USE_STARTTLS", cast=bool)
+EMAIL_USE_STARTTLS = env("EMAIL_USE_STARTTLS", cast=bool, default=True)
 EMAIL_TIMEOUT = env("EMAIL_TIMEOUT", cast=float)
 if EMAIL_USE_TLS:
     EMAIL_USE_STARTTLS = False
-DEFAULT_FROM_EMAIL = (
-    (env("DEFAULT_FROM_EMAIL", cast=str, default="") or "").strip()
-    or EMAIL_HOST_USER
-    or "no-reply@vanguardian.local"
-)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", cast=str, default="")
 
 #
 # Django Tables 2
@@ -251,4 +251,5 @@ if DISABLE_APP_MIGRATIONS:
         "study": None,
         "crf": None,
         "subject": None,
+        "reconcile": None,
     }

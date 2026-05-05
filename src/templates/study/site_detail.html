@@ -119,19 +119,5 @@
     {{ block.super }}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script>
-    (function () {
-      const $ = window.jQuery;
-      if (!$ || !$.fn.select2) { return; }
-
-      $(function () {
-        $(".old-select2-single-choice").select2({
-          width: "100%",
-          placeholder: function () {
-            return $(this).data("placeholder") || "";
-          }
-        });
-      });
-    })();
-    </script>
+    <script src="{% static 'study/js/site_detail.js' %}"></script>
 {% endblock %}

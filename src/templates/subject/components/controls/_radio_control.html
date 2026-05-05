@@ -3,7 +3,10 @@
 <div class="{{ choice_list_class }}">
     {% for option in field.options %}
         <label>
-            <input type="radio" name="field_{{ field.id }}" />
+            <input type="radio"
+                   name="field_{{ field.id }}"
+                   value="{{ option.value }}"
+                   {% if option.value == field.value %}checked{% endif %} />
             {{ option.label }}
         </label>
     {% empty %}

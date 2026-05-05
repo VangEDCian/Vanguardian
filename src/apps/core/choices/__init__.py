@@ -1,3 +1,7 @@
+from apps.core.choices.datacapture import (
+    DataCapturePageEntryStatusChoices,
+    DataCapturePageStateStatusChoices,
+)
 from apps.core.choices.study import (
     EventDefinitionCategoryChoices,
     EventExecutionModeChoices,
@@ -9,6 +13,8 @@ from apps.core.choices.study import (
 )
 
 __all__ = [
+    "DataCapturePageEntryStatusChoices",
+    "DataCapturePageStateStatusChoices",
     "EventDefinitionCategoryChoices",
     "EventExecutionModeChoices",
     "EventDefinitionTimingModeChoices",

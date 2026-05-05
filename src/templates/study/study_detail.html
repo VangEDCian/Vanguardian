@@ -17,7 +17,11 @@
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
-        <form method="post" class="user-detail-form">
+        <form method="post"
+              class="user-detail-form"
+              data-date-range-sync
+              data-date-range-start-id="{{ form.start_date.id_for_label }}"
+              data-date-range-end-id="{{ form.end_date.id_for_label }}">
             {% csrf_token %}
             {# ── Tab bar ─────────────────────────────────────────────────────────── #}
             {% include "study/components/_study_detail_tabs.html" with study_active_tab="settings" %}
@@ -160,43 +164,5 @@
 {% endblock %}
 {% block extra_js %}
     {{ block.super }}
-    <script>
-    (function () {
-      var startInput = document.getElementById("{{ form.start_date.id_for_label }}");
-      var endInput = document.getElementById("{{ form.end_date.id_for_label }}");
-      if (!startInput || !endInput) return;
-
-      function parsePickerValue(input) {
-        if (!window.flatpickr || !input.value) return null;
-        return window.flatpickr.parseDate(
-          input.value,
-          input.dataset.flatpickrDateFormat || "Y-m-d"
-        );
-      }
-
-      function syncEndMin() {
-        var endPicker = endInput._flatpickr || null;
-        if (startInput.value) {
-          if (endPicker) {
-            endPicker.set("minDate", startInput.value);
-          }
-          var startDate = parsePickerValue(startInput);
-          var endDate = parsePickerValue(endInput);
-          if (startDate && endDate && endDate < startDate) {
-            endInput.value = "";
-            if (endPicker) {
-              endPicker.clear();
-            }
-          }
-        } else {
-          if (endPicker) {
-            endPicker.set("minDate", null);
-          }
-        }
-      }
-
-      startInput.addEventListener("change", syncEndMin);
-      syncEndMin();
-    })();
-    </script>
+    <script src="{% static 'study/js/date_range_sync.js' %}"></script>
 {% endblock %}

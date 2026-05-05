@@ -3,4 +3,4 @@
 <textarea class="{{ textarea_class }}"
           rows="{{ textarea_rows|default:'3' }}"
           readonly
-          placeholder="{{ field.placeholder_text|default:textarea_control_i18n.placeholder }}"></textarea>
+          placeholder="{{ field.placeholder_text|default:textarea_control_i18n.placeholder }}">{{ field.value }}</textarea>

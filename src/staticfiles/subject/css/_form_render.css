@@ -19,6 +19,15 @@
   text-transform: uppercase;
 }
 
+.subject-form__title-status {
+  margin-left: 6px;
+  font-weight: 700;
+}
+
+.subject-form__title-status--danger {
+  color: #ffcdd2;
+}
+
 .subject-form-section__title {
   padding: 0 0 0.25rem;
   color: rgb(33, 150, 196);

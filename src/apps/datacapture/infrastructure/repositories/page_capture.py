@@ -3,6 +3,11 @@ from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageStateSnapshot,
     SubmitExecutionPlan,
 )
+from django.db.models import Max
+from apps.core.choices import (
+    DataCapturePageEntryStatusChoices,
+    DataCapturePageStateStatusChoices,
+)
 from apps.datacapture.models import DataCapturePageEntry, DataCapturePageState
 
 
@@ -52,6 +57,44 @@ class DjangoDataCapturePageRepository:
                 crf_template_id=crf_template_id,
                 deleted=False,
             )
+            .exclude(status=DataCapturePageEntryStatusChoices.CANCELED)
+            .only(
+                "id",
+                "entry_no",
+                "entry_kind",
+                "entry_version",
+                "status",
+                "data",
+                "crf_template_id",
+                "subject_id",
+                "visit_id",
+            )
+            .order_by("-entry_no", "-id")
+            .first()
+        )
+        if page_entry is None:
+            return None
+        return DataCapturePageEntrySnapshot(
+            id=page_entry.pk,
+            entry_no=page_entry.entry_no,
+            entry_kind=page_entry.entry_kind,
+            entry_version=page_entry.entry_version,
+            status=page_entry.status,
+            data=page_entry.data,
+            crf_template_id=page_entry.crf_template_id,
+            subject_id=page_entry.subject_id,
+            visit_id=page_entry.visit_id,
+        )
+
+    def get_latest_submitted_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
+        page_entry = (
+            DataCapturePageEntry.objects.filter(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                deleted=False,
+                status=DataCapturePageEntryStatusChoices.SUBMITTED,
+            )
             .only(
                 "id",
                 "entry_no",
@@ -81,12 +124,8 @@ class DjangoDataCapturePageRepository:
         )
 
     @staticmethod
-    def _bumped_entry_version_string(latest: DataCapturePageEntrySnapshot) -> str:
-        raw = (latest.entry_version or "").strip()
-        try:
-            return str(int(raw) + 1)
-        except ValueError:
-            return str(latest.entry_no + 1)
+    def _entry_version_for_no(entry_no: int) -> str:
+        return f"v{entry_no}"
 
     def create_initial_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int, data: str, actor_user_id: int | None = None):
         next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
@@ -96,9 +135,9 @@ class DjangoDataCapturePageRepository:
             deleted=False,
             entry_no=next_entry_no,
             entry_kind="initial",
-            entry_version=str(next_entry_no),
+            entry_version=self._entry_version_for_no(next_entry_no),
             data=data,
-            status="draft",
+            status=DataCapturePageEntryStatusChoices.DRAFT,
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
@@ -111,9 +150,9 @@ class DjangoDataCapturePageRepository:
     ):
         """Save-draft after a submitted row: new correction draft; prior submitted row unchanged (6.2)."""
         latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
-        assert latest is not None and latest.status == "submitted"
-        next_entry_no = latest.entry_no + 1
-        entry_version = self._bumped_entry_version_string(latest)
+        assert latest is not None and latest.status == DataCapturePageEntryStatusChoices.SUBMITTED
+        next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        entry_version = self._entry_version_for_no(next_entry_no)
         return DataCapturePageEntry.objects.create(
             created_at=self._now(),
             updated_at=self._now(),
@@ -122,7 +161,7 @@ class DjangoDataCapturePageRepository:
             entry_kind="correction",
             entry_version=entry_version,
             data=data,
-            status="draft",
+            status=DataCapturePageEntryStatusChoices.DRAFT,
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
@@ -145,9 +184,9 @@ class DjangoDataCapturePageRepository:
             visit_id=visit_id,
             crf_template_id=crf_template_id,
             deleted=False,
-            status="submitted",
+            status=DataCapturePageEntryStatusChoices.SUBMITTED,
         ).exclude(pk=keep_entry_id).update(
-            status="superseded",
+            status=DataCapturePageEntryStatusChoices.SUPERSEDED,
             updated_at=self._now(),
             updated_by_id=actor_user_id,
         )
@@ -160,7 +199,7 @@ class DjangoDataCapturePageRepository:
             visit_id=visit_id,
             crf_template_id=crf_template_id,
             deleted=False,
-            status="submitted",
+            status=DataCapturePageEntryStatusChoices.SUBMITTED,
         ).exclude(pk=exclude_entry_id).exists()
 
     def get_page_state_by_scope(self, *, subject_id: int, visit_id: int, crf_template_id: int):
@@ -173,7 +212,7 @@ class DjangoDataCapturePageRepository:
         self, *, subject_id: int, visit_id: int, crf_template_id: int, data: str, actor_user_id: int | None = None
     ):
         latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
-        if latest is None or latest.status != "draft":
+        if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
             return latest
         DataCapturePageEntry.objects.filter(pk=latest.id).update(
             data=data,
@@ -181,6 +220,19 @@ class DjangoDataCapturePageRepository:
             updated_by_id=actor_user_id,
         )
         return self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+
+    def cancel_latest_draft_entry(
+        self, *, subject_id: int, visit_id: int, crf_template_id: int, actor_user_id: int | None = None
+    ):
+        latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
+            return None
+        DataCapturePageEntry.objects.filter(pk=latest.id).update(
+            status=DataCapturePageEntryStatusChoices.CANCELED,
+            updated_at=self._now(),
+            updated_by_id=actor_user_id,
+        )
+        return latest
 
     def upsert_page_state(self, *, subject_id: int, visit_id: int, crf_template_id: int, data: str, status: str, actor_user_id: int | None = None):
         page_state, _ = DataCapturePageState.objects.update_or_create(
@@ -221,7 +273,7 @@ class DjangoDataCapturePageRepository:
             visit_id=visit_id,
             crf_template_id=crf_template_id,
             data=final_data,
-            status="draft",
+            status=DataCapturePageStateStatusChoices.DRAFT,
             actor_user_id=actor_user_id,
         )
         return True
@@ -238,15 +290,16 @@ class DjangoDataCapturePageRepository:
     ):
         """Persist submit outcome described by a domain ``SubmitExecutionPlan`` (no branching here)."""
         if plan.action == "initial_submitted":
+            next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
             return DataCapturePageEntry.objects.create(
                 created_at=self._now(),
                 updated_at=self._now(),
                 deleted=False,
-                entry_no=1,
+                entry_no=next_entry_no,
                 entry_kind="initial",
-                entry_version="1",
+                entry_version=self._entry_version_for_no(next_entry_no),
                 data=data,
-                status="submitted",
+                status=DataCapturePageEntryStatusChoices.SUBMITTED,
                 subject_id=subject_id,
                 visit_id=visit_id,
                 crf_template_id=crf_template_id,
@@ -268,7 +321,7 @@ class DjangoDataCapturePageRepository:
                 updated_at=self._now(),
                 updated_by_id=actor_user_id,
                 data=data,
-                status="submitted",
+                status=DataCapturePageEntryStatusChoices.SUBMITTED,
             )
             return DataCapturePageEntry.objects.get(pk=plan.draft_entry_id)
 
@@ -278,10 +331,10 @@ class DjangoDataCapturePageRepository:
             DataCapturePageEntry.objects.filter(pk=snap.id).update(
                 updated_at=self._now(),
                 updated_by_id=actor_user_id,
-                status="superseded",
+                status=DataCapturePageEntryStatusChoices.SUPERSEDED,
             )
-            next_entry_no = snap.entry_no + 1
-            entry_version = self._bumped_entry_version_string(snap)
+            next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+            entry_version = self._entry_version_for_no(next_entry_no)
             return DataCapturePageEntry.objects.create(
                 created_at=self._now(),
                 updated_at=self._now(),
@@ -290,7 +343,7 @@ class DjangoDataCapturePageRepository:
                 entry_kind="correction",
                 entry_version=entry_version,
                 data=data,
-                status="submitted",
+                status=DataCapturePageEntryStatusChoices.SUBMITTED,
                 subject_id=subject_id,
                 visit_id=visit_id,
                 crf_template_id=crf_template_id,
@@ -301,8 +354,15 @@ class DjangoDataCapturePageRepository:
         raise RuntimeError(f"execute_submit_plan: unknown action {plan.action!r}")
 
     def _next_entry_no(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> int:
-        latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
-        return 1 if latest is None else latest.entry_no + 1
+        max_entry_no = (
+            DataCapturePageEntry.objects.filter(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                deleted=False,
+            ).aggregate(max_entry_no=Max("entry_no")).get("max_entry_no")
+        )
+        return 1 if max_entry_no is None else int(max_entry_no) + 1
 
     @staticmethod
     def _now():

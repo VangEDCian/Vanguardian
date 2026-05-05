@@ -3,5 +3,5 @@
 <input class="{{ readonly_input_class|default:input_class }}"
        type="text"
        readonly
-       value=""
+       value="{{ field.value }}"
        placeholder="{{ field.placeholder_text|default:label_only_control_i18n.placeholder }}" />

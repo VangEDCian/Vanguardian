@@ -1,12 +1,17 @@
 from django.db import models
 
+from apps.core.choices import (
+    DataCapturePageEntryStatusChoices,
+    DataCapturePageStateStatusChoices,
+)
+
 
 class DataCapturePageState(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
-    status = models.CharField(max_length=16)
+    status = models.CharField(max_length=16, choices=DataCapturePageStateStatusChoices.choices)
     final_data = models.TextField()
     verified_at = models.DateTimeField(null=True, blank=True)
     locked_at = models.DateTimeField(null=True, blank=True)
@@ -58,7 +63,7 @@ class DataCapturePageEntry(models.Model):
     entry_kind = models.CharField(max_length=16)
     entry_version = models.CharField(max_length=16)
     data = models.TextField()
-    status = models.CharField(max_length=16)
+    status = models.CharField(max_length=16, choices=DataCapturePageEntryStatusChoices.choices)
 
     crf_template = models.ForeignKey(
         "crf.CrfTemplate",

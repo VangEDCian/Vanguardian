@@ -3,6 +3,9 @@
     <header class="subject-form__title">
         {% if focused_form and focused_form.title %}
             {{ focused_form.title }}
+            {% if is_focused_render_draft_version %}
+                <span class="subject-form__title-status subject-form__title-status--danger">(DRAFT)</span>
+            {% endif %}
         {% else %}
             {% trans "Form" %}
         {% endif %}

@@ -1,7 +1,9 @@
-{% load subject_form_tags %}
+{% load subject_form_tags subject_field_validators %}
 {% subject_text_control_i18n as text_control_i18n %}
+{% subject_text_validator_attrs field as text_validator_attrs %}
 <input class="{{ input_class }}"
        type="text"
        readonly
-       value=""
+       {{ text_validator_attrs }}
+       value="{{ field.value }}"
        placeholder="{{ field.placeholder_text|default:text_control_i18n.placeholder }}" />
