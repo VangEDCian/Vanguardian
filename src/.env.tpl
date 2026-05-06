@@ -35,3 +35,16 @@ PASSWORD_RESET_TIMEOUT=
 IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=
 IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS=
 IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS=
+
+# -----------------------------------------------------------------------------
+# Sonic search settings
+# -----------------------------------------------------------------------------
+SONIC_ENABLED=
+SONIC_HOST=
+SONIC_PORT=
+SONIC_PASSWORD=
+SONIC_COLLECTION=
+SONIC_BUCKET_STUDIES=
+SONIC_BUCKET_SITES=
+SONIC_LANGUAGE=
+SONIC_SEARCH_LIMIT=

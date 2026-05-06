@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 
+from apps.audit.public import AuditContextAdapter
 from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
 from apps.datacapture.application.commands import (
     DeleteDraftPageCommand,
@@ -22,7 +23,7 @@ from apps.datacapture.domain.services.page_capture_save_submit import (
     resolve_save_draft_execution_plan,
 )
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
-from apps.reconcile.public import create_data_queries_for_page_change_reasons
+from apps.shared.constants import AuditEventAction, AuditEventObjectType
 
 
 @dataclass(frozen=True)
@@ -130,12 +131,46 @@ def _build_change_reason_map(
     return normalized
 
 
+def _build_change_reason_audit_payloads(
+    *,
+    baseline_payload: dict,
+    candidate_payload: dict,
+    changed_field_keys: list[str],
+    reason_map: dict[str, SubmitFieldChangeReason],
+) -> tuple[dict, dict]:
+    before_fields: list[dict] = []
+    after_fields: list[dict] = []
+    for field_key in changed_field_keys:
+        reason_item = reason_map[field_key]
+        label = reason_item.field_label or field_key
+        before_fields.append(
+            {
+                "field_key": field_key,
+                "field_label": label,
+                "value": _resolve_canonical_value(baseline_payload, field_key),
+            }
+        )
+        after_fields.append(
+            {
+                "field_key": field_key,
+                "field_label": label,
+                "value": _resolve_canonical_value(candidate_payload, field_key),
+                "reason": reason_item.reason,
+            }
+        )
+    return (
+        {"changed_fields": before_fields},
+        {"changed_fields": after_fields},
+    )
+
+
 class DataCaptureSaveSubmitPageService:
 
     repository_class = DjangoDataCapturePageRepository
 
     def __init__(self, repository=None):
         self.repository = repository or self.repository_class()
+        self.audit_context = AuditContextAdapter()
 
     def _upsert_draft_page_state(self, command: SavePageCommand) -> None:
         self.repository.upsert_page_state(
@@ -273,7 +308,9 @@ class DataCaptureSaveSubmitPageService:
             _raise_as_http(exc)
 
         changed_field_keys: list[str] = []
-        reasons_for_changed_fields: list[dict[str, str]] = []
+        reason_map: dict[str, SubmitFieldChangeReason] = {}
+        baseline_payload: dict = {}
+        candidate_payload: dict = {}
         if latest_submitted is not None and (latest is None or latest_submitted.id != latest.id):
             baseline_payload = _load_payload_map(latest_submitted.data)
             candidate_payload = _load_payload_map(command.data)
@@ -288,14 +325,6 @@ class DataCaptureSaveSubmitPageService:
                 ]
                 if missing_reason_fields:
                     raise ValidationError(["Change reason is required for all updated fields before submit."])
-                reasons_for_changed_fields = [
-                    {
-                        "field_key": field_key,
-                        "field_label": reason_map[field_key].field_label or field_key,
-                        "reason": reason_map[field_key].reason,
-                    }
-                    for field_key in changed_field_keys
-                ]
 
         entry = self.repository.execute_submit_plan(
             subject_id=command.subject_id,
@@ -313,11 +342,19 @@ class DataCaptureSaveSubmitPageService:
             status=DataCapturePageStateStatusChoices.SUBMITTED,
             actor_user_id=command.actor_user_id,
         )
-        if reasons_for_changed_fields:
-            create_data_queries_for_page_change_reasons(
-                page_state_id=page_state.id,
-                crf_template_id=command.crf_template_id,
-                reasons=reasons_for_changed_fields,
+        if changed_field_keys:
+            before_data, after_data = _build_change_reason_audit_payloads(
+                baseline_payload=baseline_payload,
+                candidate_payload=candidate_payload,
+                changed_field_keys=changed_field_keys,
+                reason_map=reason_map,
+            )
+            self.audit_context.record_event(
+                action=AuditEventAction.DATACAPTURE_PAGEENTRY_CHANGE_REASONS_SUBMITTED,
+                object_type=AuditEventObjectType.PAGEENTRY,
+                object_id=str(entry.pk),
+                before_data=before_data,
+                after_data=after_data,
                 actor_user_id=command.actor_user_id,
             )
         return SubmitPageResult(

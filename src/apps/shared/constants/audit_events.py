@@ -13,6 +13,7 @@ class AuditEventAction:
     STUDY_UPDATED = "study.updated"
     STUDY_STATUS_CHANGED = "study.status_changed"
     STUDY_DELETED = "study.deleted"
+    DATACAPTURE_PAGEENTRY_CHANGE_REASONS_SUBMITTED = "datacapture.pageentry.change_reasons_submitted"
 
 
 class AuditEventObjectType:
@@ -20,6 +21,7 @@ class AuditEventObjectType:
     IDENTITY_LOGIN_ATTEMPT = "identity.login_attempt"
 
     STUDY = "study"
+    PAGEENTRY = "pageentry"
 
 
 class AuditEventActionEnum(enum.Enum):

@@ -28,6 +28,9 @@ env = environ.Env(
     EMAIL_TIMEOUT=(float, 10.0),
     EMAIL_USE_TLS=(bool, False),
     EMAIL_USE_STARTTLS=(bool, True),
+    SONIC_ENABLED=(bool, False),
+    SONIC_PORT=(int, 1491),
+    SONIC_SEARCH_LIMIT=(int, 200),
 )
 ENV_FILE = BASE_DIR / ".env"
 if ENV_FILE.exists():
@@ -162,6 +165,16 @@ AUTH_PASSWORD_VALIDATORS = [
 IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS = env("IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS", cast=int, default=5)
 IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS", cast=int, default=15 * 60)
 IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS", cast=int, default=15 * 60)
+
+SONIC_ENABLED = env("SONIC_ENABLED", cast=bool, default=False)
+SONIC_HOST = env("SONIC_HOST", cast=str, default="127.0.0.1").strip() or "127.0.0.1"
+SONIC_PORT = env("SONIC_PORT", cast=int, default=1491)
+SONIC_PASSWORD = env("SONIC_PASSWORD", cast=str, default="SecretPassword")
+SONIC_COLLECTION = env("SONIC_COLLECTION", cast=str, default="vanguardian").strip() or "vanguardian"
+SONIC_BUCKET_STUDIES = env("SONIC_BUCKET_STUDIES", cast=str, default="studies").strip() or "studies"
+SONIC_BUCKET_SITES = env("SONIC_BUCKET_SITES", cast=str, default="sites").strip() or "sites"
+SONIC_LANGUAGE = env("SONIC_LANGUAGE", cast=str, default="eng").strip() or "eng"
+SONIC_SEARCH_LIMIT = env("SONIC_SEARCH_LIMIT", cast=int, default=200)
 
 
 # Internationalization

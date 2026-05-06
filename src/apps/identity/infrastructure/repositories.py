@@ -3,12 +3,16 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.audit.infrastructure.persistence.models import AuditEvent
+from apps.identity.infrastructure.sonic import SonicSearchAdapter
 from apps.identity.models import Role, StudyMembership, StudySiteMembership, User, UserRole
 from apps.shared.constants import AuditEventAction, AuditEventObjectType
 from apps.study.models import Site, Study
 
 
 class DjangoIdentityUserRepository:
+    def __init__(self, *, sonic_search_adapter=None):
+        self.sonic_search_adapter = sonic_search_adapter or SonicSearchAdapter()
+
     def build_user(self, **values):
         return User(**values)
 
@@ -111,9 +115,9 @@ class DjangoIdentityUserRepository:
         if search_query:
             normalized_search_query = search_query.strip()
             if normalized_search_query:
-                queryset = queryset.filter(
-                    Q(code__icontains=normalized_search_query) | Q(name__icontains=normalized_search_query)
-                )
+                matched_ids = self.sonic_search_adapter.search_study_ids(query=normalized_search_query)
+                if matched_ids:
+                    queryset = queryset.filter(pk__in=matched_ids).order_by("id")
 
         if user.is_superuser:
             return queryset
@@ -127,9 +131,9 @@ class DjangoIdentityUserRepository:
         if search_query:
             normalized_search_query = search_query.strip()
             if normalized_search_query:
-                queryset = queryset.filter(
-                    Q(code__icontains=normalized_search_query) | Q(name__icontains=normalized_search_query)
-                )
+                matched_ids = self.sonic_search_adapter.search_site_ids(query=normalized_search_query)
+                if matched_ids:
+                    queryset = queryset.filter(pk__in=matched_ids).order_by("id")
 
         if user.is_superuser:
             return queryset
