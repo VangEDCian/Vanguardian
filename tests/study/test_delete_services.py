@@ -62,11 +62,12 @@ class DeleteStudyServiceTests(SimpleTestCase):
         study = _make_study(pk=1, code="STUDY-001")
         mock_suffix_builder.return_value = "STUDY-001_deleted_deadbeef"
         repository = MagicMock()
+        sonic_adapter = MagicMock()
         repository.get_study.return_value = study
         repository.save_study.side_effect = lambda item: item
 
         result = DeleteStudyService.execute.__wrapped__(
-            DeleteStudyService(repository=repository),
+            DeleteStudyService(repository=repository, sonic_adapter=sonic_adapter),
             DeleteStudyCommand(study_id=1, actor_user_id=42),
         )
 
@@ -76,6 +77,7 @@ class DeleteStudyServiceTests(SimpleTestCase):
         mock_suffix_builder.assert_called_once_with("STUDY-001")
         repository.touch_study.assert_called_once_with(study, actor_user_id=42)
         repository.save_study.assert_called_once_with(study)
+        sonic_adapter.remove_study.assert_called_once_with(study_id=1)
 
     def test_raises_when_study_not_found(self):
         repository = MagicMock()
@@ -94,11 +96,12 @@ class DeleteSiteServiceTests(SimpleTestCase):
         site = _make_site(pk=7, study_id=3, code="SITE-001")
         mock_suffix_builder.return_value = "SITE-001_deleted_deadbeef"
         repository = MagicMock()
+        sonic_adapter = MagicMock()
         repository.get_site.return_value = site
         repository.save_site.side_effect = lambda item: item
 
         result = DeleteSiteService.execute.__wrapped__(
-            DeleteSiteService(repository=repository),
+            DeleteSiteService(repository=repository, sonic_adapter=sonic_adapter),
             DeleteSiteCommand(site_id=7, actor_user_id=21),
         )
 
@@ -109,6 +112,7 @@ class DeleteSiteServiceTests(SimpleTestCase):
         mock_suffix_builder.assert_called_once_with("SITE-001")
         repository.touch_site.assert_called_once_with(site, actor_user_id=21)
         repository.save_site.assert_called_once_with(site)
+        sonic_adapter.remove_site.assert_called_once_with(site_id=7)
 
     def test_raises_when_site_not_found(self):
         repository = MagicMock()

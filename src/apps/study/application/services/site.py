@@ -13,19 +13,22 @@ from apps.study.application.commands.site_data import (
     UpdateSiteCommand,
 )
 from apps.study.infrastructure.repositories import DjangoStudyCommandRepository
+from apps.study.infrastructure.sonic import SonicStudySiteAdapter
 
 
 class CreateSiteService:
     repository_class = DjangoStudyCommandRepository
+    sonic_adapter_class = SonicStudySiteAdapter
 
-    def __init__(self, repository=None):
+    def __init__(self, repository=None, sonic_adapter=None):
         self.repository = repository or self.repository_class()
+        self.sonic_adapter = sonic_adapter or self.sonic_adapter_class()
 
     @transaction.atomic
     def execute(self, command: CreateSiteCommand):
         self._validate_code_unique(command.study_id, command.code)
 
-        return self.repository.create_site(
+        site = self.repository.create_site(
             code=command.code.strip(),
             name=command.name.strip(),
             investigator=command.investigator.strip(),
@@ -33,6 +36,13 @@ class CreateSiteService:
             is_active=command.is_active,
             actor_user_id=command.actor_user_id,
         )
+        self.sonic_adapter.index_site(
+            site_id=site.pk,
+            code=site.code,
+            name=site.name,
+            investigator=site.investigator,
+        )
+        return site
 
     def _validate_code_unique(self, study_id, code):
         if self.repository.site_code_exists(study_id=study_id, code=code):
@@ -41,9 +51,11 @@ class CreateSiteService:
 
 class DeleteSiteService:
     repository_class = DjangoStudyCommandRepository
+    sonic_adapter_class = SonicStudySiteAdapter
 
-    def __init__(self, repository=None):
+    def __init__(self, repository=None, sonic_adapter=None):
         self.repository = repository or self.repository_class()
+        self.sonic_adapter = sonic_adapter or self.sonic_adapter_class()
 
     @transaction.atomic
     def execute(self, command: DeleteSiteCommand):
@@ -55,7 +67,9 @@ class DeleteSiteService:
         site.deleted = True
         site.is_active = False
         self.repository.touch_site(site, actor_user_id=command.actor_user_id)
-        return self.repository.save_site(site)
+        deleted_site = self.repository.save_site(site)
+        self.sonic_adapter.remove_site(site_id=deleted_site.pk)
+        return deleted_site
 
 
 class CreateSiteMembershipService:

@@ -319,7 +319,7 @@ class SubjectEventInstanceTransitionLog(models.Model):
         indexes = [
             models.Index(
                 fields=["study", "subject", "created_at"],
-                name="study_evtins_trlog_st_sub_cr_idx",
+                name="seitrl_st_sub_cr_idx",
             ),
             models.Index(
                 fields=["source_event_instance", "created_at"],

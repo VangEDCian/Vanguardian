@@ -116,8 +116,17 @@ class DjangoIdentityUserRepository:
             normalized_search_query = search_query.strip()
             if normalized_search_query:
                 matched_ids = self.sonic_search_adapter.search_study_ids(query=normalized_search_query)
-                if matched_ids:
+                if matched_ids is None:
+                    queryset = queryset.filter(
+                        Q(code__icontains=normalized_search_query)
+                        | Q(name__icontains=normalized_search_query)
+                        | Q(sponsor__icontains=normalized_search_query)
+                        | Q(description__icontains=normalized_search_query),
+                    ).order_by("id")
+                elif matched_ids:
                     queryset = queryset.filter(pk__in=matched_ids).order_by("id")
+                else:
+                    queryset = queryset.none()
 
         if user.is_superuser:
             return queryset
@@ -132,8 +141,16 @@ class DjangoIdentityUserRepository:
             normalized_search_query = search_query.strip()
             if normalized_search_query:
                 matched_ids = self.sonic_search_adapter.search_site_ids(query=normalized_search_query)
-                if matched_ids:
+                if matched_ids is None:
+                    queryset = queryset.filter(
+                        Q(code__icontains=normalized_search_query)
+                        | Q(name__icontains=normalized_search_query)
+                        | Q(investigator__icontains=normalized_search_query),
+                    ).order_by("id")
+                elif matched_ids:
                     queryset = queryset.filter(pk__in=matched_ids).order_by("id")
+                else:
+                    queryset = queryset.none()
 
         if user.is_superuser:
             return queryset

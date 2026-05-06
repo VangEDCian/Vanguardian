@@ -65,6 +65,7 @@ services:
     ports:
       - "1491:1491"
     volumes:
+      - ./sonic/sonic.cfg:/etc/sonic.cfg:ro
       - sonic_data:/var/lib/sonic/store
     networks:
       - workflow

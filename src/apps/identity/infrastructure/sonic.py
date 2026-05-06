@@ -6,24 +6,26 @@ from django.conf import settings
 
 
 class SonicSearchAdapter:
-    def search_study_ids(self, *, query: str, limit: int | None = None) -> list[int]:
+    def search_study_ids(self, *, query: str, limit: int | None = None) -> list[int] | None:
         return self._search_ids(
             bucket=settings.SONIC_BUCKET_STUDIES,
             query=query,
             limit=limit,
         )
 
-    def search_site_ids(self, *, query: str, limit: int | None = None) -> list[int]:
+    def search_site_ids(self, *, query: str, limit: int | None = None) -> list[int] | None:
         return self._search_ids(
             bucket=settings.SONIC_BUCKET_SITES,
             query=query,
             limit=limit,
         )
 
-    def _search_ids(self, *, bucket: str, query: str, limit: int | None = None) -> list[int]:
+    def _search_ids(self, *, bucket: str, query: str, limit: int | None = None) -> list[int] | None:
         normalized_query = str(query or "").strip()
-        if not normalized_query or not getattr(settings, "SONIC_ENABLED", False):
+        if not normalized_query:
             return []
+        if not getattr(settings, "SONIC_ENABLED", False):
+            return None
         max_limit = int(limit or settings.SONIC_SEARCH_LIMIT or 200)
         try:
             return asyncio.run(self._search_ids_async(bucket=bucket, query=normalized_query, limit=max_limit))
@@ -35,14 +37,14 @@ class SonicSearchAdapter:
             finally:
                 loop.close()
         except Exception:
-            return []
+            return None
 
-    async def _search_ids_async(self, *, bucket: str, query: str, limit: int) -> list[int]:
+    async def _search_ids_async(self, *, bucket: str, query: str, limit: int) -> list[int] | None:
         try:
             from asonic import Client
             from asonic.channel import SearchChannel
         except Exception:
-            return []
+            return None
 
         try:
             client = Client(
@@ -60,7 +62,7 @@ class SonicSearchAdapter:
                     lang=settings.SONIC_LANGUAGE,
                 )
         except Exception:
-            return []
+            return None
 
         return self._extract_ids(result)
 
@@ -80,4 +82,3 @@ class SonicSearchAdapter:
             seen_ids.add(item_id)
             ids.append(item_id)
         return ids
-

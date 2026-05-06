@@ -94,7 +94,7 @@ class DataCapturePageEntry(models.Model):
         indexes = [
             models.Index(
                 fields=["subject", "visit", "crf_template", "entry_version"],
-                name="datacapture_pageentry_subject_visit_crf_version_idx",
+                name="dcpg_sub_vis_crf_ver_idx",
             )
         ]
         verbose_name = "data capture page entry"
@@ -157,7 +157,7 @@ class DataCaptureFactMapping(models.Model):
             ),
             models.Index(
                 fields=["crf_template", "fact_key"],
-                name="datacapture_fact_map_tpl_fact_idx",
+                name="dcfm_tpl_fact_idx",
             ),
         ]
         verbose_name = "data capture fact mapping"
