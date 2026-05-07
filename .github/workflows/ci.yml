@@ -70,13 +70,18 @@ jobs:
           github-token: ${{ secrets.INFRASTRUCTURE_WORKFLOW_TOKEN }}
           script: |
             const environment = context.ref.replace('refs/heads/', '');
+            const workflowIdFromVar = '${{ vars.INFRASTRUCTURE_WORKFLOW_ID }}'.trim();
+            const workflow_id = workflowIdFromVar || 'deploy-vanguard-infra.yml';
 
-            await github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
-              owner: 'VanguEDCian',
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'VangEDCian',
               repo: 'Infrastructure',
-              workflow_id: '${{ vars.INFRASTRUCTURE_WORKFLOW_ID }}',
+              workflow_id,
               ref: '${{ vars.INFRASTRUCTURE_WORKFLOW_REF }}',
               inputs: {
                 environment,
+              },
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28',
               },
             });
