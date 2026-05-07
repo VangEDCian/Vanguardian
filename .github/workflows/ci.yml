@@ -83,15 +83,19 @@ jobs:
             const configuredRef = '${{ vars.INFRASTRUCTURE_WORKFLOW_REF }}'.trim();
             const dispatchRef = configuredRef || 'main';
             console.log(`Dispatching Infrastructure workflow_id=${workflow_id}, ref=${dispatchRef}, environment=${environment}`);
+            const dispatchInputs = workflow_id === 'build-vanguardian-staging-dispatch.yml'
+              ? {
+                  source_ref: environment === 'develop' ? 'develop' : 'main',
+                  source_sha: context.sha,
+                }
+              : {};
 
             await github.rest.actions.createWorkflowDispatch({
               owner: 'VangEDCian',
               repo: 'Infrastructure',
               workflow_id,
               ref: dispatchRef,
-              inputs: {
-                environment,
-              },
+              inputs: dispatchInputs,
               headers: {
                 'X-GitHub-Api-Version': '2022-11-28',
               },
