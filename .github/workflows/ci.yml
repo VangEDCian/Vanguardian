@@ -81,9 +81,7 @@ jobs:
               ? 'deploy-vanguard-infra.yml'
               : workflowIdFromVar;
             const configuredRef = '${{ vars.INFRASTRUCTURE_WORKFLOW_REF }}'.trim();
-            const dispatchRef = workflow_id === 'build-vanguardian-staging-dispatch.yml'
-              ? 'develop'
-              : (configuredRef || 'main');
+            const dispatchRef = configuredRef || 'main';
             console.log(`Dispatching Infrastructure workflow_id=${workflow_id}, ref=${dispatchRef}, environment=${environment}`);
 
             await github.rest.actions.createWorkflowDispatch({
