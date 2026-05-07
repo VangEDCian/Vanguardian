@@ -80,13 +80,17 @@ jobs:
             const workflow_id = invalidWorkflowIds.has(workflowIdFromVar)
               ? 'deploy-vanguard-infra.yml'
               : workflowIdFromVar;
-            console.log(`Dispatching Infrastructure workflow_id=${workflow_id}, environment=${environment}`);
+            const configuredRef = '${{ vars.INFRASTRUCTURE_WORKFLOW_REF }}'.trim();
+            const dispatchRef = workflow_id === 'build-vanguardian-staging-dispatch.yml'
+              ? 'develop'
+              : (configuredRef || 'main');
+            console.log(`Dispatching Infrastructure workflow_id=${workflow_id}, ref=${dispatchRef}, environment=${environment}`);
 
             await github.rest.actions.createWorkflowDispatch({
               owner: 'VangEDCian',
               repo: 'Infrastructure',
               workflow_id,
-              ref: '${{ vars.INFRASTRUCTURE_WORKFLOW_REF }}',
+              ref: dispatchRef,
               inputs: {
                 environment,
               },
