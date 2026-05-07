@@ -39,8 +39,8 @@ class CreateSiteService:
         self.sonic_adapter.index_site(
             site_id=site.pk,
             code=site.code,
-            name=site.name,
-            investigator=site.investigator,
+            name=command.name.strip(),
+            investigator=command.investigator.strip(),
         )
         return site
 

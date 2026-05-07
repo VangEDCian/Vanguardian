@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apps.datacapture.presentation.web.views import DataCaptureSubmitView, DataCaptureSaveView
+from apps.datacapture.presentation.web.views import DataCaptureSaveView, DataCaptureSubmitView
 
 app_name = "datacapture"
 

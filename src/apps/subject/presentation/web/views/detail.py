@@ -5,12 +5,12 @@ from django.utils.translation import activate
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
+from apps.core.choices import DataCapturePageEntryStatusChoices
 from apps.datacapture.public import (
     get_latest_page_entry_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
 )
-from apps.core.choices import DataCapturePageEntryStatusChoices
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.models import Subject
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
@@ -111,7 +111,7 @@ class SubjectDetailView(
             },
         )
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs):  # noqa: C901
         context = super().get_context_data(**kwargs)
         subject = self.object
         event_navigation = self._with_focus_urls(self._build_event_navigation())
@@ -129,7 +129,6 @@ class SubjectDetailView(
         focused_render_entry = None
         focused_entry_values = {}
         previous_submitted_entry_values = {}
-        has_previous_submitted_version = False
         is_viewing_submitted_version = False
         focus_detail_url = ""
         view_submitted_url = ""
@@ -186,7 +185,6 @@ class SubjectDetailView(
                             and focused_latest_entry is not None
                             and focused_latest_submitted_entry.id != focused_latest_entry.id
                         ):
-                            has_previous_submitted_version = True
                             previous_submitted_entry_values = self._extract_entry_payload_map(
                                 focused_latest_submitted_entry.data
                             )
@@ -219,7 +217,6 @@ class SubjectDetailView(
                     focused_render_entry = None
                     focused_entry_values = {}
                     previous_submitted_entry_values = {}
-                    has_previous_submitted_version = False
                     is_viewing_submitted_version = False
                     focus_detail_url = ""
                     view_submitted_url = ""

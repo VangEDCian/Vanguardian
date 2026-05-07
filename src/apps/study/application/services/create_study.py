@@ -29,9 +29,9 @@ class CreateStudyService:
         self.sonic_adapter.index_study(
             study_id=study.pk,
             code=study.code,
-            name=study.name,
-            sponsor=study.sponsor,
-            description=study.description,
+            name=command.name.strip(),
+            sponsor=command.sponsor.strip(),
+            description=command.description.strip(),
         )
         return study
 

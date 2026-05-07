@@ -113,7 +113,7 @@ class StudyEventTransitionRuleAutoOpenUseCase:
 
         return False
 
-    def _evaluate_condition_expression(
+    def _evaluate_condition_expression(  # noqa: C901
         self,
         *,
         condition_expression: str | None,

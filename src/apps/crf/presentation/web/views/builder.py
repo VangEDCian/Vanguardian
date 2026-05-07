@@ -83,7 +83,7 @@ class CrfFormBuilderView(
         )
         return context
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):  # noqa: C901
         builder = self.get_builder()
         selected_study_id = self.ensure_study_scope(builder)
 

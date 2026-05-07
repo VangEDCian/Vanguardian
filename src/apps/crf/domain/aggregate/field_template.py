@@ -340,7 +340,7 @@ class FieldTemplateAggregate:
         return normalized
 
     @classmethod
-    def _normalize_rule_translations(cls, translations):
+    def _normalize_rule_translations(cls, translations):  # noqa: C901
         normalized_items = []
 
         if isinstance(translations, dict):

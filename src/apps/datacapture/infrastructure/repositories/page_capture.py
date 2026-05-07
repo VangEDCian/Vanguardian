@@ -1,12 +1,13 @@
+from django.db.models import Max
+
+from apps.core.choices import (
+    DataCapturePageEntryStatusChoices,
+    DataCapturePageStateStatusChoices,
+)
 from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
     SubmitExecutionPlan,
-)
-from django.db.models import Max
-from apps.core.choices import (
-    DataCapturePageEntryStatusChoices,
-    DataCapturePageStateStatusChoices,
 )
 from apps.datacapture.models import DataCapturePageEntry, DataCapturePageState
 

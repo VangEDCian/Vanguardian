@@ -8,7 +8,6 @@ from apps.study.application.commands.import_randomization.types import (
     PreviewRandomizationImportCommand,
     RandomizationImportValidationError,
 )
-from apps.study.application.use_cases.randomization_import_preview import RandomizationImportIssue
 from apps.study.application.services.import_randomization_base import BaseRandomizationImportValidationService
 from apps.study.application.services.import_randomization_preview import (
     PreviewStudyRandomizationArmsImportService,
@@ -23,6 +22,7 @@ from apps.study.application.services.randomization_slot_generation import (
     RandomizationSlotGenerationError,
     StudyRandomizationSlotGenerationService,
 )
+from apps.study.application.use_cases.randomization_import_preview import RandomizationImportIssue
 from apps.study.infrastructure.repositories import DjangoRandomizationRepository
 
 
@@ -186,6 +186,7 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
         now = timezone.now()
         scheme_map = self._build_scheme_map(study_id=command.study_id)
         impacted_schemes: dict[int, tuple[object, object]] = {}
+        pending_audits: list[tuple[str, object, object]] = []
 
         with transaction.atomic():
             for parsed_row in preview_result.parsed_rows:
@@ -196,17 +197,10 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
                 )
                 if outcome == "created":
                     created_count += 1
-                    self.randomization_audit_service.record_arm_inserted_by_import(
-                        arm=arm,
-                        actor_user_id=command.actor_user_id,
-                    )
+                    pending_audits.append(("created", arm, None))
                 else:
                     updated_count += 1
-                    self.randomization_audit_service.record_arm_updated_by_import(
-                        arm=arm,
-                        actor_user_id=command.actor_user_id,
-                        before_data=before_data,
-                    )
+                    pending_audits.append(("updated", arm, before_data))
                 impacted_schemes[scheme.pk] = (scheme, parsed_row)
 
             for scheme, parsed_row in impacted_schemes.values():
@@ -214,6 +208,18 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
                     scheme=scheme,
                     parsed_row=parsed_row,
                 )
+            for outcome, arm, before_data in pending_audits:
+                if outcome == "created":
+                    self.randomization_audit_service.record_arm_inserted_by_import(
+                        arm=arm,
+                        actor_user_id=command.actor_user_id,
+                    )
+                else:
+                    self.randomization_audit_service.record_arm_updated_by_import(
+                        arm=arm,
+                        actor_user_id=command.actor_user_id,
+                        before_data=before_data,
+                    )
 
         return CommitRandomizationImportResult(
             total_rows=preview_result.total_rows,

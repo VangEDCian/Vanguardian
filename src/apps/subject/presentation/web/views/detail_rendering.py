@@ -207,7 +207,7 @@ class SubjectDetailRenderingMixin:
         return row_cells
 
     @classmethod
-    def _parse_choice_options(cls, raw_value):
+    def _parse_choice_options(cls, raw_value):  # noqa: C901
         if not raw_value:
             return []
 

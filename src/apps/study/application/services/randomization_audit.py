@@ -32,16 +32,20 @@ def serialize_randomization_scheme_snapshot(scheme):
 
 
 def serialize_randomization_arm_snapshot(arm):
+    scheme_id = getattr(arm, "scheme_id", None)
+    if scheme_id is None:
+        scheme = getattr(arm, "scheme", None)
+        scheme_id = getattr(scheme, "pk", None)
     return {
-        "scheme_id": arm.scheme_id,
-        "arm_code": arm.arm_code,
-        "arm_name": arm.arm_name,
-        "target_count": arm.target_count,
-        "current_count": arm.current_count,
-        "display_order": arm.display_order,
-        "is_active": arm.is_active,
-        "deleted": arm.deleted,
-        "notes": arm.notes,
+        "scheme_id": scheme_id,
+        "arm_code": getattr(arm, "arm_code", None),
+        "arm_name": getattr(arm, "arm_name", None),
+        "target_count": getattr(arm, "target_count", None),
+        "current_count": getattr(arm, "current_count", None),
+        "display_order": getattr(arm, "display_order", None),
+        "is_active": getattr(arm, "is_active", None),
+        "deleted": getattr(arm, "deleted", None),
+        "notes": getattr(arm, "notes", None),
     }
 
 
@@ -117,5 +121,3 @@ class StudyRandomizationImportAuditService:
                 "deleted_slot_count": deleted_slot_count,
             },
         )
-
-

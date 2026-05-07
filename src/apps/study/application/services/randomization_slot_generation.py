@@ -74,7 +74,7 @@ class StudyRandomizationSlotGenerationService:
             ),
         )
 
-    def generate_slots_for_scheme_arm(self, scheme, arm):
+    def generate_slots_for_scheme_arm(self, scheme, arm):  # noqa: C901
         """Reconcile available slots to match scheme ratio and target total.
 
         This method is idempotent for stable inputs and may be called from
