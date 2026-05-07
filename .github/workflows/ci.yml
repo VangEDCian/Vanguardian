@@ -56,3 +56,27 @@ jobs:
       - name: Unit test
         run: |
           python manage.py test
+
+  trigger_infrastructure_workflow:
+    name: Trigger Infrastructure Workflow
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'develop')
+
+    steps:
+      - name: Dispatch Infrastructure workflow
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.INFRASTRUCTURE_WORKFLOW_TOKEN }}
+          script: |
+            const environment = context.ref.replace('refs/heads/', '');
+
+            await github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
+              owner: 'VanguEDCian',
+              repo: 'Infrastructure',
+              workflow_id: '${{ vars.INFRASTRUCTURE_WORKFLOW_ID }}',
+              ref: '${{ vars.INFRASTRUCTURE_WORKFLOW_REF }}',
+              inputs: {
+                environment,
+              },
+            });
