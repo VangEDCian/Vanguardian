@@ -1,8 +1,15 @@
 (function () {
+  const modules = window.DatacaptureSubjectDetailModules || {};
+  const shared = modules.shared || {};
+  const validationModuleFactory = modules.validation;
+  const reasonModalModuleFactory = modules.reasonModal;
+  const network = modules.network || {};
+  const radioControlModule = (modules.controls || {}).radio || {};
+
   const formPanel = document.querySelector('.subject-form-panel');
   const fieldScope = formPanel || document;
   const notificationDurationMs = 2600;
-  const datePartSuffixes = ['__day', '__month', '__year', '__time'];
+  const datePartSuffixes = shared.datePartSuffixes || ['__day', '__month', '__year', '__time'];
   /* Keep in sync with STABLE_EDIT_STATUSES in domain page_capture_save_submit.py */
   const lockStatuses = new Set(['in_review', 'verified', 'finalized', 'locked']);
 
@@ -201,111 +208,6 @@
     return Number.isFinite(currentEntryId) && latestEntryId !== currentEntryId;
   }
 
-  function validateNumberInput(input) {
-    const rawValue = String(input.value ?? '').trim();
-    if (!rawValue) {
-      return { ok: !input.required, message: `${input.dataset.fieldLabel || 'Field'} is required.` };
-    }
-
-    const numericValue = parseNumericValue(rawValue);
-    const fieldLabel = input.dataset.fieldLabel || 'Field';
-    if (numericValue === null) {
-      return { ok: false, message: `${fieldLabel} must be a valid number.` };
-    }
-
-    const minValue = parseNumericValue(input.dataset.rangeMin);
-    if (minValue !== null && numericValue < minValue) {
-      return { ok: false, message: `${fieldLabel} must be greater than or equal to ${input.dataset.rangeMin}.` };
-    }
-
-    const maxValue = parseNumericValue(input.dataset.rangeMax);
-    if (maxValue !== null && numericValue > maxValue) {
-      return { ok: false, message: `${fieldLabel} must be less than or equal to ${input.dataset.rangeMax}.` };
-    }
-
-    return { ok: true, message: '' };
-  }
-
-  function validateDateParts() {
-    const dateContainers = fieldScope.querySelectorAll('[data-field-key]');
-    for (const container of dateContainers) {
-      const dayInput = container.querySelector('.subject-date-picker__input--day');
-      const monthSelect = container.querySelector('.subject-date-picker__input--month');
-      const yearInput = container.querySelector('.subject-date-picker__input--year');
-      if (!dayInput || !monthSelect || !yearInput) {
-        continue;
-      }
-      if (dayInput.disabled || monthSelect.disabled || yearInput.disabled) {
-        continue;
-      }
-
-      const day = String(dayInput.value || '').trim();
-      const month = String(monthSelect.value || '').trim();
-      const year = String(yearInput.value || '').trim();
-
-      if (!day || !month || !year) {
-        continue;
-      }
-
-      const dayInt = Number.parseInt(day, 10);
-      const monthInt = Number.parseInt(month, 10);
-      const yearInt = Number.parseInt(year, 10);
-      const composedDate = new Date(yearInt, monthInt - 1, dayInt);
-      const isValidDate =
-        composedDate.getFullYear() === yearInt &&
-        composedDate.getMonth() === monthInt - 1 &&
-        composedDate.getDate() === dayInt;
-
-      if (!isValidDate) {
-        const fieldLabel = dayInput.dataset.fieldLabel || container.dataset.fieldKey || 'Date';
-        return {
-          ok: false,
-          message: `${fieldLabel} is not a valid date.`,
-          focusEl: dayInput,
-        };
-      }
-    }
-    return { ok: true, message: '', focusEl: null };
-  }
-
-  function validateBeforePersist() {
-    const controls = fieldScope.querySelectorAll('input, textarea, select');
-    for (const control of controls) {
-      if (!control.name || control.disabled || control.type === 'hidden') {
-        continue;
-      }
-      if (control.dataset.validatorType === 'number') {
-        const numberValidation = validateNumberInput(control);
-        if (!numberValidation.ok) {
-          control.focus();
-          showNotification(numberValidation.message, 'error');
-          return false;
-        }
-        continue;
-      }
-
-      if (!control.checkValidity()) {
-        const fieldLabel = control.dataset.fieldLabel || control.name || 'Field';
-        const customMessage = control.dataset.validationMessage || '';
-        const message = customMessage || `${fieldLabel} is invalid.`;
-        control.focus();
-        showNotification(message, 'error');
-        return false;
-      }
-    }
-
-    const dateValidation = validateDateParts();
-    if (!dateValidation.ok) {
-      if (dateValidation.focusEl) {
-        dateValidation.focusEl.focus();
-      }
-      showNotification(dateValidation.message, 'error');
-      return false;
-    }
-
-    return true;
-  }
-
   function collectFormPayloadObject() {
     const payload = {};
     fieldScope.querySelectorAll('input, textarea, select').forEach((input) => {
@@ -372,228 +274,35 @@
     return true;
   }
 
-  function canonicalFieldKey(rawKey) {
-    const normalized = String(rawKey ?? '').trim();
-    for (const suffix of datePartSuffixes) {
-      if (normalized.endsWith(suffix)) {
-        return normalized.slice(0, -suffix.length);
-      }
-    }
-    return normalized;
-  }
+  const canonicalFieldKey = shared.canonicalFieldKey || ((raw) => String(raw ?? '').trim());
+  const normalizeComparableValue = shared.normalizeComparableValue || ((raw) => String(raw ?? ''));
+  const resolveChangedFieldKeys = shared.resolveChangedFieldKeys || (() => []);
+  const resolveFieldLabelMap = shared.resolveFieldLabelMap || (() => new Map());
+  const loadCurrentDataPayload = shared.loadCurrentDataPayload || (() => ({}));
+  const loadPreviousDataPayload = shared.loadPreviousDataPayload || (() => null);
+  const formatEntryDate = shared.formatEntryDate || (() => '');
 
-  function normalizeComparableValue(rawValue) {
-    if (rawValue === null || rawValue === undefined) {
-      return '';
-    }
-    if (typeof rawValue === 'boolean') {
-      return rawValue;
-    }
-    return String(rawValue);
-  }
+  const initialCurrentDataPayload = loadCurrentDataPayload();
+  const initialPreviousDataPayload = loadPreviousDataPayload();
 
-  function resolveCanonicalValue(payload, key) {
-    const dateKeys = datePartSuffixes.map((suffix) => `${key}${suffix}`);
-    const hasDatePart = dateKeys.some((dateKey) => Object.prototype.hasOwnProperty.call(payload, dateKey));
-    if (hasDatePart) {
-      return {
-        __day: normalizeComparableValue(payload[`${key}__day`]),
-        __month: normalizeComparableValue(payload[`${key}__month`]),
-        __year: normalizeComparableValue(payload[`${key}__year`]),
-        __time: normalizeComparableValue(payload[`${key}__time`]),
-      };
-    }
-    return normalizeComparableValue(payload[key]);
-  }
+  const validation = validationModuleFactory?.createValidationModule({
+    fieldScope,
+    showNotification,
+    parseNumericValue,
+  });
 
-  function resolveChangedFieldKeys(previousPayload, currentPayload) {
-    const canonicalKeys = new Set();
-    Object.keys(previousPayload || {}).forEach((key) => {
-      const canonical = canonicalFieldKey(key);
-      if (canonical) {
-        canonicalKeys.add(canonical);
-      }
-    });
-    Object.keys(currentPayload || {}).forEach((key) => {
-      const canonical = canonicalFieldKey(key);
-      if (canonical) {
-        canonicalKeys.add(canonical);
-      }
-    });
-
-    const changed = [];
-    Array.from(canonicalKeys)
-      .sort()
-      .forEach((key) => {
-        const beforeValue = resolveCanonicalValue(previousPayload || {}, key);
-        const afterValue = resolveCanonicalValue(currentPayload || {}, key);
-        if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
-          changed.push(key);
-        }
-      });
-    return changed;
-  }
-
-  function resolveFieldLabelMap() {
-    const labels = new Map();
-    fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
-      const fieldKey = canonicalFieldKey(container.dataset.fieldKey || '');
-      const fieldId = String(container.dataset.fieldId || '').trim();
-      const labelNode = container.querySelector('.subject-form-flat-field__label');
-      const rawLabel = labelNode ? String(labelNode.textContent || '') : fieldKey;
-      const cleanedLabel = rawLabel.replace(/\*/g, '').trim() || fieldKey;
-      if (fieldKey) {
-        labels.set(fieldKey, cleanedLabel);
-      }
-      if (fieldId) {
-        labels.set(`field_${fieldId}`, cleanedLabel);
-      }
-    });
-    return labels;
-  }
-
-  function loadPreviousSubmittedPayload() {
-    const payloadNode = document.getElementById('datacapture-previous-submitted-payload');
-    if (!payloadNode) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(payloadNode.textContent || '{}');
-      return parsed && typeof parsed === 'object' ? parsed : null;
-    } catch (error) {
-      console.error(error);
-      return null;
-    }
-  }
-
-  function formatEntryDate(now) {
-    const pad = (value) => String(value).padStart(2, '0');
-    const day = pad(now.getDate());
-    const month = pad(now.getMonth() + 1);
-    const year = now.getFullYear();
-    const hour = pad(now.getHours());
-    const minute = pad(now.getMinutes());
-    return `${day}-${month}-${year} ${hour}:${minute}`;
-  }
-
-  function openChangeReasonModal(changedFieldKeys, fieldLabelMap) {
-    if (
-      !reasonModalBackdrop ||
-      !reasonRowsHost ||
-      !reasonSubmitButton ||
-      !reasonCancelButton ||
-      changedFieldKeys.length === 0
-    ) {
-      return Promise.resolve([]);
-    }
-
-    const nowLabel = formatEntryDate(new Date());
-    reasonRowsHost.innerHTML = '';
-    changedFieldKeys.forEach((fieldKey) => {
-      const row = document.createElement('tr');
-
-      const dateCell = document.createElement('td');
-      dateCell.textContent = nowLabel;
-
-      const fieldCell = document.createElement('td');
-      fieldCell.textContent = fieldLabelMap.get(fieldKey) || fieldKey;
-
-      const reasonCell = document.createElement('td');
-      const reasonInput = document.createElement('input');
-      reasonInput.className = 'subject-detail-screen__reason-input';
-      reasonInput.type = 'text';
-      reasonInput.setAttribute('data-field-key', fieldKey);
-      reasonInput.required = true;
-      reasonCell.appendChild(reasonInput);
-
-      row.appendChild(dateCell);
-      row.appendChild(fieldCell);
-      row.appendChild(reasonCell);
-      reasonRowsHost.appendChild(row);
-    });
-
-    reasonModalBackdrop.hidden = false;
-
-    return new Promise((resolve) => {
-      const cleanup = () => {
-        reasonSubmitButton.removeEventListener('click', onSubmit);
-        reasonCancelButton.removeEventListener('click', onCancel);
-        reasonModalBackdrop.removeEventListener('click', onBackdropClick);
-      };
-
-      const closeWith = (value) => {
-        cleanup();
-        reasonModalBackdrop.hidden = true;
-        reasonRowsHost.innerHTML = '';
-        resolve(value);
-      };
-
-      const onCancel = () => {
-        closeWith(null);
-      };
-
-      const onBackdropClick = (event) => {
-        if (event.target === reasonModalBackdrop) {
-          closeWith(null);
-        }
-      };
-
-      const onSubmit = () => {
-        const rows = reasonRowsHost.querySelectorAll('input[data-field-key]');
-        const reasons = [];
-        for (const input of rows) {
-          const reason = String(input.value || '').trim();
-          if (!reason) {
-            input.focus();
-            showNotification('Please enter reason for every changed field.', 'error');
-            return;
-          }
-          const fieldKey = canonicalFieldKey(input.dataset.fieldKey || '');
-          reasons.push({
-            field_key: fieldKey,
-            field_label: fieldLabelMap.get(fieldKey) || fieldKey,
-            reason,
-          });
-        }
-        closeWith(reasons);
-      };
-
-      reasonSubmitButton.addEventListener('click', onSubmit);
-      reasonCancelButton.addEventListener('click', onCancel);
-      reasonModalBackdrop.addEventListener('click', onBackdropClick);
-    });
-  }
+  const reasonModal = reasonModalModuleFactory?.createReasonModalModule({
+    reasonModalBackdrop,
+    reasonRowsHost,
+    reasonSubmitButton,
+    reasonCancelButton,
+    showNotification,
+    canonicalFieldKey,
+    formatEntryDate,
+  });
 
   if (applyLockState()) {
     return;
-  }
-
-  async function postJson(url, body) {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body,
-    });
-
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch (error) {
-      payload = null;
-    }
-
-    if (!response.ok) {
-      let message = 'Request failed';
-      if (payload && Array.isArray(payload.error) && payload.error.length > 0) {
-        message = payload.error.join(' ');
-      }
-      throw new Error(message);
-    }
-
-    return payload;
   }
 
   saveButton.addEventListener('click', async () => {
@@ -602,14 +311,14 @@
       showNotification('Cancelled', 'error');
       return;
     }
-    if (!validateBeforePersist()) {
+    if (!validation?.validateBeforePersist?.()) {
       return;
     }
     showLoading(loadingOverlay?.dataset.saveMessage);
     setButtonsEnabled(false);
     setButtonPending(saveButton, 'Saving...');
     try {
-      const result = await postJson(saveUrl, collectFormPayload());
+      const result = await network.postJson(saveUrl, collectFormPayload());
       pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
       formRoot.dataset.pageStatus = pageStatus;
       showNotification('Saved successfully.', 'success');
@@ -640,24 +349,24 @@
   });
 
   submitButton.addEventListener('click', async () => {
-    if (!validateBeforePersist()) {
+    if (!validation?.validateBeforePersist?.()) {
       return;
     }
 
     const payloadObject = collectFormPayloadObject();
-    const previousSubmittedPayload = loadPreviousSubmittedPayload();
+    const previousSubmittedPayload = initialPreviousDataPayload;
     let submitReasons = [];
 
     if (previousSubmittedPayload) {
       const changedFieldKeys = resolveChangedFieldKeys(previousSubmittedPayload, payloadObject);
       if (changedFieldKeys.length > 0) {
-        const fieldLabelMap = resolveFieldLabelMap();
-        const modalReasons = await openChangeReasonModal(changedFieldKeys, fieldLabelMap);
+        const fieldLabelMap = resolveFieldLabelMap(fieldScope);
+        const modalReasons = await reasonModal?.openChangeReasonModal?.(changedFieldKeys, fieldLabelMap);
         if (modalReasons === null) {
           showNotification('Cancelled', 'error');
           return;
         }
-        submitReasons = modalReasons;
+        submitReasons = modalReasons || [];
       }
     }
 
@@ -669,7 +378,7 @@
         data: payloadObject,
         change_reasons: submitReasons,
       });
-      const result = await postJson(submitUrl, submitPayload);
+      const result = await network.postJson(submitUrl, submitPayload);
       pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
       formRoot.dataset.pageStatus = pageStatus;
       showNotification('Submitted successfully.', 'success');
@@ -704,7 +413,7 @@
       setButtonsEnabled(false);
       setButtonPending(deleteDraftButton, 'Deleting...');
       try {
-        const result = await postJson(deleteDraftUrl, '{}');
+        const result = await network.postJson(deleteDraftUrl, '{}');
         pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
         formRoot.dataset.pageStatus = pageStatus;
         showNotification('Draft deleted successfully.', 'success');
@@ -723,4 +432,20 @@
       }
     });
   }
+
+  function refreshRadioDiffMarkers() {
+    radioControlModule.applySubmittedDiffRadioMarkers?.({
+      fieldScope,
+      previousSubmittedPayload: initialPreviousDataPayload,
+      currentPayload: collectFormPayloadObject(),
+      initialCurrentPayload: initialCurrentDataPayload,
+      canonicalFieldKey,
+      normalizeComparableValue,
+      datePartSuffixes,
+    });
+  }
+
+  refreshRadioDiffMarkers();
+  fieldScope.addEventListener('input', refreshRadioDiffMarkers);
+  fieldScope.addEventListener('change', refreshRadioDiffMarkers);
 })();

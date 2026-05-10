@@ -27,6 +27,48 @@ class SubjectDetailRenderingMixin:
         return "section"
 
     @staticmethod
+    def _normalize_behavior_payload(raw_behavior):
+        if isinstance(raw_behavior, dict):
+            source = raw_behavior
+        else:
+            normalized_behavior = str(raw_behavior or "").strip()
+            if not normalized_behavior:
+                return {}
+            try:
+                parsed = json.loads(normalized_behavior)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                parsed = None
+            if not isinstance(parsed, dict):
+                return {"required": normalized_behavior}
+            source = parsed
+
+        normalized_payload = {}
+        for key, value in source.items():
+            normalized_key = str(key or "").strip().lower()
+            if not normalized_key:
+                continue
+            normalized_payload[normalized_key] = "" if value is None else str(value).strip()
+        return normalized_payload
+
+    @staticmethod
+    def _behavior_value(behavior_payload, key):
+        if not isinstance(behavior_payload, dict):
+            return ""
+        return str(behavior_payload.get(key) or "").strip()
+
+    @classmethod
+    def _is_required_from_behavior(cls, behavior_payload):
+        required_when = cls._behavior_value(behavior_payload, "required_when")
+        if required_when:
+            return False
+
+        required_flag = cls._behavior_value(behavior_payload, "required")
+        if required_flag.lower() in {"1", "true", "yes", "on", "required"}:
+            return True
+
+        return required_flag.lower() == "always"
+
+    @staticmethod
     def _normalize_schema_boolean(raw_value, *, default):
         if raw_value is None:
             return default
@@ -362,6 +404,7 @@ class SubjectDetailRenderingMixin:
                 }
 
             ui_config = field.get("ui_config") or {}
+            behavior_payload = self._normalize_behavior_payload(ui_config.get("behavior"))
             control_type = self._normalize_control_type(ui_config.get("control_type"))
             control_layout = self._normalize_control_layout(ui_config.get("control_layout"))
             options = self._parse_choice_options(ui_config.get("options") or field.get("codelist"))
@@ -384,7 +427,15 @@ class SubjectDetailRenderingMixin:
                     "placeholder_text": placeholder_text,
                     "helper_text": helper_text,
                     "options": options,
-                    "is_required": "required" in (ui_config.get("behavior") or "").lower(),
+                    "is_required": self._is_required_from_behavior(behavior_payload),
+                    "behavior_visible_when": self._behavior_value(behavior_payload, "visible_when"),
+                    "behavior_readonly_when": self._behavior_value(behavior_payload, "readonly_when"),
+                    "behavior_required_when": self._behavior_value(behavior_payload, "required_when"),
+                    "behavior_default_value": self._behavior_value(behavior_payload, "default_value"),
+                    "behavior_default_value_expr": self._behavior_value(
+                        behavior_payload,
+                        "default_value_expr",
+                    ),
                     "classes": (ui_config.get("classes") or "").strip(),
                     "range_min": field.get("range_min"),
                     "range_max": field.get("range_max"),

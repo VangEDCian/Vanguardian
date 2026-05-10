@@ -163,6 +163,7 @@ class CrfTemplateQueryService:
                     "text_max_length": field_definition.text_max_length if field_definition else None,
                     "text_min_length": field_definition.text_min_length if field_definition else None,
                     "pattern": field_definition.pattern if field_definition else None,
+                    "pattern_err_msg": field_definition.pattern_err_msg if field_definition else None,
                     "ui_config": {
                         "control_type": ui_config.control_type if ui_config else None,
                         "control_layout": ui_config.control_layout if ui_config else None,

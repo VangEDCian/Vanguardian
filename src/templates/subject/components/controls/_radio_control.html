@@ -2,12 +2,13 @@
 {% subject_radio_control_i18n as radio_control_i18n %}
 <div class="{{ choice_list_class }}">
     {% for option in field.options %}
-        <label>
+        <label data-radio-option>
             <input type="radio"
                    name="field_{{ field.id }}"
                    value="{{ option.value }}"
                    {% if option.value == field.value %}checked{% endif %} />
-            {{ option.label }}
+            <span class="subject-form-radio-option-label"
+                  data-radio-option-label>{{ option.label }}</span>
         </label>
     {% empty %}
         <span>{{ radio_control_i18n.empty_option }}</span>

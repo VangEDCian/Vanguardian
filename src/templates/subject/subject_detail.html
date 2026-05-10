@@ -136,18 +136,16 @@
                     {% if view_submitted_url %}
                         <a href="{{ view_submitted_url }}"
                            class="entity-table__footer-button entity-table__footer-button--secondary">
-                            {% trans "View submitted" %}
+                            {% trans "View Submitted" %}
                         </a>
-                    {% else %}
-                        <button type="button"
-                                class="entity-table__footer-button entity-table__footer-button--secondary"
-                                disabled>
-                            {% trans "View submitted" %}
-                        </button>
                     {% endif %}
                 {% endif %}
             </div>
         </footer>
+        {{ current_data_values|json_script:"datacapture-current-data-payload" }}
+        {% if previous_data_values is not None %}
+            {{ previous_data_values|json_script:"datacapture-previous-data-payload" }}
+        {% endif %}
         {% if focused_latest_submitted_entry %}
             {{ previous_submitted_entry_values|json_script:"datacapture-previous-submitted-payload" }}
         {% endif %}
@@ -201,6 +199,12 @@
 {% block extra_js %}
     {{ block.super }}
     {% if focused_form %}
+        <script src="{% static 'datacapture/js/modules/shared.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/validation.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/reason-modal.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/network.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/radio.js' %}"></script>
         <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>
+        <script src="{% static 'datacapture/js/subject-detail-behavior-runtime.js' %}"></script>
     {% endif %}
 {% endblock %}

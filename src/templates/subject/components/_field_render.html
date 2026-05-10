@@ -1,7 +1,13 @@
 {% load i18n subject_form_tags %}
 <article class="subject-form-flat-field {% if field.classes %}{{ field.classes }}{% endif %}"
          data-field-key="{{ field.field_key }}"
-         data-field-id="{{ field.id|default:'' }}">
+         data-field-id="{{ field.id|default:'' }}"
+         data-field-control-type="{{ field.control_type|default:'' }}"
+         data-visible-when="{{ field.behavior_visible_when|default:''|escape }}"
+         data-readonly-when="{{ field.behavior_readonly_when|default:''|escape }}"
+         data-required-when="{{ field.behavior_required_when|default:''|escape }}"
+         data-default-value="{{ field.behavior_default_value|default:''|escape }}"
+         data-default-value-expr="{{ field.behavior_default_value_expr|default:''|escape }}">
   <h4 class="subject-form-flat-field__label">
     {{ field.label }}
     {% if field.is_required %}
@@ -21,5 +27,8 @@
         {% trans 'Unsupported control type:' %} {{ field.raw_control_type|default:'N/A' }}
       </div>
     {% endif %}
+    <p class="subject-form-field__error"
+       data-field-error
+       hidden></p>
   </div>
 </article>

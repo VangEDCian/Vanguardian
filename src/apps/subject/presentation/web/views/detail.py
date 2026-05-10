@@ -129,6 +129,8 @@ class SubjectDetailView(
         focused_render_entry = None
         focused_entry_values = {}
         previous_submitted_entry_values = {}
+        previous_data_values = None
+        current_data_values = {}
         is_viewing_submitted_version = False
         focus_detail_url = ""
         view_submitted_url = ""
@@ -180,6 +182,21 @@ class SubjectDetailView(
                         focused_entry_values = self._extract_entry_payload_map(
                             focused_render_entry.data if focused_render_entry else ""
                         )
+                        current_data_values = self._extract_entry_payload_map(
+                            focused_latest_entry.data if focused_latest_entry else ""
+                        )
+                        if focused_latest_entry is not None:
+                            if focused_latest_entry.status == DataCapturePageEntryStatusChoices.SUBMITTED:
+                                previous_data_values = self._extract_entry_payload_map(
+                                    focused_latest_entry.data
+                                )
+                            elif (
+                                focused_latest_entry.status == DataCapturePageEntryStatusChoices.DRAFT
+                                and focused_latest_submitted_entry is not None
+                            ):
+                                previous_data_values = self._extract_entry_payload_map(
+                                    focused_latest_submitted_entry.data
+                                )
                         if (
                             focused_latest_submitted_entry is not None
                             and focused_latest_entry is not None
@@ -217,6 +234,8 @@ class SubjectDetailView(
                     focused_render_entry = None
                     focused_entry_values = {}
                     previous_submitted_entry_values = {}
+                    previous_data_values = None
+                    current_data_values = {}
                     is_viewing_submitted_version = False
                     focus_detail_url = ""
                     view_submitted_url = ""
@@ -245,6 +264,8 @@ class SubjectDetailView(
         context["focused_latest_submitted_entry"] = focused_latest_submitted_entry
         context["focused_render_entry"] = focused_render_entry
         context["previous_submitted_entry_values"] = previous_submitted_entry_values
+        context["previous_data_values"] = previous_data_values
+        context["current_data_values"] = current_data_values
         context["has_previous_submitted_version"] = (
             focused_latest_submitted_entry is not None
             and focused_render_entry is not None
