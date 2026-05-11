@@ -1,5 +1,7 @@
+from django.db.models import Q
 from django.utils import timezone
 
+from apps.identity.infrastructure.persistence.models import StudyMembership, User
 from apps.study.infrastructure.persistence.models import Site, SiteMembership, Study
 
 
@@ -54,7 +56,7 @@ class DjangoStudyCommandRepository:
         *,
         code,
         name,
-        investigator,
+        investigator_id,
         study_id,
         is_active,
         actor_user_id,
@@ -63,7 +65,7 @@ class DjangoStudyCommandRepository:
         return Site.objects.create(
             code=code.strip(),
             name=name.strip(),
-            investigator=investigator.strip(),
+            investigator_id=investigator_id,
             study_id=study_id,
             is_active=is_active,
             created_at=now,
@@ -94,12 +96,43 @@ class DjangoStudyCommandRepository:
         site.updated_by_id = actor_user_id
         return site
 
+    def get_user(self, *, user_id):
+        return User.objects.filter(pk=user_id, deleted=False).first()
+
     def site_membership_exists(self, *, site_id, user_id):
         return SiteMembership.objects.filter(
             site_id=site_id,
             user_id=user_id,
             deleted=False,
         ).exists()
+
+    def list_users_for_study_or_site_membership(self, *, study_id, site_id, search_query=""):
+        study_member_user_ids = StudyMembership.objects.filter(
+            study_id=study_id,
+            deleted=False,
+        ).values_list("user_id", flat=True)
+        site_member_user_ids = SiteMembership.objects.filter(
+            site_id=site_id,
+            deleted=False,
+        ).values_list("user_id", flat=True)
+
+        queryset = User.objects.filter(
+            deleted=False,
+        ).filter(
+            Q(pk__in=study_member_user_ids) | Q(pk__in=site_member_user_ids),
+        )
+
+        normalized_search_query = (search_query or "").strip()
+        if normalized_search_query:
+            queryset = queryset.filter(
+                Q(username__icontains=normalized_search_query)
+                | Q(first_name__icontains=normalized_search_query)
+                | Q(last_name__icontains=normalized_search_query)
+                | Q(display_name__icontains=normalized_search_query)
+                | Q(email__icontains=normalized_search_query),
+            )
+
+        return queryset.distinct().order_by("username", "id")
 
     def create_site_membership(self, *, site_id, study_id, user_id, actor_user_id):
         now = timezone.now()

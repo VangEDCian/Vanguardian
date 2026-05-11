@@ -1,0 +1,56 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {% trans "Preview Files | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'subject/css/subject_eventinstance_files_preview.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">{% trans "Subject Detail" %}</a>
+    <span aria-hidden="true">›</span>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        <div class="entity-table__toolbar">
+            <div class="entity-table__summary">{% trans "Preview Files" %}</div>
+        </div>
+        <div class="entity-table__content subject-file-preview">
+            {% if files %}
+                <aside class="subject-file-preview__list">
+                    {% for file_item in files %}
+                        <a href="?file={{ file_item.id }}"
+                           class="subject-file-preview__list-item{% if selected_file and selected_file.id == file_item.id %} is-active{% endif %}">
+                            <span class="subject-file-preview__name">{{ file_item.original_file_name }}</span>
+                            <span class="subject-file-preview__meta">{{ file_item.file_size_bytes }} bytes</span>
+                        </a>
+                    {% endfor %}
+                </aside>
+                <section class="subject-file-preview__viewer">
+                    {% if selected_file %}
+                        {% if selected_file.kind == "image" %}
+                            <img src="{{ selected_file.preview_url }}"
+                                 alt="{{ selected_file.original_file_name }}"
+                                 class="subject-file-preview__image">
+                        {% elif selected_file.kind == "pdf" %}
+                            <iframe src="{{ selected_file.preview_url }}"
+                                    class="subject-file-preview__pdf"
+                                    title="{{ selected_file.original_file_name }}"></iframe>
+                        {% else %}
+                            <p class="subject-file-preview__unsupported">
+                                {% trans "Unsupported file type. Only image and PDF are supported." %}
+                            </p>
+                        {% endif %}
+                    {% endif %}
+                </section>
+            {% else %}
+                <p>{% trans "No imported files for this event instance." %}</p>
+            {% endif %}
+        </div>
+        <div class="entity-table__footer entity-table__footer--actions">
+            <a href="{{ back_url }}"
+               class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Back" %}</a>
+        </div>
+    </section>
+{% endblock %}

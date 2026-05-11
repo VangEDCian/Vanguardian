@@ -197,6 +197,10 @@
   gap: 10px;
 }
 
+.subject-detail-screen__footer-inline-form {
+  margin: 0;
+}
+
 .subject-detail-screen__reason-modal-backdrop {
   position: absolute;
   inset: 0;

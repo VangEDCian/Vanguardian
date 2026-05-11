@@ -21,7 +21,11 @@
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
-        <form class="user-detail-form" method="post" action="{{ update_url }}">
+        <form class="user-detail-form"
+              method="post"
+              action="{{ update_url }}"
+              data-site-form
+              data-memberships-api-url="{{ memberships_api_url }}">
             {% csrf_token %}
             <div class="user-detail-form__content">
                 <section class="user-detail-section">
@@ -54,10 +58,11 @@
                                 <label class="user-detail-inline-field__label"
                                        for="{{ form.investigator.id_for_label }}">{% trans "Investigator" %}:</label>
                                 <div class="user-detail-inline-field__control-wrap">
+                                    {% trans "Select investigator" as select_investigator_placeholder %}
                                     {% if can_update_site %}
-                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.investigator.id_for_label textbox_name=form.investigator.html_name textbox_value=form.investigator.value textbox_class=form.investigator.errors|yesno:"old-textbox--error," %}
+                                        {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.investigator.id_for_label select_name=form.investigator.html_name select_options=investigator_options select_placeholder=select_investigator_placeholder select_class='site-investigator-select' %}
                                     {% else %}
-                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.investigator.id_for_label textbox_name=form.investigator.html_name textbox_value=form.investigator.value textbox_readonly='readonly' %}
+                                        {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.investigator.id_for_label select_name=form.investigator.html_name select_options=investigator_options select_placeholder=select_investigator_placeholder select_class='site-investigator-select' select_disabled='disabled' %}
                                     {% endif %}
                                     {% for error in form.investigator.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
                                 </div>

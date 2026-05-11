@@ -247,6 +247,68 @@ class SubjectEventInstance(models.Model):
         verbose_name_plural = "subject event instances"
 
 
+class SubjectEventInstanceFile(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="subject_event_instance_files",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="event_instance_files",
+    )
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.DO_NOTHING,
+        db_column="site_id",
+        related_name="subject_event_instance_files",
+    )
+    event_instance = models.ForeignKey(
+        SubjectEventInstance,
+        on_delete=models.DO_NOTHING,
+        db_column="event_instance_id",
+        related_name="files",
+    )
+
+    original_file_name = models.CharField(max_length=512)
+    stored_file_name = models.CharField(max_length=512)
+    storage_relative_path = models.CharField(max_length=1024)
+    mime_type = models.CharField(max_length=128, null=True, blank=True)
+    file_size_bytes = models.BigIntegerField()
+    checksum_sha256 = models.CharField(max_length=64, null=True, blank=True)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventinstance_file"
+        managed = False
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["event_instance", "deleted", "created_at"],
+                name="seif_evt_del_cr_idx",
+            ),
+            models.Index(
+                fields=["study", "subject", "deleted"],
+                name="seif_st_sub_del_idx",
+            ),
+            models.Index(
+                fields=["checksum_sha256"],
+                name="seif_checksum_idx",
+            ),
+        ]
+        verbose_name = "subject event instance file"
+        verbose_name_plural = "subject event instance files"
+
+
 class SubjectEventInstanceTransitionLog(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()

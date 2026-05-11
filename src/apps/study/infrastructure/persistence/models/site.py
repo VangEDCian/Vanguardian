@@ -14,7 +14,14 @@ class Site(models.Model):
 
     code = models.CharField(max_length=64)
     name = models.CharField(max_length=255)
-    investigator = models.CharField(max_length=255, null=True)
+    investigator = models.ForeignKey(
+        User,
+        on_delete=models.DO_NOTHING,
+        db_column="investigator",
+        null=True,
+        blank=True,
+        related_name="study_sites_as_investigator",
+    )
     study = models.ForeignKey(Study, on_delete=models.CASCADE, db_column='study_id')
     is_active = models.BooleanField(default=True)
 

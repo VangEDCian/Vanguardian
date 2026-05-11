@@ -1,6 +1,13 @@
 from django.urls import path
 
-from apps.subject.presentation.web.views import SubjectCreateView, SubjectDetailView, SubjectListView
+from apps.subject.presentation.web.views import (
+    SubjectCreateView,
+    SubjectDetailView,
+    SubjectEventInstanceFileContentView,
+    SubjectEventInstanceFileImportView,
+    SubjectEventInstanceFilePreviewView,
+    SubjectListView,
+)
 
 app_name = "subject"
 
@@ -19,5 +26,20 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/<int:subject_id>/",
         SubjectDetailView.as_view(),
         name="subject_detail",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/files/import/",
+        SubjectEventInstanceFileImportView.as_view(),
+        name="subject_eventinstance_file_import",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/files/",
+        SubjectEventInstanceFilePreviewView.as_view(),
+        name="subject_eventinstance_file_preview",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/files/<int:file_id>/content/",
+        SubjectEventInstanceFileContentView.as_view(),
+        name="subject_eventinstance_file_content",
     ),
 ]

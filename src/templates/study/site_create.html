@@ -6,9 +6,13 @@
 {% block extra_css %}
     {{ block.super }}
     <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+    <link rel="stylesheet"
           href="{% static 'shared/css/components/common-table.css' %}" />
     <link rel="stylesheet"
           href="{% static 'shared/css/components/_old_textbox.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_select2_single_choice.css' %}" />
     <link rel="stylesheet"
           href="{% static 'shared/css/components/user-detail.css' %}" />
 {% endblock %}
@@ -21,7 +25,11 @@
         <div class="entity-table__toolbar">
             <div class="entity-table__summary">{% trans "New Site" %}</div>
         </div>
-        <form class="user-detail-form" method="post" action="{{ create_url }}">
+        <form class="user-detail-form"
+              method="post"
+              action="{{ create_url }}"
+              data-site-form
+              data-memberships-api-url="{{ memberships_api_url }}">
             {% csrf_token %}
             <div class="user-detail-form__content">
                 <section class="user-detail-section">
@@ -62,11 +70,8 @@
                                     {{ form.investigator.label }}:
                                 </label>
                                 <div class="user-detail-inline-field__control-wrap">
-                                    <input type="text"
-                                           id="{{ form.investigator.id_for_label }}"
-                                           name="{{ form.investigator.html_name }}"
-                                           value="{% firstof form.investigator.value '' %}"
-                                           class="old-textbox{% if form.investigator.errors %} old-textbox--error{% endif %}">
+                                    {% trans "Select investigator" as select_investigator_placeholder %}
+                                    {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.investigator.id_for_label select_name=form.investigator.html_name select_options=investigator_options select_placeholder=select_investigator_placeholder select_class='site-investigator-select' %}
                                     {% for error in form.investigator.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
                                 </div>
                             </div>
@@ -102,4 +107,10 @@
             </div>
         </form>
     </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{% static 'study/js/site_detail.js' %}"></script>
 {% endblock %}

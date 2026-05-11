@@ -7,6 +7,7 @@ from apps.study.presentation.web.views import (
     SiteDeleteView,
     SiteDetailView,
     SiteListView,
+    SiteMembershipOptionsApiView,
     StudyCreateView,
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
@@ -103,6 +104,11 @@ urlpatterns += [
 
 # Study.Site
 urlpatterns += [
+    path(
+        "api/studies/<int:study_id>/sites/<int:site_id>/memberships",
+        _superuser_guard(SiteMembershipOptionsApiView.as_view()),
+        name="api_site_memberships",
+    ),
     path(
         "studies/<int:study_id>/sites/", include(
             [

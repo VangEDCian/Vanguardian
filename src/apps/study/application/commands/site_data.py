@@ -5,7 +5,7 @@ from dataclasses import dataclass
 class CreateSiteCommand:
     code: str
     name: str
-    investigator: str
+    investigator_id: int | None
     study_id: int
     is_active: bool
     actor_user_id: int
@@ -51,6 +51,6 @@ class SiteNotFoundError(Exception):
 class UpdateSiteCommand:
     site_id: int
     name: str
-    investigator: str
+    investigator_id: int | None
     is_active: bool
     actor_user_id: int

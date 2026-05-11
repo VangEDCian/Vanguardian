@@ -26,7 +26,7 @@
   padding-right: 1.75rem;
 }
 
-.old-select2-single-choice+.select2-container .select2-selection--single .select2-selection__rendered[aria-readonly="true"] {
+.old-select2-single-choice+.select2-container.select2-container--disabled .select2-selection--single .select2-selection__rendered {
   color: #666;
   background-color: #efefef;
 }

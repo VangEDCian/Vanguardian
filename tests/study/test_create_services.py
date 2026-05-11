@@ -49,16 +49,22 @@ class CreateSiteServiceTests(SimpleTestCase):
         repository = MagicMock()
         sonic_adapter = MagicMock()
         repository.site_code_exists.return_value = False
+        repository.get_user.return_value = MagicMock(
+            first_name="Jane",
+            last_name="Doe",
+            display_name="",
+            username="jane.doe",
+        )
         repository.create_site.return_value = MagicMock(
             pk=7,
             code="SITE-007",
             name="Site 7",
-            investigator="Dr. Jane",
+            investigator_id=12,
         )
         command = CreateSiteCommand(
             code="SITE-007",
             name="Site 7",
-            investigator="Dr. Jane",
+            investigator_id=12,
             study_id=3,
             is_active=True,
             actor_user_id=99,
@@ -74,5 +80,5 @@ class CreateSiteServiceTests(SimpleTestCase):
             site_id=7,
             code="SITE-007",
             name="Site 7",
-            investigator="Dr. Jane",
+            investigator="Jane Doe",
         )

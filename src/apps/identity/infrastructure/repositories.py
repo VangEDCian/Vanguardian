@@ -145,7 +145,10 @@ class DjangoIdentityUserRepository:
                     queryset = queryset.filter(
                         Q(code__icontains=normalized_search_query)
                         | Q(name__icontains=normalized_search_query)
-                        | Q(investigator__icontains=normalized_search_query),
+                        | Q(investigator__username__icontains=normalized_search_query)
+                        | Q(investigator__first_name__icontains=normalized_search_query)
+                        | Q(investigator__last_name__icontains=normalized_search_query)
+                        | Q(investigator__display_name__icontains=normalized_search_query),
                     ).order_by("id")
                 elif matched_ids:
                     queryset = queryset.filter(pk__in=matched_ids).order_by("id")

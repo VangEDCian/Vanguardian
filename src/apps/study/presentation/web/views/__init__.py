@@ -24,6 +24,7 @@ from apps.study.presentation.web.views.site import (
     SiteDeleteView,
     SiteDetailView,
     SiteListView,
+    SiteMembershipOptionsApiView,
 )
 from apps.study.presentation.web.views.studies import (
     StudyDetailView,
@@ -41,6 +42,7 @@ __all__ = [
     "SiteDeleteView",
     "SiteDetailView",
     "SiteListView",
+    "SiteMembershipOptionsApiView",
     "StudyCreateView",
     "StudyCrfTemplateImportTemplateView",
     "StudyCrfTemplateListView",

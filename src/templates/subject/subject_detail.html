@@ -140,6 +140,37 @@
                         </a>
                     {% endif %}
                 {% endif %}
+                {% if focused_event and event_file_import_url %}
+                    <form method="post"
+                          action="{{ event_file_import_url }}"
+                          enctype="multipart/form-data"
+                          class="subject-detail-screen__footer-inline-form"
+                          data-eventinstance-file-import-form>
+                        {% csrf_token %}
+                        {% if focused_form %}
+                            <input type="hidden" name="form" value="{{ focused_form.id }}">
+                        {% endif %}
+                        {% if is_viewing_submitted_version %}
+                            <input type="hidden" name="view" value="submitted">
+                        {% endif %}
+                        <input type="file"
+                               name="import_file"
+                               hidden
+                               data-eventinstance-file-input>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-eventinstance-file-import-trigger>
+                            {% trans "Import File" %}
+                        </button>
+                    </form>
+                    {% if has_event_instance_files and event_file_preview_url %}
+                        <a href="{{ event_file_preview_url }}"
+                           class="entity-table__footer-button entity-table__footer-button--secondary"
+                           data-eventinstance-file-preview-link>
+                            {% trans "Preview Files" %}
+                        </a>
+                    {% endif %}
+                {% endif %}
             </div>
         </footer>
         {{ current_data_values|json_script:"datacapture-current-data-payload" }}
@@ -207,4 +238,5 @@
         <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>
         <script src="{% static 'datacapture/js/subject-detail-behavior-runtime.js' %}"></script>
     {% endif %}
+    <script src="{% static 'subject/js/subject_detail_event_files.js' %}"></script>
 {% endblock %}

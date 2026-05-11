@@ -7,11 +7,19 @@
 
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 from apps.subject.presentation.web.views.create import SubjectCreateView
+from apps.subject.presentation.web.views.event_instance_files import (
+    SubjectEventInstanceFileContentView,
+    SubjectEventInstanceFileImportView,
+    SubjectEventInstanceFilePreviewView,
+)
 from apps.subject.presentation.web.views.listing import SubjectListView
 
 __all__ = [
     "SubjectAbstractVerifyStudy",
     "SubjectCreateView",
+    "SubjectEventInstanceFileContentView",
+    "SubjectEventInstanceFileImportView",
+    "SubjectEventInstanceFilePreviewView",
     "SubjectDetailView",
     "SubjectListView",
 ]

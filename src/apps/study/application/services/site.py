@@ -28,10 +28,13 @@ class CreateSiteService:
     def execute(self, command: CreateSiteCommand):
         self._validate_code_unique(command.study_id, command.code)
 
+        investigator_id = command.investigator_id
+        investigator_label = self._resolve_investigator_label(investigator_id=investigator_id)
+
         site = self.repository.create_site(
             code=command.code.strip(),
             name=command.name.strip(),
-            investigator=command.investigator.strip(),
+            investigator_id=investigator_id,
             study_id=command.study_id,
             is_active=command.is_active,
             actor_user_id=command.actor_user_id,
@@ -40,13 +43,24 @@ class CreateSiteService:
             site_id=site.pk,
             code=site.code,
             name=command.name.strip(),
-            investigator=command.investigator.strip(),
+            investigator=investigator_label,
         )
         return site
 
     def _validate_code_unique(self, study_id, code):
         if self.repository.site_code_exists(study_id=study_id, code=code):
             raise SiteCodeAlreadyExistsError(code)
+
+    def _resolve_investigator_label(self, *, investigator_id):
+        if investigator_id is None:
+            return ""
+        investigator = self.repository.get_user(user_id=investigator_id)
+        if investigator is None:
+            return ""
+        full_name = f"{investigator.first_name or ''} {investigator.last_name or ''}".strip()
+        if full_name:
+            return full_name
+        return investigator.display_name or investigator.username
 
 
 class DeleteSiteService:
@@ -124,8 +138,21 @@ class UpdateSiteService:
         site = self.repository.get_site(site_id=command.site_id)
         if site is None:
             raise SiteNotFoundError(command.site_id)
+
+        investigator_id = command.investigator_id
+        if investigator_id and not self.repository.site_membership_exists(
+            site_id=command.site_id,
+            user_id=investigator_id,
+        ):
+            self.repository.create_site_membership(
+                site_id=command.site_id,
+                study_id=site.study_id,
+                user_id=investigator_id,
+                actor_user_id=command.actor_user_id,
+            )
+
         site.name = command.name.strip()
-        site.investigator = command.investigator.strip()
+        site.investigator_id = investigator_id
         site.is_active = command.is_active
         self.repository.touch_site(site, actor_user_id=command.actor_user_id)
         return self.repository.save_site(site)

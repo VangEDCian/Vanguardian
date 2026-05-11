@@ -22,11 +22,10 @@ class SiteForm(forms.Form):
         label=_("Site Name"),
         widget=forms.TextInput(attrs={"placeholder": _("e.g. City Medical Center")}),
     )
-    investigator = forms.CharField(
-        max_length=255,
+    investigator = forms.IntegerField(
         required=False,
+        min_value=1,
         label=_("Investigator"),
-        widget=forms.TextInput(attrs={"placeholder": _("e.g. Dr. Jane Doe")}),
     )
     study_id = forms.ChoiceField(
         label=_("Study"),

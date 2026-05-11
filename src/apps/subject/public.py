@@ -3,7 +3,7 @@ from apps.subject.application import (
     SubjectEventTransitionService,
     TriggerSubjectEventTransitionCommand,
 )
-from apps.subject.models import Subject, SubjectEventInstance
+from apps.subject.models import Subject, SubjectEventInstance, SubjectEventInstanceFile
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 
@@ -47,6 +47,7 @@ __all__ = [
     "Subject",
     "SubjectAbstractVerifyStudy",
     "SubjectEventInstance",
+    "SubjectEventInstanceFile",
     "SubjectEventInstanceNotFoundError",
     "SubjectEventLifecycleAdapter",
     "trigger_subject_event_transition",

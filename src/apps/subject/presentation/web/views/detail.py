@@ -12,6 +12,7 @@ from apps.datacapture.public import (
     get_page_state_status_for_subject_visit_crf,
 )
 from apps.shared.views import AuthenticateTemplateContextMixin
+from apps.subject.infrastructure.repositories import DjangoSubjectEventInstanceFileRepository
 from apps.subject.models import Subject
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 from apps.subject.presentation.web.views.detail_navigation import SubjectDetailNavigationMixin
@@ -67,6 +68,10 @@ class SubjectDetailView(
         "calculated field": "label_only",
         "calculated": "label_only",
     }
+    event_instance_file_repository_class = DjangoSubjectEventInstanceFileRepository
+
+    def get_event_instance_file_repository(self):
+        return self.event_instance_file_repository_class()
 
     def dispatch(self, request, *args, **kwargs):
         # Force English on subject detail to keep CRF UI consistent for testing.
@@ -138,6 +143,9 @@ class SubjectDetailView(
         datacapture_save_url = ""
         datacapture_submit_url = ""
         datacapture_delete_draft_url = ""
+        event_file_import_url = ""
+        event_file_preview_url = ""
+        has_event_instance_files = False
         if focused_form:
             form_definition_id = focused_form.get("form_definition_id")
             if form_definition_id:
@@ -243,6 +251,39 @@ class SubjectDetailView(
                     datacapture_save_url = ""
                     datacapture_submit_url = ""
                     datacapture_delete_draft_url = ""
+
+        if focused_event:
+            try:
+                focused_event_id = int(focused_event["id"])
+            except (TypeError, ValueError):
+                focused_event_id = None
+            if focused_event_id is not None:
+                event_file_import_url = reverse(
+                    "subject:subject_eventinstance_file_import",
+                    kwargs={
+                        "study_id": self.get_study_id(),
+                        "subject_id": subject.pk,
+                        "event_instance_id": focused_event_id,
+                    },
+                )
+                event_file_preview_url = reverse(
+                    "subject:subject_eventinstance_file_preview",
+                    kwargs={
+                        "study_id": self.get_study_id(),
+                        "subject_id": subject.pk,
+                        "event_instance_id": focused_event_id,
+                    },
+                )
+                preview_query_parts = []
+                if focused_form:
+                    preview_query_parts.append(f"form={focused_form.get('id', '')}")
+                if is_viewing_submitted_version:
+                    preview_query_parts.append("view=submitted")
+                if preview_query_parts:
+                    event_file_preview_url = f"{event_file_preview_url}?{'&'.join(preview_query_parts)}"
+                has_event_instance_files = self.get_event_instance_file_repository().has_files(
+                    event_instance_id=focused_event_id,
+                )
         form_render_sections = self._build_form_render_sections(
             focused_form_fields,
             entry_payload_map=focused_entry_values,
@@ -291,6 +332,9 @@ class SubjectDetailView(
         context["datacapture_save_url"] = datacapture_save_url
         context["datacapture_submit_url"] = datacapture_submit_url
         context["datacapture_delete_draft_url"] = datacapture_delete_draft_url
+        context["event_file_import_url"] = event_file_import_url
+        context["event_file_preview_url"] = event_file_preview_url
+        context["has_event_instance_files"] = has_event_instance_files
         if datacapture_save_url:
             context["datacapture_save_confirm_message"] = _(
                 "This page was already submitted. Saving will create a correction version. Continue?"

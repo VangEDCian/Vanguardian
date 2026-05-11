@@ -33,6 +33,19 @@ class SiteListTable(tables.Table):
             label,
         )
 
+    @staticmethod
+    def render_investigator(record):
+        investigator = getattr(record, "investigator", None)
+        if investigator is None:
+            return "—"
+
+        full_name = f"{investigator.first_name or ''} {investigator.last_name or ''}".strip()
+        if full_name:
+            return full_name
+        if investigator.display_name:
+            return investigator.display_name
+        return investigator.username or str(investigator.pk)
+
     class Meta:
         model = Site
         fields = ("code", "name", "investigator", "is_active")

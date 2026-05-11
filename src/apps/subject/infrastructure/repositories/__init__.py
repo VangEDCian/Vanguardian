@@ -1,3 +1,6 @@
+from apps.subject.infrastructure.repositories.event_instance_files import (
+    DjangoSubjectEventInstanceFileRepository,
+)
 from apps.subject.infrastructure.repositories.event_lifecycle import (
     DjangoSubjectEventLifecycleRepository,
 )
@@ -5,5 +8,6 @@ from apps.subject.infrastructure.repositories.subject_commands import DjangoSubj
 
 __all__ = [
     "DjangoSubjectCommandRepository",
+    "DjangoSubjectEventInstanceFileRepository",
     "DjangoSubjectEventLifecycleRepository",
 ]

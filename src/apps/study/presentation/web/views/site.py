@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import permission_required
 from django.core.exceptions import PermissionDenied
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.decorators import method_decorator
@@ -28,6 +28,7 @@ from apps.study.application.services import (
 )
 from apps.study.application.services.site_audit import SiteAuditService
 from apps.study.infrastructure.persistence.models import Site, Study
+from apps.study.infrastructure.repositories import DjangoStudyCommandRepository
 from apps.study.presentation.web.forms.site import SiteForm, SitesToolbarForm
 from apps.study.presentation.web.tables import SiteListTable
 from apps.study.presentation.web.views.helpers import _user_has_study_access
@@ -66,7 +67,11 @@ class SiteListView(
     study_obj: Study = None
 
     def get_queryset(self):
-        return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
+        return (
+            super().get_queryset()
+            .select_related("investigator")
+            .filter(study_id=self.get_study_id(), deleted=False)
+        )
 
     @staticmethod
     def _get_resolved_study_id(request):
@@ -82,8 +87,53 @@ class SiteListView(
         return redirect(reverse('dashboard:main'))
 
 
+class SiteInvestigatorContextMixin:
+    command_repository_class = DjangoStudyCommandRepository
+
+    def get_command_repository(self):
+        return self.command_repository_class()
+
+    @staticmethod
+    def _build_user_option(user, *, selected):
+        full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+        if full_name:
+            text = f"{full_name} ({user.username})"
+        elif user.display_name:
+            text = f"{user.display_name} ({user.username})"
+        else:
+            text = user.username
+        return {
+            "value": str(user.pk),
+            "label": text,
+            "selected": selected,
+        }
+
+    def _build_investigator_options(self, *, study_id, site_id, selected_user_id):
+        repository = self.get_command_repository()
+        users = repository.list_users_for_study_or_site_membership(
+            study_id=study_id,
+            site_id=site_id,
+        )[:100]
+
+        selected_id_str = str(selected_user_id) if selected_user_id else None
+        options = [
+            self._build_user_option(user, selected=str(user.pk) == selected_id_str)
+            for user in users
+        ]
+
+        if selected_id_str and not any(option["value"] == selected_id_str for option in options):
+            selected_user = repository.get_user(user_id=selected_user_id)
+            if selected_user is not None:
+                options.append(self._build_user_option(selected_user, selected=True))
+
+        return options
+
+
 class SiteDetailView(
-    AuthenticateTemplateContextMixin, DetailView, SiteAbstractVerifyStudy,
+    SiteInvestigatorContextMixin,
+    AuthenticateTemplateContextMixin,
+    DetailView,
+    SiteAbstractVerifyStudy,
 ):
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("SITES")
@@ -128,7 +178,7 @@ class SiteDetailView(
                 initial={
                     "code": self.object.code,
                     "name": self.object.name,
-                    "investigator": self.object.investigator or "",
+                    "investigator": self.object.investigator_id or "",
                     "study_id": str(self.object.study_id),
                     "is_active": self.object.is_active,
                 },
@@ -138,6 +188,15 @@ class SiteDetailView(
         context["form"] = form
         context["study_options"] = StudySiteDirectoryQueryService.build_site_study_options(
             studies, self.object.study_id,
+        )
+        context["investigator_options"] = self._build_investigator_options(
+            study_id=self.object.study_id,
+            site_id=self.object.pk,
+            selected_user_id=form["investigator"].value() or self.object.investigator_id,
+        )
+        context["memberships_api_url"] = reverse(
+            "study:api_site_memberships",
+            kwargs={"study_id": self.object.study_id, "site_id": self.object.pk},
         )
         context["back_url"] = reverse("study:site_list", kwargs={'study_id': self.get_study_id()})
         context["update_url"] = reverse(
@@ -190,7 +249,7 @@ class SiteDetailView(
             UpdateSiteCommand(
                 site_id=site.pk,
                 name=form.cleaned_data["name"],
-                investigator=form.cleaned_data.get("investigator") or "",
+                investigator_id=form.cleaned_data.get("investigator"),
                 is_active=form.cleaned_data.get("is_active", False),
                 actor_user_id=request.user.pk,
             ),
@@ -211,7 +270,7 @@ class SiteDetailView(
         )
 
 
-class SiteCreateView(AuthenticateTemplateView, SiteAbstractVerifyStudy):
+class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, SiteAbstractVerifyStudy):
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("NEW SITE")
     template_name = "study/site_create.html"
@@ -252,6 +311,15 @@ class SiteCreateView(AuthenticateTemplateView, SiteAbstractVerifyStudy):
             form = SiteForm(fixed_study_id=selected_study_id)
 
         context["form"] = form
+        context["investigator_options"] = self._build_investigator_options(
+            study_id=selected_study_id,
+            site_id=0,
+            selected_user_id=form["investigator"].value(),
+        )
+        context["memberships_api_url"] = reverse(
+            "study:api_site_memberships",
+            kwargs={"study_id": selected_study_id, "site_id": 0},
+        )
         context["back_url"] = reverse("study:site_list", kwargs={'study_id': selected_study_id})
         context["create_url"] = reverse(
             "study:site_create", kwargs={'study_id': selected_study_id},
@@ -283,7 +351,7 @@ class SiteCreateView(AuthenticateTemplateView, SiteAbstractVerifyStudy):
                 CreateSiteCommand(
                     code=form.cleaned_data["code"],
                     name=form.cleaned_data["name"],
-                    investigator=form.cleaned_data.get("investigator") or "",
+                    investigator_id=form.cleaned_data.get("investigator"),
                     study_id=selected_study_id,
                     is_active=form.cleaned_data.get("is_active", True),
                     actor_user_id=request.user.pk,
@@ -339,3 +407,35 @@ class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractV
         )
 
         return redirect(reverse("study:site_list", kwargs={'study_id': self.get_study_id()}))
+
+
+class SiteMembershipOptionsApiView(SiteInvestigatorContextMixin, AuthenticateTemplateContextMixin, View):
+    @staticmethod
+    def _normalize_id(value):
+        normalized = str(value).strip()
+        return int(normalized) if normalized.isdigit() else None
+
+    def get(self, request, *args, **kwargs):
+        study_id = self._normalize_id(kwargs.get("study_id"))
+        site_id = self._normalize_id(kwargs.get("site_id"))
+        if study_id is None or site_id is None:
+            raise Http404
+
+        search_query = (request.GET.get("q") or "").strip()
+        users = self.get_command_repository().list_users_for_study_or_site_membership(
+            study_id=study_id,
+            site_id=site_id,
+            search_query=search_query,
+        )[:100]
+
+        return JsonResponse(
+            {
+                "results": [
+                    {
+                        "id": str(user.pk),
+                        "text": self._build_user_option(user, selected=False)["label"],
+                    }
+                    for user in users
+                ],
+            },
+        )
