@@ -7,8 +7,8 @@ class DataCapturePageStateStatusChoices(models.TextChoices):
     SUBMITTED = "submitted", _("Submitted")
     IN_REVIEW = "in_review", _("In review")
     VERIFIED = "verified", _("Verified")
-    FINALIZED = "finalized", _("Finalized")
     LOCKED = "locked", _("Locked")
+    FINALIZED = "finalized", _("Finalized")
     CANCELED = "canceled", _("Canceled")
 
 
