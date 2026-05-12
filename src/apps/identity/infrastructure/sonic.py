@@ -7,6 +7,8 @@ from django.conf import settings
 
 class SonicSearchAdapter:
     def search_study_ids(self, *, query: str, limit: int | None = None) -> list[int] | None:
+        if not self._is_enabled():
+            return None
         return self._search_ids(
             bucket=settings.SONIC_BUCKET_STUDIES,
             query=query,
@@ -14,6 +16,8 @@ class SonicSearchAdapter:
         )
 
     def search_site_ids(self, *, query: str, limit: int | None = None) -> list[int] | None:
+        if not self._is_enabled():
+            return None
         return self._search_ids(
             bucket=settings.SONIC_BUCKET_SITES,
             query=query,
@@ -24,7 +28,7 @@ class SonicSearchAdapter:
         normalized_query = str(query or "").strip()
         if not normalized_query:
             return []
-        if not getattr(settings, "SONIC_ENABLED", False):
+        if not self._is_enabled():
             return None
         max_limit = int(limit or settings.SONIC_SEARCH_LIMIT or 200)
         try:
@@ -82,3 +86,7 @@ class SonicSearchAdapter:
             seen_ids.add(item_id)
             ids.append(item_id)
         return ids
+
+    @staticmethod
+    def _is_enabled() -> bool:
+        return bool(getattr(settings, "SONIC_ENABLED", False))

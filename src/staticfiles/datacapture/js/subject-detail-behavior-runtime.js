@@ -211,17 +211,15 @@
       if (control.name) {
         return;
       }
-      if (control.classList.contains('subject-date-picker__input--day')) {
-        control.name = `${fieldKey}__day`;
-      } else if (control.classList.contains('subject-date-picker__input--month')) {
-        control.name = `${fieldKey}__month`;
-      } else if (control.classList.contains('subject-date-picker__input--year')) {
-        control.name = `${fieldKey}__year`;
-      } else if (control.classList.contains('subject-date-picker__input--time')) {
-        control.name = `${fieldKey}__time`;
-      } else {
-        control.name = fieldKey;
+      if (
+        control.classList.contains('subject-date-picker__input--day') ||
+        control.classList.contains('subject-date-picker__input--month') ||
+        control.classList.contains('subject-date-picker__input--year') ||
+        control.classList.contains('subject-date-picker__input--time')
+      ) {
+        return;
       }
+      control.name = fieldKey;
     });
   }
 

@@ -5,6 +5,13 @@
   const reasonModalModuleFactory = modules.reasonModal;
   const network = modules.network || {};
   const radioControlModule = (modules.controls || {}).radio || {};
+  const textControlModule = (modules.controls || {}).text || {};
+  const numberControlModule = (modules.controls || {}).number || {};
+  const textareaControlModule = (modules.controls || {}).textarea || {};
+  const selectControlModule = (modules.controls || {}).select || {};
+  const multiSelectControlModule = (modules.controls || {}).multiSelect || {};
+  const datePickerControlModule = (modules.controls || {}).datePicker || {};
+  const datetimeControlModule = (modules.controls || {}).datetime || {};
 
   const formPanel = document.querySelector('.subject-form-panel');
   const fieldScope = formPanel || document;
@@ -49,14 +56,13 @@
       }
       container.querySelectorAll('input, textarea, select').forEach((input) => {
         if (!input.name) {
-          if (input.classList.contains('subject-date-picker__input--day')) {
-            input.name = `${fieldKey}__day`;
-          } else if (input.classList.contains('subject-date-picker__input--month')) {
-            input.name = `${fieldKey}__month`;
-          } else if (input.classList.contains('subject-date-picker__input--year')) {
-            input.name = `${fieldKey}__year`;
-          } else if (input.classList.contains('subject-date-picker__input--time')) {
-            input.name = `${fieldKey}__time`;
+          if (
+            input.classList.contains('subject-date-picker__input--day') ||
+            input.classList.contains('subject-date-picker__input--month') ||
+            input.classList.contains('subject-date-picker__input--year') ||
+            input.classList.contains('subject-date-picker__input--time')
+          ) {
+            return;
           } else {
             input.name = fieldKey;
           }
@@ -209,6 +215,10 @@
   }
 
   function collectFormPayloadObject() {
+    fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
+      datePickerControlModule.syncDateCompositeInput?.(container);
+      datetimeControlModule.syncDatetimeCompositeInput?.(container);
+    });
     const payload = {};
     fieldScope.querySelectorAll('input, textarea, select').forEach((input) => {
       if (!input.name || input.disabled) {
@@ -310,6 +320,20 @@
 
       const payloadValue = resolvePayloadValue(input.name, payload);
 
+      if (input.matches('input[type="hidden"][data-date-composite-input]')) {
+        const container = input.closest('[data-field-key]');
+        const compositeType = String(input.dataset.dateCompositeType || '').trim().toLowerCase();
+        const compositeValue = payloadValue == null ? '' : String(payloadValue);
+        if (compositeType === 'datetime') {
+          datetimeControlModule.applyDatetimeCompositeValue?.(container, compositeValue);
+          datetimeControlModule.syncDatetimeCompositeInput?.(container);
+        } else {
+          datePickerControlModule.applyDateCompositeValue?.(container, compositeValue);
+          datePickerControlModule.syncDateCompositeInput?.(container);
+        }
+        return;
+      }
+
       if (input.type === 'radio') {
         input.checked = payloadValue !== null && String(payloadValue ?? '') === String(input.value ?? '');
         return;
@@ -341,6 +365,10 @@
         return;
       }
       input.value = String(payloadValue);
+    });
+    fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
+      datePickerControlModule.syncDateCompositeInput?.(container);
+      datetimeControlModule.syncDatetimeCompositeInput?.(container);
     });
   }
 
@@ -531,8 +559,8 @@
     });
   }
 
-  function refreshRadioDiffMarkers() {
-    radioControlModule.applySubmittedDiffRadioMarkers?.({
+  function refreshSubmittedDiffMarkers() {
+    const markerContext = {
       fieldScope,
       previousSubmittedPayload: initialPreviousDataPayload,
       currentPayload: collectFormPayloadObject(),
@@ -540,10 +568,16 @@
       canonicalFieldKey,
       normalizeComparableValue,
       datePartSuffixes,
-    });
+    };
+    radioControlModule.applySubmittedDiffRadioMarkers?.(markerContext);
+    textControlModule.applySubmittedDiffTextMarkers?.(markerContext);
+    numberControlModule.applySubmittedDiffNumberMarkers?.(markerContext);
+    textareaControlModule.applySubmittedDiffTextareaMarkers?.(markerContext);
+    selectControlModule.applySubmittedDiffSelectMarkers?.(markerContext);
+    multiSelectControlModule.applySubmittedDiffMultiSelectMarkers?.(markerContext);
   }
 
-  refreshRadioDiffMarkers();
-  fieldScope.addEventListener('input', refreshRadioDiffMarkers);
-  fieldScope.addEventListener('change', refreshRadioDiffMarkers);
+  refreshSubmittedDiffMarkers();
+  fieldScope.addEventListener('input', refreshSubmittedDiffMarkers);
+  fieldScope.addEventListener('change', refreshSubmittedDiffMarkers);
 })();

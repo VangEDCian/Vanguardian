@@ -358,6 +358,22 @@ class SubjectDetailRenderingMixin:
                 return alias, payload_map[alias]
         return field_key, None
 
+    @staticmethod
+    def _extract_composite_date_parts(raw_value):
+        normalized = str(raw_value or "").strip()
+        if not normalized:
+            return "", "", "", ""
+        matched = re.match(r"^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::\d{2})?)?$", normalized)
+        if not matched:
+            return "", "", "", ""
+        year = str(int(matched.group(1)))
+        month = str(int(matched.group(2)))
+        day = str(int(matched.group(3)))
+        hour = matched.group(4) or ""
+        minute = matched.group(5) or ""
+        time_value = f"{hour}:{minute}" if hour and minute else ""
+        return day, month, year, time_value
+
     def _build_form_render_sections(self, focused_form_fields, entry_payload_map=None):
         if not focused_form_fields:
             return []
@@ -413,6 +429,21 @@ class SubjectDetailRenderingMixin:
             resolved_alias, resolved_value = self._resolve_field_payload_value(payload_map, field)
             selected_values = self._normalize_multi_value(resolved_value)
             normalized_value = self._normalize_scalar_field_value(resolved_value)
+            date_day, date_month, date_year, date_time = self._extract_composite_date_parts(
+                normalized_value
+            )
+            date_day = date_day or self._normalize_scalar_field_value(
+                payload_map.get(f"{resolved_alias}__day")
+            )
+            date_month = date_month or self._normalize_scalar_field_value(
+                payload_map.get(f"{resolved_alias}__month")
+            )
+            date_year = date_year or self._normalize_scalar_field_value(
+                payload_map.get(f"{resolved_alias}__year")
+            )
+            date_time = date_time or self._normalize_scalar_field_value(
+                payload_map.get(f"{resolved_alias}__time")
+            )
 
             sections_by_key[section_key]["fields"].append(
                 {
@@ -446,18 +477,10 @@ class SubjectDetailRenderingMixin:
                     "value": normalized_value,
                     "is_checked": str(normalized_value).lower() in {"1", "true", "yes", "on"},
                     "selected_values": selected_values,
-                    "date_day": self._normalize_scalar_field_value(
-                        payload_map.get(f"{resolved_alias}__day")
-                    ),
-                    "date_month": self._normalize_scalar_field_value(
-                        payload_map.get(f"{resolved_alias}__month")
-                    ),
-                    "date_year": self._normalize_scalar_field_value(
-                        payload_map.get(f"{resolved_alias}__year")
-                    ),
-                    "date_time": self._normalize_scalar_field_value(
-                        payload_map.get(f"{resolved_alias}__time")
-                    ),
+                    "date_day": date_day,
+                    "date_month": date_month,
+                    "date_year": date_year,
+                    "date_time": date_time,
                 }
             )
 

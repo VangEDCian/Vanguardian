@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS reconcile_dataquery (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    status VARCHAR(16) NOT NULL,
+    source VARCHAR(16) NOT NULL,
+    question_text LONGTEXT NOT NULL,
+    resolution_note VARCHAR(255) NULL,
+    closed_at DATETIME NULL,
+    page_state_id BIGINT NOT NULL,
+    field_template_id BIGINT NULL,
+    validation_rule_id BIGINT NULL,
+    assigned_to_id BIGINT NULL,
+    created_by_id BIGINT NULL,
+    updated_by_id BIGINT NULL,
+    INDEX idx_reconcile_dataquery_page_state (page_state_id),
+    INDEX idx_reconcile_dataquery_field_template (field_template_id),
+    INDEX idx_reconcile_dataquery_validation_rule (validation_rule_id),
+    INDEX idx_reconcile_dataquery_status (status),
+    INDEX idx_reconcile_dataquery_source (source)
+);

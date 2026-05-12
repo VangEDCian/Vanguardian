@@ -3,6 +3,8 @@
 {% subject_text_validator_attrs field as text_validator_attrs %}
 <input class="{{ input_class }}"
        type="text"
+       data-submitted-diff-input
+       data-submitted-diff-control="text"
        readonly
        {{ text_validator_attrs }}
        value="{{ field.value }}"

@@ -49,6 +49,22 @@
   color: #20262d;
 }
 
+.subject-form-flat-field__choice-list.is-changed-from-submitted-choice-list {
+  position: relative;
+  padding-right: 18px;
+}
+
+.subject-form-flat-field__choice-list.is-changed-from-submitted-choice-list::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-50%);
+  background: url("/static/images/fields/triangle-svgrepo-com.svg") center/contain no-repeat;
+}
+
 .subject-form-flat-field__input,
 .subject-form-flat-field__textarea {
   width: 100%;
@@ -64,9 +80,25 @@
   padding: 6px 10px;
 }
 
+.subject-form-flat-field__input.is-changed-from-submitted-input {
+  padding-right: 26px;
+  background-image: url("/static/images/fields/triangle-svgrepo-com.svg");
+  background-repeat: no-repeat;
+  background-size: 10px 10px;
+  background-position: right 8px center;
+}
+
 .subject-form-flat-field__textarea {
   padding: 8px 10px;
   resize: none;
+}
+
+.subject-form-flat-field__textarea.is-changed-from-submitted-textarea {
+  padding-right: 26px;
+  background-image: url("/static/images/fields/triangle-svgrepo-com.svg");
+  background-repeat: no-repeat;
+  background-size: 10px 10px;
+  background-position: right 8px top 8px;
 }
 
 .subject-form-flat-field__input--readonly {

@@ -1,6 +1,8 @@
 {% load subject_form_tags %}
 {% subject_textarea_control_i18n as textarea_control_i18n %}
 <textarea class="{{ textarea_class }}"
+          data-submitted-diff-textarea
+          data-submitted-diff-control="textarea"
           rows="{{ textarea_rows|default:'3' }}"
           readonly
           placeholder="{{ field.placeholder_text|default:textarea_control_i18n.placeholder }}">{{ field.value }}</textarea>

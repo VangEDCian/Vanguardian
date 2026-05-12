@@ -5,21 +5,29 @@ from django.conf import settings
 
 class SonicStudySiteAdapter:
     def index_study(self, *, study_id: int, code: str, name: str, sponsor: str, description: str) -> None:
+        if not self._is_enabled():
+            return
         text = self._build_text(code, name, sponsor, description)
         if not text:
             return
         self._push_object(bucket=settings.SONIC_BUCKET_STUDIES, object_key=self._study_object_key(study_id), text=text)
 
     def remove_study(self, *, study_id: int) -> None:
+        if not self._is_enabled():
+            return
         self._flush_object(bucket=settings.SONIC_BUCKET_STUDIES, object_key=self._study_object_key(study_id))
 
     def index_site(self, *, site_id: int, code: str, name: str, investigator: str) -> None:
+        if not self._is_enabled():
+            return
         text = self._build_text(code, name, investigator)
         if not text:
             return
         self._push_object(bucket=settings.SONIC_BUCKET_SITES, object_key=self._site_object_key(site_id), text=text)
 
     def remove_site(self, *, site_id: int) -> None:
+        if not self._is_enabled():
+            return
         self._flush_object(bucket=settings.SONIC_BUCKET_SITES, object_key=self._site_object_key(site_id))
 
     def _push_object(self, *, bucket: str, object_key: str, text: str) -> None:

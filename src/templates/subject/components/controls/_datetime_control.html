@@ -1,6 +1,10 @@
 {% load subject_form_tags %}
 {% subject_datetime_control_i18n as datetime_control_i18n %}
 <div class="subject-date-picker">
+    <input type="hidden"
+           data-date-composite-input
+           data-date-composite-type="datetime"
+           value="{{ field.value|default:'' }}">
     <div class="subject-date-picker__part">
         <span class="subject-date-picker__label">{{ datetime_control_i18n.day_label }}</span>
         <input class="subject-date-picker__input subject-date-picker__input--day"

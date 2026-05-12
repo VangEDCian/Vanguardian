@@ -56,9 +56,6 @@ def _raise_as_http(exc: PageNotEditableError | InvalidPagePayloadError | Unsuppo
     raise ValidationError([str(exc)]) from exc
 
 
-_DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
-
-
 def _load_payload_map(raw_payload: str | None) -> dict:
     try:
         payload = json.loads(raw_payload or "{}")
@@ -70,11 +67,7 @@ def _load_payload_map(raw_payload: str | None) -> dict:
 
 
 def _canonical_field_key(raw_key: str) -> str:
-    key = str(raw_key or "").strip()
-    for suffix in _DATE_PART_SUFFIXES:
-        if key.endswith(suffix):
-            return key[: -len(suffix)]
-    return key
+    return str(raw_key or "").strip()
 
 
 def _normalize_value(raw_value):
@@ -84,15 +77,6 @@ def _normalize_value(raw_value):
 
 
 def _resolve_canonical_value(payload_map: dict, canonical_key: str):
-    date_keys = [f"{canonical_key}{suffix}" for suffix in _DATE_PART_SUFFIXES]
-    has_date_parts = any(date_key in payload_map for date_key in date_keys)
-    if has_date_parts:
-        return {
-            "__day": _normalize_value(payload_map.get(f"{canonical_key}__day")),
-            "__month": _normalize_value(payload_map.get(f"{canonical_key}__month")),
-            "__year": _normalize_value(payload_map.get(f"{canonical_key}__year")),
-            "__time": _normalize_value(payload_map.get(f"{canonical_key}__time")),
-        }
     return _normalize_value(payload_map.get(canonical_key))
 
 

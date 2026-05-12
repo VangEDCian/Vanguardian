@@ -2,6 +2,10 @@
 {% subject_date_picker_i18n as date_picker_i18n %}
 {% subject_date_validator_attrs field as date_validator_attrs %}
 <div class="subject-date-picker">
+    <input type="hidden"
+           data-date-composite-input
+           data-date-composite-type="date"
+           value="{{ field.value|default:'' }}">
     <div class="subject-date-picker__part">
         <span class="subject-date-picker__label">{{ date_picker_i18n.day_label }}</span>
         <input class="subject-date-picker__input subject-date-picker__input--day"
