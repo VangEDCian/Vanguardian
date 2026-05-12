@@ -19,6 +19,8 @@
               href="{% static 'identity/css/identity_style.css' %}">
         <link rel="stylesheet"
               href="{% static 'shared/css/components/_common_select.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'shared/css/components/request_feedback.css' %}">
         <link rel="stylesheet" href="{% static 'identity/css/auth.css' %}">
         {% block extra_css %}{% endblock %}
     </head>
@@ -48,6 +50,7 @@
                             {% block subheading %}{% endblock %}
                         </p>
                     </div>
+                    {% include "shared/components/_request_feedback_messages.html" %}
                     {% block content %}{% endblock %}
                     <footer class="auth-footer">
                         <p>{% trans "© 2026 Vanguardian" %}</p>
@@ -55,6 +58,7 @@
                 </div>
             </section>
         </main>
+        <script src="{% static 'shared/js/request_feedback.js' %}"></script>
         {% block extra_js %}{% endblock %}
     </body>
 </html>

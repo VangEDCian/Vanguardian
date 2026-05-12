@@ -622,7 +622,7 @@ msgid "NEW USER"
 msgstr "NGƯỜI DÙNG MỚI"
 
 msgid "Reset"
-msgstr "Làm mới"
+msgstr "Cài lại"
 
 msgid "Delete"
 msgstr "Xóa"

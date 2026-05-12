@@ -19,6 +19,8 @@
         <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">
         <link rel="stylesheet"
               href="{% static 'shared/css/components/_common_select.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'shared/css/components/request_feedback.css' %}">
         <link rel="stylesheet" href="{% static 'identity/css/admin_account.css' %}">
         {% block extra_css %}{% endblock %}
     </head>
@@ -68,11 +70,13 @@
             </aside>
             <section class="admin-workspace">
                 <main class="admin-main">
+                    {% include "shared/components/_request_feedback_messages.html" %}
                     {% block admin_content %}{% endblock %}
                 </main>
             </section>
         </div>
         <script src="{% static 'identity/js/admin-account.js' %}"></script>
+        <script src="{% static 'shared/js/request_feedback.js' %}"></script>
         {% block extra_js %}{% endblock %}
     </body>
 </html>

@@ -255,6 +255,95 @@
     });
   }
 
+  function clonePayloadObject(source) {
+    if (!source || typeof source !== 'object') {
+      return null;
+    }
+    try {
+      return JSON.parse(JSON.stringify(source));
+    } catch (error) {
+      console.error(error);
+      return { ...source };
+    }
+  }
+
+  function resolvePayloadValue(inputName, payload) {
+    if (!payload || !Object.prototype.hasOwnProperty.call(payload, inputName)) {
+      return null;
+    }
+    return payload[inputName];
+  }
+
+  function isTruthyCheckboxValue(rawValue) {
+    if (typeof rawValue === 'boolean') {
+      return rawValue;
+    }
+    if (typeof rawValue === 'number') {
+      return rawValue !== 0;
+    }
+    const normalized = String(rawValue ?? '')
+      .trim()
+      .toLowerCase();
+    return ['1', 'true', 'yes', 'on'].includes(normalized);
+  }
+
+  function toCheckboxValueSet(rawValue) {
+    if (Array.isArray(rawValue)) {
+      return new Set(rawValue.map((item) => String(item ?? '')));
+    }
+    if (typeof rawValue === 'string') {
+      return new Set(
+        rawValue
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item),
+      );
+    }
+    return new Set();
+  }
+
+  function applyPayloadToInputs(payload) {
+    fieldScope.querySelectorAll('input, textarea, select').forEach((input) => {
+      if (!input.name || input.disabled) {
+        return;
+      }
+
+      const payloadValue = resolvePayloadValue(input.name, payload);
+
+      if (input.type === 'radio') {
+        input.checked = payloadValue !== null && String(payloadValue ?? '') === String(input.value ?? '');
+        return;
+      }
+
+      if (input.type === 'checkbox') {
+        const checkboxes = Array.from(fieldScope.querySelectorAll('input[type="checkbox"]')).filter(
+          (checkbox) => checkbox.name === input.name,
+        );
+        if (checkboxes.length > 1) {
+          const selectedValues = toCheckboxValueSet(payloadValue);
+          input.checked = selectedValues.has(String(input.value ?? ''));
+          return;
+        }
+        input.checked = payloadValue !== null ? isTruthyCheckboxValue(payloadValue) : false;
+        return;
+      }
+
+      if (input instanceof HTMLSelectElement && input.multiple) {
+        const selectedValues = toCheckboxValueSet(payloadValue);
+        Array.from(input.options).forEach((option) => {
+          option.selected = selectedValues.has(String(option.value ?? ''));
+        });
+        return;
+      }
+
+      if (payloadValue === null || payloadValue === undefined) {
+        input.value = '';
+        return;
+      }
+      input.value = String(payloadValue);
+    });
+  }
+
   function applyLockState() {
     if (!isPageLocked(pageStatus)) {
       return false;
@@ -284,6 +373,15 @@
 
   const initialCurrentDataPayload = loadCurrentDataPayload();
   const initialPreviousDataPayload = loadPreviousDataPayload();
+  const resetTrackpointPayloadSource = shared.loadPayloadByScriptId?.(
+    'datacapture-reset-trackpoint-data-payload',
+  );
+  const resetTrackpointDataPayload =
+    clonePayloadObject(resetTrackpointPayloadSource) ||
+    clonePayloadObject(initialCurrentDataPayload);
+  console.log('initialCurrentDataPayload', initialCurrentDataPayload);
+  console.log('initialPreviousDataPayload', initialPreviousDataPayload);
+  console.log('resetTrackpointDataPayload', resetTrackpointDataPayload);
 
   const validation = validationModuleFactory?.createValidationModule({
     fieldScope,
@@ -344,7 +442,12 @@
   });
 
   resetButton.addEventListener('click', () => {
-    resetInputs();
+    if (resetTrackpointDataPayload) {
+      applyPayloadToInputs(resetTrackpointDataPayload);
+    } else {
+      resetInputs();
+    }
+    refreshRadioDiffMarkers();
     showNotification('Reset done.', 'success');
   });
 
@@ -382,15 +485,10 @@
       pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
       formRoot.dataset.pageStatus = pageStatus;
       showNotification('Submitted successfully.', 'success');
-      if (shouldReloadWithLatestEntry(result)) {
-        window.setTimeout(() => {
-          window.location.reload();
-        }, 120);
-        return;
-      }
-      if (applyLockState()) {
-        return;
-      }
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 120);
+      return;
     } catch (error) {
       showNotification(error?.message || 'Submit failed.', 'error');
       console.error(error);

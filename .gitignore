@@ -85,3 +85,5 @@ migrations/*.py
 # Added by code-review-graph
 .code-review-graph/
 .claude
+
+protected_uploads

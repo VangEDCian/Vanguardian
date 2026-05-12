@@ -1,7 +1,6 @@
 import json
 
 from django.urls import reverse
-from django.utils.translation import activate
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
@@ -72,12 +71,6 @@ class SubjectDetailView(
 
     def get_event_instance_file_repository(self):
         return self.event_instance_file_repository_class()
-
-    def dispatch(self, request, *args, **kwargs):
-        # Force English on subject detail to keep CRF UI consistent for testing.
-        activate("en")
-        request.LANGUAGE_CODE = "en"
-        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         return (

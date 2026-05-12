@@ -9,13 +9,6 @@
           class="admin-account-form admin-account-form--profile"
           novalidate>
         {% csrf_token %}
-        {% if messages %}
-            <div class="admin-account-messages">
-                {% for message in messages %}
-                    <p class="admin-account-alert admin-account-alert--{{ message.tags }}">{{ message }}</p>
-                {% endfor %}
-            </div>
-        {% endif %}
         {% if form.non_field_errors %}
             <div class="admin-account-alert admin-account-alert--error">
                 {{ form.non_field_errors|striptags }}

@@ -92,6 +92,7 @@ MIDDLEWARE = [
     "apps.identity.infrastructure.auth.middleware.CheckFirstLoginMiddleware",
     "apps.identity.infrastructure.auth.middleware.MembershipAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "Vanguardian.middleware.TemplateMutationFeedbackMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 

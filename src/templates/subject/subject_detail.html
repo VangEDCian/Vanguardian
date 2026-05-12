@@ -145,6 +145,7 @@
                           action="{{ event_file_import_url }}"
                           enctype="multipart/form-data"
                           class="subject-detail-screen__footer-inline-form"
+                          data-eventinstance-file-invalid-type-message="{% trans 'Unsupported file type. Only image and PDF are allowed.' %}"
                           data-eventinstance-file-import-form>
                         {% csrf_token %}
                         {% if focused_form %}
@@ -155,6 +156,7 @@
                         {% endif %}
                         <input type="file"
                                name="import_file"
+                               accept="image/*,.pdf,application/pdf"
                                hidden
                                data-eventinstance-file-input>
                         <button type="button"
@@ -174,6 +176,7 @@
             </div>
         </footer>
         {{ current_data_values|json_script:"datacapture-current-data-payload" }}
+        {{ current_data_values|json_script:"datacapture-reset-trackpoint-data-payload" }}
         {% if previous_data_values is not None %}
             {{ previous_data_values|json_script:"datacapture-previous-data-payload" }}
         {% endif %}
