@@ -31,46 +31,8 @@
   font-weight: 400;
 }
 
-.subject-form-field-card__choice-list {
-  display: grid;
-  gap: 8px;
-}
-
-.subject-form-field-card__choice-list label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #223543;
-  font-size: 13px;
-}
-
 .subject-form-field-card > .subject-form-field-card__control {
   padding: 1rem;
-}
-
-.subject-form-field-card__input,
-.subject-form-field-card__textarea {
-  width: 100%;
-  border: 1px solid #b7c6d2;
-  border-radius: 4px;
-  background: #ffffff;
-  color: #4f5f6d;
-  font-size: 13px;
-}
-
-.subject-form-field-card__input {
-  min-height: 34px;
-  padding: 6px 8px;
-}
-
-.subject-form-field-card__textarea {
-  padding: 8px;
-  resize: none;
-}
-
-.subject-form-field-card__input--readonly {
-  background: #f7fafc;
-  color: #60717f;
 }
 
 .subject-form-field-card__time-grid {

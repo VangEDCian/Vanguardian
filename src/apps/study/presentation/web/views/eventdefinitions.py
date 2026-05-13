@@ -14,9 +14,7 @@ from apps.study.application import (
     EventDefinitionImportFormatError,
     EventFormBindingImportDependencyError,
     EventFormBindingImportFormatError,
-    ImportStudyEventDefinitionsTemplateCommand,
     ImportStudyEventDefinitionsTemplateService,
-    ImportStudyEventFormBindingsTemplateCommand,
     ImportStudyEventFormBindingsTemplateService,
     StudyDirectoryQueryService,
     StudyEventDefinitionDirectoryQueryService,
@@ -27,6 +25,10 @@ from apps.study.presentation.web.forms import (
     EventDefinitionImportTemplateForm,
     EventDefinitionsToolbarForm,
     EventFormBindingImportTemplateForm,
+)
+from apps.study.presentation.web.mappers.commands import (
+    to_import_study_event_definitions_template_command,
+    to_import_study_event_form_bindings_template_command,
 )
 from apps.study.presentation.web.tables import EventDefinitionListTable
 from apps.study.presentation.web.views.helpers import _user_has_study_access
@@ -190,7 +192,7 @@ class StudyEventDefinitionListView(
             )
 
         uploaded_file = import_form.cleaned_data["import_file"]
-        command = ImportStudyEventDefinitionsTemplateCommand(
+        command = to_import_study_event_definitions_template_command(
             actor_user_id=request.user.pk,
             study_id=self._study.pk,
             file_name=uploaded_file.name,
@@ -299,7 +301,7 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
             )
 
         uploaded_file = binding_import_form.cleaned_data["import_file"]
-        command = ImportStudyEventFormBindingsTemplateCommand(
+        command = to_import_study_event_form_bindings_template_command(
             actor_user_id=request.user.pk,
             selected_study_id=self._study.pk,
             study_id=self._study.pk,

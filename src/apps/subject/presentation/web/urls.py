@@ -8,7 +8,6 @@ from apps.subject.presentation.web.views import (
     SubjectEventInstanceFilePreviewView,
     SubjectListView,
 )
-
 from apps.subject.presentation.web.views.verification_verify_checked import (
     SubjectFormVerificationVerifyCheckedView,
 )

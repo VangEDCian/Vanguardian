@@ -42,66 +42,9 @@
   font-size: 13px;
 }
 
-.subject-form-table-row__choice-list {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 28px;
-  min-height: 100%;
-}
-
-.subject-form-table-row__choice-list>label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #1f252b;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.subject-form-table-row__choice-list--vertical {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 10px;
-}
-
-.subject-form-table-row__input,
-.subject-form-table-row__textarea {
-  width: 100%;
-  min-height: 36px;
-  border: 1px solid #b4b4b4;
-  border-radius: 4px;
-  background: #ffffff;
-  color: #222222;
-  font-size: 14px;
-}
-
-.subject-form-table-row__input {
-  padding: 6px 10px;
-}
-
-.subject-form-table-row__textarea {
-  padding: 8px 10px;
-  resize: none;
-}
-
-.subject-form-table-row__input--readonly {
-  background: #f4f4f4;
-  color: #5b6169;
-}
-
 .subject-form-table-row__unsupported,
 .subject-form-table-row__empty {
   padding: 12px 14px;
   color: #5e6670;
   font-size: 13px;
-}
-
-@media (max-width: 1200px) {
-  .subject-form-table-row__choice-list {
-    justify-content: flex-start;
-    gap: 18px;
-  }
 }

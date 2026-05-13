@@ -3,12 +3,7 @@ from datetime import datetime
 
 from django.utils import timezone
 
-from apps.crf.models import CrfFieldTemplate
-from apps.reconcile.models import (
-    ReconcileDataQuery,
-    ReconcileDataQuerySourceChoices,
-    ReconcileDataQueryStatusChoices,
-)
+from apps.reconcile.infrastructure.repositories import DjangoReconcileDataQueryWriteRepository
 
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
 
@@ -21,6 +16,9 @@ class ReconcileChangeReasonItem:
 
 
 class ReconcileDataQueryWriteService:
+    def __init__(self, repository=None):
+        self.repository = repository or DjangoReconcileDataQueryWriteRepository()
+
     @staticmethod
     def _canonical_field_key(field_key: str) -> str:
         normalized = str(field_key or "").strip()
@@ -64,38 +62,24 @@ class ReconcileDataQueryWriteService:
         if not normalized_reasons:
             return 0
 
-        field_key_to_id = dict(
-            CrfFieldTemplate.objects.filter(
-                crf_template_id=crf_template_id,
-                deleted=False,
-            ).values_list("field_key", "id")
-        )
+        field_key_to_id = self.repository.list_field_key_to_id(crf_template_id=crf_template_id)
         now: datetime = timezone.now()
-        records: list[ReconcileDataQuery] = []
+        create_items: list[dict[str, object]] = []
         for item in normalized_reasons:
             field_template_id = self._resolve_field_template_id(
                 canonical_field_key=item.field_key,
                 field_key_to_id=field_key_to_id,
             )
-            records.append(
-                ReconcileDataQuery(
-                    created_at=now,
-                    updated_at=now,
-                    deleted=False,
-                    status=ReconcileDataQueryStatusChoices.OPEN,
-                    source=ReconcileDataQuerySourceChoices.MANUAL,
-                    question_text=item.reason,
-                    resolution_note=(item.field_label or item.field_key)[:255],
-                    closed_at=None,
-                    page_state_id=page_state_id,
-                    field_template_id=field_template_id,
-                    validation_rule_id=None,
-                    assigned_to_id=None,
-                    created_by_id=actor_user_id,
-                    updated_by_id=actor_user_id,
-                )
+            create_items.append(
+                {
+                    "field_template_id": field_template_id,
+                    "reason": item.reason,
+                    "resolution_note": (item.field_label or item.field_key),
+                },
             )
-
-        ReconcileDataQuery.objects.bulk_create(records)
-        return len(records)
-
+        return self.repository.bulk_create_manual_open_queries(
+            page_state_id=page_state_id,
+            items=create_items,
+            actor_user_id=actor_user_id,
+            now=now,
+        )

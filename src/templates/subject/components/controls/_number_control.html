@@ -1,11 +1,12 @@
 {% load subject_form_tags subject_field_validators %}
 {% subject_number_control_i18n as number_control_i18n %}
 {% subject_number_validator_attrs field as number_validator_attrs %}
-<input class="{{ input_class }}"
+<input class="{{ input_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
        type="text"
        inputmode="decimal"
        data-submitted-diff-input
        data-submitted-diff-control="number"
+       {% if field.style %}style="{{ field.style }}"{% endif %}
        readonly
        {{ number_validator_attrs }}
        value="{{ field.value }}"

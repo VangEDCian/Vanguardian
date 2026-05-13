@@ -1,7 +1,7 @@
 {% load subject_form_tags subject_field_validators %}
 {% subject_date_picker_i18n as date_picker_i18n %}
 {% subject_date_validator_attrs field as date_validator_attrs %}
-<div class="subject-date-picker">
+<div class="subject-date-picker{% if field.classes %} {{ field.classes }}{% endif %}"{% if field.style %} style="{{ field.style }}"{% endif %}>
     <input type="hidden"
            data-date-composite-input
            data-date-composite-type="date"

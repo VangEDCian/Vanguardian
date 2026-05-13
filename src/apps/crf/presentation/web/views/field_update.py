@@ -9,11 +9,11 @@ from apps.audit.public import build_audit_request_context
 from apps.crf.application.form_builder_orchestration import (
     FormBuilderOrchestrationService,
     StudyScopeViolationError,
-    UpdateFieldAggregateCommand,
 )
 from apps.crf.application.form_builder_queries import FormBuilderReadModelService
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError
 from apps.crf.presentation.web.forms import CrfFieldUpdateForm
+from apps.crf.presentation.web.mappers.form_builder_commands import to_update_field_aggregate_command
 from apps.crf.presentation.web.views.builder import CrfFormBuilderView
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateView
@@ -145,7 +145,7 @@ class CrfFieldUpdateView(AuthenticateTemplateView):
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(field_form=form))
 
-        command = UpdateFieldAggregateCommand(
+        command = to_update_field_aggregate_command(
             selected_study_id=int(selected_study_id),
             study_id=int(selected_study_id),
             field_id=field.pk,

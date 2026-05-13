@@ -1,10 +1,11 @@
 {% load subject_form_tags subject_field_validators %}
 {% subject_text_control_i18n as text_control_i18n %}
 {% subject_text_validator_attrs field as text_validator_attrs %}
-<input class="{{ input_class }}"
+<input class="{{ input_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
        type="text"
        data-submitted-diff-input
        data-submitted-diff-control="text"
+       {% if field.style %}style="{{ field.style }}"{% endif %}
        readonly
        {{ text_validator_attrs }}
        value="{{ field.value }}"

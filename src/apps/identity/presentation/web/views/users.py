@@ -10,9 +10,7 @@ from django.views import View
 
 from apps.audit.public import build_audit_request_context
 from apps.identity.application import (
-    CreateIdentityUserCommand,
     CreateIdentityUserService,
-    DeleteIdentityUserCommand,
     DeleteIdentityUserService,
     IdentityUserAuditService,
     IdentityUserDirectoryQueryService,
@@ -23,9 +21,7 @@ from apps.identity.application import (
     IdentityUserNotFoundError,
     IdentityUserPhoneNumberAlreadyExistsError,
     IdentityUserRestoreDataNotFoundError,
-    RestoreIdentityUserCommand,
     RestoreIdentityUserService,
-    UpdateIdentityUserDetailCommand,
     UpdateIdentityUserDetailService,
     serialize_identity_user_snapshot,
 )
@@ -33,6 +29,12 @@ from apps.identity.models import User
 from apps.identity.presentation.web.forms import (
     IdentityUserCreateForm,
     IdentityUserDetailForm,
+)
+from apps.identity.presentation.web.mappers.user_commands import (
+    to_create_identity_user_command,
+    to_delete_identity_user_command,
+    to_restore_identity_user_command,
+    to_update_identity_user_detail_command,
 )
 from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 
@@ -136,7 +138,7 @@ class IdentityUserCreateView(AuthenticateTemplateView):
 
         try:
             created_user = self.get_create_identity_user_service().execute(
-                CreateIdentityUserCommand(
+                to_create_identity_user_command(
                     actor_user_id=request.user.pk,
                     username=form.cleaned_data["username"],
                     password=form.cleaned_data["password"],
@@ -327,7 +329,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
 
         try:
             updated_user = self.get_update_user_detail_service().execute(
-                UpdateIdentityUserDetailCommand(
+                to_update_identity_user_detail_command(
                     user_id=target_user.pk,
                     actor_user_id=request.user.pk,
                     first_name=form.cleaned_data["first_name"],
@@ -533,7 +535,7 @@ class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
 
         before_data = serialize_identity_user_snapshot(target_user)
         self.get_delete_user_service().execute(
-            DeleteIdentityUserCommand(
+            to_delete_identity_user_command(
                 user_id=target_user.pk,
                 actor_user_id=request.user.pk,
             )
@@ -568,7 +570,7 @@ class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
 
         try:
             restored_user = self.get_restore_user_service().execute(
-                RestoreIdentityUserCommand(
+                to_restore_identity_user_command(
                     user_id=target_user.pk,
                     actor_user_id=request.user.pk,
                 )

@@ -1,8 +1,9 @@
 {% load subject_form_tags %}
 {% subject_multi_select_control_i18n as multi_select_control_i18n %}
-<div class="{{ choice_list_class }}"
+<div class="{{ choice_list_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
      data-submitted-diff-multi-select
-     data-submitted-diff-control="multi-select">
+     data-submitted-diff-control="multi-select"
+     {% if field.style %}style="{{ field.style }}"{% endif %}>
     {% for option in field.options %}
         <label>
             <input type="checkbox"

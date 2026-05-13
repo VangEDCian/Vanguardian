@@ -1,0 +1,30 @@
+input[data-submitted-diff-control="label-only"] {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #b4b4b4;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.subject-form-field-card__control input[data-submitted-diff-control="label-only"] {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #b7c6d2;
+  font-size: 13px;
+}
+
+.subject-form-table-row__cell--response input[data-submitted-diff-control="label-only"] {
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+input[data-submitted-diff-control="label-only"] {
+  background: #f4f4f4;
+  color: #5b6169;
+}
+
+.subject-form-field-card__control input[data-submitted-diff-control="label-only"] {
+  background: #f7fafc;
+  color: #60717f;
+}

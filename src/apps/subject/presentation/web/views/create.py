@@ -4,8 +4,8 @@ from django.urls import reverse
 
 from apps.shared.context_processors import SiteDropdownHandler
 from apps.shared.views import AuthenticateTemplateContextMixin
-from apps.subject.application.commands.create_subject import CreateSubjectCommand
 from apps.subject.application.services import CreateSubjectService
+from apps.subject.presentation.web.mappers.create_subject import to_create_subject_command
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 
@@ -26,7 +26,7 @@ class SubjectCreateView(
             raise Http404
 
         subject = CreateSubjectService().execute(
-            CreateSubjectCommand(
+            to_create_subject_command(
                 study_id=study_id,
                 site_id=site_id,
                 actor_user_id=request.user.pk,

@@ -7,9 +7,9 @@ from django.views.generic import DetailView
 
 from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
 from apps.datacapture.public import (
-    get_page_state_final_data_for_subject_visit_crf,
     get_latest_page_entry_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
+    get_page_state_final_data_for_subject_visit_crf,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
 )

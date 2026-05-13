@@ -1,7 +1,9 @@
 {% load subject_form_tags %}
 {% subject_label_only_control_i18n as label_only_control_i18n %}
-<input class="{{ readonly_input_class|default:input_class }}"
+<input class="{{ readonly_input_class|default:input_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
        type="text"
+       data-submitted-diff-control="label-only"
+       {% if field.style %}style="{{ field.style }}"{% endif %}
        readonly
        value="{{ field.value }}"
        placeholder="{{ field.placeholder_text|default:label_only_control_i18n.placeholder }}" />

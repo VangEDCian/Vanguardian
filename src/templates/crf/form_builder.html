@@ -44,8 +44,8 @@
                 <section class="user-detail-section" hidden>
                     <h2 class="user-detail-section__title">{% trans "FORM BUILDER" %}</h2>
                     <div class="user-detail-section__body">
-                        <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                            <div class="crf-definition-panel__field" style="display: block;">
+                        <div class="crf-definition-panel__grid crf-builder-gap--mb16">
+                            <div class="crf-definition-panel__field crf-builder-field--block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Code" %}</span>
@@ -54,7 +54,7 @@
                                 </div>
                                 <div class="user-detail-field__error">{{ template_translation_form.code.errors }}</div>
                             </div>
-                            <div class="crf-definition-panel__field" style="display: block;">
+                            <div class="crf-definition-panel__field crf-builder-field--block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Version" %}</span>
@@ -64,8 +64,8 @@
                                 <div class="user-detail-field__error">{{ template_translation_form.version.errors }}</div>
                             </div>
                         </div>
-                        <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
-                            <div class="crf-definition-panel__field" style="display: block;">
+                        <div class="crf-definition-panel__grid crf-builder-gap--mb16">
+                            <div class="crf-definition-panel__field crf-builder-field--block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Name EN" %}</span>
@@ -74,7 +74,7 @@
                                 </div>
                                 <div class="user-detail-field__error">{{ template_translation_form.name_en.errors }}</div>
                             </div>
-                            <div class="crf-definition-panel__field" style="display: block;">
+                            <div class="crf-definition-panel__field crf-builder-field--block">
                                 <div class="input-group crf-input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Name VI" %}</span>
@@ -91,7 +91,7 @@
                 </section>
 
                 <section class="user-detail-section" data-builder-landing>
-                    <div class="user-detail-section__body" style="display:flex; justify-content:center; gap:16px; padding:24px 0 12px;">
+                    <div class="user-detail-section__body crf-builder-landing-actions">
                         <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary" data-sections-show>{% trans "Sections" %}</button>
                         <button type="button" class="entity-table__footer-button entity-table__footer-button--secondary" data-fields-show>{% trans "Fields" %}</button>
                         <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-section-add>{% trans "Add Section" %}</button>

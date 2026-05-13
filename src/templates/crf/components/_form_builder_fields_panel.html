@@ -1,7 +1,7 @@
 {% load i18n %}
 <section class="user-detail-section" data-builder-panel="fields" hidden>
     <div data-builder-panel-view="fields" data-builder-panel-mode="list">
-        <div style="display:flex; justify-content:flex-end; padding:0 0 16px;">
+        <div class="crf-inline-actions">
             <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-field-add>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 {% trans "Add Field" %}
@@ -68,7 +68,7 @@
     </div>
 
     <div data-builder-panel-view="fields" data-builder-panel-mode="form" hidden>
-        <div style="display:flex; justify-content:flex-end; padding:8px 0 12px;">
+        <div class="crf-inline-actions crf-inline-actions--compact">
             <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-field-panel-add>{% trans "Add Field" %}</button>
         </div>
         <div data-field-draft-panels>
@@ -108,14 +108,14 @@
 
                 <div hidden>{{ create_field_form.field_id }}</div>
 
-                <div class="crf-definition-panel__grid" style="margin-bottom:16px;">
+                <div class="crf-definition-panel__grid crf-builder-gap--mb16">
                     <div class="crf-definition-panel__field crf-definition-panel__field--full">
                         <label class="crf-builder-field__label">{% trans "FIELD TEMPLATE" %}</label>
-                        <div class="crf-definition-panel__summary-box" style="margin-bottom:12px;">
+                        <div class="crf-definition-panel__summary-box crf-builder-gap--mb12">
                             {% trans "Core identity and placement of the field" %}
                         </div>
                         <div class="user-detail-inline-row">
-                            <div class="user-detail-inline-field" style="display: block;">
+                            <div class="user-detail-inline-field crf-builder-field--block">
                                 <div class="input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Field Key" %}</span>
@@ -124,7 +124,7 @@
                                 </div>
                                 <div class="user-detail-field__error">{{ create_field_form.field_key.errors }}</div>
                             </div>
-                            <div class="user-detail-inline-field" style="display: block;">
+                            <div class="user-detail-inline-field crf-builder-field--block">
                                 <div class="input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Label EN" %}</span>
@@ -135,7 +135,7 @@
                             </div>
                         </div>
                         <div class="user-detail-inline-row">
-                            <div class="user-detail-inline-field" style="display: block;">
+                            <div class="user-detail-inline-field crf-builder-field--block">
                                 <div class="input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Label VI" %}</span>
@@ -144,7 +144,7 @@
                                 </div>
                                 <div class="user-detail-field__error">{{ create_field_form.label_vi.errors }}</div>
                             </div>
-                            <div class="user-detail-inline-field" style="display: block;">
+                            <div class="user-detail-inline-field crf-builder-field--block">
                                 <div class="input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Data Type" %}</span>
@@ -155,7 +155,7 @@
                             </div>
                         </div>
                         <div class="user-detail-inline-row">
-                            <div class="user-detail-inline-field" style="display: block;">
+                            <div class="user-detail-inline-field crf-builder-field--block">
                                 <div class="input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Section" %}</span>
@@ -164,7 +164,7 @@
                                 </div>
                                 <div class="user-detail-field__error">{{ create_field_form.section_template_id.errors }}</div>
                             </div>
-                            <div class="user-detail-inline-field" style="display: block;">
+                            <div class="user-detail-inline-field crf-builder-field--block">
                                 <div class="input-group">
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">{% trans "Display Order" %}</span>
@@ -185,21 +185,21 @@
                 </div>
             <label class="crf-builder-field__label">{% trans "Field Definition" %}</label>
                 <div class="crf-definition-panel__grid">
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group">
                             <div class="input-group-prepend"><span class="input-group-text">{% trans "Label" %}</span></div>
                             {{ create_field_form.label_en }}
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.label_en.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group">
                             <div class="input-group-prepend"><span class="input-group-text">{% trans "Name" %}</span></div>
                             {{ create_field_form.field_key }}
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.field_key.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group">
                             <div class="input-group-prepend"><span class="input-group-text">{% trans "Type" %}</span></div>
                             {{ create_field_form.control_type }}
@@ -213,8 +213,8 @@
                     </div>
                 </div>
 
-                <div class="crf-definition-panel__grid" style="margin-top:16px;">
-                    <div class="crf-definition-panel__field" style="display: block;">
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Unit" %}</span>
@@ -223,7 +223,7 @@
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.unit.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Range Min" %}</span>
@@ -232,7 +232,7 @@
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.range_min.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Range Max" %}</span>
@@ -243,8 +243,8 @@
                     </div>
                 </div>
 
-                <div class="crf-definition-panel__grid" style="margin-top:16px;">
-                    <div class="crf-definition-panel__field" style="display: block;">
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Precision" %}</span>
@@ -253,7 +253,7 @@
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.precision.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Allowed Missing Values" %}</span>
@@ -262,7 +262,7 @@
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.allowed_missing_values.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Codelist" %}</span>
@@ -273,8 +273,8 @@
                     </div>
                 </div>
 
-                <div class="crf-definition-panel__grid" style="margin-top:16px;">
-                    <div class="crf-definition-panel__field" style="display: block;">
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Data Semantic" %}</span>
@@ -283,7 +283,7 @@
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.data_semantic.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Text Min Length" %}</span>
@@ -292,7 +292,7 @@
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.text_min_length.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Text Max Length" %}</span>
@@ -303,8 +303,8 @@
                     </div>
                 </div>
 
-                <div class="crf-definition-panel__grid" style="margin-top:16px;">
-                    <div class="crf-definition-panel__field" style="display: block;">
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Pattern" %}</span>
@@ -313,7 +313,7 @@
                         </div>
                         <div class="user-detail-field__error">{{ create_field_form.pattern.errors }}</div>
                     </div>
-                    <div class="crf-definition-panel__field" style="display: block;">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
                         <div class="input-group crf-input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">{% trans "Pattern Err Msg" %}</span>
@@ -329,7 +329,7 @@
                     </div>
                 </div>
 
-                <div class="crf-definition-panel__grid" style="margin-top:16px;">
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
                     <div class="crf-definition-panel__field crf-definition-panel__field--full">
                         <label class="crf-builder-field__label">{% trans "SDTM Data" %}</label>
                         <div class="crf-definition-panel__summary-row">
@@ -356,10 +356,10 @@
 
                 </div>
 
-                <div class="crf-definition-panel__grid" style="margin-top:16px;">
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
                     <div class="crf-definition-panel__field crf-definition-panel__field--full">
                         <label class="crf-builder-field__label">{% trans "FIELD UI CONFIG" %}</label>
-                        <div class="crf-definition-panel__summary-box" style="margin-bottom:12px;">
+                        <div class="crf-definition-panel__summary-box crf-builder-gap--mb12">
                             {% trans "Visual behavior and layout for the field" %}
                         </div>
                         <div id="field-ui-config-body" data-ui-config-editor>
@@ -428,7 +428,7 @@
                                 </div>
                             </div>
                             <div class="user-detail-inline-row">
-                                <div class="user-detail-inline-field" style="display: block;">
+                                <div class="user-detail-inline-field crf-builder-field--block">
                                     <div class="input-group">
                                         <div class="input-group-prepend"><span class="input-group-text">{% trans "Control Type" %}</span></div>
                                         {{ create_field_form.control_type }}
@@ -446,7 +446,7 @@
                                 </div>
                             </div>
                             <div class="user-detail-inline-row">
-                                <div class="user-detail-inline-field" style="display: block;">
+                                <div class="user-detail-inline-field crf-builder-field--block">
                                     <div class="input-group">
                                         <div class="input-group-prepend"><span class="input-group-text">{% trans "Text" %}</span></div>
                                         {{ create_field_form.text }}
@@ -487,7 +487,7 @@
                     </div>
                     <div class="crf-definition-panel__field crf-definition-panel__field--full">
                         <label class="crf-builder-field__label">{% trans "FIELD VALIDATION RULE" %}</label>
-                        <div class="crf-definition-panel__summary-box" style="margin-bottom:12px;">
+                        <div class="crf-definition-panel__summary-box crf-builder-gap--mb12">
                             {% trans "Validation rules and messages" %}
                         </div>
                         <div id="field-validation-body" data-validation-rules-editor>
@@ -516,7 +516,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                                 <span>{{ field_form_submit_label|default:_("Create Field") }}</span>
                             </button>
-                            <button type="reset" class="entity-table__footer-button entity-table__footer-button--secondary" data-field-form-action style="height: 32px; border-radius: 16px; margin-left: 8px;">{% trans "Reset" %}</button>
+                            <button type="reset" class="entity-table__footer-button entity-table__footer-button--secondary crf-builder-reset-btn" data-field-form-action>{% trans "Reset" %}</button>
                         </div>
                     </div>
                 </div>
@@ -600,7 +600,3 @@
         </div>
     </div>
 </div>
-
-
-
-</section>

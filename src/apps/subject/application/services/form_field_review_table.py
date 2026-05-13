@@ -2,8 +2,7 @@ import json
 from datetime import date, datetime
 from typing import Any
 
-from django.utils import formats
-from django.utils import timezone
+from django.utils import formats, timezone
 
 from apps.reconcile.application.services.dataquery_read import ReconcileDataQueryReadService
 from apps.subject.infrastructure.repositories.event_instance_schedule_read import (

@@ -16,7 +16,7 @@
         {% endif %}
         <section class="admin-content-panel admin-profile-card">
             <div class="admin-avatar admin-avatar--hero" aria-hidden="true">
-                <img src="{% static 'images/navigation/user.svg' %}" alt="">
+                <img src="{% static 'images/navigation/user.svg' %}" alt="" width="37" height="37">
             </div>
             <div class="admin-profile-card__content">
                 <h2>{{ profile_summary.display_name }}</h2>
@@ -87,7 +87,9 @@
                     <label>{% trans "Status" %}</label>
                     <span class="admin-boolean-value{% if not profile_summary.is_active %} admin-boolean-value--inactive{% endif %}">
                         <img src="{% if profile_summary.is_active %}{% static 'images/status/activate.svg' %}{% else %}{% static 'images/status/deactivate.svg' %}{% endif %}"
-                             alt="">
+                             alt=""
+                             width="13"
+                             height="13">
                         <span>{{ profile_summary.status_label }}</span>
                     </span>
                 </div>

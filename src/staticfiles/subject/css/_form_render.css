@@ -1,6 +1,15 @@
 @import url("./_field_render.css");
 @import url("./_field_card_render.css");
+@import url("./_text_control.css");
+@import url("./_number_control.css");
+@import url("./_select_control.css");
+@import url("./_textarea_control.css");
+@import url("./_label_only_control.css");
+@import url("./_radio_control.css");
+@import url("./_checkbox_control.css");
+@import url("./_multi_select_control.css");
 @import url("./_date_picker_control.css");
+@import url("./_datetime_control.css");
 @import url("./_section_table_render.css");
 @import url("./_field_table_row_render.css");
 
@@ -208,21 +217,6 @@
   border-color: #d32f2f !important;
   box-shadow: 0 0 0 1px rgba(211, 47, 47, 0.2);
 }
-
-.subject-form-radio-option-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.subject-form-radio-option-label.is-changed-from-submitted::before {
-  content: "";
-  width: 10px;
-  height: 10px;
-  flex: 0 0 10px;
-  background: url("/static/images/fields/triangle-svgrepo-com.svg") center/contain no-repeat;
-}
-
 
 .subject-form-field__control-invalid:focus-visible,
 .subject-form-field-card__control-invalid:focus-visible,

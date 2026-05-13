@@ -14,11 +14,11 @@ from apps.study.application import (
     StudyFilterActiveQueryService,
     StudyFilterInactiveQueryService,
     StudyNotFoundError,
-    UpdateStudyCommand,
     UpdateStudyService,
 )
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import StudyForm
+from apps.study.presentation.web.mappers.commands import to_update_study_command
 from apps.study.presentation.web.views.helpers import (
     _can_change_study_status,
     _serialize_study_snapshot,
@@ -199,7 +199,7 @@ class StudyDetailView(
 
         before_data = _serialize_study_snapshot(self._study)
 
-        command = UpdateStudyCommand(
+        command = to_update_study_command(
             study_id=self._study.pk,
             code=self._study.code,
             name=form.cleaned_data["name"]

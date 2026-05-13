@@ -8,13 +8,15 @@ from django.views import View
 
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.study.application import (
-    DeleteRandomizationArmCommand,
     DeleteRandomizationArmService,
-    DeleteRandomizationSchemeCommand,
     DeleteRandomizationSchemeService,
     RandomizationArmNotFoundError,
     RandomizationDeleteBlockedError,
     RandomizationSchemeNotFoundError,
+)
+from apps.study.presentation.web.mappers.commands import (
+    to_delete_randomization_arm_command,
+    to_delete_randomization_scheme_command,
 )
 from apps.study.presentation.web.views.randomization import StudyRandomizationAccessMixin
 
@@ -38,7 +40,7 @@ class StudyRandomizationSchemeDeleteView(
 
         try:
             result = self.get_delete_service().execute(
-                DeleteRandomizationSchemeCommand(
+                to_delete_randomization_scheme_command(
                     actor_user_id=request.user.pk,
                     study_id=self._study.pk,
                     scheme_id=kwargs["scheme_id"],
@@ -95,7 +97,7 @@ class StudyRandomizationArmDeleteView(
 
         try:
             result = self.get_delete_service().execute(
-                DeleteRandomizationArmCommand(
+                to_delete_randomization_arm_command(
                     actor_user_id=request.user.pk,
                     study_id=self._study.pk,
                     arm_id=kwargs["arm_id"],

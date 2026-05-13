@@ -14,11 +14,8 @@ from apps.audit.public import build_audit_request_context
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application.commands.site_data import (
-    CreateSiteCommand,
-    DeleteSiteCommand,
     SiteCodeAlreadyExistsError,
     SiteNotFoundError,
-    UpdateSiteCommand,
 )
 from apps.study.application.services import (
     CreateSiteService,
@@ -30,6 +27,11 @@ from apps.study.application.services.site_audit import SiteAuditService
 from apps.study.infrastructure.persistence.models import Site, Study
 from apps.study.infrastructure.repositories import DjangoStudyCommandRepository
 from apps.study.presentation.web.forms.site import SiteForm, SitesToolbarForm
+from apps.study.presentation.web.mappers.commands import (
+    to_create_site_command,
+    to_delete_site_command,
+    to_update_site_command,
+)
 from apps.study.presentation.web.tables import SiteListTable
 from apps.study.presentation.web.views.helpers import _user_has_study_access
 
@@ -246,7 +248,7 @@ class SiteDetailView(
         snapshot_before_data = StudySiteDirectoryQueryService.snapshot_site_obj(site=site)
 
         UpdateSiteService().execute(
-            UpdateSiteCommand(
+            to_update_site_command(
                 site_id=site.pk,
                 name=form.cleaned_data["name"],
                 investigator_id=form.cleaned_data.get("investigator"),
@@ -348,7 +350,7 @@ class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, Sit
 
         try:
             site = CreateSiteService().execute(
-                CreateSiteCommand(
+                to_create_site_command(
                     code=form.cleaned_data["code"],
                     name=form.cleaned_data["name"],
                     investigator_id=form.cleaned_data.get("investigator"),
@@ -394,7 +396,7 @@ class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractV
 
         try:
             DeleteSiteService().execute(
-                DeleteSiteCommand(site_id=site.pk, actor_user_id=request.user.pk),
+                to_delete_site_command(site_id=site.pk, actor_user_id=request.user.pk),
             )
         except SiteNotFoundError:
             raise Http404

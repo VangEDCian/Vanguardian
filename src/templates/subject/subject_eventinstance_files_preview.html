@@ -32,6 +32,8 @@
                         {% if selected_file.kind == "image" %}
                             <img src="{{ selected_file.preview_url }}"
                                  alt="{{ selected_file.original_file_name }}"
+                                 width="1024"
+                                 height="768"
                                  class="subject-file-preview__image">
                         {% elif selected_file.kind == "pdf" %}
                             <iframe src="{{ selected_file.preview_url }}"

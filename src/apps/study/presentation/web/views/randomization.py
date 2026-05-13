@@ -9,10 +9,8 @@ from django.views import View
 
 from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application import (
-    CommitRandomizationImportCommand,
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,
-    PreviewRandomizationImportCommand,
     PreviewStudyRandomizationArmsImportService,
     PreviewStudyRandomizationSchemesImportService,
     RandomizationImportDependencyError,
@@ -25,6 +23,10 @@ from apps.study.application import (
 from apps.study.application.services import BaseRandomizationImportValidationService
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import RandomizationImportFileForm
+from apps.study.presentation.web.mappers.commands import (
+    to_commit_randomization_import_command,
+    to_preview_randomization_import_command,
+)
 from apps.study.presentation.web.views.helpers import _user_has_study_access
 
 __all__ = [
@@ -231,7 +233,7 @@ class StudyRandomizationImportBaseView(
 
     def build_command(self, uploaded_file):
         if self.request.user.pk and isinstance(self.request.user.pk, int):
-            return PreviewRandomizationImportCommand(
+            return to_preview_randomization_import_command(
                 actor_user_id=self.request.user.pk,
                 study_id=self._study.pk,
                 file_name=uploaded_file.name,
@@ -351,7 +353,7 @@ class StudyRandomizationCommitBaseView(StudyRandomizationImportBaseView):
 
     def build_commit_command(self, uploaded_file):
         if self.request.user.pk and isinstance(self.request.user.pk, int):
-            return CommitRandomizationImportCommand(
+            return to_commit_randomization_import_command(
                 actor_user_id=self.request.user.pk,
                 study_id=self._study.pk,
                 file_name=uploaded_file.name,

@@ -468,6 +468,7 @@ class SubjectDetailRenderingMixin:
                         "default_value_expr",
                     ),
                     "classes": (ui_config.get("classes") or "").strip(),
+                    "style": (ui_config.get("style") or "").strip(),
                     "range_min": field.get("range_min"),
                     "range_max": field.get("range_max"),
                     "text_min_length": field.get("text_min_length"),

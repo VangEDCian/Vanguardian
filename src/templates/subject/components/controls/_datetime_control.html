@@ -1,6 +1,6 @@
 {% load subject_form_tags %}
 {% subject_datetime_control_i18n as datetime_control_i18n %}
-<div class="subject-date-picker">
+<div class="subject-date-picker{% if field.classes %} {{ field.classes }}{% endif %}"{% if field.style %} style="{{ field.style }}"{% endif %}>
     <input type="hidden"
            data-date-composite-input
            data-date-composite-type="datetime"

@@ -10,21 +10,23 @@ from django.views import View
 from apps.audit.public import build_audit_request_context
 from apps.shared.views import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application import (
-    CreateStudyCommand,
     CreateStudyService,
-    DeleteStudyCommand,
     DeleteStudyService,
     StudyAuditService,
     StudyCodeAlreadyExistsError,
     StudyDateRangeError,
     StudyNotFoundError,
-    ToggleStudyStatusCommand,
     ToggleStudyStatusService,
-    UpdateStudyCommand,
     UpdateStudyService,
 )
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import StudyForm
+from apps.study.presentation.web.mappers.commands import (
+    to_create_study_command,
+    to_delete_study_command,
+    to_toggle_study_status_command,
+    to_update_study_command,
+)
 from apps.study.presentation.web.views.helpers import (
     _serialize_study_snapshot,
     _user_has_study_access,
@@ -75,7 +77,7 @@ class StudyCreateView(
             form.add_error("start_date", _("Start date cannot be in the past."))
             return self._render_form(request, form)
 
-        command = CreateStudyCommand(
+        command = to_create_study_command(
             code=form.cleaned_data["code"],
             name=form.cleaned_data["name"],
             sponsor=form.cleaned_data["sponsor"],
@@ -197,7 +199,7 @@ class StudyUpdateView(
             else self._study.code
         )
 
-        command = UpdateStudyCommand(
+        command = to_update_study_command(
             study_id=self._study.pk,
             code=code,
             name=form.cleaned_data["name"],
@@ -249,7 +251,7 @@ class StudyToggleStatusView(AuthenticateTemplateContextMixin, View):
 
     def post(self, request, *_args, **kwargs):
         study_id = kwargs["study_id"]
-        command = ToggleStudyStatusCommand(
+        command = to_toggle_study_status_command(
             study_id=study_id,
             actor_user_id=request.user.pk,
         )
@@ -289,7 +291,7 @@ class StudyDeleteView(AuthenticateTemplateContextMixin, View):
 
         before_data = _serialize_study_snapshot(study)
         deleted_study = self.get_delete_study_service().execute(
-            DeleteStudyCommand(
+            to_delete_study_command(
                 study_id=study.pk,
                 actor_user_id=request.user.pk,
             )

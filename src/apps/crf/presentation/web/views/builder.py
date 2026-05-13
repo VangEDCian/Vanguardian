@@ -9,7 +9,6 @@ from apps.audit.public import build_audit_request_context
 from apps.crf.application.form_builder_audit import CrfFormBuilderAuditService
 from apps.crf.application.form_builder_orchestration import (
     FormBuilderOrchestrationService,
-    SaveFieldAggregateCommand,
     StudyScopeViolationError,
 )
 from apps.crf.application.form_builder_queries import FormBuilderReadModelService
@@ -20,6 +19,7 @@ from apps.crf.presentation.web.forms import (
     CrfSectionTemplateForm,
     CrfTemplateTranslationForm,
 )
+from apps.crf.presentation.web.mappers.form_builder_commands import to_save_field_aggregate_command
 from apps.crf.presentation.web.views.builder_support import CrfFormBuilderSupportMixin
 from apps.shared.views import AuthenticateTemplateView
 from apps.study.application import StudyDirectoryQueryService, StudyNotFoundError
@@ -244,7 +244,7 @@ class CrfFormBuilderView(
             )
             return self.render_to_response(self.get_context_data())
 
-        command = SaveFieldAggregateCommand(
+        command = to_save_field_aggregate_command(
             selected_study_id=int(selected_study_id),
             study_id=int(selected_study_id),
             form_id=self.kwargs["form_id"],

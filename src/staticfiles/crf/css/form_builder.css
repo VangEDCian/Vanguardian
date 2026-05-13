@@ -1,3 +1,42 @@
 @import url("form_builder/00_base.css");
 @import url("form_builder/10_blocks.css");
 @import url("form_builder/20_modals.css");
+
+.crf-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 16px;
+}
+
+.crf-inline-actions--compact {
+  padding: 8px 0 12px;
+}
+
+.crf-builder-landing-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 0 12px;
+}
+
+.crf-builder-gap--mb16 {
+  margin-bottom: 16px;
+}
+
+.crf-builder-gap--mb12 {
+  margin-bottom: 12px;
+}
+
+.crf-builder-gap--mt16 {
+  margin-top: 16px;
+}
+
+.crf-builder-field--block {
+  display: block;
+}
+
+.crf-builder-reset-btn {
+  height: 32px;
+  border-radius: 16px;
+  margin-left: 8px;
+}
