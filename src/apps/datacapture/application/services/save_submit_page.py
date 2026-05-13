@@ -161,7 +161,6 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
-            data=command.data,
             status=DataCapturePageStateStatusChoices.DRAFT,
             actor_user_id=command.actor_user_id,
         )
@@ -322,7 +321,6 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
-            data=command.data,
             status=DataCapturePageStateStatusChoices.SUBMITTED,
             actor_user_id=command.actor_user_id,
         )
@@ -380,7 +378,6 @@ class DataCaptureSaveSubmitPageService:
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
-                data=latest_submitted.data,
                 status=DataCapturePageStateStatusChoices.SUBMITTED,
                 actor_user_id=command.actor_user_id,
             )
@@ -394,7 +391,6 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
-            data=canceled_entry.data,
             status=DataCapturePageStateStatusChoices.CANCELED,
             actor_user_id=command.actor_user_id,
         )

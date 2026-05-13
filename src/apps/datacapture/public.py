@@ -80,6 +80,30 @@ def get_page_state_status_for_subject_visit_crf(
     )
 
 
+def get_page_state_id_for_subject_visit_crf(
+    *, subject_id: int, visit_id: int | None, crf_template_id: int
+) -> int | None:
+    if visit_id is None:
+        return None
+    return DataCapturePageStateReadService().get_page_state_id_for_scope(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+
+
+def get_page_state_final_data_for_subject_visit_crf(
+    *, subject_id: int, visit_id: int | None, crf_template_id: int
+) -> dict:
+    if visit_id is None:
+        return {}
+    return DataCapturePageStateReadService().get_page_state_final_data_map(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+
+
 def get_latest_page_entry_for_subject_visit_crf(
     *, subject_id: int, visit_id: int | None, crf_template_id: int
 ):
@@ -104,20 +128,39 @@ def get_latest_submitted_page_entry_for_subject_visit_crf(
     )
 
 
+def merge_form_verification_checked_fields_into_page_state_final_data(
+    *,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+    checked_field_template_ids: list[int],
+    actor_user_id: int | None = None,
+) -> tuple[bool, str]:
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().merge_checked_field_template_ids(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+        checked_field_template_ids=checked_field_template_ids,
+        actor_user_id=actor_user_id,
+    )
+
+
 def ensure_draft_page_state_if_not_exists(
     *,
     subject_id: int,
     visit_id: int,
     crf_template_id: int,
-    final_data: str = "{}",
     actor_user_id: int | None = None,
 ) -> bool:
-    """Create draft ``PageState`` when missing. Other apps must use this instead of ORM on ``DataCapturePageState``."""
+    """Create draft ``PageState`` when missing. ``final_data`` stays NULL until form verification."""
     return DataCapturePageStateWriteService().ensure_draft_if_not_exists(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
-        final_data=final_data,
         actor_user_id=actor_user_id,
     )
 
@@ -128,7 +171,10 @@ __all__ = [
     "ensure_draft_page_state_if_not_exists",
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",
+    "get_page_state_final_data_for_subject_visit_crf",
+    "get_page_state_id_for_subject_visit_crf",
     "get_page_state_status_for_subject_visit_crf",
+    "merge_form_verification_checked_fields_into_page_state_final_data",
     "save_page_for_subject_visit_crf",
     "submit_page_for_subject_visit_crf",
     "trigger_event_transition_for_page_state",

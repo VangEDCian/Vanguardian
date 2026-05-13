@@ -37,6 +37,7 @@ class Subject(models.Model):
             ("create_subject", "Can create subject"),
             ("update_subject", "Can update subject"),
             ("delete_subject", "Can delete subject"),
+            ("verify_form", "Can verify form"),
         )
         constraints = [
             models.UniqueConstraint(

@@ -12,13 +12,11 @@ class DataCapturePageStateWriteService:
         subject_id: int,
         visit_id: int,
         crf_template_id: int,
-        final_data: str = "{}",
         actor_user_id: int | None = None,
     ) -> bool:
         return self.repository.ensure_draft_page_state_if_not_exists(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
-            final_data=final_data,
             actor_user_id=actor_user_id,
         )

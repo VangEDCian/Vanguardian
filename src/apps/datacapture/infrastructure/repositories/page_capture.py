@@ -1,3 +1,6 @@
+import json
+
+from django.core.exceptions import ValidationError
 from django.db.models import Max
 
 from apps.core.choices import (
@@ -69,6 +72,8 @@ class DjangoDataCapturePageRepository:
                 "crf_template_id",
                 "subject_id",
                 "visit_id",
+                "updated_by_id",
+                "updated_at",
             )
             .order_by("-entry_no", "-id")
             .first()
@@ -85,6 +90,8 @@ class DjangoDataCapturePageRepository:
             crf_template_id=page_entry.crf_template_id,
             subject_id=page_entry.subject_id,
             visit_id=page_entry.visit_id,
+            updated_by_id=page_entry.updated_by_id,
+            updated_at=page_entry.updated_at,
         )
 
     def get_latest_submitted_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
@@ -106,6 +113,8 @@ class DjangoDataCapturePageRepository:
                 "crf_template_id",
                 "subject_id",
                 "visit_id",
+                "updated_by_id",
+                "updated_at",
             )
             .order_by("-entry_no", "-id")
             .first()
@@ -122,6 +131,8 @@ class DjangoDataCapturePageRepository:
             crf_template_id=page_entry.crf_template_id,
             subject_id=page_entry.subject_id,
             visit_id=page_entry.visit_id,
+            updated_by_id=page_entry.updated_by_id,
+            updated_at=page_entry.updated_at,
         )
 
     @staticmethod
@@ -235,21 +246,51 @@ class DjangoDataCapturePageRepository:
         )
         return latest
 
-    def upsert_page_state(self, *, subject_id: int, visit_id: int, crf_template_id: int, data: str, status: str, actor_user_id: int | None = None):
-        page_state, _ = DataCapturePageState.objects.update_or_create(
+    def upsert_page_state(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        status: str,
+        actor_user_id: int | None = None,
+    ):
+        """Create or update page state lifecycle fields only.
+
+        ``final_data`` is not written here: it stays NULL for new rows until form verification
+        merges checklist JSON; existing ``final_data`` is left unchanged on update.
+        """
+        now = self._now()
+        existing = (
+            DataCapturePageState.objects.filter(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+            )
+            .order_by("id")
+            .first()
+        )
+        if existing is not None:
+            DataCapturePageState.objects.filter(pk=existing.pk).update(
+                updated_at=now,
+                deleted=False,
+                status=status,
+                updated_by_id=actor_user_id,
+            )
+            existing.refresh_from_db()
+            return existing
+        return DataCapturePageState.objects.create(
+            created_at=now,
+            updated_at=now,
+            deleted=False,
+            status=status,
+            final_data=None,
+            crf_template_id=crf_template_id,
             subject_id=subject_id,
             visit_id=visit_id,
-            crf_template_id=crf_template_id,
-            defaults={
-                "created_at": self._now(),
-                "updated_at": self._now(),
-                "deleted": False,
-                "status": status,
-                "final_data": data,
-                "updated_by_id": actor_user_id,
-            },
+            created_by_id=actor_user_id,
+            updated_by_id=actor_user_id,
         )
-        return page_state
 
     def ensure_draft_page_state_if_not_exists(
         self,
@@ -257,7 +298,6 @@ class DjangoDataCapturePageRepository:
         subject_id: int,
         visit_id: int,
         crf_template_id: int,
-        final_data: str = "{}",
         actor_user_id: int | None = None,
     ) -> bool:
         """Create a draft ``PageState`` when none exists for the scope. Returns True if created."""
@@ -273,7 +313,6 @@ class DjangoDataCapturePageRepository:
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
-            data=final_data,
             status=DataCapturePageStateStatusChoices.DRAFT,
             actor_user_id=actor_user_id,
         )
@@ -353,6 +392,54 @@ class DjangoDataCapturePageRepository:
             )
 
         raise RuntimeError(f"execute_submit_plan: unknown action {plan.action!r}")
+
+    def map_latest_submitted_entry_updated_by_id_by_subject_ids(
+        self, *, subject_ids: tuple[int, ...]
+    ) -> dict[int, int | None]:
+        if not subject_ids:
+            return {}
+        result: dict[int, int | None] = {}
+        entries = (
+            DataCapturePageEntry.objects.filter(
+                subject_id__in=subject_ids,
+                deleted=False,
+                status=DataCapturePageEntryStatusChoices.SUBMITTED,
+            )
+            .only("subject_id", "updated_by_id", "updated_at", "id")
+            .order_by("subject_id", "-updated_at", "-id")
+        )
+        for entry in entries:
+            if entry.subject_id not in result:
+                result[entry.subject_id] = entry.updated_by_id
+        return result
+
+    def update_page_state_final_data_and_status(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        final_data: str | None,
+        status: str,
+        actor_user_id: int | None = None,
+    ) -> None:
+        """Persist ``final_data`` (JSON string or database NULL) and ``status`` for the scoped page state."""
+        now = self._now()
+        rows_updated = DataCapturePageState.objects.filter(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            deleted=False,
+        ).update(
+            final_data=final_data,
+            status=status,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        if rows_updated == 0:
+            raise ValidationError(
+                "Could not persist verification: page state update affected 0 rows.",
+            )
 
     def _next_entry_no(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> int:
         max_entry_no = (

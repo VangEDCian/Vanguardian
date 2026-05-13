@@ -1,5 +1,5 @@
 {% extends "shared/_layout.html" %}
-{% load i18n %}
+{% load i18n static %}
 {% load render_table from django_tables2 %}
 {% block title %}
     {% trans "Subjects | Vanguardian" %}
@@ -21,4 +21,8 @@
             </div>
         {% endif %}
     </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'subject/js/subject_list_verify_form_nav.js' %}"></script>
 {% endblock %}

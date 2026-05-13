@@ -12,7 +12,7 @@ class DataCapturePageState(models.Model):
     deleted = models.BooleanField(default=False)
 
     status = models.CharField(max_length=16, choices=DataCapturePageStateStatusChoices.choices)
-    final_data = models.TextField()
+    final_data = models.TextField(null=True, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     locked_at = models.DateTimeField(null=True, blank=True)
 

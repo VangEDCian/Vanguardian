@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
-from apps.subject.models import Subject
+from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
 
 
 class SubjectListTable(tables.Table):
@@ -45,6 +45,21 @@ class SubjectListTable(tables.Table):
         verbose_name=_("Query Status"),
         orderable=False,
     )
+    actions = tables.TemplateColumn(
+        template_name="subject/includes/subject_list_actions_cell.html",
+        verbose_name=_("ACTIONS"),
+        empty_values=(),
+        orderable=False,
+        attrs={"td": {"class": "entity-table__actions"}},
+    )
+
+    def __init__(self, *args, **kwargs):
+        self._verify_show_by_subject_id = kwargs.pop("verify_show_by_subject_id", None) or {}
+        # For template: {% if record.pk in table.verify_eligible_subject_ids %} (no custom filter).
+        self.verify_eligible_subject_ids = frozenset(
+            sid for sid, ok in self._verify_show_by_subject_id.items() if ok
+        )
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     def render_subject_code(record):
@@ -77,7 +92,7 @@ class SubjectListTable(tables.Table):
         return "—"
 
     class Meta:
-        model = Subject
+        model = get_subject_list_row_model()
         fields = (
             "subject_code",
             "screening_code",
@@ -86,4 +101,5 @@ class SubjectListTable(tables.Table):
             "randomization",
             "completion",
             "query_status",
+            "actions",
         )

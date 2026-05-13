@@ -214,6 +214,42 @@
     return Number.isFinite(currentEntryId) && latestEntryId !== currentEntryId;
   }
 
+  function mergeLabelOnlyFieldValuesIntoPayload(payload) {
+    fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
+      const controlType = String(container.dataset.fieldControlType || '').trim().toLowerCase();
+      if (controlType !== 'label_only') {
+        return;
+      }
+      const fieldKey = String(container.dataset.fieldKey || '').trim();
+      if (!fieldKey) {
+        return;
+      }
+      const controls = container.querySelectorAll('input, textarea, select');
+      let raw = '';
+      for (let i = 0; i < controls.length; i += 1) {
+        const el = controls[i];
+        if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+          continue;
+        }
+        if (el instanceof HTMLInputElement) {
+          const t = el.type;
+          if (t === 'hidden' || t === 'button' || t === 'submit' || t === 'checkbox' || t === 'radio') {
+            continue;
+          }
+        }
+        raw = el.value;
+        break;
+      }
+      const trimmed = String(raw ?? '').trim();
+      if (!trimmed) {
+        payload[fieldKey] = null;
+        return;
+      }
+      const numeric = parseNumericValue(trimmed);
+      payload[fieldKey] = numeric !== null ? numeric : trimmed;
+    });
+  }
+
   function collectFormPayloadObject() {
     fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
       datePickerControlModule.syncDateCompositeInput?.(container);
@@ -237,6 +273,7 @@
       }
       payload[input.name] = input.value;
     });
+    mergeLabelOnlyFieldValuesIntoPayload(payload);
     return payload;
   }
 
