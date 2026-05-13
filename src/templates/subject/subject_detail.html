@@ -5,6 +5,7 @@
 {% endblock %}
 {% block extra_css %}
     {{ block.super }}
+    <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
     <link rel="stylesheet" href="{% static 'subject/css/subject_detail.css' %}">
     <link rel="stylesheet" href="{% static 'subject/css/_form_render.css' %}">
 {% endblock %}
@@ -38,7 +39,7 @@
         </header>
         {% if focused_forms %}
             <nav class="subject-detail-screen__tabs"
-                 aria-label="{% trans 'CRF templates' %}">
+                 aria-label="{% if is_form_verification_mode %}{% trans 'Submitted forms (verification)' %}{% else %}{% trans 'CRF templates' %}{% endif %}">
                 {% for form_item in focused_forms %}
                     <a href="{{ form_item.focus_url }}"
                        class="subject-detail-screen__tab{% if focused_form and focused_form.id == form_item.id %} is-active{% endif %}">
@@ -84,7 +85,15 @@
                 {% endif %}
             </aside>
             <main class="subject-detail-screen__content">
-                {% if focused_form %}
+                {% if is_form_verification_mode %}
+                    {% if form_verification_review %}
+                        {% include "subject/includes/form_verification_field_review.html" %}
+                    {% elif focused_form %}
+                        <div class="subject-detail-screen__empty">{% trans "No review data for this form." %}</div>
+                    {% else %}
+                        <div class="subject-detail-screen__empty">{% trans "No submitted forms are available for verification." %}</div>
+                    {% endif %}
+                {% elif focused_form %}
                     {% if focused_event and datacapture_save_url and not is_viewing_submitted_version %}
                         <div data-datacapture-form-root
                              data-save-url="{{ datacapture_save_url|escape }}"
@@ -104,6 +113,20 @@
                 {% endif %}
             </main>
         </div>
+        {% if is_form_verification_mode %}
+            <footer class="subject-detail-screen__footer subject-detail-screen__footer--verification">
+                <div class="subject-detail-screen__footer-actions">
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--primary"
+                            {% if not form_verification_verify_checked_url %}disabled
+                            aria-disabled="true"{% endif %}
+                            data-form-verification-verify-all
+                            data-post-url="{{ form_verification_verify_checked_url|default:''|escape }}">
+                        {% trans "Verify All Checked" %}
+                    </button>
+                </div>
+            </footer>
+        {% else %}
         <footer class="subject-detail-screen__footer">
             <div class="subject-detail-screen__footer-actions">
                 <button type="button"
@@ -173,6 +196,8 @@
                 {% endif %}
             </div>
         </footer>
+        {% endif %}
+        {% if not is_form_verification_mode %}
         {{ current_data_values|json_script:"datacapture-current-data-payload" }}
         {% if previous_data_values is not None %}
             {{ previous_data_values|json_script:"datacapture-previous-data-payload" }}
@@ -180,6 +205,8 @@
         {% if focused_latest_submitted_entry %}
             {{ previous_submitted_entry_values|json_script:"datacapture-previous-submitted-payload" }}
         {% endif %}
+        {% endif %}
+        {% if not is_form_verification_mode %}
         <div class="subject-detail-screen__reason-modal-backdrop"
              hidden
              data-datacapture-reason-modal>
@@ -225,11 +252,12 @@
                    data-datacapture-loading-message>{% trans "Processing..." %}</p>
             </div>
         </div>
+        {% endif %}
     </section>
 {% endblock %}
 {% block extra_js %}
     {{ block.super }}
-    {% if focused_form %}
+    {% if focused_form and not is_form_verification_mode %}
         <script src="{% static 'datacapture/js/modules/shared.js' %}"></script>
         <script src="{% static 'datacapture/js/modules/validation.js' %}"></script>
         <script src="{% static 'datacapture/js/modules/reason-modal.js' %}"></script>
@@ -237,6 +265,9 @@
         <script src="{% static 'datacapture/js/modules/controls/radio.js' %}"></script>
         <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>
         <script src="{% static 'datacapture/js/subject-detail-behavior-runtime.js' %}"></script>
+    {% endif %}
+    {% if is_form_verification_mode and form_verification_verify_checked_url %}
+        <script src="{% static 'subject/js/subject_form_verification_verify_all.js' %}"></script>
     {% endif %}
     <script src="{% static 'subject/js/subject_detail_event_files.js' %}"></script>
 {% endblock %}

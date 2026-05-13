@@ -8,9 +8,24 @@
     row.classList.toggle("is-selected", checkbox.checked);
   }
 
+  function resolveClickElement(target) {
+    if (target instanceof Element) {
+      return target;
+    }
+    if (target instanceof Text && target.parentElement) {
+      return target.parentElement;
+    }
+    return null;
+  }
+
   function isInteractiveTarget(target) {
+    const el = resolveClickElement(target);
+    if (!el) {
+      return false;
+    }
     return Boolean(
-      target.closest("a, button, input, label, select, textarea")
+      el.closest("[data-dropdown]") ||
+        el.closest("a, button, input, label, select, textarea"),
     );
   }
 
@@ -72,8 +87,8 @@
       });
 
       row.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) {
+        const target = resolveClickElement(event.target);
+        if (!target) {
           return;
         }
 

@@ -106,6 +106,34 @@ class SubjectDetailNavigationMixin:
             )
         return payload
 
+    def _with_verification_focus_urls(self, event_navigation):
+        detail_url = reverse(
+            "subject:subject_detail",
+            kwargs={
+                "study_id": self.get_study_id(),
+                "subject_id": self.object.pk,
+            },
+        )
+        payload = []
+        for event_item in event_navigation:
+            forms_with_url = [
+                {
+                    **form_item,
+                    "focus_url": (
+                        f"{detail_url}?mode=verification&event={event_item['id']}&form={form_item['id']}"
+                    ),
+                }
+                for form_item in event_item["forms"]
+            ]
+            payload.append(
+                {
+                    **event_item,
+                    "focus_url": f"{detail_url}?mode=verification&event={event_item['id']}",
+                    "forms": forms_with_url,
+                },
+            )
+        return payload
+
     def get_crf_context_adapter(self):
         if not hasattr(self, "_crf_context_adapter"):
             self._crf_context_adapter = self.crf_context_adapter_class()

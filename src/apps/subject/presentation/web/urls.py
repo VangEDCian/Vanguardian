@@ -9,6 +9,10 @@ from apps.subject.presentation.web.views import (
     SubjectListView,
 )
 
+from apps.subject.presentation.web.views.verification_verify_checked import (
+    SubjectFormVerificationVerifyCheckedView,
+)
+
 app_name = "subject"
 
 urlpatterns = [
@@ -21,6 +25,11 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/create/",
         SubjectCreateView.as_view(),
         name="subject_create",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/verify-checked/",
+        SubjectFormVerificationVerifyCheckedView.as_view(),
+        name="subject_form_verification_verify_checked",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/",

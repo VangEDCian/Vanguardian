@@ -1,17 +1,25 @@
 import json
 
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import activate
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
-from apps.core.choices import DataCapturePageEntryStatusChoices
+from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
 from apps.datacapture.public import (
+    get_page_state_final_data_for_subject_visit_crf,
     get_latest_page_entry_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
+    get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
 )
 from apps.shared.views import AuthenticateTemplateContextMixin
+from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
+from apps.subject.application.services.form_verification_navigation import (
+    SubjectFormVerificationNavigationService,
+)
+from apps.subject.application.services.subject_list_verify_form_visibility import VERIFY_FORM_PERMISSION
 from apps.subject.infrastructure.repositories import DjangoSubjectEventInstanceFileRepository
 from apps.subject.models import Subject
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
@@ -116,17 +124,49 @@ class SubjectDetailView(
             },
         )
 
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        mode = (request.GET.get("mode") or "").strip().lower()
+        if mode == "verification" and not request.GET.get("event") and not request.GET.get("form"):
+            raw_nav = self._build_event_navigation()
+            submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
+                subject_id=self.object.pk,
+                event_navigation=raw_nav,
+            )
+            first_url = SubjectFormVerificationNavigationService.first_verification_url(
+                study_id=self.get_study_id(),
+                subject_id=self.object.pk,
+                event_navigation_submitted=submitted_nav,
+            )
+            if first_url:
+                return redirect(first_url)
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):  # noqa: C901
         context = super().get_context_data(**kwargs)
         subject = self.object
-        event_navigation = self._with_focus_urls(self._build_event_navigation())
+        is_form_verification_mode = (self.request.GET.get("mode") or "").strip().lower() == "verification"
+
+        raw_event_navigation = self._build_event_navigation()
+        if is_form_verification_mode:
+            submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
+                subject_id=subject.pk,
+                event_navigation=raw_event_navigation,
+            )
+            event_navigation = self._with_verification_focus_urls(submitted_nav)
+        else:
+            event_navigation = self._with_focus_urls(raw_event_navigation)
 
         focus_event_id = (self.request.GET.get("event") or "").strip()
         focused_event = self._resolve_focus(event_navigation, focus_event_id)
+        if focused_event is None and event_navigation:
+            focused_event = event_navigation[0]
         focused_forms = focused_event["forms"] if focused_event else []
 
         focus_form_id = (self.request.GET.get("form") or "").strip()
         focused_form = self._resolve_focus(focused_forms, focus_form_id)
+        if focused_form is None and focused_forms:
+            focused_form = focused_forms[0]
         focused_form_fields = []
         focused_page_status = ""
         focused_latest_entry = None
@@ -158,7 +198,12 @@ class SubjectDetailView(
                     )
                     if focused_event:
                         form_id = focused_form.get("id", "")
-                        focus_detail_url = f"{detail_url}?event={focused_event['id']}&form={form_id}"
+                        if is_form_verification_mode:
+                            focus_detail_url = (
+                                f"{detail_url}?mode=verification&event={focused_event['id']}&form={form_id}"
+                            )
+                        else:
+                            focus_detail_url = f"{detail_url}?event={focused_event['id']}&form={form_id}"
                     focused_page_status = get_page_state_status_for_subject_visit_crf(
                         subject_id=subject.pk,
                         visit_id=visit_id,
@@ -177,54 +222,73 @@ class SubjectDetailView(
                                 crf_template_id=template_id,
                             )
                         )
-                        requested_view = (self.request.GET.get("view") or "").strip().lower()
-                        focused_render_entry = focused_latest_entry
-                        if (
-                            requested_view == "submitted"
-                            and focused_latest_submitted_entry is not None
-                            and focused_latest_entry is not None
-                            and focused_latest_submitted_entry.id != focused_latest_entry.id
-                        ):
+                        if is_form_verification_mode:
                             focused_render_entry = focused_latest_submitted_entry
-                            is_viewing_submitted_version = True
-                        focused_entry_values = self._extract_entry_payload_map(
-                            focused_render_entry.data if focused_render_entry else ""
-                        )
-                        current_data_values = self._extract_entry_payload_map(
-                            focused_latest_entry.data if focused_latest_entry else ""
-                        )
-                        if focused_latest_entry is not None:
-                            if focused_latest_entry.status == DataCapturePageEntryStatusChoices.SUBMITTED:
-                                previous_data_values = self._extract_entry_payload_map(
-                                    focused_latest_entry.data
-                                )
-                            elif (
-                                focused_latest_entry.status == DataCapturePageEntryStatusChoices.DRAFT
-                                and focused_latest_submitted_entry is not None
+                            if (
+                                focused_render_entry is None
+                                and focused_latest_entry is not None
+                                and focused_latest_entry.status
+                                == DataCapturePageEntryStatusChoices.SUBMITTED
                             ):
-                                previous_data_values = self._extract_entry_payload_map(
+                                focused_render_entry = focused_latest_entry
+                            focused_entry_values = self._extract_entry_payload_map(
+                                focused_render_entry.data if focused_render_entry else ""
+                            )
+                            current_data_values = dict(focused_entry_values)
+                            is_viewing_submitted_version = (
+                                focused_render_entry is not None
+                                and focused_render_entry.status
+                                == DataCapturePageEntryStatusChoices.SUBMITTED
+                            )
+                        else:
+                            requested_view = (self.request.GET.get("view") or "").strip().lower()
+                            focused_render_entry = focused_latest_entry
+                            if (
+                                requested_view == "submitted"
+                                and focused_latest_submitted_entry is not None
+                                and focused_latest_entry is not None
+                                and focused_latest_submitted_entry.id != focused_latest_entry.id
+                            ):
+                                focused_render_entry = focused_latest_submitted_entry
+                                is_viewing_submitted_version = True
+                            focused_entry_values = self._extract_entry_payload_map(
+                                focused_render_entry.data if focused_render_entry else ""
+                            )
+                            current_data_values = self._extract_entry_payload_map(
+                                focused_latest_entry.data if focused_latest_entry else ""
+                            )
+                            if focused_latest_entry is not None:
+                                if focused_latest_entry.status == DataCapturePageEntryStatusChoices.SUBMITTED:
+                                    previous_data_values = self._extract_entry_payload_map(
+                                        focused_latest_entry.data
+                                    )
+                                elif (
+                                    focused_latest_entry.status == DataCapturePageEntryStatusChoices.DRAFT
+                                    and focused_latest_submitted_entry is not None
+                                ):
+                                    previous_data_values = self._extract_entry_payload_map(
+                                        focused_latest_submitted_entry.data
+                                    )
+                            if (
+                                focused_latest_submitted_entry is not None
+                                and focused_latest_entry is not None
+                                and focused_latest_submitted_entry.id != focused_latest_entry.id
+                            ):
+                                previous_submitted_entry_values = self._extract_entry_payload_map(
                                     focused_latest_submitted_entry.data
                                 )
-                        if (
-                            focused_latest_submitted_entry is not None
-                            and focused_latest_entry is not None
-                            and focused_latest_submitted_entry.id != focused_latest_entry.id
-                        ):
-                            previous_submitted_entry_values = self._extract_entry_payload_map(
-                                focused_latest_submitted_entry.data
-                            )
-                        if (
-                            focus_detail_url
-                            and focused_latest_submitted_entry is not None
-                            and focused_latest_entry is not None
-                            and focused_latest_submitted_entry.id != focused_latest_entry.id
-                        ):
-                            view_submitted_url = f"{focus_detail_url}&view=submitted"
-                            view_current_url = focus_detail_url
+                            if (
+                                focus_detail_url
+                                and focused_latest_submitted_entry is not None
+                                and focused_latest_entry is not None
+                                and focused_latest_submitted_entry.id != focused_latest_entry.id
+                            ):
+                                view_submitted_url = f"{focus_detail_url}&view=submitted"
+                                view_current_url = focus_detail_url
                     focused_form_fields = self.get_crf_context_adapter().list_template_fields_with_ui_config(
                         template_id=template_id,
                     )
-                    if focused_event:
+                    if focused_event and not is_form_verification_mode:
                         url_kw = {
                             "study_id": self.get_study_id(),
                             "subject_id": subject.pk,
@@ -252,7 +316,7 @@ class SubjectDetailView(
                     datacapture_submit_url = ""
                     datacapture_delete_draft_url = ""
 
-        if focused_event:
+        if focused_event and not is_form_verification_mode:
             try:
                 focused_event_id = int(focused_event["id"])
             except (TypeError, ValueError):
@@ -288,6 +352,55 @@ class SubjectDetailView(
             focused_form_fields,
             entry_payload_map=focused_entry_values,
         )
+
+        form_verification_review = None
+        form_verification_verify_checked_url = ""
+        # Do not require non-empty focused_form_fields: the CRF adapter can return [] while
+        # verify-checked still needs visit + template IDs (and permission) to persist final_data.
+        if is_form_verification_mode and focused_form and focused_event:
+            try:
+                visit_pk = int(focused_event["id"])
+                template_pk = int(focused_form.get("form_definition_id") or "")
+            except (TypeError, ValueError):
+                visit_pk = None
+                template_pk = None
+            if visit_pk is not None and template_pk is not None:
+                page_state_pk = get_page_state_id_for_subject_visit_crf(
+                    subject_id=subject.pk,
+                    visit_id=visit_pk,
+                    crf_template_id=template_pk,
+                )
+                verified_snapshot = get_page_state_final_data_for_subject_visit_crf(
+                    subject_id=subject.pk,
+                    visit_id=visit_pk,
+                    crf_template_id=template_pk,
+                )
+                form_verification_review = FormFieldReviewTableService().build_for_verification(
+                    subject_code=subject.subject_code or subject.screening_code or "",
+                    site_id=int(subject.site_id),
+                    event_name=str(focused_event.get("name") or ""),
+                    event_instance_id=visit_pk,
+                    form_name=str(focused_form.get("title") or ""),
+                    form_status=focused_page_status,
+                    entry_version=str(getattr(focused_render_entry, "entry_version", "") or ""),
+                    entry_updated_at=getattr(focused_render_entry, "updated_at", None),
+                    entry_updated_by_id=getattr(focused_render_entry, "updated_by_id", None),
+                    field_templates_payload=focused_form_fields,
+                    entry_payload=focused_entry_values,
+                    page_state_id=page_state_pk,
+                    verified_snapshot=verified_snapshot,
+                )
+                if self.request.user.has_perm(VERIFY_FORM_PERMISSION):
+                    if (focused_page_status or "").strip().lower() != DataCapturePageStateStatusChoices.VERIFIED.value:
+                        form_verification_verify_checked_url = reverse(
+                            "subject:subject_form_verification_verify_checked",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": visit_pk,
+                                "crf_template_id": template_pk,
+                            },
+                        )
 
         context["back_url"] = reverse(
             "subject:subject_list", kwargs={"study_id": self.get_study_id()},
@@ -335,6 +448,14 @@ class SubjectDetailView(
         context["event_file_import_url"] = event_file_import_url
         context["event_file_preview_url"] = event_file_preview_url
         context["has_event_instance_files"] = has_event_instance_files
+        context["is_form_verification_mode"] = is_form_verification_mode
+        context["form_verification_review"] = form_verification_review
+        context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
+        context["form_verification_fields_locked"] = (
+            is_form_verification_mode
+            and (focused_page_status or "").strip().lower()
+            == DataCapturePageStateStatusChoices.VERIFIED.value
+        )
         if datacapture_save_url:
             context["datacapture_save_confirm_message"] = _(
                 "This page was already submitted. Saving will create a correction version. Continue?"

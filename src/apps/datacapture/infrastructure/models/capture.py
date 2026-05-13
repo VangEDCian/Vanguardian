@@ -1,6 +1,7 @@
 """Persistence-agnostic capture shapes (dataclasses, not Django ORM)."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 
@@ -28,6 +29,8 @@ class DataCapturePageEntrySnapshot:
     crf_template_id: int
     subject_id: int
     visit_id: int
+    updated_by_id: int | None = None
+    updated_at: datetime | None = None
 
 
 @dataclass(frozen=True)

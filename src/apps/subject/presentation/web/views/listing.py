@@ -4,11 +4,16 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import ListView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
+from django_tables2.views import RequestConfig
 
 from apps.shared.context_processors import StudyDropdownHandler
 from apps.shared.views import AuthenticateTemplateContextMixin
-from apps.subject.models import Subject
+from apps.subject.application.services.subject_list_verify_form_visibility import (
+    VERIFY_FORM_PERMISSION,
+    SubjectListVerifyFormVisibilityService,
+)
 from apps.subject.presentation.web.forms import SubjectsToolbarForm
+from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
 from apps.subject.presentation.web.tables import SubjectListTable
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
@@ -25,7 +30,7 @@ class SubjectListView(
     layout_nav_key = "SUBJECTS"
     layout_breadcrumb_label = _("SUBJECTS")
 
-    model = Subject
+    model = get_subject_list_row_model()
     template_name = "subject/subjects.html"
     table_class = SubjectListTable
     filterset_class = SubjectsToolbarForm
@@ -43,6 +48,24 @@ class SubjectListView(
             .select_related("site", "study", "enrollment", "randomization")
             .order_by("current_sequence", "id")
         )
+
+    def get_table(self, **kwargs):
+        # OLD: return RequestConfig(...).configure(table_class(data=self.get_table_data(), **kwargs))
+        table_class = self.get_table_class()
+        table_data = self.get_table_data()
+        subject_ids = tuple(table_data.values_list("pk", flat=True))
+        visibility = SubjectListVerifyFormVisibilityService()
+        verify_map = visibility.map_show_verify_form_by_subject_id(
+            user_id=self.request.user.pk,
+            has_verify_form_permission=self.request.user.has_perm(VERIFY_FORM_PERMISSION),
+            subject_ids=subject_ids,
+        )
+        table = table_class(
+            table_data,
+            verify_show_by_subject_id=verify_map,
+            **kwargs,
+        )
+        return RequestConfig(self.request, paginate=self.get_table_pagination(table)).configure(table)
 
     def get(self, request, *args, **kwargs):
         path_study_id = self.get_study_id()
