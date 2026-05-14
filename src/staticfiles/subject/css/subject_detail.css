@@ -398,7 +398,7 @@
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 8px 20px;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 1rem;
 }
 
 .subject-form-verification-review__meta-row {
@@ -433,6 +433,63 @@
   min-width: 720px;
 }
 
+.subject-form-verification-review__table--styled {
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.subject-form-verification-review__table--styled thead th {
+  padding: 0.5rem;
+  background: #fff;
+  color: #1e2a34;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  border-right: none;
+  text-transform: capitalize;
+}
+
+.subject-form-verification-review__table--styled tbody td:first {
+  vertical-align: middle;
+  padding: 0.5rem 0.5rem;
+}
+
+.subject-form-verification-review__table--styled tbody td {
+  padding: 0.5rem;
+  background: transparent;
+  color: #1f2a33;
+  font-size: 14px;
+  vertical-align: middle;
+  border: none;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-wrap: wrap;
+  cursor: auto;
+}
+
+.subject-form-verification-review__table--styled tbody tr>td:nth-child(1) {
+  min-width: 51px;
+}
+
+.subject-form-verification-review__table--styled tbody tr>td:nth-child(2) {
+  width: 100%;
+}
+
+.subject-form-verification-review__table--styled thead tr>th:nth-child(n+3),
+.subject-form-verification-review__table--styled tbody tr>td:nth-child(n+3) {
+  text-align: center;
+  min-width: 131px;
+}
+
+.subject-form-verification-review__table--styled tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.subject-form-verification-review__table--styled tbody tr:hover {
+  background-color: #d2d8de;
+}
+
 .subject-form-verification-review__col-check {
   width: 44px;
   text-align: center;
@@ -441,18 +498,26 @@
 
 .subject-form-verification-review__checkbox {
   width: 16px;
-  height: 16px;
   cursor: pointer;
+  aspect-ratio: 1/1;
+  vertical-align: middle;
 }
 
 .subject-form-verification-review__action-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid #afb9c3;
-  border-radius: 4px;
-  background: #eceff2;
-  color: #5b6976;
-  cursor: not-allowed;
+  /* width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #d2d8de;
+  border-radius: 3px;
+  background: #eff2f5;
+  color: #7c8a97;
+  cursor: not-allowed; */
+  cursor: pointer;
+}
+
+.subject-form-verification-review__action-btn>.svg-icon {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .subject-form-verification-review__empty {

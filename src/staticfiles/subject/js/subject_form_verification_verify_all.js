@@ -8,25 +8,70 @@
     return;
   }
 
-  function showInlineMessage(text, isError) {
-    let host = document.querySelector('[data-form-verification-verify-message]');
-    if (!host) {
-      host = document.createElement('p');
-      host.setAttribute('data-form-verification-verify-message', '');
-      host.className = 'subject-form-verification-review__verify-message';
-      const footer = button.closest('.subject-detail-screen__footer');
-      if (footer) {
-        footer.appendChild(host);
-      }
+  const loadingOverlay = document.querySelector('[data-form-verification-loading]');
+  const loadingMessageNode = document.querySelector('[data-form-verification-loading-message]');
+  const notificationDurationMs = 2600;
+  const notificationHost = document.createElement('div');
+  notificationHost.className = 'subject-detail-screen__notifications';
+  notificationHost.setAttribute('data-form-verification-notifications', '');
+  document.body.appendChild(notificationHost);
+  const defaultLoadingMessage = loadingOverlay
+    ? String(loadingOverlay.dataset.defaultMessage || 'Processing verification...')
+    : 'Processing verification...';
+
+  function showLoading(message) {
+    if (!loadingOverlay) {
+      return;
     }
-    host.textContent = text || '';
-    host.classList.toggle('subject-form-verification-review__verify-message--error', Boolean(isError));
+    if (loadingMessageNode) {
+      loadingMessageNode.textContent = String(message || defaultLoadingMessage);
+    }
+    loadingOverlay.hidden = false;
+  }
+
+  function hideLoading() {
+    if (!loadingOverlay) {
+      return;
+    }
+    loadingOverlay.hidden = true;
+  }
+
+  function normalizeErrorMessage(result) {
+    var errs = result && result.data && result.data.error;
+    var serverErrors = Array.isArray(errs) ? errs.join(', ') : '';
+    if (serverErrors) {
+      return serverErrors;
+    }
+    if (result && result.status >= 500) {
+      return 'Server error.';
+    }
+    return 'Request failed.';
+  }
+
+  function showNotification(message, tone) {
+    if (!message || !notificationHost) {
+      return;
+    }
+    const normalizedTone = tone === 'error' ? 'error' : 'success';
+    const notice = document.createElement('div');
+    notice.className = `subject-detail-screen__notification subject-detail-screen__notification--${normalizedTone}`;
+    notice.textContent = message;
+    notificationHost.appendChild(notice);
+
+    window.setTimeout(function () {
+      notice.classList.add('is-leaving');
+      window.setTimeout(function () {
+        if (notice.parentNode) {
+          notice.parentNode.removeChild(notice);
+        }
+      }, 220);
+    }, notificationDurationMs);
   }
 
   button.addEventListener('click', function () {
     const root = document.querySelector('.subject-form-verification-review');
     if (!root) {
-      showInlineMessage('Review panel not found.', true);
+      showNotification('Review panel not found.', 'error');
       return;
     }
     const checked = Array.from(root.querySelectorAll('input[name="verify_field"]:checked'))
@@ -37,9 +82,8 @@
         return !Number.isNaN(n);
       });
 
-    let reloadScheduled = false;
     button.disabled = true;
-    showInlineMessage('', false);
+    showLoading(defaultLoadingMessage);
 
     window
       .fetch(postUrl, {
@@ -61,20 +105,8 @@
         });
       })
       .then(function (result) {
-        var errs = result.data && result.data.error;
-        var serverErrors = Array.isArray(errs) ? errs.join(', ') : '';
-        if (!result.ok) {
-          const msg =
-            serverErrors ||
-            (result.status >= 500 ? 'Server error.' : 'Request failed.');
-          showInlineMessage(msg, true);
-          return;
-        }
-        if (!result.data || result.data.ok !== true) {
-          showInlineMessage(
-            serverErrors || 'Unexpected response from server (not saved). Check the Network tab for the POST request.',
-            true,
-          );
+        if (!result.ok || !result.data || result.data.ok !== true) {
+          showNotification(normalizeErrorMessage(result), 'error');
           return;
         }
         const blockers = Array.isArray(result.data.blocking_reasons)
@@ -86,19 +118,14 @@
             : blockers.length > 0
               ? 'Saved. Pending blockers: ' + blockers.join(', ')
               : 'Saved.';
-        showInlineMessage(msg, false);
-        reloadScheduled = true;
-        window.setTimeout(function () {
-          window.location.reload();
-        }, 400);
+        showNotification(msg, 'success');
       })
       .catch(function () {
-        showInlineMessage('Network error.', true);
+        showNotification('Network error.', 'error');
       })
       .finally(function () {
-        if (!reloadScheduled) {
-          button.disabled = false;
-        }
+        hideLoading();
+        button.disabled = false;
       });
   });
 })();

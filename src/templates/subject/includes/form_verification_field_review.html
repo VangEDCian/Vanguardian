@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n subject_form_tags %}
 <div class="subject-form-verification-review">
     {% with h=form_verification_review.header %}
         <header class="subject-form-verification-review__header" aria-label="{% trans 'Form verification metadata' %}">
@@ -17,7 +17,7 @@
                 </div>
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Form Status" %}</dt>
-                    <dd>{{ h.form_status }}</dd>
+                    <dd>{{ h.form_status|subject_form_status_label }}</dd>
                 </div>
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Form Version" %}</dt>
@@ -30,51 +30,5 @@
             </dl>
         </header>
     {% endwith %}
-    <div class="subject-form-verification-review__table-wrap">
-        <table class="entity-table subject-form-verification-review__table">
-            <thead>
-                <tr>
-                    <th class="subject-form-verification-review__col-check" scope="col">
-                        <span class="subject-form-verification-review__sr-only">{% trans "Select" %}</span>
-                    </th>
-                    <th scope="col">{% trans "Brief Description" %}</th>
-                    <th scope="col">{% trans "Value" %}</th>
-                    <th scope="col">{% trans "Open Queries" %}</th>
-                    <th scope="col">{% trans "Modified By" %}</th>
-                    <th scope="col">{% trans "Actions" %}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in form_verification_review.rows %}
-                    <tr>
-                        <td class="subject-form-verification-review__col-check">
-                            <input type="checkbox"
-                                   name="verify_field"
-                                   value="{{ row.field_template_id }}"
-                                   class="subject-form-verification-review__checkbox"
-                                   data-field-template-id="{{ row.field_template_id }}"
-                                   {% if row.is_checked %}checked{% endif %}
-                                   {% if form_verification_fields_locked %}disabled aria-disabled="true"{% endif %}
-                                   aria-label="{% trans 'Select field for verification' %}" />
-                        </td>
-                        <td>{{ row.brief_description }}</td>
-                        <td>{{ row.display_value }}</td>
-                        <td>{{ row.open_query_count }}</td>
-                        <td>{{ row.modified_by }}</td>
-                        <td>
-                            <button type="button"
-                                    class="subject-form-verification-review__action-btn"
-                                    disabled>
-                                {% trans "Open Query" %}
-                            </button>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="6" class="subject-form-verification-review__empty">{% trans "No fields to review." %}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    {% include "subject/includes/form_verification_field_review_table.html" %}
 </div>

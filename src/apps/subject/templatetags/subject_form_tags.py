@@ -173,3 +173,19 @@ def subject_datetime_control_i18n():
 @register.simple_tag
 def subject_label_only_control_i18n():
     return subject_control_i18n(CrfFieldControlTypeChoices.LABEL_ONLY)
+
+
+@register.filter
+def subject_form_status_label(raw_status):
+    normalized_status = (str(raw_status).strip().lower() if raw_status is not None else "")
+    if normalized_status in {"", "none", "null", "not_started", "not_start"}:
+        return _("Not Start")
+    if normalized_status in {"in_progress", "under_review", "correction_required"}:
+        return _("In Process")
+    if normalized_status == "verified":
+        return _("Verified")
+    if normalized_status == "locked":
+        return _("Locked")
+    if normalized_status == "finalized":
+        return _("Finalized")
+    return str(raw_status or "")
