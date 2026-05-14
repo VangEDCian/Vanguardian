@@ -12,7 +12,7 @@ from apps.datacapture.public import (
     get_latest_submitted_page_entry_for_subject_visit_crf,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
-    get_verified_or_waived_field_template_ids_for_subject_visit_crf,
+    get_verified_field_template_ids_for_subject_visit_crf,
 )
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
@@ -170,6 +170,7 @@ class SubjectDetailView(
         previous_submitted_entry_values = {}
         previous_data_values = None
         current_data_values = {}
+        reason_required_field_keys = []
         is_viewing_submitted_version = False
         focus_detail_url = ""
         view_submitted_url = ""
@@ -299,6 +300,23 @@ class SubjectDetailView(
                     focused_form_fields = self.get_crf_context_adapter().list_template_fields_with_ui_config(
                         template_id=template_id,
                     )
+                    verified_field_template_ids = get_verified_field_template_ids_for_subject_visit_crf(
+                        subject_id=subject.pk,
+                        visit_id=int(focused_event["id"]) if focused_event else None,
+                        crf_template_id=template_id,
+                    )
+                    reason_required_field_keys = []
+                    for field in focused_form_fields:
+                        try:
+                            field_template_id = int(field.get("id"))
+                        except (TypeError, ValueError):
+                            continue
+                        field_key = str(field.get("field_key") or "").strip()
+                        if field_template_id in verified_field_template_ids:
+                            if field_key:
+                                reason_required_field_keys.append(field_key)
+                            reason_required_field_keys.append(f"field_{field_template_id}")
+                    reason_required_field_keys = sorted(set(reason_required_field_keys))
                     if focused_event and not is_form_verification_mode:
                         url_kw = {
                             "study_id": self.get_study_id(),
@@ -319,6 +337,7 @@ class SubjectDetailView(
                     previous_submitted_entry_values = {}
                     previous_data_values = None
                     current_data_values = {}
+                    reason_required_field_keys = []
                     is_viewing_submitted_version = False
                     focus_detail_url = ""
                     view_submitted_url = ""
@@ -381,7 +400,7 @@ class SubjectDetailView(
                     visit_id=visit_pk,
                     crf_template_id=template_pk,
                 )
-                verified_field_template_ids = get_verified_or_waived_field_template_ids_for_subject_visit_crf(
+                verified_field_template_ids = get_verified_field_template_ids_for_subject_visit_crf(
                     subject_id=subject.pk,
                     visit_id=visit_pk,
                     crf_template_id=template_pk,
@@ -445,6 +464,7 @@ class SubjectDetailView(
         context["view_submitted_url"] = view_submitted_url
         context["view_current_url"] = view_current_url
         context["has_submitted_record"] = focused_latest_submitted_entry is not None
+        context["reason_required_field_keys"] = reason_required_field_keys
         context["can_delete_current_draft"] = (
             focused_latest_entry is not None
             and focused_latest_entry.status == DataCapturePageEntryStatusChoices.DRAFT

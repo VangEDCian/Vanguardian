@@ -12,7 +12,6 @@ from apps.crf.models import CrfFieldReviewPolicy
 from apps.crf.public import CrfContextAdapter
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 from apps.reconcile.application.services.dataquery_read import ReconcileDataQueryReadService
-from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
 
 
 class DataCapturePageStateVerificationFinalDataService:
@@ -55,17 +54,14 @@ class DataCapturePageStateVerificationFinalDataService:
     @staticmethod
     def _value_snapshot_for_field(
         *,
-        final_payload: dict[str, Any],
+        entry_payload: dict[str, Any],
         field_row: dict[str, Any],
         field_template_id: int,
     ) -> str:
-        field_key = str(field_row.get("field_key") or "").strip()
-        value_slice = FormFieldReviewTableService.slice_payload_for_field(
-            final_payload,
-            field_key=field_key,
-            field_template_id=field_template_id,
-        )
-        return json.dumps(value_slice, ensure_ascii=False, sort_keys=True)
+        field_key = str(field_row.get("field_key") or "").strip() or f"FIELD_{int(field_template_id)}"
+        raw_value = entry_payload.get(field_key, "")
+        value = "" if raw_value is None else str(raw_value)
+        return json.dumps({field_key: value}, ensure_ascii=False, sort_keys=True)
 
     def _get_reviewable_page_state_or_raise(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         snapshot = self.repository.get_page_state(
@@ -140,7 +136,12 @@ class DataCapturePageStateVerificationFinalDataService:
         )
 
         checked_set = self._normalize_checked_ids(checked_field_template_ids)
-        final_payload = self._load_json_dict(snapshot.final_data)
+        latest_entry = self.repository.get_current_entry(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
+        entry_payload = self._load_json_dict(latest_entry.data if latest_entry is not None else "{}")
         blockers: list[str] = []
         field_row_by_id = {}
         for field_row in field_rows:
@@ -161,7 +162,7 @@ class DataCapturePageStateVerificationFinalDataService:
                 field_template_id=field_template_id,
                 data_version=snapshot.data_version,
                 value_snapshot=self._value_snapshot_for_field(
-                    final_payload=final_payload,
+                    entry_payload=entry_payload,
                     field_row=field_row_by_id[field_template_id],
                     field_template_id=field_template_id,
                 ),
@@ -208,6 +209,26 @@ class DataCapturePageStateVerificationFinalDataService:
         if snapshot is None:
             return set()
         return self.repository.list_verified_or_waived_field_template_ids(
+            page_state_id=snapshot.id,
+            data_version=snapshot.data_version,
+            review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        )
+
+    def list_verified_field_template_ids(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+    ) -> set[int]:
+        snapshot = self.repository.get_page_state(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
+        if snapshot is None:
+            return set()
+        return self.repository.list_verified_field_template_ids(
             page_state_id=snapshot.id,
             data_version=snapshot.data_version,
             review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,

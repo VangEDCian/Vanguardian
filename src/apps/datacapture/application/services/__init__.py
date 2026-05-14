@@ -1,6 +1,7 @@
 from importlib import import_module
 
 __all__ = [
+    "DataCaptureFieldValidationRulesService",
     "DataCaptureEventTransitionTriggerResult",
     "DataCapturePageStateEventTransitionService",
     "DataCaptureSaveSubmitPageService",
@@ -10,6 +11,9 @@ __all__ = [
 ]
 
 _MODULE_BY_NAME = {
+    "DataCaptureFieldValidationRulesService": (
+        "apps.datacapture.application.services.check_field_validation_rules"
+    ),
     "DataCaptureEventTransitionTriggerResult": (
         "apps.datacapture.application.services.trigger_event_transition"
     ),

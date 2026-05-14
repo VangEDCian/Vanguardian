@@ -12,6 +12,7 @@ from apps.datacapture.application.commands import (
     SubmitFieldChangeReason,
     SubmitPageCommand,
 )
+from apps.datacapture.application.services.check_field_validation_rules import DataCaptureFieldValidationRulesService
 from apps.datacapture.domain.exceptions import (
     InvalidPagePayloadError,
     PageNotEditableError,
@@ -157,6 +158,7 @@ class DataCaptureSaveSubmitPageService:
         self.repository = repository or self.repository_class()
         self.governance_lock_read_repository = governance_lock_read_repository or DjangoGovernanceLockReadRepository()
         self.audit_context = AuditContextAdapter()
+        self.field_validation_rules_service = DataCaptureFieldValidationRulesService(self.repository)
 
     def _assert_capture_not_locked(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> None:
         if self.governance_lock_read_repository.is_capture_locked_for_scope(
@@ -172,6 +174,55 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
             actor_user_id=command.actor_user_id,
+        )
+
+    def _resolve_target_page_status_after_validation(self, command: SubmitPageCommand) -> str:
+        validation_result = self.field_validation_rules_service.check_field_validation_rules(
+            crf_template_id=command.crf_template_id,
+            payload_data=command.data,
+        )
+        if validation_result.has_failures:
+            return DataCapturePageStateStatusChoices.CORRECTION_REQUIRED
+        return DataCapturePageStateStatusChoices.SUBMITTED
+
+    def _submit_noop_identical_submitted(self, command: SubmitPageCommand, latest) -> SubmitPageResult:
+        if latest is None:
+            raise RuntimeError("submit noop requires latest submitted entry")
+        target_page_status = self._resolve_target_page_status_after_validation(command)
+        started_page_state = self.repository.upsert_page_state_for_data_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            actor_user_id=command.actor_user_id,
+        )
+        page_state = self.repository.submit_page_state_with_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            entry_id=latest.id,
+            actor_user_id=command.actor_user_id,
+            trigger_source=(
+                "query"
+                if started_page_state.status == DataCapturePageStateStatusChoices.CORRECTION_REQUIRED
+                else "manual"
+            ),
+            target_status=target_page_status,
+        )
+        return SubmitPageResult(
+            entry_id=latest.id,
+            entry_status=latest.status,
+            page_status=page_state.status if page_state is not None else target_page_status,
+            created_new_entry=False,
+        )
+
+    def _has_other_submitted_entry_if_latest_is_draft(self, command: SubmitPageCommand, latest) -> bool:
+        if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
+            return False
+        return self.repository.has_other_submitted_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            exclude_entry_id=latest.id,
         )
 
     @transaction.atomic
@@ -286,14 +337,7 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
         )
-        has_other = False
-        if latest is not None and latest.status == DataCapturePageEntryStatusChoices.DRAFT:
-            has_other = self.repository.has_other_submitted_entry(
-                subject_id=command.subject_id,
-                visit_id=command.visit_id,
-                crf_template_id=command.crf_template_id,
-                exclude_entry_id=latest.id,
-            )
+        has_other = self._has_other_submitted_entry_if_latest_is_draft(command, latest)
         latest_submitted = self.repository.get_latest_submitted_entry(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -311,11 +355,15 @@ class DataCaptureSaveSubmitPageService:
         except (InvalidPagePayloadError, UnsupportedEntryStatusError) as exc:
             _raise_as_http(exc)
 
+        if plan.action == "noop_identical_submitted":
+            return self._submit_noop_identical_submitted(command, latest)
+
         changed_field_keys: list[str] = []
+        reason_required_field_keys: list[str] = []
         reason_map: dict[str, SubmitFieldChangeReason] = {}
         baseline_payload: dict = {}
         candidate_payload: dict = {}
-        if latest_submitted is not None and (latest is None or latest_submitted.id != latest.id):
+        if latest_submitted is not None:
             baseline_payload = _load_payload_map(latest_submitted.data)
             candidate_payload = _load_payload_map(command.data)
             changed_field_keys = _resolve_changed_field_keys(
@@ -324,8 +372,17 @@ class DataCaptureSaveSubmitPageService:
             )
             if changed_field_keys:
                 reason_map = _build_change_reason_map(command.change_reasons)
+                if page_state is not None:
+                    reason_required_field_keys = self.repository.list_changed_verified_field_keys(
+                        page_state_id=page_state.id,
+                        crf_template_id=command.crf_template_id,
+                        data_version=page_state.data_version,
+                        changed_field_keys=changed_field_keys,
+                    )
                 missing_reason_fields = [
-                    field_key for field_key in changed_field_keys if not reason_map.get(field_key) or not reason_map[field_key].reason
+                    field_key
+                    for field_key in reason_required_field_keys
+                    if not reason_map.get(field_key) or not reason_map[field_key].reason
                 ]
                 if missing_reason_fields:
                     raise ValidationError(["Change reason is required for all updated fields before submit."])
@@ -345,26 +402,42 @@ class DataCaptureSaveSubmitPageService:
             data=command.data,
             actor_user_id=command.actor_user_id,
         )
+        target_page_status = self._resolve_target_page_status_after_validation(command)
         page_state = self.repository.submit_page_state_with_entry(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
             entry_id=entry.pk,
-            final_data=command.data,
             actor_user_id=command.actor_user_id,
             trigger_source="query" if page_state and page_state.status == DataCapturePageStateStatusChoices.CORRECTION_REQUIRED else "manual",
+            target_status=target_page_status,
         )
+        if reason_required_field_keys and reason_map:
+            self.repository.mark_verified_field_reviews_stale_with_reasons(
+                page_state_id=page_state.pk,
+                crf_template_id=command.crf_template_id,
+                data_version=int(started_page_state.data_version or page_state.data_version or 0),
+                reason_by_field_key={
+                    field_key: reason_map[field_key].reason
+                    for field_key in reason_required_field_keys
+                    if field_key in reason_map and reason_map[field_key].reason
+                },
+                actor_user_id=command.actor_user_id,
+            )
         self.repository.mark_field_reviews_stale_for_changed_field_keys(
             page_state_id=page_state.pk,
             crf_template_id=command.crf_template_id,
             changed_field_keys=changed_field_keys,
             actor_user_id=command.actor_user_id,
         )
-        if changed_field_keys:
+        changed_field_keys_with_reasons = [
+            field_key for field_key in changed_field_keys if field_key in reason_map and reason_map[field_key].reason
+        ]
+        if changed_field_keys_with_reasons:
             before_data, after_data = _build_change_reason_audit_payloads(
                 baseline_payload=baseline_payload,
                 candidate_payload=candidate_payload,
-                changed_field_keys=changed_field_keys,
+                changed_field_keys=changed_field_keys_with_reasons,
                 reason_map=reason_map,
             )
             self.audit_context.record_event(

@@ -191,7 +191,7 @@ class DataCaptureFieldReview(models.Model):
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
-                fields=["page_state", "field_template", "review_type"],
+                fields=["page_state", "field_template", "review_type", "data_version"],
                 name="datacapture_fieldreview_page_field_type_uniq",
             )
         ]

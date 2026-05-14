@@ -57,7 +57,7 @@ class SaveDraftExecutionPlan:
 
 @dataclass(frozen=True)
 class SubmitExecutionPlan:
-    action: Literal["initial_submitted", "promote_draft", "replace_submitted"]
+    action: Literal["initial_submitted", "promote_draft", "replace_submitted", "noop_identical_submitted"]
     draft_entry_id: int | None = None
     supersede_other_submitted_before_promote: bool = False
     superseded_entry_snapshot: DataCapturePageEntrySnapshot | None = None

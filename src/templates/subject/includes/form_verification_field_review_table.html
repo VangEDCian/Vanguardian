@@ -1,4 +1,4 @@
-{% load i18n static %}
+{% load i18n static subject_field_display %}
 <div class="subject-form-verification-review__table-wrap">
     <table class="entity-table subject-form-verification-review__table subject-form-verification-review__table--styled">
         <thead>
@@ -23,11 +23,11 @@
                                class="subject-form-verification-review__checkbox"
                                data-field-template-id="{{ row.field_template_id }}"
                                {% if row.is_checked %}checked{% endif %}
-                               {% if form_verification_fields_locked %}disabled aria-disabled="true"{% endif %}
+                               {% if row.is_checked or form_verification_fields_locked %}disabled aria-disabled="true"{% endif %}
                                aria-label="{% trans 'Select field for verification' %}" />
                     </td>
                     <td>{{ row.brief_description }}</td>
-                    <td>{{ row.display_value }}</td>
+                    <td>{% subject_field_review_display_value row LANGUAGE_CODE %}</td>
                     <td>{{ row.open_query_count }}</td>
                     <td>{{ row.modified_by }}</td>
                     <td>

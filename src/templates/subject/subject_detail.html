@@ -117,6 +117,7 @@
         {% if focused_latest_submitted_entry %}
             {{ previous_submitted_entry_values|json_script:"datacapture-previous-submitted-payload" }}
         {% endif %}
+        {{ reason_required_field_keys|json_script:"datacapture-reason-required-field-keys-payload" }}
         {% endif %}
         {% if not is_form_verification_mode %}
         <div class="subject-detail-screen__reason-modal-backdrop"

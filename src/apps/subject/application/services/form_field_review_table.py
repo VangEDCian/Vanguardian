@@ -101,6 +101,10 @@ class FormFieldReviewTableService:
                 {
                     "field_template_id": field_template_id,
                     "brief_description": brief,
+                    "data_type": str(field_row.get("data_type") or "").strip(),
+                    "unit": str(field_row.get("unit") or "").strip(),
+                    "precision": field_row.get("precision"),
+                    "raw_value": raw_value,
                     "display_value": display_value,
                     "open_query_count": int(counts.get(field_template_id, 0)),
                     "modified_by": modified_by_display,

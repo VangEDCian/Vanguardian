@@ -119,6 +119,13 @@
               ? 'Saved. Pending blockers: ' + blockers.join(', ')
               : 'Saved.';
         showNotification(msg, 'success');
+        const verifiedCheckedEnabled = Array.from(
+          root.querySelectorAll('input[name="verify_field"]:checked:not(:disabled)'),
+        );
+        verifiedCheckedEnabled.forEach(function (el) {
+          el.disabled = true;
+          el.setAttribute('aria-disabled', 'true');
+        });
       })
       .catch(function () {
         showNotification('Network error.', 'error');

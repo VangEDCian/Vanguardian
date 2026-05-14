@@ -82,6 +82,8 @@ def build_submit_execution_plan(
             supersede_other_submitted_before_promote=has_other_submitted_entry,
         )
     if latest.status == DataCapturePageEntryStatusChoices.SUBMITTED:
+        if same_capture_payload(latest.data, payload):
+            return SubmitExecutionPlan(action="noop_identical_submitted")
         return SubmitExecutionPlan(
             action="replace_submitted",
             superseded_entry_snapshot=latest,

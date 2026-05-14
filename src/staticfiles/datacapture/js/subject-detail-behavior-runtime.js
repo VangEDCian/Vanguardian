@@ -5,7 +5,7 @@
   }
 
   const formRoot = document.querySelector('[data-datacapture-form-root]');
-  const lockStatuses = new Set(['in_review', 'verified', 'finalized', 'locked']);
+  const lockStatuses = new Set(['finalized', 'locked']);
   const touchedFields = new Set();
   let isApplying = false;
   let pendingFrame = null;

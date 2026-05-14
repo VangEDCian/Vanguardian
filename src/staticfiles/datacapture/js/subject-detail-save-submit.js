@@ -17,8 +17,8 @@
   const fieldScope = formPanel || document;
   const notificationDurationMs = 2600;
   const datePartSuffixes = shared.datePartSuffixes || ['__day', '__month', '__year', '__time'];
-  /* Keep in sync with STABLE_EDIT_STATUSES in domain page_capture_save_submit.py */
-  const lockStatuses = new Set(['in_review', 'verified', 'finalized', 'locked']);
+  /* Editable until terminal states. */
+  const lockStatuses = new Set(['finalized', 'locked']);
 
   function normalizePageStatus(value) {
     return String(value ?? '')
@@ -256,6 +256,7 @@
       datetimeControlModule.syncDatetimeCompositeInput?.(container);
     });
     const payload = {};
+    const handledCheckboxNames = new Set();
     fieldScope.querySelectorAll('input, textarea, select').forEach((input) => {
       if (!input.name) {
         return;
@@ -265,6 +266,21 @@
         return;
       }
       if (input.type === 'checkbox') {
+        if (handledCheckboxNames.has(input.name)) {
+          return;
+        }
+        const checkboxes = Array.from(fieldScope.querySelectorAll('input[type="checkbox"]')).filter(
+          (checkbox) => checkbox.name === input.name,
+        );
+        handledCheckboxNames.add(input.name);
+        if (checkboxes.length > 1) {
+          payload[input.name] = checkboxes
+            .filter((checkbox) => checkbox.checked)
+            .map((checkbox) => String(checkbox.value ?? ''))
+            .filter((value) => value)
+            .join(',');
+          return;
+        }
         payload[input.name] = input.checked;
         return;
       }
@@ -445,12 +461,18 @@
   const resetTrackpointPayloadSource = shared.loadPayloadByScriptId?.(
     'datacapture-reset-trackpoint-data-payload',
   );
+  const reasonRequiredFieldKeysPayload =
+    shared.loadPayloadByScriptId?.('datacapture-reason-required-field-keys-payload') || [];
+  const reasonRequiredFieldKeySet = new Set(
+    Array.isArray(reasonRequiredFieldKeysPayload)
+      ? reasonRequiredFieldKeysPayload
+        .map((key) => canonicalFieldKey(key))
+        .filter((key) => key)
+      : [],
+  );
   const resetTrackpointDataPayload =
     clonePayloadObject(resetTrackpointPayloadSource) ||
     clonePayloadObject(initialCurrentDataPayload);
-  console.log('initialCurrentDataPayload', initialCurrentDataPayload);
-  console.log('initialPreviousDataPayload', initialPreviousDataPayload);
-  console.log('resetTrackpointDataPayload', resetTrackpointDataPayload);
 
   const validation = validationModuleFactory?.createValidationModule({
     fieldScope,
@@ -531,9 +553,16 @@
 
     if (previousSubmittedPayload) {
       const changedFieldKeys = resolveChangedFieldKeys(previousSubmittedPayload, payloadObject);
-      if (changedFieldKeys.length > 0) {
+      console.log("previousSubmittedPayload", previousSubmittedPayload);
+      const reasonRequiredChangedFieldKeys = changedFieldKeys.filter((fieldKey) =>
+        reasonRequiredFieldKeySet.has(canonicalFieldKey(fieldKey)),
+      );
+      if (reasonRequiredChangedFieldKeys.length > 0) {
         const fieldLabelMap = resolveFieldLabelMap(fieldScope);
-        const modalReasons = await reasonModal?.openChangeReasonModal?.(changedFieldKeys, fieldLabelMap);
+        const modalReasons = await reasonModal?.openChangeReasonModal?.(
+          reasonRequiredChangedFieldKeys,
+          fieldLabelMap,
+        );
         if (modalReasons === null) {
           showNotification('Cancelled', 'error');
           return;
@@ -609,6 +638,7 @@
       canonicalFieldKey,
       normalizeComparableValue,
       datePartSuffixes,
+      verifiedFieldKeySet: reasonRequiredFieldKeySet,
     };
     radioControlModule.applySubmittedDiffRadioMarkers?.(markerContext);
     textControlModule.applySubmittedDiffTextMarkers?.(markerContext);

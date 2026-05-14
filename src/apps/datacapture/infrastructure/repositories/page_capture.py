@@ -1,5 +1,7 @@
+import json
+
 from django.core.exceptions import ValidationError
-from django.db.models import Max
+from django.db.models import Max, Prefetch
 
 from apps.core.choices import (
     DataCaptureFieldReviewStatusChoices,
@@ -7,7 +9,7 @@ from apps.core.choices import (
     DataCapturePageEntryStatusChoices,
     DataCapturePageStateStatusChoices,
 )
-from apps.crf.models import CrfFieldTemplate
+from apps.crf.models import CrfFieldTemplate, CrfFieldValidationRule
 from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
@@ -22,6 +24,74 @@ from apps.datacapture.models import (
 
 
 class DjangoDataCapturePageRepository:
+    @staticmethod
+    def _normalize_field_key_list(field_keys: list[str] | tuple[str, ...]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for field_key in field_keys or []:
+            key = str(field_key or "").strip()
+            if not key or key in seen:
+                continue
+            normalized.append(key)
+            seen.add(key)
+        return normalized
+
+    def _map_changed_field_keys_by_template_id(
+        self,
+        *,
+        crf_template_id: int,
+        changed_field_keys: list[str] | tuple[str, ...],
+    ) -> dict[int, list[str]]:
+        normalized_keys = self._normalize_field_key_list(changed_field_keys)
+        if not normalized_keys:
+            return {}
+        changed_key_set = set(normalized_keys)
+        matched_keys_by_template_id: dict[int, list[str]] = {}
+        fields = CrfFieldTemplate.objects.filter(
+            crf_template_id=crf_template_id,
+            deleted=False,
+        ).only("id", "field_key")
+        for field in fields:
+            field_template_id = int(field.id)
+            field_key = str(field.field_key or "").strip()
+            aliases = [alias for alias in (field_key, f"field_{field_template_id}") if alias]
+            matched_aliases = [alias for alias in aliases if alias in changed_key_set]
+            if not matched_aliases:
+                continue
+            matched_keys_by_template_id[field_template_id] = [
+                key for key in normalized_keys if key in set(matched_aliases)
+            ]
+        return matched_keys_by_template_id
+
+    def list_form_field_validation_rules(self, *, crf_template_id: int) -> dict[str, tuple[str, ...]]:
+        validation_rules_qs = CrfFieldValidationRule.objects.filter(deleted=False).only(
+            "id",
+            "field_template_id",
+            "expression",
+        )
+        fields = (
+            CrfFieldTemplate.objects.filter(
+                crf_template_id=crf_template_id,
+                deleted=False,
+                is_active=True,
+            )
+            .only("id", "field_key")
+            .prefetch_related(Prefetch("validation_rules", queryset=validation_rules_qs))
+            .order_by("id")
+        )
+        output: dict[str, tuple[str, ...]] = {}
+        for field in fields:
+            field_key = str(field.field_key or "").strip()
+            if not field_key:
+                continue
+            expressions = tuple(
+                str(rule.expression or "").strip()
+                for rule in field.validation_rules.all()
+                if str(rule.expression or "").strip()
+            )
+            output[field_key] = expressions
+        return output
+
     def get_page_state(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         page_state = (
             DataCapturePageState.objects.filter(
@@ -375,6 +445,15 @@ class DjangoDataCapturePageRepository:
                 actor_user_id=actor_user_id,
                 trigger_source="manual",
             )
+        if page_state.status == DataCapturePageStateStatusChoices.VERIFIED:
+            return self.upsert_page_state(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                status=DataCapturePageStateStatusChoices.SUBMITTED,
+                actor_user_id=actor_user_id,
+                trigger_source="manual",
+            )
         return page_state
 
     def ensure_open_page_state_if_not_exists(
@@ -499,9 +578,9 @@ class DjangoDataCapturePageRepository:
         visit_id: int,
         crf_template_id: int,
         entry_id: int,
-        final_data: str,
         actor_user_id: int | None = None,
         trigger_source: str = "manual",
+        target_status: str = DataCapturePageStateStatusChoices.SUBMITTED,
     ):
         page_state = (
             DataCapturePageState.objects.filter(
@@ -528,10 +607,9 @@ class DjangoDataCapturePageRepository:
         DataCapturePageState.objects.filter(pk=page_state.pk).update(
             updated_at=now,
             updated_by_id=actor_user_id,
-            final_data=final_data,
             data_version=next_version,
             current_entry_id=entry_id,
-            status=DataCapturePageStateStatusChoices.SUBMITTED,
+            status=target_status,
             submitted_at=now,
             submitted_by_id=actor_user_id,
         )
@@ -539,7 +617,7 @@ class DjangoDataCapturePageRepository:
         self._record_page_state_transition(
             page_state=page_state,
             from_status=from_status,
-            to_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            to_status=target_status,
             actor_user_id=actor_user_id,
             trigger_source=trigger_source,
         )
@@ -555,24 +633,120 @@ class DjangoDataCapturePageRepository:
     ) -> int:
         if not changed_field_keys:
             return 0
-        field_template_ids = list(
-            CrfFieldTemplate.objects.filter(
-                crf_template_id=crf_template_id,
-                field_key__in=changed_field_keys,
-                deleted=False,
-            ).values_list("id", flat=True)
+        matched_keys_by_template_id = self._map_changed_field_keys_by_template_id(
+            crf_template_id=crf_template_id,
+            changed_field_keys=changed_field_keys,
         )
-        if not field_template_ids:
+        if not matched_keys_by_template_id:
             return 0
-        return DataCaptureFieldReview.objects.filter(
-            page_state_id=page_state_id,
-            field_template_id__in=field_template_ids,
-            deleted=False,
-        ).exclude(status__in=["stale", "waived"]).update(
-            status="stale",
-            updated_at=self._now(),
-            updated_by_id=actor_user_id,
+        now = self._now()
+        affected = 0
+        for field_template_id in matched_keys_by_template_id:
+            latest_verified = (
+                DataCaptureFieldReview.objects.filter(
+                    page_state_id=page_state_id,
+                    field_template_id=field_template_id,
+                    deleted=False,
+                    status=DataCaptureFieldReviewStatusChoices.VERIFIED,
+                )
+                .order_by("-updated_at", "-id")
+                .first()
+            )
+            if latest_verified is None:
+                continue
+            affected += DataCaptureFieldReview.objects.filter(pk=latest_verified.pk).update(
+                status=DataCaptureFieldReviewStatusChoices.STALE,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+        return affected
+
+    def list_changed_verified_field_keys(
+        self,
+        *,
+        page_state_id: int,
+        crf_template_id: int,
+        data_version: int,
+        changed_field_keys: list[str],
+        review_type: str = DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+    ) -> list[str]:
+        if not changed_field_keys:
+            return []
+        matched_keys_by_template_id = self._map_changed_field_keys_by_template_id(
+            crf_template_id=crf_template_id,
+            changed_field_keys=changed_field_keys,
         )
+        if not matched_keys_by_template_id:
+            return []
+        verified_changed_keys: list[str] = []
+        for field_template_id, matched_changed_keys in matched_keys_by_template_id.items():
+            latest_review = (
+                DataCaptureFieldReview.objects.filter(
+                    page_state_id=page_state_id,
+                    field_template_id=field_template_id,
+                    review_type=review_type,
+                    deleted=False,
+                )
+                .order_by("-updated_at", "-id")
+                .first()
+            )
+            if latest_review is None:
+                continue
+            if latest_review.status == DataCaptureFieldReviewStatusChoices.VERIFIED:
+                verified_changed_keys.extend(matched_changed_keys)
+        return sorted(set(verified_changed_keys))
+
+    def mark_verified_field_reviews_stale_with_reasons(
+        self,
+        *,
+        page_state_id: int,
+        crf_template_id: int,
+        data_version: int,
+        reason_by_field_key: dict[str, str],
+        actor_user_id: int | None = None,
+        review_type: str = DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+    ) -> int:
+        normalized_reason_map = {
+            str(field_key or "").strip(): str(reason or "").strip()
+            for field_key, reason in (reason_by_field_key or {}).items()
+            if str(field_key or "").strip() and str(reason or "").strip()
+        }
+        if not normalized_reason_map:
+            return 0
+        matched_keys_by_template_id = self._map_changed_field_keys_by_template_id(
+            crf_template_id=crf_template_id,
+            changed_field_keys=list(normalized_reason_map.keys()),
+        )
+        affected = 0
+        now = self._now()
+        for field_template_id, matched_reason_keys in matched_keys_by_template_id.items():
+            reason_text = ""
+            for field_key in matched_reason_keys:
+                reason_text = normalized_reason_map.get(field_key, "")
+                if reason_text:
+                    break
+            if not reason_text:
+                continue
+            latest_verified = (
+                DataCaptureFieldReview.objects.filter(
+                    page_state_id=page_state_id,
+                    field_template_id=field_template_id,
+                    review_type=review_type,
+                    deleted=False,
+                    status=DataCaptureFieldReviewStatusChoices.VERIFIED,
+                )
+                .order_by("-updated_at", "-id")
+                .first()
+            )
+            if latest_verified is None:
+                continue
+            affected += DataCaptureFieldReview.objects.filter(pk=latest_verified.pk).update(
+                status=DataCaptureFieldReviewStatusChoices.STALE,
+                reason_text=reason_text,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+        return affected
 
     def start_page_review(
         self,
@@ -618,6 +792,24 @@ class DjangoDataCapturePageRepository:
         if not field_template_ids:
             return 0
         now = self._now()
+        stale_rows = list(
+            DataCaptureFieldReview.objects.filter(
+                page_state_id=page_state_id,
+                field_template_id__in=field_template_ids,
+                review_type=review_type,
+                deleted=False,
+                status=DataCaptureFieldReviewStatusChoices.STALE,
+            ).only("id", "field_template_id")
+        )
+        stale_field_ids = {int(row.field_template_id) for row in stale_rows}
+        if stale_rows:
+            DataCaptureFieldReview.objects.filter(
+                id__in=[int(row.id) for row in stale_rows],
+            ).update(
+                deleted=True,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
         existing_ids = set(
             DataCaptureFieldReview.objects.filter(
                 page_state_id=page_state_id,
@@ -640,7 +832,7 @@ class DjangoDataCapturePageRepository:
                 updated_by_id=actor_user_id,
             )
             for field_template_id in field_template_ids
-            if field_template_id not in existing_ids
+            if field_template_id not in existing_ids or field_template_id in stale_field_ids
         ]
         if not records:
             return 0
@@ -658,20 +850,34 @@ class DjangoDataCapturePageRepository:
         review_type: str = DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
     ) -> None:
         now = self._now()
-        review, _ = DataCaptureFieldReview.objects.get_or_create(
+        review = DataCaptureFieldReview.objects.filter(
             page_state_id=page_state_id,
             field_template_id=field_template_id,
             review_type=review_type,
-            defaults={
-                "created_at": now,
-                "updated_at": now,
-                "deleted": False,
-                "status": DataCaptureFieldReviewStatusChoices.NOT_REVIEWED,
-                "data_version": data_version,
-                "created_by_id": actor_user_id,
-                "updated_by_id": actor_user_id,
-            },
-        )
+            deleted=False,
+        ).first()
+        if review is not None and review.status == DataCaptureFieldReviewStatusChoices.STALE:
+            DataCaptureFieldReview.objects.filter(pk=review.pk).update(
+                deleted=True,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+            review = None
+        if review is None:
+            review = DataCaptureFieldReview.objects.create(
+                created_at=now,
+                updated_at=now,
+                deleted=False,
+                page_state_id=page_state_id,
+                field_template_id=field_template_id,
+                review_type=review_type,
+                status=DataCaptureFieldReviewStatusChoices.NOT_REVIEWED,
+                data_version=data_version,
+                created_by_id=actor_user_id,
+                updated_by_id=actor_user_id,
+            )
+        if review.status == DataCaptureFieldReviewStatusChoices.VERIFIED:
+            return
         update_fields = {
             "updated_at": now,
             "updated_by_id": actor_user_id,
@@ -697,10 +903,17 @@ class DjangoDataCapturePageRepository:
         rows = DataCaptureFieldReview.objects.filter(
             page_state_id=page_state_id,
             review_type=review_type,
-            data_version=data_version,
             deleted=False,
-        ).values("field_template_id", "status")
-        return {int(row["field_template_id"]): str(row["status"] or "") for row in rows}
+        ).values("field_template_id", "status", "data_version", "updated_at", "id").order_by(
+            "field_template_id", "-data_version", "-updated_at", "-id"
+        )
+        status_by_field: dict[int, str] = {}
+        for row in rows:
+            field_template_id = int(row["field_template_id"])
+            if field_template_id in status_by_field:
+                continue
+            status_by_field[field_template_id] = str(row["status"] or "")
+        return status_by_field
 
     def list_verified_or_waived_field_template_ids(
         self,
@@ -721,6 +934,21 @@ class DjangoDataCapturePageRepository:
                 ],
             ).values_list("field_template_id", flat=True)
         )
+
+    def list_verified_field_template_ids(
+        self,
+        *,
+        page_state_id: int,
+        data_version: int | None = None,
+        review_type: str = DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+    ) -> set[int]:
+        queryset = DataCaptureFieldReview.objects.filter(
+            page_state_id=page_state_id,
+            review_type=review_type,
+            deleted=False,
+            status=DataCaptureFieldReviewStatusChoices.VERIFIED,
+        )
+        return set(queryset.values_list("field_template_id", flat=True))
 
     def find_page_verification_field_review_blockers(
         self,
@@ -826,10 +1054,29 @@ class DjangoDataCapturePageRepository:
             )
         from_status = page_state.status
         rows_updated = DataCapturePageState.objects.filter(pk=page_state.pk).update(
-            final_data=final_data,
+            final_data=(
+                self._build_page_state_final_data_from_field_reviews(
+                    page_state_id=page_state.pk,
+                    data_version=page_state.data_version,
+                    review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+                )
+                if status == DataCapturePageStateStatusChoices.FINALIZED
+                else page_state.final_data
+            ),
             status=status,
             updated_at=now,
             updated_by_id=actor_user_id,
+            finalized_at=(
+                now if status == DataCapturePageStateStatusChoices.FINALIZED else page_state.finalized_at
+            ),
+            finalized_by_id=(
+                actor_user_id if status == DataCapturePageStateStatusChoices.FINALIZED else page_state.finalized_by_id
+            ),
+            finalized_data_version=(
+                page_state.data_version
+                if status == DataCapturePageStateStatusChoices.FINALIZED
+                else page_state.finalized_data_version
+            ),
         )
         if rows_updated == 0:
             raise ValidationError(
@@ -843,6 +1090,38 @@ class DjangoDataCapturePageRepository:
             actor_user_id=actor_user_id,
             trigger_source="review",
         )
+
+    def _build_page_state_final_data_from_field_reviews(
+        self,
+        *,
+        page_state_id: int,
+        data_version: int,
+        review_type: str,
+    ) -> str:
+        payload: dict = {}
+        rows = (
+            DataCaptureFieldReview.objects.filter(
+                page_state_id=page_state_id,
+                data_version=data_version,
+                review_type=review_type,
+                deleted=False,
+                status__in=[
+                    DataCaptureFieldReviewStatusChoices.VERIFIED,
+                    DataCaptureFieldReviewStatusChoices.WAIVED,
+                ],
+            )
+            .only("value_snapshot", "updated_at", "id")
+            .order_by("updated_at", "id")
+        )
+        for row in rows:
+            try:
+                value_map = json.loads(row.value_snapshot or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if not isinstance(value_map, dict):
+                continue
+            payload.update(value_map)
+        return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
     def _record_page_state_transition(
         self,

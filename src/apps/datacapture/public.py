@@ -168,6 +168,25 @@ def get_verified_or_waived_field_template_ids_for_subject_visit_crf(
     )
 
 
+def get_verified_field_template_ids_for_subject_visit_crf(
+    *,
+    subject_id: int,
+    visit_id: int | None,
+    crf_template_id: int,
+) -> set[int]:
+    if visit_id is None:
+        return set()
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().list_verified_field_template_ids(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+
+
 def ensure_draft_page_state_if_not_exists(
     *,
     subject_id: int,
@@ -193,6 +212,7 @@ __all__ = [
     "get_page_state_final_data_for_subject_visit_crf",
     "get_page_state_id_for_subject_visit_crf",
     "get_page_state_status_for_subject_visit_crf",
+    "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
     "merge_form_verification_checked_fields_into_page_state_final_data",
     "save_page_for_subject_visit_crf",

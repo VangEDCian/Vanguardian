@@ -29,6 +29,7 @@
       changedClassName,
       resolveKeyCandidates,
       includeContainerAsMarker = false,
+      verifiedFieldKeySet,
     } = context;
 
     if (!fieldScope || !markerSelector || !changedClassName || typeof resolveKeyCandidates !== 'function') {
@@ -48,6 +49,12 @@
         ? [container]
         : Array.from(container.querySelectorAll(markerSelector));
       if (!markerNodes.length) {
+        return;
+      }
+      if (verifiedFieldKeySet instanceof Set && verifiedFieldKeySet.size > 0 && !verifiedFieldKeySet.has(fieldKey)) {
+        markerNodes.forEach((node) => {
+          node.classList.remove(changedClassName);
+        });
         return;
       }
 
