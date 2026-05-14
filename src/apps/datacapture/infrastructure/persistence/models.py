@@ -11,10 +11,28 @@ class DataCapturePageState(models.Model):
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
-    status = models.CharField(max_length=16, choices=DataCapturePageStateStatusChoices.choices)
-    final_data = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=32, choices=DataCapturePageStateStatusChoices.choices)
+    final_data = models.TextField()
+
+    data_version = models.IntegerField(default=1)
+    current_entry = models.ForeignKey(
+        "datacapture.DataCapturePageEntry",
+        on_delete=models.DO_NOTHING,
+        db_column="current_entry_id",
+        related_name="current_for_page_states",
+        null=True,
+        blank=True,
+    )
+
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    review_started_at = models.DateTimeField(null=True, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     locked_at = models.DateTimeField(null=True, blank=True)
+    finalized_at = models.DateTimeField(null=True, blank=True)
+
+    verified_data_version = models.IntegerField(null=True, blank=True)
+    locked_data_version = models.IntegerField(null=True, blank=True)
+    finalized_data_version = models.IntegerField(null=True, blank=True)
 
     crf_template = models.ForeignKey(
         "crf.CrfTemplate",
@@ -37,8 +55,11 @@ class DataCapturePageState(models.Model):
 
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)
+    submitted_by_id = models.BigIntegerField(null=True, blank=True)
+    review_started_by_id = models.BigIntegerField(null=True, blank=True)
     verified_by_id = models.BigIntegerField(null=True, blank=True)
     locked_by_id = models.BigIntegerField(null=True, blank=True)
+    finalized_by_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "datacapture_pagestate"
@@ -59,11 +80,33 @@ class DataCapturePageEntry(models.Model):
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
+    page_state = models.ForeignKey(
+        DataCapturePageState,
+        on_delete=models.DO_NOTHING,
+        db_column="page_state_id",
+        related_name="page_entries",
+    )
+    parent_entry = models.ForeignKey(
+        "self",
+        on_delete=models.DO_NOTHING,
+        db_column="parent_entry_id",
+        related_name="correction_entries",
+        null=True,
+        blank=True,
+    )
+
     entry_no = models.IntegerField()
     entry_kind = models.CharField(max_length=16)
     entry_version = models.CharField(max_length=16)
     data = models.TextField()
-    status = models.CharField(max_length=16, choices=DataCapturePageEntryStatusChoices.choices)
+    status = models.CharField(max_length=32, choices=DataCapturePageEntryStatusChoices.choices)
+
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+
+    rejection_reason = models.TextField(null=True, blank=True)
+    correction_reason = models.TextField(null=True, blank=True)
 
     crf_template = models.ForeignKey(
         "crf.CrfTemplate",
@@ -86,6 +129,9 @@ class DataCapturePageEntry(models.Model):
 
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)
+    submitted_by_id = models.BigIntegerField(null=True, blank=True)
+    accepted_by_id = models.BigIntegerField(null=True, blank=True)
+    rejected_by_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "datacapture_pageentry"
@@ -95,10 +141,87 @@ class DataCapturePageEntry(models.Model):
             models.Index(
                 fields=["subject", "visit", "crf_template", "entry_version"],
                 name="dcpg_sub_vis_crf_ver_idx",
-            )
+            ),
+            models.Index(
+                fields=["page_state", "status"],
+                name="dcpg_pagestate_status_idx",
+            ),
         ]
         verbose_name = "data capture page entry"
         verbose_name_plural = "data capture page entries"
+
+
+class DataCaptureFieldReview(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    page_state = models.ForeignKey(
+        DataCapturePageState,
+        on_delete=models.DO_NOTHING,
+        db_column="page_state_id",
+        related_name="field_reviews",
+    )
+    field_template = models.ForeignKey(
+        "crf.CrfFieldTemplate",
+        on_delete=models.DO_NOTHING,
+        db_column="field_template_id",
+        related_name="data_capture_field_reviews",
+    )
+
+    review_type = models.CharField(max_length=32)
+    status = models.CharField(max_length=32)
+    data_version = models.IntegerField()
+    value_snapshot = models.TextField(null=True, blank=True)
+
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+
+    reason_code = models.CharField(max_length=64, null=True, blank=True)
+    reason_text = models.TextField(null=True, blank=True)
+
+    reviewed_by_id = models.BigIntegerField(null=True, blank=True)
+    verified_by_id = models.BigIntegerField(null=True, blank=True)
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "datacapture_fieldreview"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["page_state", "field_template", "review_type"],
+                name="datacapture_fieldreview_page_field_type_uniq",
+            )
+        ]
+
+
+class DataCapturePageStateTransitionLog(models.Model):
+    created_at = models.DateTimeField()
+
+    page_state = models.ForeignKey(
+        DataCapturePageState,
+        on_delete=models.DO_NOTHING,
+        db_column="page_state_id",
+        related_name="transition_logs",
+    )
+
+    from_status = models.CharField(max_length=32, null=True, blank=True)
+    to_status = models.CharField(max_length=32)
+
+    data_version = models.IntegerField(null=True, blank=True)
+    reason_code = models.CharField(max_length=64, null=True, blank=True)
+    reason_text = models.TextField(null=True, blank=True)
+
+    trigger_source = models.CharField(max_length=32)
+    actor_id = models.BigIntegerField(null=True, blank=True)
+    facts_json = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "datacapture_pagestate_transition_log"
+        managed = False
+        default_permissions = ()
 
 
 class DataCaptureFactMapping(models.Model):
@@ -165,7 +288,9 @@ class DataCaptureFactMapping(models.Model):
 
 
 __all__ = [
+    "DataCaptureFieldReview",
     "DataCaptureFactMapping",
     "DataCapturePageEntry",
     "DataCapturePageState",
+    "DataCapturePageStateTransitionLog",
 ]

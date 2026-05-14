@@ -380,3 +380,53 @@ class CrfFieldValidationRuleTranslation(TranslatedFieldsModel):
         ]
         verbose_name = "CRF field validation rule translation"
         verbose_name_plural = "CRF field validation rule translations"
+
+
+class CrfFieldReviewPolicy(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        "study.Study",
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="crf_field_review_policies",
+    )
+    study_version = models.CharField(max_length=20)
+    crf_template = models.ForeignKey(
+        CrfTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="crf_template_id",
+        related_name="field_review_policies",
+    )
+    field_template = models.ForeignKey(
+        CrfFieldTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="field_template_id",
+        related_name="review_policies",
+    )
+
+    review_type = models.CharField(max_length=32)
+    is_required_for_page_verify = models.BooleanField(default=False)
+    is_required_for_lock = models.BooleanField(default=False)
+    is_blocking_if_missing = models.BooleanField(default=True)
+
+    role_required = models.CharField(max_length=64, null=True, blank=True)
+    is_enabled = models.BooleanField(default=True)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "crf_fieldreview_policy"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["study", "study_version", "crf_template", "field_template", "review_type"],
+                name="crf_fieldreview_policy_scope_uniq",
+            )
+        ]
+        verbose_name = "CRF field review policy"
+        verbose_name_plural = "CRF field review policies"

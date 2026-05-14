@@ -44,6 +44,7 @@ class FormFieldReviewTableService:
         entry_payload: dict[str, Any],
         page_state_id: int | None,
         verified_snapshot: dict[str, Any] | None = None,
+        verified_field_template_ids: set[int] | None = None,
     ) -> dict[str, Any]:
         event_start_at = DjangoSubjectEventInstanceScheduleReadRepository().get_event_start_datetime(
             event_instance_id=event_instance_id,
@@ -87,7 +88,9 @@ class FormFieldReviewTableService:
                 label_by_value=label_by_value,
             )
             is_checked = False
-            if verified_snapshot is not None:
+            if verified_field_template_ids is not None:
+                is_checked = field_template_id in verified_field_template_ids
+            elif verified_snapshot is not None:
                 is_checked = self.field_storage_matches_snapshot(
                     verified_snapshot,
                     entry_payload,

@@ -38,7 +38,7 @@ class SubjectFormVerificationVerifyCheckedView(
             except (TypeError, ValueError):
                 return JsonResponse({"error": ["field_template_ids must contain integers"]}, status=400)
         try:
-            all_verified, page_status = merge_form_verification_checked_fields_into_page_state_final_data(
+            all_verified, page_status, blocking_reasons = merge_form_verification_checked_fields_into_page_state_final_data(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
@@ -53,6 +53,7 @@ class SubjectFormVerificationVerifyCheckedView(
                 "field_template_ids": normalized,
                 "all_verified": all_verified,
                 "page_status": page_status,
+                "blocking_reasons": blocking_reasons,
             }
         )
 

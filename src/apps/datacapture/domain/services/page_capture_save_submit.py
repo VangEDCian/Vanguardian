@@ -2,10 +2,9 @@
 
 import json
 
-from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
+from apps.core.choices import DataCapturePageEntryStatusChoices
 from apps.datacapture.domain.exceptions import (
     InvalidPagePayloadError,
-    PageNotEditableError,
     UnsupportedEntryStatusError,
 )
 from apps.datacapture.infrastructure.models.capture import (
@@ -15,19 +14,10 @@ from apps.datacapture.infrastructure.models.capture import (
     SubmitExecutionPlan,
 )
 
-STABLE_EDIT_STATUSES = frozenset(
-    {
-        DataCapturePageStateStatusChoices.IN_REVIEW,
-        DataCapturePageStateStatusChoices.VERIFIED,
-        DataCapturePageStateStatusChoices.FINALIZED,
-        DataCapturePageStateStatusChoices.LOCKED,
-    }
-)
-
 
 def assert_page_editable_for_capture(page_state: DataCapturePageStateSnapshot | None) -> None:
-    if page_state is not None and page_state.status in STABLE_EDIT_STATUSES:
-        raise PageNotEditableError("Page is not editable")
+    # Business lock is managed by governance tables, not PageState status.
+    _ = page_state
 
 
 def validate_capture_payload(data: str | None) -> None:
@@ -66,7 +56,7 @@ def resolve_save_draft_execution_plan(
         return SaveDraftExecutionPlan(branch="update_draft")
     if latest.status == DataCapturePageEntryStatusChoices.SUBMITTED:
         if same_capture_payload(latest.data, payload):
-            noop_status = page_state.status if page_state is not None else DataCapturePageStateStatusChoices.SUBMITTED
+            noop_status = page_state.status if page_state is not None else DataCapturePageEntryStatusChoices.SUBMITTED
             return SaveDraftExecutionPlan(branch="noop_identical_submitted", noop_page_status=noop_status)
         return SaveDraftExecutionPlan(branch="correction_from_submitted")
     raise UnsupportedEntryStatusError(

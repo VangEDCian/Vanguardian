@@ -10,6 +10,8 @@ class DataCapturePageStateSnapshot:
     id: int
     status: str
     final_data: str | None
+    data_version: int
+    current_entry_id: int | None
     crf_template_id: int
     subject_id: int
     visit_id: int
@@ -21,6 +23,8 @@ class DataCapturePageStateSnapshot:
 @dataclass(frozen=True)
 class DataCapturePageEntrySnapshot:
     id: int
+    page_state_id: int | None
+    parent_entry_id: int | None
     entry_no: int
     entry_kind: str
     entry_version: str

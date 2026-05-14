@@ -64,6 +64,7 @@ X_INSTALLED_APPS = [
     "apps.subject.apps.SubjectConfig",
     "apps.datacapture.apps.DatacaptureConfig",
     "apps.reconcile.apps.ReconcileConfig",
+    "apps.governance.apps.GovernanceConfig",
 ]
 
 INSTALLED_APPS = [

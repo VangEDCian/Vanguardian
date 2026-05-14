@@ -135,7 +135,7 @@ def merge_form_verification_checked_fields_into_page_state_final_data(
     crf_template_id: int,
     checked_field_template_ids: list[int],
     actor_user_id: int | None = None,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, list[str]]:
     from apps.datacapture.application.services.page_state_verification_final_data import (
         DataCapturePageStateVerificationFinalDataService,
     )
@@ -149,6 +149,25 @@ def merge_form_verification_checked_fields_into_page_state_final_data(
     )
 
 
+def get_verified_or_waived_field_template_ids_for_subject_visit_crf(
+    *,
+    subject_id: int,
+    visit_id: int | None,
+    crf_template_id: int,
+) -> set[int]:
+    if visit_id is None:
+        return set()
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().list_verified_or_waived_field_template_ids(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+
+
 def ensure_draft_page_state_if_not_exists(
     *,
     subject_id: int,
@@ -156,8 +175,8 @@ def ensure_draft_page_state_if_not_exists(
     crf_template_id: int,
     actor_user_id: int | None = None,
 ) -> bool:
-    """Create draft ``PageState`` when missing. ``final_data`` stays NULL until form verification."""
-    return DataCapturePageStateWriteService().ensure_draft_if_not_exists(
+    """Create not-started ``PageState`` when missing. ``final_data`` starts as empty JSON."""
+    return DataCapturePageStateWriteService().ensure_open_if_not_exists(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
@@ -174,6 +193,7 @@ __all__ = [
     "get_page_state_final_data_for_subject_visit_crf",
     "get_page_state_id_for_subject_visit_crf",
     "get_page_state_status_for_subject_visit_crf",
+    "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
     "merge_form_verification_checked_fields_into_page_state_final_data",
     "save_page_for_subject_visit_crf",
     "submit_page_for_subject_visit_crf",

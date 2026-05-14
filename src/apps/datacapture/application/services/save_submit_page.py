@@ -23,6 +23,7 @@ from apps.datacapture.domain.services.page_capture_save_submit import (
     resolve_save_draft_execution_plan,
 )
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
+from apps.governance.infrastructure.repositories import DjangoGovernanceLockReadRepository
 from apps.shared.constants import AuditEventAction, AuditEventObjectType
 
 
@@ -152,21 +153,34 @@ class DataCaptureSaveSubmitPageService:
 
     repository_class = DjangoDataCapturePageRepository
 
-    def __init__(self, repository=None):
+    def __init__(self, repository=None, governance_lock_read_repository=None):
         self.repository = repository or self.repository_class()
+        self.governance_lock_read_repository = governance_lock_read_repository or DjangoGovernanceLockReadRepository()
         self.audit_context = AuditContextAdapter()
 
-    def _upsert_draft_page_state(self, command: SavePageCommand) -> None:
-        self.repository.upsert_page_state(
+    def _assert_capture_not_locked(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> None:
+        if self.governance_lock_read_repository.is_capture_locked_for_scope(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        ):
+            raise PermissionDenied("Data capture is locked by governance lock.")
+
+    def _start_data_entry_page_state(self, command: SavePageCommand):
+        return self.repository.upsert_page_state_for_data_entry(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
-            status=DataCapturePageStateStatusChoices.DRAFT,
             actor_user_id=command.actor_user_id,
         )
 
     @transaction.atomic
     def save(self, command: SavePageCommand) -> SavePageResult:
+        self._assert_capture_not_locked(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
         page_state = self.repository.get_page_state_by_scope(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -199,23 +213,25 @@ class DataCaptureSaveSubmitPageService:
             )
 
         if plan.branch == "create_initial":
+            page_state = self._start_data_entry_page_state(command)
             entry = self.repository.create_initial_entry(
+                page_state_id=page_state.pk,
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
                 data=command.data,
                 actor_user_id=command.actor_user_id,
             )
-            self._upsert_draft_page_state(command)
             return SavePageResult(
                 entry_id=entry.pk,
                 entry_status=entry.status,
-                page_status="draft",
+                page_status=page_state.status,
                 needs_confirmation=False,
                 created_new_entry=True,
             )
 
         if plan.branch == "update_draft":
+            page_state = self._start_data_entry_page_state(command)
             refreshed = self.repository.update_latest_draft_entry_data(
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
@@ -225,28 +241,28 @@ class DataCaptureSaveSubmitPageService:
             )
             snapshot = refreshed or latest
             assert snapshot is not None
-            self._upsert_draft_page_state(command)
             return SavePageResult(
                 entry_id=snapshot.id,
                 entry_status=snapshot.status,
-                page_status="draft",
+                page_status=page_state.status,
                 needs_confirmation=False,
                 created_new_entry=False,
             )
 
         if plan.branch == "correction_from_submitted":
+            page_state = self._start_data_entry_page_state(command)
             entry = self.repository.create_correction_draft_from_submitted_entry(
+                page_state_id=page_state.pk,
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
                 data=command.data,
                 actor_user_id=command.actor_user_id,
             )
-            self._upsert_draft_page_state(command)
             return SavePageResult(
                 entry_id=entry.pk,
                 entry_status=entry.status,
-                page_status="draft",
+                page_status=page_state.status,
                 needs_confirmation=True,
                 created_new_entry=True,
             )
@@ -255,6 +271,11 @@ class DataCaptureSaveSubmitPageService:
 
     @transaction.atomic
     def submit(self, command: SubmitPageCommand) -> SubmitPageResult:
+        self._assert_capture_not_locked(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
         page_state = self.repository.get_page_state_by_scope(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -309,7 +330,14 @@ class DataCaptureSaveSubmitPageService:
                 if missing_reason_fields:
                     raise ValidationError(["Change reason is required for all updated fields before submit."])
 
+        started_page_state = self.repository.upsert_page_state_for_data_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            actor_user_id=command.actor_user_id,
+        )
         entry = self.repository.execute_submit_plan(
+            page_state_id=started_page_state.pk,
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
@@ -317,11 +345,19 @@ class DataCaptureSaveSubmitPageService:
             data=command.data,
             actor_user_id=command.actor_user_id,
         )
-        page_state = self.repository.upsert_page_state(
+        page_state = self.repository.submit_page_state_with_entry(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
-            status=DataCapturePageStateStatusChoices.SUBMITTED,
+            entry_id=entry.pk,
+            final_data=command.data,
+            actor_user_id=command.actor_user_id,
+            trigger_source="query" if page_state and page_state.status == DataCapturePageStateStatusChoices.CORRECTION_REQUIRED else "manual",
+        )
+        self.repository.mark_field_reviews_stale_for_changed_field_keys(
+            page_state_id=page_state.pk,
+            crf_template_id=command.crf_template_id,
+            changed_field_keys=changed_field_keys,
             actor_user_id=command.actor_user_id,
         )
         if changed_field_keys:
@@ -348,6 +384,11 @@ class DataCaptureSaveSubmitPageService:
 
     @transaction.atomic
     def delete_latest_draft(self, command: DeleteDraftPageCommand) -> DeleteDraftPageResult:
+        self._assert_capture_not_locked(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
         page_state = self.repository.get_page_state_by_scope(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -383,7 +424,7 @@ class DataCaptureSaveSubmitPageService:
             )
             return DeleteDraftPageResult(
                 entry_id=canceled_entry.id,
-                entry_status=DataCapturePageEntryStatusChoices.CANCELED,
+                entry_status=DataCapturePageEntryStatusChoices.CANCELLED,
                 page_status=page_state.status,
             )
 
@@ -391,11 +432,12 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
-            status=DataCapturePageStateStatusChoices.CANCELED,
+            status=DataCapturePageStateStatusChoices.NOT_STARTED,
             actor_user_id=command.actor_user_id,
+            trigger_source="manual",
         )
         return DeleteDraftPageResult(
             entry_id=canceled_entry.id,
-            entry_status=DataCapturePageEntryStatusChoices.CANCELED,
+            entry_status=DataCapturePageEntryStatusChoices.CANCELLED,
             page_status=page_state.status,
         )

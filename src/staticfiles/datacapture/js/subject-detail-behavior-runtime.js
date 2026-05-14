@@ -417,6 +417,17 @@
     const controls = getFieldControls(container);
     controls.forEach((control) => {
       const shouldDisable = !visible || !editable || readonly;
+      let disabledReason = '';
+      if (shouldDisable) {
+        if (readonly && visible && editable) {
+          disabledReason = 'readonly';
+        } else if (!visible) {
+          disabledReason = 'hidden';
+        } else if (!editable) {
+          disabledReason = 'not_editable';
+        }
+      }
+      control.dataset.datacaptureDisabledReason = disabledReason;
       control.disabled = shouldDisable;
       if ('readOnly' in control) {
         control.readOnly = shouldDisable;

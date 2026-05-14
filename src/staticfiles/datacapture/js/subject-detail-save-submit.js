@@ -257,7 +257,11 @@
     });
     const payload = {};
     fieldScope.querySelectorAll('input, textarea, select').forEach((input) => {
-      if (!input.name || input.disabled) {
+      if (!input.name) {
+        return;
+      }
+      const disabledReason = String(input.dataset.datacaptureDisabledReason || '').trim();
+      if (input.disabled && disabledReason !== 'readonly') {
         return;
       }
       if (input.type === 'checkbox') {

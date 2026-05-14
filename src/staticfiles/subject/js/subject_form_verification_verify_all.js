@@ -77,8 +77,15 @@
           );
           return;
         }
+        const blockers = Array.isArray(result.data.blocking_reasons)
+          ? result.data.blocking_reasons
+          : [];
         const msg =
-          result.data.all_verified === true ? 'All fields verified.' : 'Saved.';
+          result.data.all_verified === true
+            ? 'All fields verified.'
+            : blockers.length > 0
+              ? 'Saved. Pending blockers: ' + blockers.join(', ')
+              : 'Saved.';
         showInlineMessage(msg, false);
         reloadScheduled = true;
         window.setTimeout(function () {

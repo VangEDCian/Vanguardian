@@ -7,11 +7,12 @@ from django.views.generic import DetailView
 
 from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
 from apps.datacapture.public import (
+    ensure_draft_page_state_if_not_exists,
     get_latest_page_entry_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
-    get_page_state_final_data_for_subject_visit_crf,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
+    get_verified_or_waived_field_template_ids_for_subject_visit_crf,
 )
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
@@ -202,6 +203,23 @@ class SubjectDetailView(
                         visit_id=visit_id,
                         crf_template_id=template_id,
                     )
+                    if (
+                        not focused_page_status
+                        and focused_event
+                        and not is_form_verification_mode
+                        and visit_id is not None
+                    ):
+                        ensure_draft_page_state_if_not_exists(
+                            subject_id=subject.pk,
+                            visit_id=visit_id,
+                            crf_template_id=template_id,
+                            actor_user_id=self.request.user.pk,
+                        )
+                        focused_page_status = get_page_state_status_for_subject_visit_crf(
+                            subject_id=subject.pk,
+                            visit_id=visit_id,
+                            crf_template_id=template_id,
+                        )
                     if focused_event:
                         focused_latest_entry = get_latest_page_entry_for_subject_visit_crf(
                             subject_id=subject.pk,
@@ -348,8 +366,8 @@ class SubjectDetailView(
 
         form_verification_review = None
         form_verification_verify_checked_url = ""
-        # Do not require non-empty focused_form_fields: the CRF adapter can return [] while
-        # verify-checked still needs visit + template IDs (and permission) to persist final_data.
+        # Do not require non-empty focused_form_fields: the verification endpoint still
+        # needs visit + template IDs to initialize field review rows.
         if is_form_verification_mode and focused_form and focused_event:
             try:
                 visit_pk = int(focused_event["id"])
@@ -363,14 +381,14 @@ class SubjectDetailView(
                     visit_id=visit_pk,
                     crf_template_id=template_pk,
                 )
-                verified_snapshot = get_page_state_final_data_for_subject_visit_crf(
+                verified_field_template_ids = get_verified_or_waived_field_template_ids_for_subject_visit_crf(
                     subject_id=subject.pk,
                     visit_id=visit_pk,
                     crf_template_id=template_pk,
                 )
                 form_verification_review = FormFieldReviewTableService().build_for_verification(
                     subject_code=subject.subject_code or subject.screening_code or "",
-                    site_id=int(subject.site_id),
+                    site_id=subject.site.code,
                     event_name=str(focused_event.get("name") or ""),
                     event_instance_id=visit_pk,
                     form_name=str(focused_form.get("title") or ""),
@@ -381,10 +399,13 @@ class SubjectDetailView(
                     field_templates_payload=focused_form_fields,
                     entry_payload=focused_entry_values,
                     page_state_id=page_state_pk,
-                    verified_snapshot=verified_snapshot,
+                    verified_field_template_ids=verified_field_template_ids,
                 )
                 if self.request.user.has_perm(VERIFY_FORM_PERMISSION):
-                    if (focused_page_status or "").strip().lower() != DataCapturePageStateStatusChoices.VERIFIED.value:
+                    if (focused_page_status or "").strip().lower() in {
+                        DataCapturePageStateStatusChoices.SUBMITTED.value,
+                        DataCapturePageStateStatusChoices.UNDER_REVIEW.value,
+                    }:
                         form_verification_verify_checked_url = reverse(
                             "subject:subject_form_verification_verify_checked",
                             kwargs={
@@ -447,7 +468,11 @@ class SubjectDetailView(
         context["form_verification_fields_locked"] = (
             is_form_verification_mode
             and (focused_page_status or "").strip().lower()
-            == DataCapturePageStateStatusChoices.VERIFIED.value
+            in {
+                DataCapturePageStateStatusChoices.VERIFIED.value,
+                DataCapturePageStateStatusChoices.LOCKED.value,
+                DataCapturePageStateStatusChoices.FINALIZED.value,
+            }
         )
         if datacapture_save_url:
             context["datacapture_save_confirm_message"] = _(

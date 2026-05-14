@@ -3,8 +3,10 @@ from datetime import datetime
 from apps.crf.models import CrfFieldTemplate
 from apps.reconcile.models import (
     ReconcileDataQuery,
+    ReconcileDataQuerySeverityChoices,
     ReconcileDataQuerySourceChoices,
     ReconcileDataQueryStatusChoices,
+    ReconcileDataQueryTypeChoices,
 )
 
 
@@ -35,13 +37,20 @@ class DjangoReconcileDataQueryWriteRepository:
                     deleted=False,
                     status=ReconcileDataQueryStatusChoices.OPEN,
                     source=ReconcileDataQuerySourceChoices.MANUAL,
+                    query_type=ReconcileDataQueryTypeChoices.MANUAL,
+                    severity=ReconcileDataQuerySeverityChoices.MINOR,
+                    is_blocking=True,
                     question_text=str(item.get("reason") or ""),
-                    resolution_note=str(item.get("resolution_note") or "")[:255],
+                    resolution_note=str(item.get("resolution_note") or "")[:1000],
+                    opened_at=now,
                     closed_at=None,
                     page_state_id=page_state_id,
                     field_template_id=item.get("field_template_id"),
                     validation_rule_id=None,
+                    data_version=item.get("data_version"),
+                    field_path=item.get("field_path"),
                     assigned_to_id=None,
+                    opened_by_id=actor_user_id,
                     created_by_id=actor_user_id,
                     updated_by_id=actor_user_id,
                 ),
