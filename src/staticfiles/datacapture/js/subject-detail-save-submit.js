@@ -9,6 +9,7 @@
   const numberControlModule = (modules.controls || {}).number || {};
   const textareaControlModule = (modules.controls || {}).textarea || {};
   const selectControlModule = (modules.controls || {}).select || {};
+  const select2ControlModule = (modules.controls || {}).select2 || {};
   const multiSelectControlModule = (modules.controls || {}).multiSelect || {};
   const datePickerControlModule = (modules.controls || {}).datePicker || {};
   const datetimeControlModule = (modules.controls || {}).datetime || {};
@@ -61,6 +62,15 @@
       }
       container.querySelectorAll('input, textarea, select').forEach((input) => {
         if (!input.name) {
+          if (input.hasAttribute('data-field-lookup-label-input')) {
+            input.disabled = false;
+            input.removeAttribute('disabled');
+            if ('readOnly' in input) {
+              input.readOnly = false;
+            }
+            input.removeAttribute('readonly');
+            return;
+          }
           if (
             input.classList.contains('subject-date-picker__input--day') ||
             input.classList.contains('subject-date-picker__input--month') ||
@@ -105,6 +115,7 @@
   const shouldUnlockFields = formPanel && !isPageLocked(pageStatus);
   if (shouldUnlockFields) {
     ensureEditableInputs();
+    select2ControlModule.initializeSelect2LookupControls?.(fieldScope);
   }
 
   if (!saveButton || !resetButton || !submitButton) {
@@ -255,11 +266,12 @@
     });
   }
 
-  function collectFormPayloadObject() {
+  function collectFormPayloadObject(options = {}) {
     fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
       datePickerControlModule.syncDateCompositeInput?.(container);
       datetimeControlModule.syncDatetimeCompositeInput?.(container);
     });
+    select2ControlModule.syncSelect2LookupControls?.(fieldScope);
     const payload = {};
     const handledCheckboxNames = new Set();
     fieldScope.querySelectorAll('input, textarea, select').forEach((input) => {
@@ -299,11 +311,14 @@
       payload[input.name] = input.value;
     });
     mergeLabelOnlyFieldValuesIntoPayload(payload);
+    if (options.includeLookupMetadata) {
+      payload._field_lookup_labels = select2ControlModule.collectLookupLabels?.(fieldScope) || {};
+    }
     return payload;
   }
 
   function collectFormPayload() {
-    return JSON.stringify(collectFormPayloadObject());
+    return JSON.stringify(collectFormPayloadObject({ includeLookupMetadata: true }));
   }
 
   function resetInputs() {
@@ -432,6 +447,8 @@
       datePickerControlModule.syncDateCompositeInput?.(container);
       datetimeControlModule.syncDatetimeCompositeInput?.(container);
     });
+    select2ControlModule.applyPayloadToSelect2Controls?.(fieldScope, payload);
+    select2ControlModule.syncSelect2LookupControls?.(fieldScope);
   }
 
   function applyLockState() {
@@ -580,7 +597,7 @@
     setButtonPending(submitButton, 'Submitting...');
     try {
       const submitPayload = JSON.stringify({
-        data: payloadObject,
+        data: collectFormPayloadObject({ includeLookupMetadata: true }),
         change_reasons: submitReasons,
       });
       const result = await network.postJson(submitUrl, submitPayload);
@@ -649,6 +666,7 @@
     numberControlModule.applySubmittedDiffNumberMarkers?.(markerContext);
     textareaControlModule.applySubmittedDiffTextareaMarkers?.(markerContext);
     selectControlModule.applySubmittedDiffSelectMarkers?.(markerContext);
+    select2ControlModule.applySubmittedDiffSelect2Markers?.(markerContext);
     multiSelectControlModule.applySubmittedDiffMultiSelectMarkers?.(markerContext);
   }
 

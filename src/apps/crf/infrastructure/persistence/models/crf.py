@@ -11,12 +11,18 @@ class CrfFieldControlTypeChoices(models.TextChoices):
     TEXTAREA = "TEXTAREA", _("Textarea")
     NUMBER = "NUMBER", _("Number")
     SELECT = "SELECT", _("Select")
+    SELECT2 = "SELECT2", _("Select2")
     RADIO = "RADIO", _("Radio")
     CHECKBOX = "CHECKBOX", _("Checkbox")
     MULTI_SELECT = "MULTI_SELECT", _("Multi Select")
     DATE = "DATE", _("Date")
     DATETIME = "DATETIME", _("DateTime")
     LABEL_ONLY = "LABEL_ONLY", _("Label Only")
+
+
+class CrfFieldOptionsSourceChoices(models.TextChoices):
+    STATIC = "static", _("Static")
+    LOOKUP = "lookup", _("Lookup")
 
 
 class CrfTemplate(TranslatableModel):
@@ -293,6 +299,38 @@ class CrfFieldDefinition(models.Model):
         verbose_name_plural = "CRF field definitions"
 
 
+class CrfFieldDefinitionTranslation(models.Model):
+    language_code = models.CharField(max_length=15)
+    unit = models.CharField(max_length=50, null=True, blank=True)
+    codelist = models.TextField(null=True, blank=True)
+    comments = models.TextField(null=True, blank=True)
+    pattern_err_msg = models.TextField(null=True, blank=True)
+
+    master = models.ForeignKey(
+        CrfFieldDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="field_definition_id",
+        related_name="translations",
+    )
+
+    class Meta:
+        db_table = "crf_fielddefinition_translation"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language_code", "master"],
+                name="crf_fielddefinition_translation_lang_definition_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["master"], name="crf_fielddefinition_translation_master_idx"),
+            models.Index(fields=["language_code"], name="crf_fielddefinition_translation_language_idx"),
+        ]
+        verbose_name = "CRF field definition translation"
+        verbose_name_plural = "CRF field definition translations"
+
+
 class CrfFieldUiConfig(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -306,7 +344,7 @@ class CrfFieldUiConfig(models.Model):
     layout = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     behavior = models.TextField(null=True, blank=True)
-    options = models.TextField(null=True, blank=True)
+    options = models.JSONField(null=True, blank=True)
     style = models.TextField(null=True, blank=True)
     classes = models.CharField(max_length=255, null=True, blank=True)
 
@@ -325,6 +363,66 @@ class CrfFieldUiConfig(models.Model):
         default_permissions = ()
         verbose_name = "CRF field UI config"
         verbose_name_plural = "CRF field UI configs"
+
+
+class CrfFieldUiConfigTranslation(models.Model):
+    language_code = models.CharField(max_length=15)
+    text = models.TextField(null=True, blank=True)
+    options = models.TextField(null=True, blank=True)
+
+    master = models.ForeignKey(
+        CrfFieldUiConfig,
+        on_delete=models.DO_NOTHING,
+        db_column="field_ui_config_id",
+        related_name="translations",
+    )
+
+    class Meta:
+        db_table = "crf_fielduiconfig_translation"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language_code", "master"],
+                name="crf_fielduiconfig_translation_lang_config_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["master"], name="crf_fielduiconfig_translation_master_idx"),
+            models.Index(fields=["language_code"], name="crf_fielduiconfig_translation_language_idx"),
+        ]
+        verbose_name = "CRF field UI config translation"
+        verbose_name_plural = "CRF field UI config translations"
+
+
+class CrfFieldLookup(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    key = models.CharField(max_length=128, db_column="key")
+    value = models.CharField(max_length=255)
+    label = models.CharField(max_length=255)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "crf_field_lookup"
+        managed = False
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["key", "value"],
+                name="crf_field_lookup_key_value_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["key"], name="crf_field_lookup_key_idx"),
+            models.Index(fields=["key", "label"], name="crf_field_lookup_key_label_idx"),
+        ]
+        verbose_name = "CRF field lookup"
+        verbose_name_plural = "CRF field lookups"
 
 
 class CrfFieldValidationRule(TranslatableModel):

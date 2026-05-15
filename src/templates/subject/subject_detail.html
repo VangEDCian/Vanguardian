@@ -93,27 +93,27 @@
             </main>
         </div>
         {% if is_form_verification_mode %}
-            <footer class="subject-detail-screen__footer subject-detail-screen__footer--verification">
-                <div class="subject-detail-screen__footer-actions">
-                    {% if form_verification_reopen_url %}
-                        <button type="button"
-                                class="entity-table__footer-button entity-table__footer-button--secondary"
-                                data-form-verification-reopen
-                                data-post-url="{{ form_verification_reopen_url|escape }}">
-                            {% trans "Reopen Form" %}
-                        </button>
-                    {% else %}
-                        <button type="button"
-                                class="entity-table__footer-button entity-table__footer-button--primary"
-                                {% if not form_verification_verify_checked_url %}disabled
-                                aria-disabled="true"{% endif %}
-                                data-form-verification-verify-all
-                                data-post-url="{{ form_verification_verify_checked_url|default:''|escape }}">
-                            {% trans "Verify All Checked" %}
-                        </button>
-                    {% endif %}
-                </div>
-            </footer>
+            {% if form_verification_reopen_url or form_verification_verify_checked_url %}
+                <footer class="subject-detail-screen__footer subject-detail-screen__footer--verification">
+                    <div class="subject-detail-screen__footer-actions">
+                        {% if form_verification_reopen_url %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-form-verification-reopen
+                                    data-post-url="{{ form_verification_reopen_url|escape }}">
+                                {% trans "Reopen Form" %}
+                            </button>
+                        {% elif form_verification_verify_checked_url %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-form-verification-verify-all
+                                    data-post-url="{{ form_verification_verify_checked_url|escape }}">
+                                {% trans "Verify All Checked" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </footer>
+            {% endif %}
         {% else %}
             {% include "subject/includes/subject_detail_page_entry_footer.html" %}
         {% endif %}
@@ -237,6 +237,7 @@
         <script src="{% static 'datacapture/js/modules/controls/number.js' %}"></script>
         <script src="{% static 'datacapture/js/modules/controls/radio.js' %}"></script>
         <script src="{% static 'datacapture/js/modules/controls/select.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/select2.js' %}"></script>
         <script src="{% static 'datacapture/js/modules/controls/text.js' %}"></script>
         <script src="{% static 'datacapture/js/modules/controls/textarea.js' %}"></script>
         <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>

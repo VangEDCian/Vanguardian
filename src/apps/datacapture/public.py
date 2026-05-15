@@ -215,7 +215,7 @@ def ensure_draft_page_state_if_not_exists(
     crf_template_id: int,
     actor_user_id: int | None = None,
 ) -> bool:
-    """Create not-started ``PageState`` when missing. ``final_data`` starts as empty JSON."""
+    """Create not-started ``PageState`` when missing. ``final_data`` uses empty JSON until finalized."""
     return DataCapturePageStateWriteService().ensure_open_if_not_exists(
         subject_id=subject_id,
         visit_id=visit_id,

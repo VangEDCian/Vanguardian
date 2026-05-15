@@ -58,6 +58,43 @@ class CrfTemplateCommandServiceTests(SimpleTestCase):
 
 
 class FieldTemplateAggregateTests(SimpleTestCase):
+    def test_rejects_calculated_as_data_type(self):
+        with self.assertRaisesMessage(FormBuilderDomainValidationError, "data_type must be one of"):
+            FieldTemplateAggregate.from_payload(
+                field_key="CALC_SCORE",
+                data_type="CALCULATED",
+                is_active=True,
+                display_order=1,
+                section_template_id=3,
+                label_en="Calculated Score",
+                label_vi="Diem tinh toan",
+                definition={
+                    "sdtm": {"domain": "QS", "variable": "QSSCOR", "role": "Result"},
+                    "unit": "",
+                    "range_min": "",
+                    "range_max": "",
+                    "precision": "",
+                    "allowed_missing_values": "",
+                    "codelist": "",
+                    "data_semantic": "",
+                    "comments": "",
+                    "text_max_length": "",
+                    "text_min_length": "",
+                    "pattern": "",
+                    "pattern_err_msg": "",
+                },
+                ui_config={
+                    "control_type": "calculated_field",
+                    "layout": "",
+                    "text": "",
+                    "behavior": "",
+                    "options": "",
+                    "style": "",
+                },
+                validation_rules=[],
+                field_keys_in_form=(),
+            )
+
     def test_rejects_duplicate_field_key_within_same_form(self):
         with self.assertRaises(FormBuilderDomainValidationError):
             FieldTemplateAggregate.from_payload(
@@ -263,3 +300,16 @@ class CrfFormBuilderViewValidationTests(SimpleTestCase):
 
         self.assertIn("field_key", form.errors)
         self.assertIn("Field Key", form.errors["field_key"][0])
+
+
+class CrfFieldCreateFormChoicesTests(SimpleTestCase):
+    def test_calculated_is_not_a_data_type_or_control_type_choice(self):
+        from apps.crf.presentation.web.forms import CrfFieldCreateForm
+
+        form = CrfFieldCreateForm()
+
+        data_type_values = {value for value, _label in form.fields["data_type"].choices}
+        control_type_values = {value for value, _label in form.fields["control_type"].choices}
+
+        self.assertNotIn("CALCULATED", data_type_values)
+        self.assertNotIn("calculated_field", control_type_values)

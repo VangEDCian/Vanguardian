@@ -8,7 +8,7 @@ from apps.core.choices import (
     DataCapturePageEntryStatusChoices,
     DataCapturePageStateStatusChoices,
 )
-from apps.crf.models import CrfFieldTemplate, CrfFieldValidationRule
+from apps.crf.models import CrfFieldLookup, CrfFieldTemplate, CrfFieldValidationRule
 from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
@@ -23,6 +23,9 @@ from apps.datacapture.models import (
 
 
 class DjangoDataCapturePageRepository:
+    EMPTY_PAGE_STATE_FINAL_DATA = "{}"
+    LOOKUP_LABELS_PAYLOAD_KEY = "_field_lookup_labels"
+
     @staticmethod
     def _normalize_field_key_list(field_keys: list[str] | tuple[str, ...]) -> list[str]:
         normalized: list[str] = []
@@ -90,6 +93,138 @@ class DjangoDataCapturePageRepository:
             )
             output[field_key] = expressions
         return output
+
+    @staticmethod
+    def _load_json_map(raw_payload: str | None) -> dict:
+        try:
+            payload = json.loads(raw_payload or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    @staticmethod
+    def _normalize_ui_options(raw_options) -> dict:
+        if isinstance(raw_options, dict):
+            return raw_options
+        if isinstance(raw_options, str):
+            normalized = raw_options.strip()
+            if normalized.startswith("{") and normalized.endswith("}"):
+                try:
+                    parsed = json.loads(normalized)
+                except json.JSONDecodeError:
+                    return {}
+                return parsed if isinstance(parsed, dict) else {}
+        return {}
+
+    @staticmethod
+    def _is_select2_control(raw_control_type) -> bool:
+        return str(raw_control_type or "").strip().lower().replace(" ", "") == "select2"
+
+    @staticmethod
+    def _normalize_lookup_label(raw_value) -> str:
+        return str(raw_value or "").strip()
+
+    @classmethod
+    def _normalize_lookup_value(cls, raw_label) -> str:
+        return cls._normalize_lookup_label(raw_label).upper()
+
+    def _select2_lookup_key_for_field(self, field) -> str:
+        ui_config = getattr(field, "ui_config", None)
+        if ui_config is None or not self._is_select2_control(ui_config.control_type):
+            return ""
+        options = self._normalize_ui_options(ui_config.options)
+        if str(options.get("source") or "").strip().lower() != "lookup":
+            return ""
+        return str(options.get("lookup") or "").strip()
+
+    @staticmethod
+    def _first_matching_alias(aliases: list[str], payload: dict) -> str:
+        return next((alias for alias in aliases if alias in payload), "")
+
+    def _upsert_lookup_value(
+        self,
+        *,
+        lookup_key: str,
+        label: str,
+        actor_user_id: int | None,
+        now,
+    ) -> str:
+        value = self._normalize_lookup_value(label)
+        lookup_row, created = CrfFieldLookup.objects.get_or_create(
+            key=lookup_key,
+            value=value,
+            defaults={
+                "created_at": now,
+                "updated_at": now,
+                "deleted": False,
+                "label": label,
+                "created_by_id": actor_user_id,
+                "updated_by_id": actor_user_id,
+            },
+        )
+        if not created and (lookup_row.label != label or lookup_row.deleted):
+            lookup_row.label = label
+            lookup_row.deleted = False
+            lookup_row.updated_at = now
+            lookup_row.updated_by_id = actor_user_id
+            lookup_row.save(update_fields=["label", "deleted", "updated_at", "updated_by_id"])
+        return value
+
+    def persist_lookup_values_from_payload(
+        self,
+        *,
+        crf_template_id: int,
+        data: str,
+        actor_user_id: int | None = None,
+    ) -> str:
+        payload = self._load_json_map(data)
+        if not payload:
+            return data
+
+        raw_lookup_labels = payload.pop(self.LOOKUP_LABELS_PAYLOAD_KEY, {})
+        lookup_labels = raw_lookup_labels if isinstance(raw_lookup_labels, dict) else {}
+        fields = (
+            CrfFieldTemplate.objects.filter(
+                crf_template_id=crf_template_id,
+                deleted=False,
+                is_active=True,
+            )
+            .select_related("ui_config")
+            .only(
+                "id",
+                "field_key",
+                "ui_config__control_type",
+                "ui_config__options",
+            )
+        )
+        now = self._now()
+        for field in fields:
+            lookup_key = self._select2_lookup_key_for_field(field)
+            if not lookup_key:
+                continue
+
+            aliases = [str(field.field_key or "").strip(), f"field_{field.pk}"]
+            aliases = [alias for alias in aliases if alias]
+            payload_alias = self._first_matching_alias(aliases, payload)
+            label_alias = self._first_matching_alias(aliases, lookup_labels)
+            if not payload_alias and not label_alias:
+                continue
+
+            label = self._normalize_lookup_label(lookup_labels.get(label_alias) if label_alias else payload.get(payload_alias))
+            if not label:
+                if payload_alias:
+                    payload[payload_alias] = ""
+                continue
+            value = self._upsert_lookup_value(
+                lookup_key=lookup_key,
+                label=label,
+                actor_user_id=actor_user_id,
+                now=now,
+            )
+            if payload_alias:
+                payload[payload_alias] = value
+
+        return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
     def get_page_state(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         page_state = (
@@ -379,6 +514,10 @@ class DjangoDataCapturePageRepository:
                 updated_at=now,
                 deleted=False,
                 status=status,
+                final_data=self._page_state_final_data_for_lifecycle_status(
+                    status=status,
+                    current_final_data=existing.final_data,
+                ),
                 updated_by_id=actor_user_id,
             )
             existing.refresh_from_db()
@@ -395,7 +534,7 @@ class DjangoDataCapturePageRepository:
             updated_at=now,
             deleted=False,
             status=status,
-            final_data="{}",
+            final_data=self.EMPTY_PAGE_STATE_FINAL_DATA,
             data_version=1,
             crf_template_id=crf_template_id,
             subject_id=subject_id,
@@ -600,6 +739,10 @@ class DjangoDataCapturePageRepository:
             data_version=next_version,
             current_entry_id=entry_id,
             status=target_status,
+            final_data=self._page_state_final_data_for_lifecycle_status(
+                status=target_status,
+                current_final_data=page_state.final_data,
+            ),
             submitted_at=now,
             submitted_by_id=actor_user_id,
         )
@@ -755,6 +898,7 @@ class DjangoDataCapturePageRepository:
             updated_at=now,
             updated_by_id=actor_user_id,
             status=DataCapturePageStateStatusChoices.UNDER_REVIEW,
+            final_data=self.EMPTY_PAGE_STATE_FINAL_DATA,
             review_started_at=now,
             review_started_by_id=actor_user_id,
         )
@@ -979,6 +1123,7 @@ class DjangoDataCapturePageRepository:
             updated_at=now,
             updated_by_id=actor_user_id,
             status=DataCapturePageStateStatusChoices.VERIFIED,
+            final_data=self.EMPTY_PAGE_STATE_FINAL_DATA,
             verified_at=now,
             verified_by_id=actor_user_id,
             verified_data_version=page_state.data_version,
@@ -1009,6 +1154,7 @@ class DjangoDataCapturePageRepository:
             updated_at=now,
             updated_by_id=actor_user_id,
             status=DataCapturePageStateStatusChoices.CORRECTION_REQUIRED,
+            final_data=self.EMPTY_PAGE_STATE_FINAL_DATA,
         )
         page_state.refresh_from_db()
         self._record_page_state_transition(
@@ -1052,7 +1198,7 @@ class DjangoDataCapturePageRepository:
         status: str,
         actor_user_id: int | None = None,
     ) -> None:
-        """Persist ``final_data`` (JSON string or database NULL) and ``status`` for the scoped page state."""
+        """Persist finalized ``final_data`` only when status is ``FINALIZED``."""
         now = self._now()
         page_state = DataCapturePageState.objects.filter(
             subject_id=subject_id,
@@ -1064,14 +1210,10 @@ class DjangoDataCapturePageRepository:
             raise LookupError("Could not persist verification: page state update affected 0 rows.")
         from_status = page_state.status
         rows_updated = DataCapturePageState.objects.filter(pk=page_state.pk).update(
-            final_data=(
-                self._build_page_state_final_data_from_field_reviews(
-                    page_state_id=page_state.pk,
-                    data_version=page_state.data_version,
-                    review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
-                )
-                if status == DataCapturePageStateStatusChoices.FINALIZED
-                else page_state.final_data
+            final_data=self._page_state_final_data_for_status(
+                status=status,
+                page_state_id=page_state.pk,
+                data_version=page_state.data_version,
             ),
             status=status,
             updated_at=now,
@@ -1097,6 +1239,31 @@ class DjangoDataCapturePageRepository:
             to_status=status,
             actor_user_id=actor_user_id,
             trigger_source="review",
+        )
+
+    def _page_state_final_data_for_lifecycle_status(
+        self,
+        *,
+        status: str,
+        current_final_data: str | None,
+    ) -> str:
+        if status == DataCapturePageStateStatusChoices.FINALIZED:
+            return current_final_data or self.EMPTY_PAGE_STATE_FINAL_DATA
+        return self.EMPTY_PAGE_STATE_FINAL_DATA
+
+    def _page_state_final_data_for_status(
+        self,
+        *,
+        status: str,
+        page_state_id: int,
+        data_version: int,
+    ) -> str:
+        if status != DataCapturePageStateStatusChoices.FINALIZED:
+            return self.EMPTY_PAGE_STATE_FINAL_DATA
+        return self._build_page_state_final_data_from_field_reviews(
+            page_state_id=page_state_id,
+            data_version=data_version,
+            review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
         )
 
     def _build_page_state_final_data_from_field_reviews(

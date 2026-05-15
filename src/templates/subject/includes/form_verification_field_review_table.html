@@ -23,7 +23,7 @@
                                class="subject-form-verification-review__checkbox"
                                data-field-template-id="{{ row.field_template_id }}"
                                {% if row.is_checked %}checked{% endif %}
-                               {% if row.is_checked or form_verification_fields_locked %}disabled aria-disabled="true"{% endif %}
+                               {% if row.is_checked or form_verification_fields_locked or not form_verification_show_field_checkboxes %}disabled aria-disabled="true"{% endif %}
                                aria-label="{% trans 'Select field for verification' %}" />
                     </td>
                     <td>{{ row.brief_description }}</td>

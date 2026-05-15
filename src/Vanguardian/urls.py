@@ -22,6 +22,7 @@ from django.views.generic import RedirectView
 urlpatterns = [
     path("i18n/", include("django.conf.urls.i18n")),
     path("", RedirectView.as_view(pattern_name="identity:login", permanent=False)),
+    path("api/", include("apps.crf.presentation.api.urls")),
     path("crf/", include("apps.crf.presentation.web.urls")),
     path("datacapture/", include("apps.datacapture.presentation.api.urls")),
     path("", include("apps.identity.presentation.web.urls")),

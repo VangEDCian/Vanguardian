@@ -23,7 +23,6 @@ class FieldTemplateAggregate:
 
     CONTROL_TYPE_BY_DATA_TYPE = {
         "BOOLEAN": "checkbox_list",
-        "CALCULATED": "calculated_field",
         "CODELIST": "dropdown",
         "DATE": "date_picker",
         "DATETIME": "date_picker",
@@ -37,8 +36,6 @@ class FieldTemplateAggregate:
     }
 
     CONTROL_TYPE_ALIASES = {
-        "calculated": "calculated_field",
-        "calculated field": "calculated_field",
         "checkbox": "checkbox_list",
         "checkbox list": "checkbox_list",
         "date": "date_picker",
@@ -47,6 +44,8 @@ class FieldTemplateAggregate:
         "dropdown": "dropdown",
         "dropdown list": "dropdown",
         "entry box": "entry_box",
+        "select2": "select2",
+        "select 2": "select2",
         "select": "dropdown",
         "text": "entry_box",
         "text box": "entry_box",
@@ -114,7 +113,7 @@ class FieldTemplateAggregate:
             layout=cls._nullable_text(ui_config.get("layout")),
             text=cls._nullable_text(ui_config.get("text")),
             behavior=cls._nullable_text(ui_config.get("behavior")),
-            options=cls._normalize_options(ui_config.get("options")),
+            options=cls._normalize_options(ui_config.get("options"), control_type=control_type),
             style=cls._nullable_text(ui_config.get("style")),
         )
 
@@ -302,36 +301,118 @@ class FieldTemplateAggregate:
             return expected_control_type
 
         normalized_value = cls.CONTROL_TYPE_ALIASES.get(raw_value.lower(), raw_value.strip().lower().replace(" ", "_"))
+        if normalized_value == "select2" and data_type in {"CODELIST", "STRING", "TEXT"}:
+            return normalized_value
+
         if normalized_value != expected_control_type:
             raise FormBuilderDomainValidationError(
                 f"control_type must match data_type. Expected {expected_control_type} for {data_type}."
             )
         return normalized_value
 
-    @staticmethod
-    def _normalize_options(value):
+    @classmethod
+    def _normalize_options(cls, value, *, control_type):
+        is_select2 = control_type == "select2"
         if value in (None, ""):
+            cls._assert_select2_options_present(is_select2)
             return None
 
+        parsed = cls._parse_options_input(value, is_select2=is_select2)
+        if parsed is None:
+            return None
+        options_payload = cls._normalize_options_payload(parsed)
+        if is_select2 and (options_payload["source"] != "lookup" or not options_payload["lookup"]):
+            raise FormBuilderDomainValidationError(
+                "SELECT2 requires options.source=lookup and options.lookup."
+            )
+        return options_payload
+
+    @staticmethod
+    def _assert_select2_options_present(is_select2):
+        if is_select2:
+            raise FormBuilderDomainValidationError(
+                "SELECT2 requires options.source=lookup and options.lookup."
+            )
+
+    @classmethod
+    def _parse_options_input(cls, value, *, is_select2):
         if isinstance(value, (list, dict)):
-            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+            return value
 
         normalized = str(value).strip()
         if not normalized:
+            cls._assert_select2_options_present(is_select2)
             return None
 
-        if normalized.startswith(("[", "{")):
-            try:
-                parsed = json.loads(normalized)
-            except json.JSONDecodeError as exc:
-                raise FormBuilderDomainValidationError("options must be valid JSON when using JSON syntax.") from exc
-            if not isinstance(parsed, (list, dict)):
-                raise FormBuilderDomainValidationError("options JSON must be an array or object.")
-            return json.dumps(parsed, ensure_ascii=False, sort_keys=True)
+        if not normalized.startswith(("[", "{")):
+            return cls._static_options_from_text(normalized)
 
-        return normalized
+        try:
+            parsed = json.loads(normalized)
+        except json.JSONDecodeError as exc:
+            raise FormBuilderDomainValidationError("options must be valid JSON when using JSON syntax.") from exc
+        if not isinstance(parsed, (list, dict)):
+            raise FormBuilderDomainValidationError("options JSON must be an array or object.")
+        return parsed
+
+    @classmethod
+    def _normalize_options_payload(cls, parsed):
+        if isinstance(parsed, list):
+            return {
+                "source": "static",
+                "static": cls._normalize_static_options(parsed),
+                "lookup": "",
+            }
+
+        if not isinstance(parsed, dict):
+            raise FormBuilderDomainValidationError("options must be a JSON object or array.")
+
+        raw_source = str(parsed.get("source") or "").strip().lower()
+        if not raw_source:
+            raw_source = "lookup" if parsed.get("lookup") else "static"
+        if raw_source not in {"static", "lookup"}:
+            raise FormBuilderDomainValidationError("options.source must be static or lookup.")
+
+        lookup_key = str(parsed.get("lookup") or "").strip()
+        static_options = cls._normalize_static_options(parsed.get("static") or [])
+        return {
+            "source": raw_source,
+            "static": static_options,
+            "lookup": lookup_key,
+        }
 
     @staticmethod
+    def _normalize_static_options(raw_items):
+        if not isinstance(raw_items, list):
+            raise FormBuilderDomainValidationError("options.static must be a list.")
+
+        options = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label") or "").strip()
+            value = str(item.get("value") or "").strip()
+            if not label:
+                continue
+            options.append({"value": value or label, "label": label})
+        return options
+
+    @staticmethod
+    def _static_options_from_text(raw_value):
+        lines = [
+            line.strip()
+            for line in str(raw_value or "").replace("\r", "\n").replace("|", "\n").replace(";", "\n").split("\n")
+            if line.strip()
+        ]
+        options = []
+        for line in lines:
+            if "=" in line:
+                label, value = line.split("=", 1)
+                options.append({"label": label.strip(), "value": value.strip()})
+                continue
+            options.append({"label": line, "value": line})
+        return options
+
     @staticmethod
     def _normalize_rule_expression(value):
         normalized = (value or "").strip()

@@ -253,6 +253,14 @@ class SubjectDetailRenderingMixin:
         if not raw_value:
             return []
 
+        if isinstance(raw_value, dict):
+            source = str(raw_value.get("source") or "").strip().lower()
+            if source == "static" or raw_value.get("static") is not None:
+                normalized_options = cls._normalize_choice_option_items(raw_value.get("static") or [])
+                if normalized_options:
+                    return normalized_options
+            return []
+
         if isinstance(raw_value, list):
             normalized_options = cls._normalize_choice_option_items(raw_value)
             if normalized_options:
@@ -260,15 +268,15 @@ class SubjectDetailRenderingMixin:
 
         if isinstance(raw_value, str):
             stripped_value = raw_value.strip()
-            if stripped_value.startswith("[") and stripped_value.endswith("]"):
+            if stripped_value.startswith(("[", "{")) and stripped_value.endswith(("]", "}")):
                 try:
                     loaded_options = json.loads(stripped_value)
                 except json.JSONDecodeError:
                     loaded_options = None
                 else:
-                    normalized_options = cls._normalize_choice_option_items(
-                        loaded_options
-                    )
+                    if isinstance(loaded_options, dict):
+                        loaded_options = loaded_options.get("static") or []
+                    normalized_options = cls._normalize_choice_option_items(loaded_options)
                     if normalized_options:
                         return normalized_options
 
@@ -299,6 +307,50 @@ class SubjectDetailRenderingMixin:
             options.append({"label": line, "value": line})
 
         return [option for option in options if option["label"]]
+
+    @classmethod
+    def _normalize_options_config(cls, raw_value):
+        if not raw_value:
+            return {
+                "source": "",
+                "static": [],
+                "lookup": "",
+            }
+
+        parsed = raw_value
+        if isinstance(raw_value, str):
+            stripped_value = raw_value.strip()
+            if stripped_value.startswith("{") and stripped_value.endswith("}"):
+                try:
+                    parsed = json.loads(stripped_value)
+                except json.JSONDecodeError:
+                    parsed = {}
+            elif stripped_value.startswith("[") and stripped_value.endswith("]"):
+                try:
+                    parsed = json.loads(stripped_value)
+                except json.JSONDecodeError:
+                    parsed = []
+
+        if isinstance(parsed, list):
+            return {
+                "source": "static",
+                "static": cls._normalize_choice_option_items(parsed),
+                "lookup": "",
+            }
+        if isinstance(parsed, dict):
+            source = str(parsed.get("source") or "").strip().lower()
+            if source not in {"static", "lookup"}:
+                source = "lookup" if parsed.get("lookup") else "static"
+            return {
+                "source": source,
+                "static": cls._normalize_choice_option_items(parsed.get("static") or []),
+                "lookup": str(parsed.get("lookup") or "").strip(),
+            }
+        return {
+            "source": "",
+            "static": [],
+            "lookup": "",
+        }
 
     @staticmethod
     def _normalize_choice_option_items(raw_items):
@@ -423,7 +475,9 @@ class SubjectDetailRenderingMixin:
             behavior_payload = self._normalize_behavior_payload(ui_config.get("behavior"))
             control_type = self._normalize_control_type(ui_config.get("control_type"))
             control_layout = self._normalize_control_layout(ui_config.get("control_layout"))
-            options = self._parse_choice_options(ui_config.get("options") or field.get("codelist"))
+            options_config = self._normalize_options_config(ui_config.get("options"))
+            raw_options = options_config["static"] if options_config["source"] == "static" else ui_config.get("options")
+            options = self._parse_choice_options(raw_options or field.get("codelist"))
             placeholder_text = (ui_config.get("text") or "").strip()
             helper_text = (field.get("comments") or "").strip()
             resolved_alias, resolved_value = self._resolve_field_payload_value(payload_map, field)
@@ -458,6 +512,8 @@ class SubjectDetailRenderingMixin:
                     "placeholder_text": placeholder_text,
                     "helper_text": helper_text,
                     "options": options,
+                    "options_config": options_config,
+                    "lookup_key": options_config["lookup"] if options_config["source"] == "lookup" else "",
                     "is_required": self._is_required_from_behavior(behavior_payload),
                     "behavior_visible_when": self._behavior_value(behavior_payload, "visible_when"),
                     "behavior_readonly_when": self._behavior_value(behavior_payload, "readonly_when"),

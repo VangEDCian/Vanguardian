@@ -229,7 +229,7 @@ class CrfFormBuilderSupportMixin:
                 "layout": field_ui_config.get("layout", "") or "",
                 "text": field_ui_config.get("text", "") or "",
                 "behavior": field_ui_config.get("behavior", "") or "",
-                "options": field_ui_config.get("options", "") or "",
+                "options": json.dumps(field_ui_config.get("options"), ensure_ascii=False) if isinstance(field_ui_config.get("options"), (dict, list)) else (field_ui_config.get("options", "") or ""),
                 "style": field_ui_config.get("style", "") or "",
                 "validation_rules_json": json.dumps([
                     {

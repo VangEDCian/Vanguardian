@@ -12,7 +12,7 @@ class DataCapturePageState(models.Model):
     deleted = models.BooleanField(default=False)
 
     status = models.CharField(max_length=32, choices=DataCapturePageStateStatusChoices.choices)
-    final_data = models.TextField()
+    final_data = models.TextField(default="{}")
 
     data_version = models.IntegerField(default=1)
     current_entry = models.ForeignKey(

@@ -91,7 +91,7 @@ class CrfFieldUpdateView(AuthenticateTemplateView):
             "layout": ui_config.layout if ui_config else "",
             "text": ui_config.text if ui_config else "",
             "behavior": ui_config.behavior if ui_config else "",
-            "options": ui_config.options if ui_config else "",
+            "options": json.dumps(ui_config.options, ensure_ascii=False) if ui_config and isinstance(ui_config.options, (dict, list)) else (ui_config.options if ui_config else ""),
             "style": ui_config.style if ui_config else "",
             "validation_rules_json": json.dumps([
                 {

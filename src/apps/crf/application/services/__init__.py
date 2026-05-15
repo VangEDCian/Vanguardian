@@ -2,12 +2,14 @@ from importlib import import_module
 
 __all__ = [
     "CrfTemplateApplicationService",
+    "CrfFieldLookupQueryService",
     "CrfTemplateCommandService",
     "CrfTemplateQueryService",
 ]
 
 _MODULE_BY_NAME = {
     "CrfTemplateApplicationService": "apps.crf.application.services.crf_template_application",
+    "CrfFieldLookupQueryService": "apps.crf.application.services.field_lookup",
     "CrfTemplateCommandService": "apps.crf.application.services.crf_template_command",
     "CrfTemplateQueryService": "apps.crf.application.services.crf_template_query",
 }

@@ -6,7 +6,6 @@ from django import forms
 class CrfFieldCreateForm(forms.Form):
     CONTROL_TYPE_BY_DATA_TYPE = {
         "BOOLEAN": "checkbox_list",
-        "CALCULATED": "calculated_field",
         "CODELIST": "dropdown",
         "DATE": "date_picker",
         "DATETIME": "date_picker",
@@ -21,7 +20,6 @@ class CrfFieldCreateForm(forms.Form):
 
     DATA_TYPE_CHOICES = [
         ("BOOLEAN", "Boolean"),
-        ("CALCULATED", "Calculated"),
         ("CODELIST", "Codelist"),
         ("DATE", "Date"),
         ("DATETIME", "DateTime"),
@@ -36,8 +34,8 @@ class CrfFieldCreateForm(forms.Form):
 
     CONTROL_TYPE_CHOICES = [
         ("checkbox_list", "Checkbox List"),
-        ("calculated_field", "Calculated Field"),
         ("dropdown", "Dropdown"),
+        ("select2", "Select2"),
         ("date_picker", "Date Picker"),
         ("entry_box", "Entry Box"),
         ("text_area", "Text Area"),
@@ -194,7 +192,9 @@ class CrfFieldCreateForm(forms.Form):
         control_type = (self.cleaned_data.get("control_type") or "").strip()
         expected_control_type = self.CONTROL_TYPE_BY_DATA_TYPE.get(data_type)
 
-        if expected_control_type:
+        if control_type == "select2":
+            control_type = "select2"
+        elif expected_control_type:
             control_type = expected_control_type
         elif not control_type:
             control_type = "entry_box"
@@ -270,4 +270,3 @@ class CrfTemplateTranslationForm(forms.Form):
             if "old-textbox" not in class_names:
                 class_names.append("old-textbox")
             widget.attrs["class"] = " ".join(class_names)
-

@@ -25,7 +25,7 @@ class FieldUiConfigSection:
     layout: str | None
     text: str | None
     behavior: str | None
-    options: str | None
+    options: dict | None
     style: str | None
 
 

@@ -442,7 +442,7 @@
 }
 
 .subject-form-verification-review__table--styled {
-  min-width: 980px;
+  /* min-width: 980px; */
   border-collapse: separate;
   border-spacing: 0;
 }

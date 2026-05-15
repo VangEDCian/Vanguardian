@@ -3,7 +3,10 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from apps.datacapture.application.exceptions import DataCapturePageReopenReasonRequiredError
+from apps.datacapture.application.exceptions import (
+    DataCapturePageReopenReasonRequiredError,
+    DataCapturePageVerifyStateError,
+)
 from apps.datacapture.application.services.page_state_verification_final_data import (
     DataCapturePageStateVerificationFinalDataService,
 )
@@ -102,6 +105,31 @@ class _VerifiedReopenRepository:
         return DataCapturePageState.CORRECTION_REQUIRED
 
 
+class _NotReviewableVerificationRepository:
+    def __init__(self, *, status):
+        self.status = status
+        self.start_page_review_called = False
+
+    def get_page_state(self, **kwargs):
+        return DataCapturePageStateSnapshot(
+            id=13,
+            status=self.status,
+            final_data="{}",
+            data_version=3,
+            current_entry_id=21,
+            crf_template_id=31,
+            subject_id=41,
+            visit_id=51,
+            study_id=61,
+            study_version="1",
+            event_definition_id=71,
+        )
+
+    def start_page_review(self, **kwargs):
+        self.start_page_review_called = True
+        return SimpleNamespace(pk=13)
+
+
 class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
     def test_correction_required_page_state_can_be_verified_again_after_reopen(self):
         repository = _CorrectionRequiredVerificationRepository()
@@ -129,6 +157,36 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
         self.assertEqual(blockers, [])
         self.assertIs(repository.start_page_review_called, True)
         self.assertIs(repository.verify_page_state_if_ready_called, True)
+
+    def test_verify_rejects_page_states_outside_reviewable_statuses(self):
+        for status in (
+            "",
+            "none",
+            "null",
+            DataCapturePageState.NOT_STARTED,
+            "not_start",
+            DataCapturePageState.IN_PROGRESS,
+            DataCapturePageState.VERIFIED,
+            DataCapturePageState.LOCKED,
+            DataCapturePageState.FINALIZED,
+        ):
+            repository = _NotReviewableVerificationRepository(status=status)
+            service = DataCapturePageStateVerificationFinalDataService(
+                repository=repository,
+                reconcile_read_service=_NoBlockingQueries(),
+            )
+
+            with self.subTest(status=status):
+                with self.assertRaises(DataCapturePageVerifyStateError):
+                    service.merge_checked_field_template_ids(
+                        subject_id=41,
+                        visit_id=51,
+                        crf_template_id=31,
+                        checked_field_template_ids=[1],
+                        actor_user_id=1,
+                    )
+
+                self.assertIs(repository.start_page_review_called, False)
 
     def test_reopen_requires_reason_text(self):
         service = DataCapturePageStateVerificationFinalDataService(

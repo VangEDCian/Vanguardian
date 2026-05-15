@@ -73,7 +73,7 @@ class DataCapturePageStateVerificationFinalDataService:
             crf_template_id=crf_template_id,
         )
         self.validator.require_page_state(snapshot)
-        self.validator.require_reviewable_status(snapshot.status)
+        self.validator.require_verify_status(snapshot.status)
         return snapshot
 
     def _required_field_template_ids(self, *, snapshot, all_field_template_ids: tuple[int, ...]) -> tuple[int, ...]:

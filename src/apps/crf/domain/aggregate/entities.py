@@ -15,7 +15,6 @@ class CrfFieldTemplateEntity:
 
     ALLOWED_DATA_TYPES = {
         "BOOLEAN",
-        "CALCULATED",
         "CODELIST",
         "DATE",
         "DATETIME",

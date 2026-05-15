@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -185,6 +185,18 @@ class DataCaptureSaveSubmitPageService:
             actor_user_id=command.actor_user_id,
         )
 
+    def _with_persisted_lookup_values(self, command):
+        if not hasattr(self.repository, "persist_lookup_values_from_payload"):
+            return command
+        normalized_data = self.repository.persist_lookup_values_from_payload(
+            crf_template_id=command.crf_template_id,
+            data=command.data,
+            actor_user_id=command.actor_user_id,
+        )
+        if normalized_data == command.data:
+            return command
+        return replace(command, data=normalized_data)
+
     def _resolve_target_page_status_after_validation(self, command: SubmitPageCommand) -> str:
         validation_result = self.field_validation_rules_service.check_field_validation_rules(
             crf_template_id=command.crf_template_id,
@@ -241,6 +253,7 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
         )
+        command = self._with_persisted_lookup_values(command)
         page_state = self.repository.get_page_state_by_scope(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -336,6 +349,7 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
         )
+        command = self._with_persisted_lookup_values(command)
         page_state = self.repository.get_page_state_by_scope(
             subject_id=command.subject_id,
             visit_id=command.visit_id,

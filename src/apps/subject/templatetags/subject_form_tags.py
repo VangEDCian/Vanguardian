@@ -13,6 +13,7 @@ _CONTROL_TEMPLATE_MAP = {
     CrfFieldControlTypeChoices.TEXTAREA: "subject/components/controls/_textarea_control.html",
     CrfFieldControlTypeChoices.NUMBER: "subject/components/controls/_number_control.html",
     CrfFieldControlTypeChoices.SELECT: "subject/components/controls/_select_control.html",
+    CrfFieldControlTypeChoices.SELECT2: "subject/components/controls/_select2_control.html",
     CrfFieldControlTypeChoices.RADIO: "subject/components/controls/_radio_control.html",
     CrfFieldControlTypeChoices.CHECKBOX: "subject/components/controls/_checkbox_control.html",
     CrfFieldControlTypeChoices.MULTI_SELECT: "subject/components/controls/_multi_select_control.html",
@@ -34,6 +35,9 @@ _CONTROL_I18N_MAP = {
     },
     CrfFieldControlTypeChoices.SELECT: {
         "empty_option": _("-- Select --"),
+    },
+    CrfFieldControlTypeChoices.SELECT2: {
+        "placeholder": _("Search or enter value"),
     },
     CrfFieldControlTypeChoices.RADIO: {
         "empty_option": _("No options"),
@@ -71,7 +75,7 @@ _CONTROL_I18N_MAP = {
         "time_placeholder": _("HH:MM"),
     },
     CrfFieldControlTypeChoices.LABEL_ONLY: {
-        "placeholder": _("Calculated value"),
+        "placeholder": _("Display value"),
     },
 }
 
@@ -83,12 +87,12 @@ _CONTROL_TYPE_ALIAS_MAP = {
     "TEXT_AREA": CrfFieldControlTypeChoices.TEXTAREA,
     "DROPDOWN": CrfFieldControlTypeChoices.SELECT,
     "DROPDOWN_LIST": CrfFieldControlTypeChoices.SELECT,
+    "SELECT2": CrfFieldControlTypeChoices.SELECT2,
+    "SELECT_2": CrfFieldControlTypeChoices.SELECT2,
     "RADIO_BUTTON_LIST": CrfFieldControlTypeChoices.RADIO,
     "CHECKBOX_LIST": CrfFieldControlTypeChoices.MULTI_SELECT,
     "DATE_PICKER": CrfFieldControlTypeChoices.DATE,
     "TIME_PICKER": CrfFieldControlTypeChoices.DATETIME,
-    "CALCULATED_FIELD": CrfFieldControlTypeChoices.LABEL_ONLY,
-    "CALCULATED": CrfFieldControlTypeChoices.LABEL_ONLY,
     "LABEL_ONLY": CrfFieldControlTypeChoices.LABEL_ONLY,
     "LABEL_ONLY_FIELD": CrfFieldControlTypeChoices.LABEL_ONLY,
 }
@@ -141,6 +145,11 @@ def subject_select_control_i18n():
 
 
 @register.simple_tag
+def subject_select2_control_i18n():
+    return subject_control_i18n(CrfFieldControlTypeChoices.SELECT2)
+
+
+@register.simple_tag
 def subject_radio_control_i18n():
     return subject_control_i18n(CrfFieldControlTypeChoices.RADIO)
 
@@ -180,8 +189,12 @@ def subject_form_status_label(raw_status):
     normalized_status = (str(raw_status).strip().lower() if raw_status is not None else "")
     if normalized_status in {"", "none", "null", "not_started", "not_start"}:
         return _("Not Start")
-    if normalized_status in {"in_progress", "under_review", "correction_required"}:
+    if normalized_status == "in_progress":
         return _("In Process")
+    if normalized_status == "under_review":
+        return _("Under Review")
+    if normalized_status == "correction_required":
+        return _("Correction Required")
     if normalized_status == "submitted":
         return _("Submitted")
     if normalized_status == "verified":

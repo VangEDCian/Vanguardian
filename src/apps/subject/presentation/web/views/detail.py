@@ -55,6 +55,9 @@ class SubjectDetailView(
         "select": "select",
         "dropdown": "select",
         "dropdown list": "select",
+        "select2": "select2",
+        "select 2": "select2",
+        "SELECT2": "select2",
         "radio": "radio",
         "radio_button_list": "radio",
         "radio button list": "radio",
@@ -72,9 +75,6 @@ class SubjectDetailView(
         "time": "datetime",
         "label_only": "label_only",
         "label only": "label_only",
-        "calculated_field": "label_only",
-        "calculated field": "label_only",
-        "calculated": "label_only",
     }
     event_instance_file_repository_class = DjangoSubjectEventInstanceFileRepository
 
@@ -386,6 +386,7 @@ class SubjectDetailView(
         form_verification_review = None
         form_verification_verify_checked_url = ""
         form_verification_reopen_url = ""
+        form_verification_show_field_checkboxes = True
         # Do not require non-empty focused_form_fields: the verification endpoint still
         # needs visit + template IDs to initialize field review rows.
         if is_form_verification_mode and focused_form and focused_event:
@@ -421,8 +422,16 @@ class SubjectDetailView(
                     page_state_id=page_state_pk,
                     verified_field_template_ids=verified_field_template_ids,
                 )
+                normalized_page_status = (focused_page_status or "").strip().lower()
+                form_verification_show_field_checkboxes = normalized_page_status not in {
+                    "",
+                    "none",
+                    "null",
+                    DataCapturePageState.NOT_STARTED,
+                    "not_start",
+                    DataCapturePageState.IN_PROGRESS,
+                }
                 if self.request.user.has_perm(VERIFY_FORM_PERMISSION):
-                    normalized_page_status = (focused_page_status or "").strip().lower()
                     if DataCapturePageState.can_start_or_continue_review(normalized_page_status):
                         form_verification_verify_checked_url = reverse(
                             "subject:subject_form_verification_verify_checked",
@@ -495,6 +504,7 @@ class SubjectDetailView(
         context["form_verification_review"] = form_verification_review
         context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
         context["form_verification_reopen_url"] = form_verification_reopen_url
+        context["form_verification_show_field_checkboxes"] = form_verification_show_field_checkboxes
         context["form_verification_fields_locked"] = (
             is_form_verification_mode
             and DataCapturePageState.is_capture_locked(focused_page_status)
