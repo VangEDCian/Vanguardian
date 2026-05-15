@@ -187,6 +187,27 @@ def get_verified_field_template_ids_for_subject_visit_crf(
     )
 
 
+def reopen_verified_form_verification_page_state(
+    *,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+    reason_text: str | None,
+    actor_user_id: int | None = None,
+) -> str:
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().reopen_verified_page_state(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+        reason_text=reason_text,
+        actor_user_id=actor_user_id,
+    )
+
+
 def ensure_draft_page_state_if_not_exists(
     *,
     subject_id: int,
@@ -215,6 +236,7 @@ __all__ = [
     "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
     "merge_form_verification_checked_fields_into_page_state_final_data",
+    "reopen_verified_form_verification_page_state",
     "save_page_for_subject_visit_crf",
     "submit_page_for_subject_visit_crf",
     "trigger_event_transition_for_page_state",

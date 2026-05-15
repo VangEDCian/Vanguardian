@@ -1,5 +1,15 @@
 from dataclasses import dataclass
 
+from apps.study.application.exceptions import (
+    EventDefinitionImportDependencyError as EventDefinitionImportDependencyError,
+)
+from apps.study.application.exceptions import (
+    EventDefinitionImportFormatError as EventDefinitionImportFormatError,
+)
+from apps.study.application.exceptions import (
+    EventDefinitionImportTemplateError as EventDefinitionImportTemplateError,
+)
+
 
 @dataclass(frozen=True)
 class ImportStudyEventDefinitionsTemplateCommand:
@@ -25,15 +35,3 @@ class ImportStudyEventDefinitionsTemplateResult:
     skipped_count: int
     issues: tuple[EventDefinitionImportIssue, ...] = ()
     warnings: tuple[str, ...] = ()
-
-
-class EventDefinitionImportTemplateError(Exception):
-    """Base error raised for event definition template import failures."""
-
-
-class EventDefinitionImportDependencyError(EventDefinitionImportTemplateError):
-    """Raised when the Excel parser dependency is missing."""
-
-
-class EventDefinitionImportFormatError(EventDefinitionImportTemplateError):
-    """Raised when the uploaded workbook shape is invalid."""

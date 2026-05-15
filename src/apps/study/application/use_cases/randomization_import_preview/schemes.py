@@ -8,16 +8,16 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.choices.study import RandomizationSchemeStatusChoice
 from apps.study.application.use_cases.randomization_import_preview.base import BaseRandomizationImportPreviewUseCase
 from apps.study.application.use_cases.randomization_import_preview.types import (
     RandomizationImportColumn,
     RandomizationImportFormatError,
 )
+from apps.study.domain import RandomizationScheme
 
 
 class RandomizationSchemeImportPreviewUseCase(BaseRandomizationImportPreviewUseCase):
-    allowed_status_values = {choice.value for choice in RandomizationSchemeStatusChoice}
+    allowed_status_values = RandomizationScheme.STATUSES
 
     columns = (
         RandomizationImportColumn("code", "Code", max_length=64),

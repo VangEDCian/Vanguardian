@@ -1,13 +1,18 @@
-import json
-
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from apps.datacapture.public import merge_form_verification_checked_fields_into_page_state_final_data
+from apps.datacapture.application.exceptions import DataCaptureValidationError
+from apps.datacapture.public import (
+    merge_form_verification_checked_fields_into_page_state_final_data,
+    reopen_verified_form_verification_page_state,
+)
+from apps.subject.application import (
+    SubjectFormVerificationRequestValidator,
+    SubjectValidationError,
+)
 from apps.subject.public import SubjectAbstractVerifyStudy
 
 
@@ -23,21 +28,9 @@ class SubjectFormVerificationVerifyCheckedView(
 
     def post(self, request, *args, **kwargs):
         try:
-            body = json.loads(request.body.decode("utf-8") or "{}")
-        except json.JSONDecodeError:
-            return JsonResponse({"error": ["Invalid JSON"]}, status=400)
-        raw_ids = body.get("field_template_ids")
-        if raw_ids is None:
-            raw_ids = []
-        if not isinstance(raw_ids, list):
-            return JsonResponse({"error": ["field_template_ids must be a list"]}, status=400)
-        normalized: list[int] = []
-        for item in raw_ids:
-            try:
-                normalized.append(int(item))
-            except (TypeError, ValueError):
-                return JsonResponse({"error": ["field_template_ids must contain integers"]}, status=400)
-        try:
+            normalized = SubjectFormVerificationRequestValidator.parse_checked_field_template_ids(
+                request.body
+            )
             all_verified, page_status, blocking_reasons = merge_form_verification_checked_fields_into_page_state_final_data(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
@@ -45,7 +38,7 @@ class SubjectFormVerificationVerifyCheckedView(
                 checked_field_template_ids=normalized,
                 actor_user_id=getattr(request.user, "id", None),
             )
-        except ValidationError as exc:
+        except (SubjectValidationError, DataCaptureValidationError) as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
         return JsonResponse(
             {
@@ -58,4 +51,36 @@ class SubjectFormVerificationVerifyCheckedView(
         )
 
 
-__all__ = ["SubjectFormVerificationVerifyCheckedView"]
+@method_decorator(csrf_exempt, name="dispatch")
+class SubjectFormVerificationReopenView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SubjectAbstractVerifyStudy,
+    View,
+):
+    permission_required = "subject.verify_form"
+    raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        try:
+            reason_text = SubjectFormVerificationRequestValidator.parse_reopen_reason_text(
+                request.body
+            )
+            page_status = reopen_verified_form_verification_page_state(
+                subject_id=int(kwargs["subject_id"]),
+                visit_id=int(kwargs["visit_id"]),
+                crf_template_id=int(kwargs["crf_template_id"]),
+                reason_text=reason_text,
+                actor_user_id=getattr(request.user, "id", None),
+            )
+        except (SubjectValidationError, DataCaptureValidationError) as exc:
+            return JsonResponse({"error": list(exc.messages)}, status=400)
+        return JsonResponse(
+            {
+                "ok": True,
+                "page_status": page_status,
+            }
+        )
+
+
+__all__ = ["SubjectFormVerificationReopenView", "SubjectFormVerificationVerifyCheckedView"]

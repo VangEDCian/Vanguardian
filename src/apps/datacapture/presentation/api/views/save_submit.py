@@ -1,12 +1,11 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from apps.core.choices import DataCapturePageEntryStatusChoices
 from apps.datacapture.application import DataCaptureSaveSubmitPageService
+from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.application.services.page_entry_read import DataCapturePageEntryReadService
 from apps.datacapture.presentation.api.mappers.save_submit import (
     delete_draft_page_command_from_post,
@@ -17,17 +16,12 @@ from apps.subject.public import SubjectAbstractVerifyStudy
 
 
 def _latest_active_entry_payload(*, subject_id: int, visit_id: int, crf_template_id: int):
-    latest = DataCapturePageEntryReadService().get_latest_page_entry(
+    latest = DataCapturePageEntryReadService().get_latest_active_page_entry(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
     )
     if latest is None:
-        return None
-    if latest.status not in {
-        DataCapturePageEntryStatusChoices.DRAFT,
-        DataCapturePageEntryStatusChoices.SUBMITTED,
-    }:
         return None
     return {
         "id": latest.id,
@@ -53,7 +47,7 @@ class DataCaptureSaveAPIView(LoginRequiredMixin, PermissionRequiredMixin, Subjec
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
-        except ValidationError as exc:
+        except DataCaptureValidationError as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
         latest_page_entry = _latest_active_entry_payload(
             subject_id=kwargs["subject_id"],
@@ -88,7 +82,7 @@ class DataCaptureSubmitAPIView(LoginRequiredMixin, PermissionRequiredMixin, Subj
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
-        except ValidationError as exc:
+        except DataCaptureValidationError as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
         latest_page_entry = _latest_active_entry_payload(
             subject_id=kwargs["subject_id"],
@@ -121,7 +115,7 @@ class DataCaptureDeleteDraftAPIView(LoginRequiredMixin, PermissionRequiredMixin,
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
-        except ValidationError as exc:
+        except DataCaptureValidationError as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
         return JsonResponse(
             {

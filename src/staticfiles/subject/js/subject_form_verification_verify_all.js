@@ -1,5 +1,7 @@
 (function () {
-  const button = document.querySelector('[data-form-verification-verify-all]');
+  const button = document.querySelector(
+    '[data-form-verification-verify-all], [data-form-verification-reopen]',
+  );
   if (!button) {
     return;
   }
@@ -7,9 +9,14 @@
   if (!postUrl) {
     return;
   }
+  const isReopenAction = button.hasAttribute('data-form-verification-reopen');
 
   const loadingOverlay = document.querySelector('[data-form-verification-loading]');
   const loadingMessageNode = document.querySelector('[data-form-verification-loading-message]');
+  const reopenReasonModal = document.querySelector('[data-form-verification-reopen-reason-modal]');
+  const reopenReasonInput = document.querySelector('[data-form-verification-reopen-reason-input]');
+  const reopenReasonSubmit = document.querySelector('[data-form-verification-reopen-reason-submit]');
+  const reopenReasonCancel = document.querySelector('[data-form-verification-reopen-reason-cancel]');
   const notificationDurationMs = 2600;
   const notificationHost = document.createElement('div');
   notificationHost.className = 'subject-detail-screen__notifications';
@@ -68,19 +75,32 @@
     }, notificationDurationMs);
   }
 
-  button.addEventListener('click', function () {
+  function openReopenReasonModal() {
+    if (!(reopenReasonModal instanceof HTMLElement)) {
+      showNotification('Reopen reason form not found.', 'error');
+      return;
+    }
+    if (reopenReasonInput instanceof HTMLTextAreaElement) {
+      reopenReasonInput.value = '';
+    }
+    reopenReasonModal.hidden = false;
+    if (reopenReasonInput instanceof HTMLTextAreaElement) {
+      reopenReasonInput.focus();
+    }
+  }
+
+  function closeReopenReasonModal() {
+    if (reopenReasonModal instanceof HTMLElement) {
+      reopenReasonModal.hidden = true;
+    }
+  }
+
+  function submitVerificationRequest(payload) {
     const root = document.querySelector('.subject-form-verification-review');
-    if (!root) {
+    if (!isReopenAction && !root) {
       showNotification('Review panel not found.', 'error');
       return;
     }
-    const checked = Array.from(root.querySelectorAll('input[name="verify_field"]:checked'))
-      .map(function (el) {
-        return parseInt(String(el.value || '').trim(), 10);
-      })
-      .filter(function (n) {
-        return !Number.isNaN(n);
-      });
 
     button.disabled = true;
     showLoading(defaultLoadingMessage);
@@ -89,7 +109,7 @@
       .fetch(postUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ field_template_ids: checked }),
+        body: JSON.stringify(payload),
       })
       .then(function (response) {
         return response.text().then(function (text) {
@@ -112,13 +132,20 @@
         const blockers = Array.isArray(result.data.blocking_reasons)
           ? result.data.blocking_reasons
           : [];
-        const msg =
-          result.data.all_verified === true
+        const msg = isReopenAction
+          ? 'Form reopened.'
+          : result.data.all_verified === true
             ? 'All fields verified.'
             : blockers.length > 0
               ? 'Saved. Pending blockers: ' + blockers.join(', ')
               : 'Saved.';
         showNotification(msg, 'success');
+        if (isReopenAction) {
+          window.setTimeout(function () {
+            window.location.reload();
+          }, 250);
+          return;
+        }
         const verifiedCheckedEnabled = Array.from(
           root.querySelectorAll('input[name="verify_field"]:checked:not(:disabled)'),
         );
@@ -134,5 +161,44 @@
         hideLoading();
         button.disabled = false;
       });
+  }
+
+  button.addEventListener('click', function () {
+    if (isReopenAction) {
+      openReopenReasonModal();
+      return;
+    }
+    const root = document.querySelector('.subject-form-verification-review');
+    if (!root) {
+      showNotification('Review panel not found.', 'error');
+      return;
+    }
+    const checked = Array.from(root.querySelectorAll('input[name="verify_field"]:checked'))
+      .map(function (el) {
+        return parseInt(String(el.value || '').trim(), 10);
+      })
+      .filter(function (n) {
+        return !Number.isNaN(n);
+      });
+    submitVerificationRequest({ field_template_ids: checked });
   });
+
+  if (reopenReasonSubmit instanceof HTMLElement) {
+    reopenReasonSubmit.addEventListener('click', function () {
+      const reasonText =
+        reopenReasonInput instanceof HTMLTextAreaElement
+          ? String(reopenReasonInput.value || '').trim()
+          : '';
+      if (!reasonText) {
+        showNotification('Reopen reason is required.', 'error');
+        return;
+      }
+      closeReopenReasonModal();
+      submitVerificationRequest({ reason_text: reasonText });
+    });
+  }
+
+  if (reopenReasonCancel instanceof HTMLElement) {
+    reopenReasonCancel.addEventListener('click', closeReopenReasonModal);
+  }
 })();

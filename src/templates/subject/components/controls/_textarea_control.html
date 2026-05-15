@@ -6,4 +6,5 @@
           {% if field.style %}style="{{ field.style }}"{% endif %}
           rows="{{ textarea_rows|default:'3' }}"
           readonly
+          {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
           placeholder="{{ field.placeholder_text|default:textarea_control_i18n.placeholder }}">{{ field.value }}</textarea>

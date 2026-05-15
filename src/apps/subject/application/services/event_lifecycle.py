@@ -1,11 +1,11 @@
 from django.db import transaction
 
-from apps.core.choices import EventInstanceStatusChoices
 from apps.subject.application.commands.trigger_event_transition import (
     SubjectEventInstanceNotFoundError,
     TriggerSubjectEventTransitionCommand,
 )
 from apps.subject.domain import (
+    SubjectEventInstance,
     SubjectEventTransitionApplied,
     SubjectEventTransitionPolicy,
     SubjectEventTransitionResult,
@@ -111,7 +111,7 @@ class SubjectEventTransitionService:
                         target_event_instance_id=target_event.id,
                         rule_id=rule.id,
                         from_status=source_event.status,
-                        to_status=EventInstanceStatusChoices.OPEN,
+                        to_status=SubjectEventInstance.OPEN,
                         event_name=target_event.event_name,
                         facts=facts,
                     )
@@ -125,7 +125,7 @@ class SubjectEventTransitionService:
                     from_event_definition_id=rule.from_event_definition_id,
                     to_event_definition_id=rule.to_event_definition_id,
                     from_status=source_event.status,
-                    to_status=EventInstanceStatusChoices.OPEN,
+                    to_status=SubjectEventInstance.OPEN,
                     trigger_source=command.trigger_source,
                     result="applied",
                     reason=decision.reason,
@@ -146,13 +146,12 @@ class SubjectEventTransitionService:
     def _build_transition_facts(*, source_event, external_facts, trigger_source=None):
         facts = {
             "subject_event.triggered": True,
-            "subject_event.completed": source_event.status
-            in SubjectEventTransitionPolicy.TERMINAL_STATUSES,
+            "subject_event.completed": SubjectEventInstance.is_terminal(source_event.status),
             f"subject.{source_event.subject_id}.event.{source_event.event_definition_id}.completed": (
-                source_event.status in SubjectEventTransitionPolicy.TERMINAL_STATUSES
+                SubjectEventInstance.is_terminal(source_event.status)
             ),
             f"event.{source_event.event_definition_id}.completed": (
-                source_event.status in SubjectEventTransitionPolicy.TERMINAL_STATUSES
+                SubjectEventInstance.is_terminal(source_event.status)
             ),
             f"event.{source_event.event_definition_id}.status.{source_event.status}": True,
             f"source_event.status.{source_event.status}": True,

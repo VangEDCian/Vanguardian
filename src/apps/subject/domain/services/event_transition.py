@@ -7,11 +7,12 @@ from apps.subject.domain.entities import (
     SubjectEventInstanceSnapshot,
     SubjectEventTransitionDecision,
 )
+from apps.subject.domain.status import SubjectEventInstance
 
 
 class SubjectEventTransitionPolicy:
-    TERMINAL_STATUSES = frozenset({"completed", "verified", "locked", "skipped"})
-    OPENABLE_STATUSES = frozenset({"not_ready", "planned"})
+    TERMINAL_STATUSES = SubjectEventInstance.TERMINAL_STATUSES
+    OPENABLE_STATUSES = SubjectEventInstance.OPENABLE_STATUSES
 
     def decide(
         self,
@@ -55,10 +56,10 @@ class SubjectEventTransitionPolicy:
         if not rule.auto_open:
             return False, "rule_auto_open_disabled"
 
-        if rule.requires_previous_completion and source_event.status not in self.TERMINAL_STATUSES:
+        if rule.requires_previous_completion and not SubjectEventInstance.is_terminal(source_event.status):
             return False, "source_event_not_terminal"
 
-        if target_event is not None and target_event.status not in self.OPENABLE_STATUSES:
+        if target_event is not None and not SubjectEventInstance.is_openable(target_event.status):
             return False, "target_event_not_openable"
 
         if not self._is_condition_satisfied(rule=rule, facts=facts):

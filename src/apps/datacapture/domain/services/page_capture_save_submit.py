@@ -2,22 +2,25 @@
 
 import json
 
-from apps.core.choices import DataCapturePageEntryStatusChoices
-from apps.datacapture.domain.exceptions import (
-    InvalidPagePayloadError,
-    UnsupportedEntryStatusError,
-)
-from apps.datacapture.infrastructure.models.capture import (
+from apps.datacapture.domain.entities import (
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
     SaveDraftExecutionPlan,
     SubmitExecutionPlan,
 )
+from apps.datacapture.domain.exceptions import (
+    InvalidPagePayloadError,
+    PageNotEditableError,
+    UnsupportedEntryStatusError,
+)
+from apps.datacapture.domain.status import DataCapturePageEntry, DataCapturePageState
 
 
 def assert_page_editable_for_capture(page_state: DataCapturePageStateSnapshot | None) -> None:
-    # Business lock is managed by governance tables, not PageState status.
-    _ = page_state
+    if page_state is None:
+        return
+    if DataCapturePageState.is_capture_locked(page_state.status):
+        raise PageNotEditableError("Page is locked for data capture")
 
 
 def validate_capture_payload(data: str | None) -> None:
@@ -52,11 +55,11 @@ def resolve_save_draft_execution_plan(
     validate_capture_payload(payload)
     if latest is None:
         return SaveDraftExecutionPlan(branch="create_initial")
-    if latest.status == DataCapturePageEntryStatusChoices.DRAFT:
+    if DataCapturePageEntry.is_draft(latest.status):
         return SaveDraftExecutionPlan(branch="update_draft")
-    if latest.status == DataCapturePageEntryStatusChoices.SUBMITTED:
+    if DataCapturePageEntry.is_submitted(latest.status):
         if same_capture_payload(latest.data, payload):
-            noop_status = page_state.status if page_state is not None else DataCapturePageEntryStatusChoices.SUBMITTED
+            noop_status = page_state.status if page_state is not None else DataCapturePageEntry.SUBMITTED
             return SaveDraftExecutionPlan(branch="noop_identical_submitted", noop_page_status=noop_status)
         return SaveDraftExecutionPlan(branch="correction_from_submitted")
     raise UnsupportedEntryStatusError(
@@ -75,13 +78,13 @@ def build_submit_execution_plan(
     validate_capture_payload(payload)
     if latest is None:
         return SubmitExecutionPlan(action="initial_submitted")
-    if latest.status == DataCapturePageEntryStatusChoices.DRAFT:
+    if DataCapturePageEntry.is_draft(latest.status):
         return SubmitExecutionPlan(
             action="promote_draft",
             draft_entry_id=latest.id,
             supersede_other_submitted_before_promote=has_other_submitted_entry,
         )
-    if latest.status == DataCapturePageEntryStatusChoices.SUBMITTED:
+    if DataCapturePageEntry.is_submitted(latest.status):
         if same_capture_payload(latest.data, payload):
             return SubmitExecutionPlan(action="noop_identical_submitted")
         return SubmitExecutionPlan(

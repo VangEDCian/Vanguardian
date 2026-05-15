@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 
-
-class StudyNotFoundError(Exception):
-    pass
+from apps.subject.application.exceptions import StudyNotFoundError
 
 
 @dataclass(frozen=True)

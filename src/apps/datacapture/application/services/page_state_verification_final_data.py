@@ -1,15 +1,15 @@
 import json
 from typing import Any
 
-from django.core.exceptions import ValidationError
 from django.db import OperationalError, ProgrammingError
 
 from apps.core.choices import (
     DataCaptureFieldReviewTypeChoices,
-    DataCapturePageStateStatusChoices,
 )
 from apps.crf.models import CrfFieldReviewPolicy
 from apps.crf.public import CrfContextAdapter
+from apps.datacapture.application.validators import DataCapturePageStateVerificationValidator
+from apps.datacapture.domain.status import DataCapturePageState
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 from apps.reconcile.application.services.dataquery_read import ReconcileDataQueryReadService
 
@@ -17,9 +17,12 @@ from apps.reconcile.application.services.dataquery_read import ReconcileDataQuer
 class DataCapturePageStateVerificationFinalDataService:
     """Verify field reviews and page state without mutating clinical ``final_data``."""
 
+    validator_class = DataCapturePageStateVerificationValidator
+
     def __init__(self, repository=None, reconcile_read_service=None):
         self.repository = repository or DjangoDataCapturePageRepository()
         self.reconcile_read_service = reconcile_read_service or ReconcileDataQueryReadService()
+        self.validator = self.validator_class()
 
     @staticmethod
     def _load_json_dict(raw_value) -> dict[str, Any]:
@@ -69,14 +72,8 @@ class DataCapturePageStateVerificationFinalDataService:
             visit_id=visit_id,
             crf_template_id=crf_template_id,
         )
-        if snapshot is None:
-            raise ValidationError("No page state exists for this subject visit and form.")
-        status = (snapshot.status or "").strip().lower()
-        if status not in [
-            DataCapturePageStateStatusChoices.SUBMITTED.value,
-            DataCapturePageStateStatusChoices.UNDER_REVIEW.value,
-        ]:
-            raise ValidationError("Verify can only run while the page state is submitted or under_review.")
+        self.validator.require_page_state(snapshot)
+        self.validator.require_reviewable_status(snapshot.status)
         return snapshot
 
     def _required_field_template_ids(self, *, snapshot, all_field_template_ids: tuple[int, ...]) -> tuple[int, ...]:
@@ -119,13 +116,11 @@ class DataCapturePageStateVerificationFinalDataService:
             visit_id=visit_id,
             crf_template_id=crf_template_id,
         )
-        if snapshot is None:
-            raise ValidationError("No page state exists for this subject visit and form.")
+        self.validator.require_page_state(snapshot)
 
         field_rows = CrfContextAdapter().list_template_fields_with_ui_config(template_id=crf_template_id)
         field_template_ids = self._field_template_ids(field_rows)
-        if not field_template_ids:
-            raise ValidationError("No field definitions exist for this CRF template.")
+        self.validator.require_field_definitions(field_template_ids)
 
         self.repository.ensure_field_reviews_for_page(
             page_state_id=page_state.pk,
@@ -186,7 +181,7 @@ class DataCapturePageStateVerificationFinalDataService:
             blockers.append("active_blocking_query")
 
         if blockers:
-            return False, DataCapturePageStateStatusChoices.UNDER_REVIEW.value, blockers
+            return False, DataCapturePageState.UNDER_REVIEW, blockers
 
         page_status = self.repository.verify_page_state_if_ready(
             page_state_id=snapshot.id,
@@ -212,6 +207,29 @@ class DataCapturePageStateVerificationFinalDataService:
             page_state_id=snapshot.id,
             data_version=snapshot.data_version,
             review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        )
+
+    def reopen_verified_page_state(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        reason_text: str | None,
+        actor_user_id: int | None = None,
+    ) -> str:
+        snapshot = self.repository.get_page_state(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
+        self.validator.require_page_state(snapshot)
+        self.validator.require_reopen_status(snapshot.status)
+        normalized_reason = self.validator.require_reopen_reason(reason_text)
+        return self.repository.reopen_verified_page_state(
+            page_state_id=snapshot.id,
+            reason_text=normalized_reason,
+            actor_user_id=actor_user_id,
         )
 
     def list_verified_field_template_ids(

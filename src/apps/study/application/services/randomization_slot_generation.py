@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from django.utils import timezone
 from django.utils.translation import gettext_lazy
 
-from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
+from apps.study.application.exceptions import RandomizationSlotGenerationError
+from apps.study.domain import RandomizationScheme, RandomizationSlot
 from apps.study.infrastructure.repositories import DjangoRandomizationRepository
 
 
@@ -18,10 +19,6 @@ class RandomizationSlotCapacityCheckResult:
     def is_valid(self):
         """True when target total is not smaller than assigned slots."""
         return self.assigned_count <= self.target_total
-
-
-class RandomizationSlotGenerationError(Exception):
-    """Raised when randomization slot generation cannot be safely performed."""
 
 
 class StudyRandomizationSlotGenerationService:
@@ -85,7 +82,7 @@ class StudyRandomizationSlotGenerationService:
             RandomizationSlotGenerationError: on invalid ratio references or
                 impossible totals (assigned+void greater than target).
         """
-        if getattr(scheme, "status", None) != RandomizationSchemeStatusChoice.ACTIVE:
+        if not RandomizationScheme.is_active(getattr(scheme, "status", None)):
             return None
 
         ratio_source = getattr(scheme, "allocation_ratio_json", None)
@@ -121,8 +118,8 @@ class StudyRandomizationSlotGenerationService:
         )
 
         slots = list(self.repository.list_slots_for_scheme(scheme_id=scheme.pk))
-        assigned_count = sum(1 for slot in slots if slot.status == RandomizationSlotStatusChoice.ASSIGNED)
-        void_count = sum(1 for slot in slots if slot.status == RandomizationSlotStatusChoice.VOID)
+        assigned_count = sum(1 for slot in slots if RandomizationSlot.is_assigned(slot.status))
+        void_count = sum(1 for slot in slots if RandomizationSlot.is_void(slot.status))
         if assigned_count + void_count > target_total:
             raise RandomizationSlotGenerationError(
                 str(
@@ -145,7 +142,7 @@ class StudyRandomizationSlotGenerationService:
         available_slots_by_code = {}
         available_slots_outside_ratio = []
         for slot in slots:
-            if slot.status != RandomizationSlotStatusChoice.AVAILABLE:
+            if not RandomizationSlot.is_available(slot.status):
                 continue
             arm_code = str(getattr(getattr(slot, "arm", None), "arm_code", "")).strip()
             if arm_code in desired_available_by_code:
@@ -185,7 +182,7 @@ class StudyRandomizationSlotGenerationService:
                         sequence_no=max_sequence,
                         block_no=None,
                         stratum_code=None,
-                        status=RandomizationSlotStatusChoice.AVAILABLE,
+                        status=RandomizationSlot.AVAILABLE,
                         assigned_subject_id=None,
                         assigned_event_id=None,
                         assigned_at=None,

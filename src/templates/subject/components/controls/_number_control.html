@@ -8,6 +8,7 @@
        data-submitted-diff-control="number"
        {% if field.style %}style="{{ field.style }}"{% endif %}
        readonly
+       {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
        {{ number_validator_attrs }}
        value="{{ field.value }}"
        placeholder="{{ field.placeholder_text|default:number_control_i18n.placeholder }}" />

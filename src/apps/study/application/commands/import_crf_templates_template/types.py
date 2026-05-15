@@ -1,5 +1,15 @@
 from dataclasses import dataclass
 
+from apps.study.application.exceptions import (
+    CrfTemplateImportDependencyError as CrfTemplateImportDependencyError,
+)
+from apps.study.application.exceptions import (
+    CrfTemplateImportFormatError as CrfTemplateImportFormatError,
+)
+from apps.study.application.exceptions import (
+    CrfTemplateImportTemplateError as CrfTemplateImportTemplateError,
+)
+
 
 @dataclass(frozen=True)
 class ImportStudyCrfTemplatesTemplateCommand:
@@ -26,15 +36,3 @@ class ImportStudyCrfTemplatesTemplateResult:
     skipped_count: int
     issues: tuple[CrfTemplateImportIssue, ...] = ()
     warnings: tuple[str, ...] = ()
-
-
-class CrfTemplateImportTemplateError(Exception):
-    """Base error raised for CRF template import failures."""
-
-
-class CrfTemplateImportDependencyError(CrfTemplateImportTemplateError):
-    """Raised when the Excel parser dependency is missing."""
-
-
-class CrfTemplateImportFormatError(CrfTemplateImportTemplateError):
-    """Raised when the uploaded workbook shape is invalid."""

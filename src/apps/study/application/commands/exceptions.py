@@ -1,6 +1,3 @@
-class StudyCodeAlreadyExistsError(Exception):
-    pass
+from apps.study.application.exceptions import StudyCodeAlreadyExistsError, StudyDateRangeError
 
-
-class StudyDateRangeError(Exception):
-    pass
+__all__ = ["StudyCodeAlreadyExistsError", "StudyDateRangeError"]

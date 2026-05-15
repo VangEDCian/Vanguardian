@@ -1,28 +1,30 @@
 {% load i18n %}
 <footer class="subject-detail-screen__footer">
     <div class="subject-detail-screen__footer-actions">
-        <button type="button"
-                class="entity-table__footer-button entity-table__footer-button--primary"
-                {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-save{% else %}disabled{% endif %}>
-            {% trans "Save" %}
-        </button>
-        <button type="button"
-                class="entity-table__footer-button entity-table__footer-button--secondary"
-                {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-reset{% else %}disabled{% endif %}>
-            {% trans "Reset" %}
-        </button>
-        <button type="button"
-                class="entity-table__footer-button entity-table__footer-button--secondary"
-                {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-submit{% else %}disabled{% endif %}>
-            {% trans "Submit for Review" %}
-        </button>
+        {% if not is_page_edit_locked %}
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--primary"
+                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-save{% else %}disabled{% endif %}>
+                {% trans "Save" %}
+            </button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-reset{% else %}disabled{% endif %}>
+                {% trans "Reset" %}
+            </button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-submit{% else %}disabled{% endif %}>
+                {% trans "Submit for Review" %}
+            </button>
+        {% endif %}
         {% if is_viewing_submitted_version and view_current_url %}
             <a href="{{ view_current_url }}"
                class="entity-table__footer-button entity-table__footer-button--secondary">
                 {% trans "View current draft" %}
             </a>
         {% endif %}
-        {% if is_focused_render_draft_version %}
+        {% if is_focused_render_draft_version and not is_page_edit_locked %}
             <button type="button"
                     class="entity-table__footer-button entity-table__footer-button--danger"
                     {% if can_delete_current_draft %}data-datacapture-delete-draft{% else %}disabled{% endif %}>

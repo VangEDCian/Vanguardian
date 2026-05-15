@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from apps.identity.application.exceptions import IdentityUserRestoreDataNotFoundError
+
 
 @dataclass(frozen=True)
 class DeleteIdentityUserCommand:
@@ -12,9 +14,6 @@ class RestoreIdentityUserCommand:
     user_id: int
     actor_user_id: int
 
-
-class IdentityUserRestoreDataNotFoundError(Exception):
-    pass
 
 __all__ = [
     "DeleteIdentityUserCommand",

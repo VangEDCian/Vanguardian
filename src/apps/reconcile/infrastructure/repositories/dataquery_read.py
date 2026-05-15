@@ -1,15 +1,12 @@
 from django.db.models import Count
 
-from apps.reconcile.models import ReconcileDataQuery, ReconcileDataQueryStatusChoices
+from apps.reconcile.models import ReconcileDataQuery
 
 
 class DjangoReconcileDataQueryReadRepository:
     @staticmethod
     def _active_status_excludes() -> tuple[str, ...]:
-        return (
-            ReconcileDataQueryStatusChoices.CLOSED,
-            ReconcileDataQueryStatusChoices.CANCELLED,
-        )
+        return ("cancelled", "closed")
 
     def count_open_queries_by_page_state_and_field_templates(
         self,

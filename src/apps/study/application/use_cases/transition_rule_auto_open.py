@@ -1,18 +1,10 @@
 from collections import defaultdict
 from typing import Mapping, Sequence
 
-from apps.core.choices.study import EventInstanceStatusChoices
+from apps.subject.domain import SubjectEventInstance
 
 
 class StudyEventTransitionRuleAutoOpenUseCase:
-    terminal_statuses = frozenset(
-        {
-            EventInstanceStatusChoices.COMPLETED,
-            EventInstanceStatusChoices.VERIFIED,
-            EventInstanceStatusChoices.LOCKED,
-            EventInstanceStatusChoices.SKIPPED,
-        }
-    )
     true_values = frozenset({"true", "1", "yes", "y"})
     false_values = frozenset({"false", "0", "no", "n"})
 
@@ -35,7 +27,7 @@ class StudyEventTransitionRuleAutoOpenUseCase:
         for event_definition in event_definitions:
             incoming_rules = incoming_rules_by_event_definition.get(event_definition.pk, [])
             if not incoming_rules:
-                resolved_status = EventInstanceStatusChoices.OPEN
+                resolved_status = SubjectEventInstance.OPEN
             else:
                 can_auto_open = any(
                     self._can_auto_open(
@@ -45,11 +37,7 @@ class StudyEventTransitionRuleAutoOpenUseCase:
                     )
                     for transition_rule in incoming_rules
                 )
-                resolved_status = (
-                    EventInstanceStatusChoices.OPEN
-                    if can_auto_open
-                    else EventInstanceStatusChoices.NOT_READY
-                )
+                resolved_status = SubjectEventInstance.OPEN if can_auto_open else SubjectEventInstance.NOT_READY
 
             status_by_event_definition[event_definition.pk] = resolved_status
             current_statuses[event_definition.pk] = resolved_status
@@ -66,9 +54,9 @@ class StudyEventTransitionRuleAutoOpenUseCase:
         if transition_rule.requires_previous_completion:
             from_event_status = current_status_by_event_definition.get(
                 transition_rule.from_event_definition_id,
-                EventInstanceStatusChoices.NOT_READY,
+                SubjectEventInstance.NOT_READY,
             )
-            if from_event_status not in self.terminal_statuses:
+            if not SubjectEventInstance.is_terminal(from_event_status):
                 return False
 
         return self._is_rule_condition_satisfied(

@@ -1,18 +1,22 @@
 import json
 from dataclasses import dataclass
 
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
 from apps.audit.public import AuditContextAdapter
-from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
 from apps.datacapture.application.commands import (
     DeleteDraftPageCommand,
     SavePageCommand,
     SubmitFieldChangeReason,
     SubmitPageCommand,
 )
+from apps.datacapture.application.exceptions import (
+    DataCaptureInvalidPayloadUseCaseError,
+    DataCaptureUnsupportedEntryStatusUseCaseError,
+)
 from apps.datacapture.application.services.check_field_validation_rules import DataCaptureFieldValidationRulesService
+from apps.datacapture.application.validators import DataCaptureSaveSubmitValidator
 from apps.datacapture.domain.exceptions import (
     InvalidPagePayloadError,
     PageNotEditableError,
@@ -23,6 +27,7 @@ from apps.datacapture.domain.services.page_capture_save_submit import (
     build_submit_execution_plan,
     resolve_save_draft_execution_plan,
 )
+from apps.datacapture.domain.status import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 from apps.governance.infrastructure.repositories import DjangoGovernanceLockReadRepository
 from apps.shared.constants import AuditEventAction, AuditEventObjectType
@@ -52,10 +57,12 @@ class DeleteDraftPageResult:
     page_status: str
 
 
-def _raise_as_http(exc: PageNotEditableError | InvalidPagePayloadError | UnsupportedEntryStatusError) -> None:
+def _raise_as_use_case_error(exc: PageNotEditableError | InvalidPagePayloadError | UnsupportedEntryStatusError) -> None:
     if isinstance(exc, PageNotEditableError):
         raise PermissionDenied("Page is not editable") from exc
-    raise ValidationError([str(exc)]) from exc
+    if isinstance(exc, InvalidPagePayloadError):
+        raise DataCaptureInvalidPayloadUseCaseError(str(exc)) from exc
+    raise DataCaptureUnsupportedEntryStatusUseCaseError(str(exc)) from exc
 
 
 def _load_payload_map(raw_payload: str | None) -> dict:
@@ -153,12 +160,14 @@ def _build_change_reason_audit_payloads(
 class DataCaptureSaveSubmitPageService:
 
     repository_class = DjangoDataCapturePageRepository
+    validator_class = DataCaptureSaveSubmitValidator
 
     def __init__(self, repository=None, governance_lock_read_repository=None):
         self.repository = repository or self.repository_class()
         self.governance_lock_read_repository = governance_lock_read_repository or DjangoGovernanceLockReadRepository()
         self.audit_context = AuditContextAdapter()
         self.field_validation_rules_service = DataCaptureFieldValidationRulesService(self.repository)
+        self.validator = self.validator_class()
 
     def _assert_capture_not_locked(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> None:
         if self.governance_lock_read_repository.is_capture_locked_for_scope(
@@ -182,8 +191,8 @@ class DataCaptureSaveSubmitPageService:
             payload_data=command.data,
         )
         if validation_result.has_failures:
-            return DataCapturePageStateStatusChoices.CORRECTION_REQUIRED
-        return DataCapturePageStateStatusChoices.SUBMITTED
+            return DataCapturePageState.CORRECTION_REQUIRED
+        return DataCapturePageState.SUBMITTED
 
     def _submit_noop_identical_submitted(self, command: SubmitPageCommand, latest) -> SubmitPageResult:
         if latest is None:
@@ -203,7 +212,7 @@ class DataCaptureSaveSubmitPageService:
             actor_user_id=command.actor_user_id,
             trigger_source=(
                 "query"
-                if started_page_state.status == DataCapturePageStateStatusChoices.CORRECTION_REQUIRED
+                if DataCapturePageState.is_correction_required(started_page_state.status)
                 else "manual"
             ),
             target_status=target_page_status,
@@ -216,7 +225,7 @@ class DataCaptureSaveSubmitPageService:
         )
 
     def _has_other_submitted_entry_if_latest_is_draft(self, command: SubmitPageCommand, latest) -> bool:
-        if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
+        if latest is None or not DataCapturePageEntry.is_draft(latest.status):
             return False
         return self.repository.has_other_submitted_entry(
             subject_id=command.subject_id,
@@ -249,9 +258,9 @@ class DataCaptureSaveSubmitPageService:
                 payload=command.data,
             )
         except PageNotEditableError as exc:
-            _raise_as_http(exc)
+            _raise_as_use_case_error(exc)
         except (InvalidPagePayloadError, UnsupportedEntryStatusError) as exc:
-            _raise_as_http(exc)
+            _raise_as_use_case_error(exc)
 
         if plan.branch == "noop_identical_submitted":
             assert latest is not None
@@ -351,13 +360,17 @@ class DataCaptureSaveSubmitPageService:
                 payload=command.data,
             )
         except PageNotEditableError as exc:
-            _raise_as_http(exc)
+            _raise_as_use_case_error(exc)
         except (InvalidPagePayloadError, UnsupportedEntryStatusError) as exc:
-            _raise_as_http(exc)
+            _raise_as_use_case_error(exc)
 
         if plan.action == "noop_identical_submitted":
             return self._submit_noop_identical_submitted(command, latest)
 
+        requires_change_reasons = (
+            page_state is not None
+            and DataCapturePageState.requires_change_reason_on_submit(page_state.status)
+        )
         changed_field_keys: list[str] = []
         reason_required_field_keys: list[str] = []
         reason_map: dict[str, SubmitFieldChangeReason] = {}
@@ -370,7 +383,7 @@ class DataCaptureSaveSubmitPageService:
                 baseline_payload=baseline_payload,
                 candidate_payload=candidate_payload,
             )
-            if changed_field_keys:
+            if changed_field_keys and requires_change_reasons:
                 reason_map = _build_change_reason_map(command.change_reasons)
                 if page_state is not None:
                     reason_required_field_keys = self.repository.list_changed_verified_field_keys(
@@ -384,8 +397,7 @@ class DataCaptureSaveSubmitPageService:
                     for field_key in reason_required_field_keys
                     if not reason_map.get(field_key) or not reason_map[field_key].reason
                 ]
-                if missing_reason_fields:
-                    raise ValidationError(["Change reason is required for all updated fields before submit."])
+                self.validator.require_change_reasons_present(missing_reason_fields)
 
         started_page_state = self.repository.upsert_page_state_for_data_entry(
             subject_id=command.subject_id,
@@ -409,7 +421,11 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=command.crf_template_id,
             entry_id=entry.pk,
             actor_user_id=command.actor_user_id,
-            trigger_source="query" if page_state and page_state.status == DataCapturePageStateStatusChoices.CORRECTION_REQUIRED else "manual",
+            trigger_source=(
+                "query"
+                if page_state and DataCapturePageState.is_correction_required(page_state.status)
+                else "manual"
+            ),
             target_status=target_page_status,
         )
         if reason_required_field_keys and reason_map:
@@ -450,7 +466,7 @@ class DataCaptureSaveSubmitPageService:
             )
         return SubmitPageResult(
             entry_id=entry.pk,
-            entry_status=DataCapturePageEntryStatusChoices.SUBMITTED,
+            entry_status=DataCapturePageEntry.SUBMITTED,
             page_status=page_state.status,
             created_new_entry=plan.action in {"initial_submitted", "replace_submitted"},
         )
@@ -471,7 +487,7 @@ class DataCaptureSaveSubmitPageService:
             if page_state is not None:
                 assert_page_editable_for_capture(page_state)
         except PageNotEditableError as exc:
-            _raise_as_http(exc)
+            _raise_as_use_case_error(exc)
 
         canceled_entry = self.repository.cancel_latest_draft_entry(
             subject_id=command.subject_id,
@@ -479,8 +495,7 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=command.crf_template_id,
             actor_user_id=command.actor_user_id,
         )
-        if canceled_entry is None:
-            raise ValidationError(["No active draft version to delete."])
+        self.validator.require_active_draft(canceled_entry)
 
         latest_submitted = self.repository.get_latest_submitted_entry(
             subject_id=command.subject_id,
@@ -492,12 +507,12 @@ class DataCaptureSaveSubmitPageService:
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
-                status=DataCapturePageStateStatusChoices.SUBMITTED,
+                status=DataCapturePageState.SUBMITTED,
                 actor_user_id=command.actor_user_id,
             )
             return DeleteDraftPageResult(
                 entry_id=canceled_entry.id,
-                entry_status=DataCapturePageEntryStatusChoices.CANCELLED,
+                entry_status=DataCapturePageEntry.CANCELLED,
                 page_status=page_state.status,
             )
 
@@ -505,12 +520,12 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
-            status=DataCapturePageStateStatusChoices.NOT_STARTED,
+            status=DataCapturePageState.NOT_STARTED,
             actor_user_id=command.actor_user_id,
             trigger_source="manual",
         )
         return DeleteDraftPageResult(
             entry_id=canceled_entry.id,
-            entry_status=DataCapturePageEntryStatusChoices.CANCELLED,
+            entry_status=DataCapturePageEntry.CANCELLED,
             page_status=page_state.status,
         )

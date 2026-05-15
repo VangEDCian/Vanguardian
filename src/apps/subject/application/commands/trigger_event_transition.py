@@ -1,9 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-
-class SubjectEventInstanceNotFoundError(Exception):
-    pass
+from apps.subject.application.exceptions import SubjectEventInstanceNotFoundError
 
 
 @dataclass(frozen=True)

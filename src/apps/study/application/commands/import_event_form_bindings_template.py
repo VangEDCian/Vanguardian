@@ -1,5 +1,15 @@
 from dataclasses import dataclass
 
+from apps.study.application.exceptions import (
+    EventFormBindingImportDependencyError as EventFormBindingImportDependencyError,
+)
+from apps.study.application.exceptions import (
+    EventFormBindingImportFormatError as EventFormBindingImportFormatError,
+)
+from apps.study.application.exceptions import (
+    EventFormBindingImportTemplateError as EventFormBindingImportTemplateError,
+)
+
 
 @dataclass(frozen=True)
 class ImportStudyEventFormBindingsTemplateCommand:
@@ -27,17 +37,6 @@ class ImportStudyEventFormBindingsTemplateResult:
     issues: tuple[EventFormBindingImportIssue, ...] = ()
     warnings: tuple[str, ...] = ()
 
-
-class EventFormBindingImportTemplateError(Exception):
-    """Base error raised for event form binding template import failures."""
-
-
-class EventFormBindingImportDependencyError(EventFormBindingImportTemplateError):
-    """Raised when the Excel parser dependency is missing."""
-
-
-class EventFormBindingImportFormatError(EventFormBindingImportTemplateError):
-    """Raised when the uploaded workbook shape is invalid."""
 
 __all__ = [
     "EventFormBindingImportDependencyError",

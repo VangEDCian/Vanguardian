@@ -1,8 +1,6 @@
 import phonenumbers
 
-
-class PhoneNumberValidationError(Exception):
-    pass
+from apps.identity.application.exceptions import PhoneNumberValidationError
 
 
 class PhoneNumberValidator:

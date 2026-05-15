@@ -5,5 +5,6 @@
        data-submitted-diff-control="label-only"
        {% if field.style %}style="{{ field.style }}"{% endif %}
        readonly
+       {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
        value="{{ field.value }}"
        placeholder="{{ field.placeholder_text|default:label_only_control_i18n.placeholder }}" />

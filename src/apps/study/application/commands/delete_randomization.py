@@ -1,16 +1,10 @@
 from dataclasses import dataclass
 
-
-class RandomizationDeleteBlockedError(Exception):
-    pass
-
-
-class RandomizationSchemeNotFoundError(Exception):
-    pass
-
-
-class RandomizationArmNotFoundError(Exception):
-    pass
+from apps.study.application.exceptions import (
+    RandomizationArmNotFoundError,
+    RandomizationDeleteBlockedError,
+    RandomizationSchemeNotFoundError,
+)
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,18 @@
 from dataclasses import dataclass
 
+from apps.study.application.exceptions import (
+    SiteCodeAlreadyExistsError as SiteCodeAlreadyExistsError,
+)
+from apps.study.application.exceptions import (
+    SiteMembershipAlreadyExistsError as SiteMembershipAlreadyExistsError,
+)
+from apps.study.application.exceptions import (
+    SiteMembershipNotFoundError as SiteMembershipNotFoundError,
+)
+from apps.study.application.exceptions import (
+    SiteNotFoundError as SiteNotFoundError,
+)
+
 
 @dataclass(frozen=True)
 class CreateSiteCommand:
@@ -17,10 +30,6 @@ class DeleteSiteCommand:
     actor_user_id: int
 
 
-class SiteCodeAlreadyExistsError(Exception):
-    pass
-
-
 @dataclass(frozen=True)
 class CreateSiteMembershipCommand:
     site_id: int
@@ -33,18 +42,6 @@ class CreateSiteMembershipCommand:
 class DeleteSiteMembershipCommand:
     membership_id: int
     actor_user_id: int
-
-
-class SiteMembershipAlreadyExistsError(Exception):
-    pass
-
-
-class SiteMembershipNotFoundError(Exception):
-    pass
-
-
-class SiteNotFoundError(Exception):
-    pass
 
 
 @dataclass(frozen=True)

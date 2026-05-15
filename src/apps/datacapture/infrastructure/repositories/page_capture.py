@@ -1,6 +1,5 @@
 import json
 
-from django.core.exceptions import ValidationError
 from django.db.models import Max, Prefetch
 
 from apps.core.choices import (
@@ -445,15 +444,6 @@ class DjangoDataCapturePageRepository:
                 actor_user_id=actor_user_id,
                 trigger_source="manual",
             )
-        if page_state.status == DataCapturePageStateStatusChoices.VERIFIED:
-            return self.upsert_page_state(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
-                status=DataCapturePageStateStatusChoices.SUBMITTED,
-                actor_user_id=actor_user_id,
-                trigger_source="manual",
-            )
         return page_state
 
     def ensure_open_page_state_if_not_exists(
@@ -756,11 +746,9 @@ class DjangoDataCapturePageRepository:
     ):
         page_state = DataCapturePageState.objects.filter(pk=page_state_id, deleted=False).first()
         if page_state is None:
-            raise ValidationError("No page state exists for this subject visit and form.")
+            raise LookupError("No page state exists for this subject visit and form.")
         if page_state.status == DataCapturePageStateStatusChoices.UNDER_REVIEW:
             return page_state
-        if page_state.status != DataCapturePageStateStatusChoices.SUBMITTED:
-            raise ValidationError("Review can only start from a submitted page state.")
         now = self._now()
         from_status = page_state.status
         DataCapturePageState.objects.filter(pk=page_state.pk).update(
@@ -960,15 +948,15 @@ class DjangoDataCapturePageRepository:
     ) -> list[str]:
         if not required_field_template_ids:
             return []
-        valid_statuses = {
-            DataCaptureFieldReviewStatusChoices.VERIFIED,
-            DataCaptureFieldReviewStatusChoices.WAIVED,
-        }
         status_by_field = self.map_valid_field_review_status_by_field_template_id(
             page_state_id=page_state_id,
             data_version=data_version,
             review_type=review_type,
         )
+        valid_statuses = {
+            DataCaptureFieldReviewStatusChoices.VERIFIED,
+            DataCaptureFieldReviewStatusChoices.WAIVED,
+        }
         blockers: list[str] = []
         for field_template_id in required_field_template_ids:
             status = status_by_field.get(int(field_template_id))
@@ -984,12 +972,7 @@ class DjangoDataCapturePageRepository:
     ) -> str:
         page_state = DataCapturePageState.objects.filter(pk=page_state_id, deleted=False).first()
         if page_state is None:
-            raise ValidationError("No page state exists for this subject visit and form.")
-        if page_state.status not in [
-            DataCapturePageStateStatusChoices.SUBMITTED,
-            DataCapturePageStateStatusChoices.UNDER_REVIEW,
-        ]:
-            raise ValidationError("Page can only be verified from submitted or under_review state.")
+            raise LookupError("No page state exists for this subject visit and form.")
         now = self._now()
         from_status = page_state.status
         DataCapturePageState.objects.filter(pk=page_state.pk).update(
@@ -1009,6 +992,35 @@ class DjangoDataCapturePageRepository:
             trigger_source="review",
         )
         return DataCapturePageStateStatusChoices.VERIFIED.value
+
+    def reopen_verified_page_state(
+        self,
+        *,
+        page_state_id: int,
+        reason_text: str | None,
+        actor_user_id: int | None = None,
+    ) -> str:
+        page_state = DataCapturePageState.objects.filter(pk=page_state_id, deleted=False).first()
+        if page_state is None:
+            raise LookupError("No page state exists for this subject visit and form.")
+        now = self._now()
+        from_status = page_state.status
+        DataCapturePageState.objects.filter(pk=page_state.pk).update(
+            updated_at=now,
+            updated_by_id=actor_user_id,
+            status=DataCapturePageStateStatusChoices.CORRECTION_REQUIRED,
+        )
+        page_state.refresh_from_db()
+        self._record_page_state_transition(
+            page_state=page_state,
+            from_status=from_status,
+            to_status=DataCapturePageStateStatusChoices.CORRECTION_REQUIRED,
+            actor_user_id=actor_user_id,
+            trigger_source="review",
+            reason_code="reopen_form",
+            reason_text=reason_text,
+        )
+        return DataCapturePageStateStatusChoices.CORRECTION_REQUIRED.value
 
     def map_latest_submitted_entry_updated_by_id_by_subject_ids(
         self, *, subject_ids: tuple[int, ...]
@@ -1049,9 +1061,7 @@ class DjangoDataCapturePageRepository:
             deleted=False,
         ).first()
         if page_state is None:
-            raise ValidationError(
-                "Could not persist verification: page state update affected 0 rows.",
-            )
+            raise LookupError("Could not persist verification: page state update affected 0 rows.")
         from_status = page_state.status
         rows_updated = DataCapturePageState.objects.filter(pk=page_state.pk).update(
             final_data=(
@@ -1079,9 +1089,7 @@ class DjangoDataCapturePageRepository:
             ),
         )
         if rows_updated == 0:
-            raise ValidationError(
-                "Could not persist verification: page state update affected 0 rows.",
-            )
+            raise LookupError("Could not persist verification: page state update affected 0 rows.")
         page_state.refresh_from_db()
         self._record_page_state_transition(
             page_state=page_state,
@@ -1131,6 +1139,8 @@ class DjangoDataCapturePageRepository:
         to_status: str,
         actor_user_id: int | None,
         trigger_source: str,
+        reason_code: str | None = None,
+        reason_text: str | None = None,
     ) -> None:
         if from_status == to_status:
             return
@@ -1140,6 +1150,8 @@ class DjangoDataCapturePageRepository:
             from_status=from_status,
             to_status=to_status,
             data_version=getattr(page_state, "data_version", None),
+            reason_code=reason_code,
+            reason_text=reason_text,
             trigger_source=trigger_source,
             actor_id=actor_user_id,
         )

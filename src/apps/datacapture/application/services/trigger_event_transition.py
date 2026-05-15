@@ -4,7 +4,7 @@ from apps.datacapture.application.commands import (
     DataCapturePageStateNotFoundError,
     TriggerPageStateEventTransitionCommand,
 )
-from apps.datacapture.domain import DataCaptureFactMappingEvaluator
+from apps.datacapture.domain import DataCaptureFactMappingEvaluator, DataCapturePageState
 from apps.datacapture.infrastructure.repositories import DjangoDataCaptureFactMappingRepository
 from apps.subject.public import SubjectEventLifecycleAdapter
 
@@ -23,8 +23,6 @@ class DataCaptureEventTransitionTriggerResult:
 
 
 class DataCapturePageStateEventTransitionService:
-    STABLE_STATUSES = frozenset({"verified", "finalized", "locked"})
-
     repository_class = DjangoDataCaptureFactMappingRepository
     fact_mapping_evaluator_class = DataCaptureFactMappingEvaluator
     subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter
@@ -51,7 +49,7 @@ class DataCapturePageStateEventTransitionService:
         if page_state is None:
             raise DataCapturePageStateNotFoundError(command.page_state_id)
 
-        if page_state.status not in self.STABLE_STATUSES:
+        if not DataCapturePageState.is_event_transition_stable(page_state.status):
             return DataCaptureEventTransitionTriggerResult(
                 page_state_id=page_state.id,
                 status=page_state.status,

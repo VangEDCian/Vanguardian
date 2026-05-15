@@ -242,6 +242,14 @@
   overflow: auto;
 }
 
+.subject-detail-screen__reason-label {
+  display: block;
+  padding: 10px 12px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #253544;
+}
+
 .subject-detail-screen__reason-table {
   width: 100%;
   border-collapse: collapse;

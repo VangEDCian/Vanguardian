@@ -18,7 +18,8 @@
   const notificationDurationMs = 2600;
   const datePartSuffixes = shared.datePartSuffixes || ['__day', '__month', '__year', '__time'];
   /* Editable until terminal states. */
-  const lockStatuses = new Set(['finalized', 'locked']);
+  const lockStatuses = new Set(['verified', 'finalized', 'locked']);
+  const reasonChangeStatuses = new Set(['verified']);
 
   function normalizePageStatus(value) {
     return String(value ?? '')
@@ -28,6 +29,10 @@
 
   function isPageLocked(status) {
     return lockStatuses.has(normalizePageStatus(status));
+  }
+
+  function shouldRequireChangeReasons(status) {
+    return reasonChangeStatuses.has(normalizePageStatus(status));
   }
 
   const saveButton = document.querySelector('[data-datacapture-save]');
@@ -551,9 +556,8 @@
     const previousSubmittedPayload = initialPreviousDataPayload;
     let submitReasons = [];
 
-    if (previousSubmittedPayload) {
+    if (shouldRequireChangeReasons(pageStatus) && previousSubmittedPayload) {
       const changedFieldKeys = resolveChangedFieldKeys(previousSubmittedPayload, payloadObject);
-      console.log("previousSubmittedPayload", previousSubmittedPayload);
       const reasonRequiredChangedFieldKeys = changedFieldKeys.filter((fieldKey) =>
         reasonRequiredFieldKeySet.has(canonicalFieldKey(fieldKey)),
       );

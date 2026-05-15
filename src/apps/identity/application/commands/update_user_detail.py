@@ -1,12 +1,9 @@
 from dataclasses import dataclass
 
-
-class IdentityUserEmailAlreadyExistsError(Exception):
-    pass
-
-
-class IdentityUserPhoneNumberAlreadyExistsError(Exception):
-    pass
+from apps.identity.application.exceptions import (
+    IdentityUserEmailAlreadyExistsError,
+    IdentityUserPhoneNumberAlreadyExistsError,
+)
 
 
 @dataclass(frozen=True)

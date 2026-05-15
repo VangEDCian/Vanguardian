@@ -4,8 +4,8 @@ from dataclasses import replace
 
 from django.core.exceptions import ValidationError
 
-from apps.core.choices.study import RandomizationSchemeStatusChoice
 from apps.study.application.use_cases.randomization_import_preview import RandomizationImportIssue
+from apps.study.domain import RandomizationScheme
 
 
 class BaseRandomizationImportValidationService(abc.ABC):
@@ -17,8 +17,8 @@ class BaseRandomizationImportValidationService(abc.ABC):
         if imported_status is not None:
             return imported_status
         if existing_scheme is not None:
-            return getattr(existing_scheme, "status", RandomizationSchemeStatusChoice.DRAFT)
-        return RandomizationSchemeStatusChoice.DRAFT
+            return getattr(existing_scheme, "status", RandomizationScheme.DRAFT)
+        return RandomizationScheme.DRAFT
 
     @staticmethod
     def _append_issues(preview_result, issues):

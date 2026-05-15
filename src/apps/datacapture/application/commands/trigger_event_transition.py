@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 
-
-class DataCapturePageStateNotFoundError(Exception):
-    pass
+from apps.datacapture.application.exceptions import DataCapturePageStateNotFoundError
 
 
 @dataclass(frozen=True)

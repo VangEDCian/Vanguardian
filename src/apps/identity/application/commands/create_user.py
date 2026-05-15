@@ -1,13 +1,10 @@
 from dataclasses import dataclass
 
-from apps.identity.application.commands.update_user_detail import (
+from apps.identity.application.exceptions import (
     IdentityUserEmailAlreadyExistsError,
+    IdentityUsernameAlreadyExistsError,
     IdentityUserPhoneNumberAlreadyExistsError,
 )
-
-
-class IdentityUsernameAlreadyExistsError(Exception):
-    pass
 
 
 @dataclass(frozen=True)

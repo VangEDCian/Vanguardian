@@ -3,12 +3,9 @@ from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
+from apps.identity.application.exceptions import IdentityUserNotFoundError
 from apps.identity.application.services.user_filters import IdentityUserFilterQueryService
 from apps.identity.infrastructure.repositories import DjangoIdentityUserRepository
-
-
-class IdentityUserNotFoundError(Exception):
-    pass
 
 
 class IdentityUserDirectoryQueryService:

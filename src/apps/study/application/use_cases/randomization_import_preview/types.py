@@ -1,6 +1,16 @@
 from dataclasses import dataclass
 from typing import Any
 
+from apps.study.application.exceptions import (
+    RandomizationImportDependencyError as RandomizationImportDependencyError,
+)
+from apps.study.application.exceptions import (
+    RandomizationImportFormatError as RandomizationImportFormatError,
+)
+from apps.study.application.exceptions import (
+    RandomizationImportUseCaseError as RandomizationImportUseCaseError,
+)
+
 
 @dataclass(frozen=True)
 class RandomizationImportColumn:
@@ -40,11 +50,3 @@ class RandomizationImportPreviewResult:
     parsed_rows: tuple[RandomizationImportParsedRow, ...]
     total_rows: int
     issues: tuple[RandomizationImportIssue, ...] = ()
-
-
-class RandomizationImportDependencyError(Exception):
-    """Raised when a workbook parser dependency is unavailable."""
-
-
-class RandomizationImportFormatError(Exception):
-    """Raised when the uploaded import file structure is invalid."""

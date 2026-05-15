@@ -4,7 +4,7 @@ from collections import Counter
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.choices.study import RandomizationSlotStatusChoice
+from apps.study.domain import RandomizationSlot
 from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
 
@@ -208,19 +208,19 @@ class StudyRandomizationDirectoryQueryService:
         status_counter = Counter(slot.status for slot in slots)
         return (
             {
-                "key": RandomizationSlotStatusChoice.AVAILABLE,
+                "key": RandomizationSlot.AVAILABLE,
                 "label": _("Available"),
-                "count": status_counter.get(RandomizationSlotStatusChoice.AVAILABLE, 0),
+                "count": status_counter.get(RandomizationSlot.AVAILABLE, 0),
             },
             {
-                "key": RandomizationSlotStatusChoice.ASSIGNED,
+                "key": RandomizationSlot.ASSIGNED,
                 "label": _("Assigned"),
-                "count": status_counter.get(RandomizationSlotStatusChoice.ASSIGNED, 0),
+                "count": status_counter.get(RandomizationSlot.ASSIGNED, 0),
             },
             {
-                "key": RandomizationSlotStatusChoice.VOID,
+                "key": RandomizationSlot.VOID,
                 "label": _("Void"),
-                "count": status_counter.get(RandomizationSlotStatusChoice.VOID, 0),
+                "count": status_counter.get(RandomizationSlot.VOID, 0),
             },
         )
 

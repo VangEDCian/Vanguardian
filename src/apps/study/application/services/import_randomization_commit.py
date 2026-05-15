@@ -1,7 +1,6 @@
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.choices.study import RandomizationSchemeStatusChoice
 from apps.study.application.commands.import_randomization.types import (
     CommitRandomizationImportCommand,
     CommitRandomizationImportResult,
@@ -23,6 +22,7 @@ from apps.study.application.services.randomization_slot_generation import (
     StudyRandomizationSlotGenerationService,
 )
 from apps.study.application.use_cases.randomization_import_preview import RandomizationImportIssue
+from apps.study.domain import RandomizationScheme
 from apps.study.infrastructure.repositories import DjangoRandomizationRepository
 
 
@@ -134,7 +134,7 @@ class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValida
         return "updated", scheme, before_data
 
     def _generate_slots_for_active_scheme(self, scheme):
-        if getattr(scheme, "status", None) != RandomizationSchemeStatusChoice.ACTIVE:
+        if not RandomizationScheme.is_active(getattr(scheme, "status", None)):
             return
 
         active_arms = self.repository.list_active_arms_for_scheme(
@@ -266,7 +266,7 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
         return "updated", scheme, arm, before_data
 
     def _generate_slots_for_impacted_scheme(self, *, scheme, parsed_row):
-        if getattr(scheme, "status", None) != RandomizationSchemeStatusChoice.ACTIVE:
+        if not RandomizationScheme.is_active(getattr(scheme, "status", None)):
             return
 
         active_arms = list(

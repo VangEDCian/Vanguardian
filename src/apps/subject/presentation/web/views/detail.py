@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
-from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
+from apps.datacapture.domain import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.public import (
     ensure_draft_page_state_if_not_exists,
     get_latest_page_entry_for_subject_visit_crf,
@@ -239,8 +239,7 @@ class SubjectDetailView(
                             if (
                                 focused_render_entry is None
                                 and focused_latest_entry is not None
-                                and focused_latest_entry.status
-                                == DataCapturePageEntryStatusChoices.SUBMITTED
+                                and DataCapturePageEntry.is_submitted(focused_latest_entry.status)
                             ):
                                 focused_render_entry = focused_latest_entry
                             focused_entry_values = self._extract_entry_payload_map(
@@ -249,8 +248,7 @@ class SubjectDetailView(
                             current_data_values = dict(focused_entry_values)
                             is_viewing_submitted_version = (
                                 focused_render_entry is not None
-                                and focused_render_entry.status
-                                == DataCapturePageEntryStatusChoices.SUBMITTED
+                                and DataCapturePageEntry.is_submitted(focused_render_entry.status)
                             )
                         else:
                             requested_view = (self.request.GET.get("view") or "").strip().lower()
@@ -270,12 +268,12 @@ class SubjectDetailView(
                                 focused_latest_entry.data if focused_latest_entry else ""
                             )
                             if focused_latest_entry is not None:
-                                if focused_latest_entry.status == DataCapturePageEntryStatusChoices.SUBMITTED:
+                                if DataCapturePageEntry.is_submitted(focused_latest_entry.status):
                                     previous_data_values = self._extract_entry_payload_map(
                                         focused_latest_entry.data
                                     )
                                 elif (
-                                    focused_latest_entry.status == DataCapturePageEntryStatusChoices.DRAFT
+                                    DataCapturePageEntry.is_draft(focused_latest_entry.status)
                                     and focused_latest_submitted_entry is not None
                                 ):
                                     previous_data_values = self._extract_entry_payload_map(
@@ -305,18 +303,20 @@ class SubjectDetailView(
                         visit_id=int(focused_event["id"]) if focused_event else None,
                         crf_template_id=template_id,
                     )
+                    normalized_page_status = (focused_page_status or "").strip().lower()
                     reason_required_field_keys = []
-                    for field in focused_form_fields:
-                        try:
-                            field_template_id = int(field.get("id"))
-                        except (TypeError, ValueError):
-                            continue
-                        field_key = str(field.get("field_key") or "").strip()
-                        if field_template_id in verified_field_template_ids:
-                            if field_key:
-                                reason_required_field_keys.append(field_key)
-                            reason_required_field_keys.append(f"field_{field_template_id}")
-                    reason_required_field_keys = sorted(set(reason_required_field_keys))
+                    if DataCapturePageState.requires_change_reason_on_submit(normalized_page_status):
+                        for field in focused_form_fields:
+                            try:
+                                field_template_id = int(field.get("id"))
+                            except (TypeError, ValueError):
+                                continue
+                            field_key = str(field.get("field_key") or "").strip()
+                            if field_template_id in verified_field_template_ids:
+                                if field_key:
+                                    reason_required_field_keys.append(field_key)
+                                reason_required_field_keys.append(f"field_{field_template_id}")
+                        reason_required_field_keys = sorted(set(reason_required_field_keys))
                     if focused_event and not is_form_verification_mode:
                         url_kw = {
                             "study_id": self.get_study_id(),
@@ -385,6 +385,7 @@ class SubjectDetailView(
 
         form_verification_review = None
         form_verification_verify_checked_url = ""
+        form_verification_reopen_url = ""
         # Do not require non-empty focused_form_fields: the verification endpoint still
         # needs visit + template IDs to initialize field review rows.
         if is_form_verification_mode and focused_form and focused_event:
@@ -421,12 +422,20 @@ class SubjectDetailView(
                     verified_field_template_ids=verified_field_template_ids,
                 )
                 if self.request.user.has_perm(VERIFY_FORM_PERMISSION):
-                    if (focused_page_status or "").strip().lower() in {
-                        DataCapturePageStateStatusChoices.SUBMITTED.value,
-                        DataCapturePageStateStatusChoices.UNDER_REVIEW.value,
-                    }:
+                    normalized_page_status = (focused_page_status or "").strip().lower()
+                    if DataCapturePageState.can_start_or_continue_review(normalized_page_status):
                         form_verification_verify_checked_url = reverse(
                             "subject:subject_form_verification_verify_checked",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": visit_pk,
+                                "crf_template_id": template_pk,
+                            },
+                        )
+                    if DataCapturePageState.can_reopen(normalized_page_status):
+                        form_verification_reopen_url = reverse(
+                            "subject:subject_form_verification_reopen",
                             kwargs={
                                 "study_id": self.get_study_id(),
                                 "subject_id": subject.pk,
@@ -456,7 +465,7 @@ class SubjectDetailView(
         context["has_previous_submitted_version"] = (
             focused_latest_submitted_entry is not None
             and focused_render_entry is not None
-            and focused_render_entry.status != DataCapturePageEntryStatusChoices.SUBMITTED
+            and not DataCapturePageEntry.is_submitted(focused_render_entry.status)
             and not is_viewing_submitted_version
         )
         context["is_viewing_submitted_version"] = is_viewing_submitted_version
@@ -467,13 +476,13 @@ class SubjectDetailView(
         context["reason_required_field_keys"] = reason_required_field_keys
         context["can_delete_current_draft"] = (
             focused_latest_entry is not None
-            and focused_latest_entry.status == DataCapturePageEntryStatusChoices.DRAFT
+            and DataCapturePageEntry.is_draft(focused_latest_entry.status)
             and not is_viewing_submitted_version
             and bool(datacapture_delete_draft_url)
         )
         context["is_focused_render_draft_version"] = (
             focused_render_entry is not None
-            and focused_render_entry.status == DataCapturePageEntryStatusChoices.DRAFT
+            and DataCapturePageEntry.is_draft(focused_render_entry.status)
         )
         context["study_header_label"] = subject.study.name or subject.study.code
         context["datacapture_save_url"] = datacapture_save_url
@@ -485,15 +494,12 @@ class SubjectDetailView(
         context["is_form_verification_mode"] = is_form_verification_mode
         context["form_verification_review"] = form_verification_review
         context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
+        context["form_verification_reopen_url"] = form_verification_reopen_url
         context["form_verification_fields_locked"] = (
             is_form_verification_mode
-            and (focused_page_status or "").strip().lower()
-            in {
-                DataCapturePageStateStatusChoices.VERIFIED.value,
-                DataCapturePageStateStatusChoices.LOCKED.value,
-                DataCapturePageStateStatusChoices.FINALIZED.value,
-            }
+            and DataCapturePageState.is_capture_locked(focused_page_status)
         )
+        context["is_page_edit_locked"] = DataCapturePageState.is_capture_locked(focused_page_status)
         if datacapture_save_url:
             context["datacapture_save_confirm_message"] = _(
                 "This page was already submitted. Saving will create a correction version. Continue?"

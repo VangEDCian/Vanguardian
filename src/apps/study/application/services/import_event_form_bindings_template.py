@@ -11,6 +11,10 @@ from apps.crf.public import (
     CrfTemplateNotFoundError,
 )
 from apps.shared.constants import EventFormEntryModeChoices
+from apps.study.application.exceptions import (
+    EventFormBindingImportDependencyError,
+    EventFormBindingImportFormatError,
+)
 from apps.study.infrastructure.repositories import DjangoStudyEventRepository
 
 
@@ -39,18 +43,6 @@ class ImportStudyEventFormBindingsTemplateResult:
     skipped_count: int
     issues: tuple[EventFormBindingImportIssue, ...] = ()
     warnings: tuple[str, ...] = ()
-
-
-class EventFormBindingImportTemplateError(Exception):
-    """Base error raised for event form binding template import failures."""
-
-
-class EventFormBindingImportDependencyError(EventFormBindingImportTemplateError):
-    """Raised when the Excel parser dependency is missing."""
-
-
-class EventFormBindingImportFormatError(EventFormBindingImportTemplateError):
-    """Raised when the uploaded workbook shape is invalid."""
 
 
 class ImportStudyEventFormBindingsTemplateService:

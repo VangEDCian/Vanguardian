@@ -1,11 +1,11 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.datacapture.application import DataCaptureSaveSubmitPageService
+from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.presentation.web.mappers.save_submit import (
     save_page_command_from_post,
     submit_page_command_from_post,
@@ -29,7 +29,7 @@ class DataCaptureSaveView(LoginRequiredMixin, PermissionRequiredMixin, SubjectAb
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
-        except ValidationError as exc:
+        except DataCaptureValidationError as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
         return JsonResponse(
             {
@@ -57,7 +57,7 @@ class DataCaptureSubmitView(LoginRequiredMixin, PermissionRequiredMixin, Subject
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
-        except ValidationError as exc:
+        except DataCaptureValidationError as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
         return JsonResponse(
             {

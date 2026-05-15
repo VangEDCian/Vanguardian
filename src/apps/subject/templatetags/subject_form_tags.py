@@ -182,6 +182,8 @@ def subject_form_status_label(raw_status):
         return _("Not Start")
     if normalized_status in {"in_progress", "under_review", "correction_required"}:
         return _("In Process")
+    if normalized_status == "submitted":
+        return _("Submitted")
     if normalized_status == "verified":
         return _("Verified")
     if normalized_status == "locked":
