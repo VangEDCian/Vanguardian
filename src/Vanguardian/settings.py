@@ -133,6 +133,21 @@ DATABASES = {
     "default": env.db("DATABASE_URL", default=_default_sqlite_url),
 }
 
+DATABASE_DISABLE_CONSTRAINTS = env(
+    "DATABASE_DISABLE_CONSTRAINTS",
+    cast=bool,
+    default=not DEBUG,
+)
+DATABASE_DISABLE_FOREIGN_KEY_CONSTRAINTS = env(
+    "DATABASE_DISABLE_FOREIGN_KEY_CONSTRAINTS",
+    cast=bool,
+    default=DATABASE_DISABLE_CONSTRAINTS,
+)
+if DATABASE_DISABLE_FOREIGN_KEY_CONSTRAINTS:
+    for database_config in DATABASES.values():
+        if database_config.get("ENGINE") == "django.db.backends.mysql":
+            database_config["ENGINE"] = "Vanguardian.db.backends.mysql_no_constraints"
+
 _raw_cache_url = env("CACHE_URL", default="")
 _cache_url = (_raw_cache_url or "").strip() or "locmemcache://"
 if _cache_url.startswith("memcache://"):

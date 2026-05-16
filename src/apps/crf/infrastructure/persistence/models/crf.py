@@ -46,13 +46,16 @@ class CrfTemplate(TranslatableModel):
 
     class Meta:
         db_table = "crf_crftemplate"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
                 fields=["study", "code", "version"],
                 name="crf_crftemplate_study_code_version_uniq",
             )
+        ]
+        indexes = [
+            models.Index(fields=["study", "code", "version"], name="crf_ct_study_code_ver_idx"),
         ]
         verbose_name = "CRF template"
         verbose_name_plural = "CRF templates"
@@ -69,7 +72,7 @@ class CrfTemplateTranslation(TranslatedFieldsModel):
 
     class Meta:
         db_table = "crf_crftemplate_translation"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -78,6 +81,7 @@ class CrfTemplateTranslation(TranslatedFieldsModel):
             )
         ]
         indexes = [
+            models.Index(fields=["language_code", "master"], name="crf_cttr_lang_master_idx"),
             models.Index(fields=["master"], name="crf_ct_tr_m_idx"),
             models.Index(fields=["language_code"], name="crf_ct_tr_l_idx"),
         ]
@@ -111,7 +115,7 @@ class CrfSectionTemplate(TranslatableModel):
 
     class Meta:
         db_table = "crf_sectiontemplate"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -120,6 +124,7 @@ class CrfSectionTemplate(TranslatableModel):
             )
         ]
         indexes = [
+            models.Index(fields=["crf_template", "section_code"], name="crf_st_ct_code_idx"),
             models.Index(
                 fields=["crf_template", "display_order"],
                 name="crf_st_ct_do_idx",
@@ -143,7 +148,7 @@ class CrfSectionTemplateTranslation(TranslatedFieldsModel):
 
     class Meta:
         db_table = "crf_sectiontemplate_translation"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -152,6 +157,7 @@ class CrfSectionTemplateTranslation(TranslatedFieldsModel):
             )
         ]
         indexes = [
+            models.Index(fields=["language_code", "master"], name="crf_sttr_lang_master_idx"),
             models.Index(fields=["master"], name="crf_st_tr_m_idx"),
             models.Index(fields=["language_code"], name="crf_st_tr_l_idx"),
         ]
@@ -188,8 +194,11 @@ class CrfSectionLayoutConfig(models.Model):
 
     class Meta:
         db_table = "crf_section_layoutconfig"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["section_template"], name="crf_slc_section_idx"),
+        ]
         verbose_name = "CRF section layout config"
         verbose_name_plural = "CRF section layout configs"
 
@@ -224,13 +233,17 @@ class CrfFieldTemplate(TranslatableModel):
 
     class Meta:
         db_table = "crf_fieldtemplate"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
                 fields=["crf_template", "field_key"],
                 name="crf_fieldtemplate_crf_template_fieldkey_uniq",
             )
+        ]
+        indexes = [
+            models.Index(fields=["crf_template", "field_key"], name="crf_ft_ct_key_idx"),
+            models.Index(fields=["section_template", "display_order"], name="crf_ft_sec_order_idx"),
         ]
         verbose_name = "CRF field template"
         verbose_name_plural = "CRF field templates"
@@ -247,7 +260,7 @@ class CrfFieldTemplateTranslation(TranslatedFieldsModel):
 
     class Meta:
         db_table = "crf_fieldtemplate_translation"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -256,6 +269,7 @@ class CrfFieldTemplateTranslation(TranslatedFieldsModel):
             )
         ]
         indexes = [
+            models.Index(fields=["language_code", "master"], name="crf_fttr_lang_master_idx"),
             models.Index(fields=["master"], name="crf_ft_tr_m_idx"),
             models.Index(fields=["language_code"], name="crf_ft_tr_l_idx"),
         ]
@@ -293,8 +307,11 @@ class CrfFieldDefinition(models.Model):
 
     class Meta:
         db_table = "crf_fielddefinition"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["field_template"], name="crf_fd_field_template_idx"),
+        ]
         verbose_name = "CRF field definition"
         verbose_name_plural = "CRF field definitions"
 
@@ -315,7 +332,7 @@ class CrfFieldDefinitionTranslation(models.Model):
 
     class Meta:
         db_table = "crf_fielddefinition_translation"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -324,8 +341,8 @@ class CrfFieldDefinitionTranslation(models.Model):
             )
         ]
         indexes = [
-            models.Index(fields=["master"], name="crf_fielddefinition_translation_master_idx"),
-            models.Index(fields=["language_code"], name="crf_fielddefinition_translation_language_idx"),
+            models.Index(fields=["master"], name="crf_fdtr_master_idx"),
+            models.Index(fields=["language_code"], name="crf_fdtr_lang_idx"),
         ]
         verbose_name = "CRF field definition translation"
         verbose_name_plural = "CRF field definition translations"
@@ -359,8 +376,11 @@ class CrfFieldUiConfig(models.Model):
 
     class Meta:
         db_table = "crf_fielduiconfig"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["field_template"], name="crf_fuic_field_tpl_idx"),
+        ]
         verbose_name = "CRF field UI config"
         verbose_name_plural = "CRF field UI configs"
 
@@ -379,7 +399,7 @@ class CrfFieldUiConfigTranslation(models.Model):
 
     class Meta:
         db_table = "crf_fielduiconfig_translation"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -388,8 +408,8 @@ class CrfFieldUiConfigTranslation(models.Model):
             )
         ]
         indexes = [
-            models.Index(fields=["master"], name="crf_fielduiconfig_translation_master_idx"),
-            models.Index(fields=["language_code"], name="crf_fielduiconfig_translation_language_idx"),
+            models.Index(fields=["master"], name="crf_fuictr_master_idx"),
+            models.Index(fields=["language_code"], name="crf_fuictr_lang_idx"),
         ]
         verbose_name = "CRF field UI config translation"
         verbose_name_plural = "CRF field UI config translations"
@@ -409,7 +429,7 @@ class CrfFieldLookup(models.Model):
 
     class Meta:
         db_table = "crf_field_lookup"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -447,8 +467,11 @@ class CrfFieldValidationRule(TranslatableModel):
 
     class Meta:
         db_table = "crf_fieldvalidationrule"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["field_template"], name="crf_fvr_field_tpl_idx"),
+        ]
         verbose_name = "CRF field validation rule"
         verbose_name_plural = "CRF field validation rules"
 
@@ -464,7 +487,7 @@ class CrfFieldValidationRuleTranslation(TranslatedFieldsModel):
 
     class Meta:
         db_table = "crf_fieldvalidationrule_translation"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -473,6 +496,7 @@ class CrfFieldValidationRuleTranslation(TranslatedFieldsModel):
             )
         ]
         indexes = [
+            models.Index(fields=["language_code", "master"], name="crf_fvrtr_lang_master_idx"),
             models.Index(fields=["master"], name="crf_fvr_tr_m_idx"),
             models.Index(fields=["language_code"], name="crf_fvr_tr_l_idx"),
         ]
@@ -518,13 +542,17 @@ class CrfFieldReviewPolicy(models.Model):
 
     class Meta:
         db_table = "crf_fieldreview_policy"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
                 fields=["study", "study_version", "crf_template", "field_template", "review_type"],
                 name="crf_fieldreview_policy_scope_uniq",
             )
+        ]
+        indexes = [
+            models.Index(fields=["crf_template", "is_enabled"], name="crf_frp_crf_enabled_idx"),
+            models.Index(fields=["field_template", "review_type"], name="crf_frp_field_type_idx"),
         ]
         verbose_name = "CRF field review policy"
         verbose_name_plural = "CRF field review policies"

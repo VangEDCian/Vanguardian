@@ -38,7 +38,7 @@ class AuditEvent(models.Model):
 
     class Meta:
         db_table = "audit_auditevent"
-        managed = False
+        managed = True
         default_permissions = ()
         permissions = ()
         indexes = [

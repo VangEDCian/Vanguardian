@@ -109,8 +109,22 @@ class ReconcileDataQuery(models.Model):
 
     class Meta:
         db_table = "reconcile_dataquery"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["page_state"], name="recon_dq_page_state_idx"),
+            models.Index(fields=["field_template"], name="recon_dq_field_tpl_idx"),
+            models.Index(fields=["validation_rule"], name="recon_dq_val_rule_idx"),
+            models.Index(fields=["status"], name="recon_dq_status_idx"),
+            models.Index(fields=["source"], name="recon_dq_source_idx"),
+            models.Index(fields=["page_state", "status"], name="recon_dq_page_status_idx"),
+            models.Index(
+                fields=["page_state", "is_blocking", "status"],
+                name="recon_dq_page_block_st_idx",
+            ),
+            models.Index(fields=["field_template", "status"], name="recon_dq_field_status_idx"),
+            models.Index(fields=["assigned_to_id", "status"], name="recon_dq_assignee_st_idx"),
+        ]
         verbose_name = "reconcile data query"
         verbose_name_plural = "reconcile data queries"
 

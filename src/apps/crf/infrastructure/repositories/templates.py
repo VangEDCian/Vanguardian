@@ -69,15 +69,23 @@ class DjangoCrfTemplateRepository:
         )
 
     def list_field_definitions_by_field_template_ids(self, field_template_ids):
-        return CrfFieldDefinition.objects.filter(
-            field_template_id__in=field_template_ids,
-            deleted=False,
+        return (
+            CrfFieldDefinition.objects.filter(
+                field_template_id__in=field_template_ids,
+                deleted=False,
+            )
+            .defer("unit", "codelist", "comments", "pattern_err_msg")
+            .prefetch_related("translations")
         )
 
     def list_field_ui_configs_by_field_template_ids(self, field_template_ids):
-        return CrfFieldUiConfig.objects.filter(
-            field_template_id__in=field_template_ids,
-            deleted=False,
+        return (
+            CrfFieldUiConfig.objects.filter(
+                field_template_id__in=field_template_ids,
+                deleted=False,
+            )
+            .defer("text", "options")
+            .prefetch_related("translations")
         )
 
     def get_template_for_upsert(self, *, study_id, code, version):

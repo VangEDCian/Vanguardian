@@ -196,7 +196,6 @@ class DDDChecker:
                     type(self),
                 )
 
-
 class _FileContext:
     def __init__(self, *, app_name, layer, module_path_parts, is_app_file, is_mapper):
         self.app_name = app_name

@@ -25,8 +25,13 @@ class User(AbstractUser):
 
     class Meta(AbstractUser.Meta):
         db_table = "identity_user"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["username"], name="identity_user_username_idx"),
+            models.Index(fields=["email"], name="identity_user_email_idx"),
+            models.Index(fields=["phone_number"], name="identity_user_phone_idx"),
+        ]
         verbose_name = "user"
         verbose_name_plural = "users"
 
@@ -54,8 +59,11 @@ class Role(models.Model):
 
     class Meta:
         db_table = "identity_role"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["name"], name="identity_role_name_idx"),
+        ]
         verbose_name = "role"
         verbose_name_plural = "roles"
 
@@ -66,10 +74,13 @@ class RoleGroup(models.Model):
 
     class Meta:
         db_table = "identity_role_groups"
-        managed = False
+        managed = True
         unique_together = (("role", "group"),)
         default_permissions = ()
         permissions = ()
+        indexes = [
+            models.Index(fields=["role", "group"], name="identity_rg_role_group_idx"),
+        ]
         verbose_name = "role group mapping"
         verbose_name_plural = "role group mappings"
 
@@ -80,10 +91,13 @@ class RolePermission(models.Model):
 
     class Meta:
         db_table = "identity_role_permissions"
-        managed = False
+        managed = True
         unique_together = (("role", "permission"),)
         default_permissions = ()
         permissions = ()
+        indexes = [
+            models.Index(fields=["role", "permission"], name="identity_rp_role_perm_idx"),
+        ]
         verbose_name = "role permission mapping"
         verbose_name_plural = "role permission mappings"
 
@@ -94,7 +108,7 @@ class UserRole(models.Model):
 
     class Meta:
         db_table = "identity_user_roles"
-        managed = False
+        managed = True
         unique_together = (("user", "role"),)
         default_permissions = ()
         permissions = ()
@@ -117,10 +131,14 @@ class StudyMembership(models.Model):
 
     class Meta:
         db_table = "study_membership"
-        managed = False
+        managed = True
         unique_together = (("user", "study_id"),)
         default_permissions = ()
         permissions = ()
+        indexes = [
+            models.Index(fields=["user", "study_id"], name="study_mship_user_study_idx"),
+            models.Index(fields=["study_id", "user"], name="study_mship_study_user_idx"),
+        ]
         verbose_name = "study membership"
         verbose_name_plural = "study memberships"
 

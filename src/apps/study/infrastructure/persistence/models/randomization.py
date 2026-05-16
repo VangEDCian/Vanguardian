@@ -41,7 +41,7 @@ class RandomizationScheme(models.Model):
 
     class Meta:
         db_table = "study_randomization_scheme"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -50,6 +50,10 @@ class RandomizationScheme(models.Model):
             ),
         ]
         indexes = [
+            models.Index(
+                fields=["study", "code"],
+                name="study_randsch_code_idx",
+            ),
             models.Index(
                 fields=["study", "status"],
                 name="study_randsch_study_status_ix",
@@ -84,7 +88,7 @@ class RandomizationArm(models.Model):
 
     class Meta:
         db_table = "study_randomization_arm"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -93,6 +97,10 @@ class RandomizationArm(models.Model):
             ),
         ]
         indexes = [
+            models.Index(
+                fields=["scheme", "arm_code"],
+                name="study_randarm_code_idx",
+            ),
             models.Index(
                 fields=["scheme", "display_order"],
                 name="study_randarm_scheme_order_ix",
@@ -138,7 +146,7 @@ class RandomizationSlot(models.Model):
 
     class Meta:
         db_table = "study_randomization_slot"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -147,6 +155,10 @@ class RandomizationSlot(models.Model):
             ),
         ]
         indexes = [
+            models.Index(
+                fields=["scheme", "sequence_no"],
+                name="study_rslot_seq_idx",
+            ),
             models.Index(
                 fields=["scheme", "status"],
                 name="study_rslot_scheme_status_ix",
@@ -197,7 +209,7 @@ class RandomizationEligibility(models.Model):
 
     class Meta:
         db_table = "study_randomization_eligibility"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
             models.Index(

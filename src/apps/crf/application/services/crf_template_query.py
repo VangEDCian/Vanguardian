@@ -104,6 +104,36 @@ class CrfTemplateQueryService:
         for field_template in field_templates:
             field_definition = field_definition_map.get(field_template.pk)
             ui_config = ui_config_map.get(field_template.pk)
+            field_definition_unit = self._translated_related_value(
+                field_definition,
+                current_language,
+                "unit",
+            )
+            field_definition_codelist = self._translated_related_value(
+                field_definition,
+                current_language,
+                "codelist",
+            )
+            field_definition_comments = self._translated_related_value(
+                field_definition,
+                current_language,
+                "comments",
+            )
+            field_definition_pattern_err_msg = self._translated_related_value(
+                field_definition,
+                current_language,
+                "pattern_err_msg",
+            )
+            ui_config_text = self._translated_related_value(
+                ui_config,
+                current_language,
+                "text",
+            )
+            ui_config_options = self._translated_related_value(
+                ui_config,
+                current_language,
+                "options",
+            )
             field_label = self._translated_value(
                 field_template,
                 current_language,
@@ -157,21 +187,21 @@ class CrfTemplateQueryService:
                     "display_order": field_template.display_order,
                     "section_template": section_payload,
                     "data_semantic": field_definition.data_semantic if field_definition else None,
-                    "comments": field_definition.comments if field_definition else None,
-                    "unit": field_definition.unit if field_definition else None,
+                    "comments": field_definition_comments,
+                    "unit": field_definition_unit,
                     "precision": field_definition.precision if field_definition else None,
-                    "codelist": field_definition.codelist if field_definition else None,
+                    "codelist": field_definition_codelist,
                     "text_max_length": field_definition.text_max_length if field_definition else None,
                     "text_min_length": field_definition.text_min_length if field_definition else None,
                     "pattern": field_definition.pattern if field_definition else None,
-                    "pattern_err_msg": field_definition.pattern_err_msg if field_definition else None,
+                    "pattern_err_msg": field_definition_pattern_err_msg,
                     "ui_config": {
                         "control_type": ui_config.control_type if ui_config else None,
                         "control_layout": ui_config.control_layout if ui_config else None,
                         "layout": ui_config.layout if ui_config else None,
-                        "text": ui_config.text if ui_config else None,
+                        "text": ui_config_text,
                         "behavior": ui_config.behavior if ui_config else None,
-                        "options": ui_config.options if ui_config else None,
+                        "options": ui_config_options,
                         "style": ui_config.style if ui_config else None,
                         "classes": ui_config.classes if ui_config else None,
                     },
@@ -179,6 +209,24 @@ class CrfTemplateQueryService:
             )
 
         return payload
+
+    @staticmethod
+    def _translated_related_value(instance, language_code, field_name, default=None):
+        if instance is None:
+            return default
+        translations = list(getattr(instance, "translations", []).all())
+        if not translations:
+            return default
+        for translation in translations:
+            if translation.language_code == language_code:
+                value = getattr(translation, field_name, default)
+                return value if value not in (None, "") else default
+        for translation in translations:
+            if translation.language_code == "en":
+                value = getattr(translation, field_name, default)
+                return value if value not in (None, "") else default
+        value = getattr(translations[0], field_name, default)
+        return value if value not in (None, "") else default
 
     @staticmethod
     def _translated_value(instance, language_code, field_name, default=""):

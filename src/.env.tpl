@@ -12,6 +12,8 @@ TZ=
 # -----------------------------------------------------------------------------
 # Source runs on host machine (connect to docker services via published ports)
 DATABASE_URL=
+DATABASE_DISABLE_CONSTRAINTS=
+DATABASE_DISABLE_FOREIGN_KEY_CONSTRAINTS=
 CACHE_URL=
 
 # If source runs inside the same docker network, switch to service DNS names:

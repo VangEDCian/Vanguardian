@@ -9,9 +9,11 @@ from apps.crf.application.form_builder_orchestration import (
     SaveFieldAggregateCommand,
 )
 from apps.crf.application.services import CrfTemplateCommandService
+from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.domain.aggregate import FieldTemplateAggregate
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError
 from apps.crf.infrastructure.repositories.form_builder import DjangoOrmFormBuilderRepository
+from apps.crf.infrastructure.repositories.templates import DjangoCrfTemplateRepository
 from apps.study.presentation.web.tables import CrfTemplateListTable
 
 
@@ -55,6 +57,40 @@ class CrfTemplateCommandServiceTests(SimpleTestCase):
         template_instance.set_current_language.assert_any_call("en", initialize=True)
         self.assertEqual(template_instance.name, "Adverse Event")
         repository.save_template.assert_called_once_with(template_instance)
+
+
+class CrfTemplateQueryServiceTests(SimpleTestCase):
+    def test_field_definition_query_does_not_select_translated_columns_from_master_table(self):
+        repository = DjangoCrfTemplateRepository()
+
+        sql = str(repository.list_field_definitions_by_field_template_ids([1]).query)
+
+        self.assertNotIn("`crf_fielddefinition`.`unit`", sql)
+        self.assertNotIn("`crf_fielddefinition`.`codelist`", sql)
+        self.assertNotIn("`crf_fielddefinition`.`comments`", sql)
+        self.assertNotIn("`crf_fielddefinition`.`pattern_err_msg`", sql)
+
+    def test_field_ui_config_query_does_not_select_translated_columns_from_master_table(self):
+        repository = DjangoCrfTemplateRepository()
+
+        sql = str(repository.list_field_ui_configs_by_field_template_ids([1]).query)
+
+        self.assertNotIn("`crf_fielduiconfig`.`text`", sql)
+        self.assertNotIn("`crf_fielduiconfig`.`options`", sql)
+
+    def test_translated_related_value_prefers_current_language_then_english(self):
+        instance = SimpleNamespace(
+            translations=SimpleNamespace(
+                all=lambda: [
+                    SimpleNamespace(language_code="en", unit="kg"),
+                    SimpleNamespace(language_code="vi", unit="kg-vi"),
+                ],
+            ),
+        )
+
+        result = CrfTemplateQueryService._translated_related_value(instance, "vi", "unit")
+
+        self.assertEqual(result, "kg-vi")
 
 
 class FieldTemplateAggregateTests(SimpleTestCase):

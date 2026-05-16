@@ -17,8 +17,12 @@ class GovernanceDatabaseLock(models.Model):
 
     class Meta:
         db_table = "governance_databaselock"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["status", "level", "deleted"], name="gov_dblock_status_idx"),
+            models.Index(fields=["locked_at"], name="gov_dblock_locked_at_idx"),
+        ]
         verbose_name = "governance database lock"
         verbose_name_plural = "governance database locks"
 
@@ -44,8 +48,16 @@ class GovernanceLockRecord(models.Model):
 
     class Meta:
         db_table = "governance_lockrecord"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["subject_id", "visit_id", "crf_template_id", "status", "deleted"],
+                name="gov_lockrecord_scope_idx",
+            ),
+            models.Index(fields=["page_state_id", "status", "deleted"], name="gov_lockrecord_page_idx"),
+            models.Index(fields=["locked_at"], name="gov_lockrecord_locked_idx"),
+        ]
         verbose_name = "governance lock record"
         verbose_name_plural = "governance lock records"
 

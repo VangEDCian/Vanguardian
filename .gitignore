@@ -82,6 +82,8 @@ test-results/
 seeders/
 
 migrations/*.py
+!migrations/__init__.py
+
 # Added by code-review-graph
 .code-review-graph/
 .claude

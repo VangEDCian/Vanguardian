@@ -65,7 +65,7 @@ class EventDefinition(models.Model):
 
     class Meta:
         db_table = "study_eventdefinition"
-        managed = False
+        managed = True
         default_permissions = ()
         permissions = (
             ("view_study_eventdefinition_list", "Can view study event definition list"),
@@ -80,6 +80,10 @@ class EventDefinition(models.Model):
             )
         ]
         indexes = [
+            models.Index(
+                fields=["study", "study_version", "code"],
+                name="std_evtdef_ver_code_idx",
+            ),
             models.Index(
                 fields=["study", "study_version", "sequence_no"],
                 name="std_evtdef_ver_seq_idx",
@@ -145,7 +149,7 @@ class EventTransitionRule(models.Model):
 
     class Meta:
         db_table = "study_event_transition_rule"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -154,6 +158,10 @@ class EventTransitionRule(models.Model):
             )
         ]
         indexes = [
+            models.Index(
+                fields=["study", "study_version", "from_event_definition", "to_event_definition"],
+                name="std_evttr_from_to_idx",
+            ),
             models.Index(
                 fields=["study", "study_version", "display_order"],
                 name="std_evttr_disp_idx",
@@ -212,7 +220,7 @@ class EventFormBinding(models.Model):
 
     class Meta:
         db_table = "study_eventformbinding"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
@@ -221,6 +229,10 @@ class EventFormBinding(models.Model):
             )
         ]
         indexes = [
+            models.Index(
+                fields=["event_definition", "form_definition"],
+                name="std_evtbind_evt_form_idx",
+            ),
             models.Index(
                 fields=["event_definition", "display_order"],
                 name="study_evtbind_evt_order_idx",

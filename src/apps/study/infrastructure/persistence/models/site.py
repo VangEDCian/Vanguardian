@@ -27,7 +27,7 @@ class Site(models.Model):
 
     class Meta:
         db_table = "study_site"
-        managed = False
+        managed = True
         ordering = ('id',)
         default_permissions = ()
         permissions = (
@@ -64,7 +64,7 @@ class SiteMembership(models.Model):
 
     class Meta:
         db_table = "study_site_membership"
-        managed = False
+        managed = True
         default_permissions = ()
         ordering = ('site',)
         permissions = (

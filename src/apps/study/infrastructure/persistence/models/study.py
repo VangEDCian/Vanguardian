@@ -19,7 +19,7 @@ class Study(models.Model):
 
     class Meta:
         db_table = "study_study"
-        managed = False
+        managed = True
         default_permissions = ()
         permissions = (
             ("view_study_list", "Can view study list"),
@@ -44,6 +44,10 @@ class Study(models.Model):
             ("update_study_field_description", "Can update study description field"),
         )
         indexes = [
+            models.Index(fields=["code"], name="study_code_idx"),
+            models.Index(fields=["deleted"], name="study_deleted_idx"),
+            models.Index(fields=["created_by_id"], name="study_created_by_idx"),
+            models.Index(fields=["deleted", "created_by_id"], name="study_deleted_creator_idx"),
             models.Index(fields=["deleted", "is_active"], name="study_deleted_active_idx"),
             models.Index(fields=["deleted", "start_date"], name="study_deleted_start_idx"),
             models.Index(fields=["deleted", "end_date"], name="study_deleted_end_idx"),

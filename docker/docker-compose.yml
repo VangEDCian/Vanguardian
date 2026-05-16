@@ -29,6 +29,20 @@ services:
     networks:
       - workflow
 
+  adminer:
+    image: adminer:4.8.1
+    container_name: vanguardian-adminer
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mariadb
+    ports:
+      - "8080:8080"
+    networks:
+      - workflow
+
   memcached:
     image: memcached:1.6-alpine
     container_name: vanguardian-memcached

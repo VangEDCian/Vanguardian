@@ -29,7 +29,7 @@ class Subject(models.Model):
 
     class Meta:
         db_table = "study_subject"
-        managed = False
+        managed = True
         default_permissions = ()
         permissions = (
             ("view_subject_list", "Can view subject list"),
@@ -52,6 +52,11 @@ class Subject(models.Model):
                 fields=["study", "current_sequence"],
                 name="study_subj_study_sequence_uq",
             ),
+        ]
+        indexes = [
+            models.Index(fields=["study", "site", "subject_code"], name="subj_st_site_code_idx"),
+            models.Index(fields=["study", "screening_code"], name="subj_st_screen_code_idx"),
+            models.Index(fields=["study", "current_sequence"], name="subj_st_sequence_idx"),
         ]
         verbose_name = "subject"
         verbose_name_plural = "subjects"
@@ -96,9 +101,13 @@ class SubjectEnrollment(models.Model):
 
     class Meta:
         db_table = "study_subject_enrollment"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
+            models.Index(
+                fields=["subject"],
+                name="study_suben_subject_idx",
+            ),
             models.Index(
                 fields=["study", "site", "status"],
                 name="study_suben_std_site_st_ix",
@@ -147,9 +156,13 @@ class SubjectRandomization(models.Model):
 
     class Meta:
         db_table = "study_subject_randomization"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
+            models.Index(
+                fields=["subject"],
+                name="study_subrand_subject_idx",
+            ),
             models.Index(
                 fields=["study", "site", "randomization_status"],
                 name="study_srand_std_site_st_ix",
@@ -218,9 +231,13 @@ class SubjectEventInstance(models.Model):
 
     class Meta:
         db_table = "study_eventinstance"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
+            models.Index(
+                fields=["subject", "event_definition", "repeat_index"],
+                name="sub_evtins_event_repeat_idx",
+            ),
             models.Index(
                 fields=["study", "subject"],
                 name="sub_evtins_st_sub_idx",
@@ -290,7 +307,7 @@ class SubjectEventInstanceFile(models.Model):
 
     class Meta:
         db_table = "study_eventinstance_file"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
             models.Index(
@@ -377,7 +394,7 @@ class SubjectEventInstanceTransitionLog(models.Model):
 
     class Meta:
         db_table = "study_eventinstance_transition_log"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
             models.Index(

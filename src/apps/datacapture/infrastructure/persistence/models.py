@@ -63,13 +63,18 @@ class DataCapturePageState(models.Model):
 
     class Meta:
         db_table = "datacapture_pagestate"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
                 fields=["subject", "visit", "crf_template"],
                 name="datacapture_pagestate_subject_visit_crf_uniq",
             )
+        ]
+        indexes = [
+            models.Index(fields=["subject", "status"], name="dcps_subject_status_idx"),
+            models.Index(fields=["visit", "status"], name="dcps_visit_status_idx"),
+            models.Index(fields=["crf_template", "status"], name="dcps_crf_status_idx"),
         ]
         verbose_name = "data capture page state"
         verbose_name_plural = "data capture page states"
@@ -135,7 +140,7 @@ class DataCapturePageEntry(models.Model):
 
     class Meta:
         db_table = "datacapture_pageentry"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
             models.Index(
@@ -146,6 +151,12 @@ class DataCapturePageEntry(models.Model):
                 fields=["page_state", "status"],
                 name="dcpg_pagestate_status_idx",
             ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["page_state", "entry_version"],
+                name="dcpe_pagestate_version_uniq",
+            )
         ]
         verbose_name = "data capture page entry"
         verbose_name_plural = "data capture page entries"
@@ -187,13 +198,18 @@ class DataCaptureFieldReview(models.Model):
 
     class Meta:
         db_table = "datacapture_fieldreview"
-        managed = False
+        managed = True
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
-                fields=["page_state", "field_template", "review_type", "data_version"],
+                fields=["page_state", "field_template", "review_type"],
                 name="datacapture_fieldreview_page_field_type_uniq",
             )
+        ]
+        indexes = [
+            models.Index(fields=["page_state", "status"], name="dcfr_page_status_idx"),
+            models.Index(fields=["field_template", "status"], name="dcfr_field_status_idx"),
+            models.Index(fields=["page_state", "data_version"], name="dcfr_page_version_idx"),
         ]
 
 
@@ -220,8 +236,12 @@ class DataCapturePageStateTransitionLog(models.Model):
 
     class Meta:
         db_table = "datacapture_pagestate_transition_log"
-        managed = False
+        managed = True
         default_permissions = ()
+        indexes = [
+            models.Index(fields=["page_state", "created_at"], name="dcps_trlog_page_time_idx"),
+            models.Index(fields=["page_state", "to_status"], name="dcps_trlog_page_status_idx"),
+        ]
 
 
 class DataCaptureFactMapping(models.Model):
@@ -267,7 +287,7 @@ class DataCaptureFactMapping(models.Model):
 
     class Meta:
         db_table = "datacapture_fact_mapping"
-        managed = False
+        managed = True
         default_permissions = ()
         indexes = [
             models.Index(
