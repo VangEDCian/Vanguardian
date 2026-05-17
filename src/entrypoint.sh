@@ -1,8 +1,10 @@
 #!/bin/sh
 set -e
 
-python ./manage.py collectstatic --noinput
+cd /app
 
-exec uvicorn configs.asgi:application \
+python manage.py collectstatic --noinput
+
+exec uvicorn Vanguardian.asgi:application \
 	--host 0.0.0.0 \
 	--port 8000

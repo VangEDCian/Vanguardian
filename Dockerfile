@@ -22,10 +22,10 @@ RUN pip install .
 # -------------------------------
 FROM public.ecr.aws/docker/library/node:22.14.0-bookworm-slim AS nodedeps
 
-WORKDIR /app
+WORKDIR /app/src
 
 # Leverage Docker layer caching for Node deps
-COPY ./src/package*.json /app/
+COPY ./src/package*.json /app/src/
 RUN npm ci --omit=dev
 
 # -------------------------------
@@ -34,15 +34,17 @@ RUN npm ci --omit=dev
 FROM pydeps AS runtime
 
 WORKDIR /app
+ENV PYTHONPATH=/app/src
 
 # Copy application source
-COPY ./src/ /app/
+COPY ./manage.py /app/manage.py
+COPY ./src/ /app/src/
 
 # Bring in node_modules produced in Node stage
-COPY --from=nodedeps /app/node_modules /app/node_modules
+COPY --from=nodedeps /app/src/node_modules /app/src/node_modules
 
-RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/src/entrypoint.sh && chmod +x /app/src/entrypoint.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/src/entrypoint.sh"]
