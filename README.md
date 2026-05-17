@@ -26,7 +26,7 @@ Create a virtual environment and install dependencies:
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
-```
+``` 
 
 ### 2. Create the environment file
 
