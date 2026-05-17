@@ -1,0 +1,53 @@
+{% load i18n static %}
+{% get_current_language as CURRENT_LANGUAGE %}
+<!DOCTYPE html>
+<html lang="{{ CURRENT_LANGUAGE }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="keywords" content="edc, vanguard, vanguardian">
+        <meta name="description"
+              content="This is a modern EDC platform for clinical research data management and auditability.">
+        <title>
+            {% block title %}
+                {% trans "Vanguardian" %}
+            {% endblock %}
+        </title>
+        <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+        <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'identity/css/identity_style.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'shared/css/components/request_feedback.css' %}">
+        <style>
+    body.blank-page {
+      margin: 0;
+      min-height: 100vh;
+      background: #fff;
+      color: var(--foreground);
+    }
+
+    .blank-layout {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 32px;
+    }
+
+    .blank-layout__content {
+      width: min(100%, 760px);
+    }
+        </style>
+        {% block extra_css %}{% endblock %}
+    </head>
+    <body class="blank-page">
+        <main class="blank-layout">
+            <div class="blank-layout__content">
+                {% include "shared/components/_request_feedback_messages.html" %}
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+        <script src="{% static 'shared/js/request_feedback.js' %}"></script>
+        {% block extra_js %}{% endblock %}
+    </body>
+</html>

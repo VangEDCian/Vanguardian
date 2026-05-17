@@ -1,0 +1,51 @@
+{% load i18n static subject_field_display %}
+<div class="subject-form-verification-review__table-wrap">
+    <table class="entity-table subject-form-verification-review__table subject-form-verification-review__table--styled">
+        <thead>
+            <tr>
+                <th class="subject-form-verification-review__col-check" scope="col">
+                    <span class="subject-form-verification-review__sr-only">{% trans "Select" %}</span>
+                </th>
+                <th scope="col">{% trans "Brief Description" %}</th>
+                <th scope="col">{% trans "Value" %}</th>
+                <th scope="col">{% trans "Open Queries" %}</th>
+                <th scope="col">{% trans "Modified By" %}</th>
+                <th scope="col">{% trans "Actions" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in form_verification_review.rows %}
+                <tr>
+                    <td class="subject-form-verification-review__col-check">
+                        <input type="checkbox"
+                               name="verify_field"
+                               value="{{ row.field_template_id }}"
+                               class="subject-form-verification-review__checkbox"
+                               data-field-template-id="{{ row.field_template_id }}"
+                               {% if row.is_checked %}checked{% endif %}
+                               {% if row.is_checked or form_verification_fields_locked or not form_verification_show_field_checkboxes %}disabled aria-disabled="true"{% endif %}
+                               aria-label="{% trans 'Select field for verification' %}" />
+                    </td>
+                    <td>{{ row.brief_description }}</td>
+                    <td>{% subject_field_review_display_value row LANGUAGE_CODE %}</td>
+                    <td>{{ row.open_query_count }}</td>
+                    <td>{{ row.modified_by }}</td>
+                    <td>
+                        <button type="button"
+                                class="subject-form-verification-review__action-btn"
+                                disabled
+                                aria-label="{% trans 'Open Query' %}">
+                            <span class="svg-icon"
+                                  aria-hidden="true"
+                                  style="--icon-url: url('{% static 'images/table/query.svg' %}')"></span>
+                        </button>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6" class="subject-form-verification-review__empty">{% trans "No fields to review." %}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

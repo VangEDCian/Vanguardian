@@ -1,0 +1,47 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static shared_layout %}
+{% load render_table from django_tables2 %}
+{% block title %}
+    {{ detail_study.code }} | {% trans "Event Definitions | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'study/css/event_definitions.css' %}">
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'vendor/elkjs/elk.bundled.js' %}"></script>
+    <script type="module" src="{% static 'study/js/event_definitions.js' %}"></script>
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="event_definitions" %}
+        {% include "shared/components/_entity_table_toolbar.html" with toolbar=event_definitions_table_toolbar %}
+        {% render_event_definitions_diagram_panel %}
+        {% render_table event_definitions_table %}
+        <div class="entity-table__footer entity-table__footer--actions">
+            {% if perms.study.create_study_eventdefinition %}
+                <a href="{% url 'study:study_event_definition_create' study_id=detail_study.id %}"
+                   class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans "Add New Event Definition" %}
+                </a>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        data-modal-open="modal-import-eventdefinitions">{% trans "Import By Template" %}</button>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        data-modal-open="modal-import-eventformbindings">
+                    {% trans "Binding Form By Template" %}
+                </button>
+            {% endif %}
+        </div>
+    </section>
+    {% if perms.study.create_study_eventdefinition %}
+        {% include "study/components/_event_definition_import_modal.html" %}
+        {% include "study/components/_event_form_binding_import_modal.html" %}
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% load subject_form_tags subject_field_validators %}
+{% subject_number_control_i18n as number_control_i18n %}
+{% subject_number_validator_attrs field as number_validator_attrs %}
+<input class="{{ input_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
+       type="text"
+       inputmode="decimal"
+       data-submitted-diff-input
+       data-submitted-diff-control="number"
+       {% if field.style %}style="{{ field.style }}"{% endif %}
+       readonly
+       {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+       {{ number_validator_attrs }}
+       value="{{ field.value }}"
+       placeholder="{{ field.placeholder_text|default:number_control_i18n.placeholder }}" />

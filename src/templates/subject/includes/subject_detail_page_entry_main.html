@@ -1,0 +1,19 @@
+{% load i18n %}
+{% if focused_form %}
+    {% if focused_event and datacapture_save_url and not is_viewing_submitted_version and not is_page_edit_locked %}
+        <div data-datacapture-form-root
+             data-save-url="{{ datacapture_save_url|escape }}"
+             data-submit-url="{{ datacapture_submit_url|escape }}"
+             data-delete-draft-url="{{ datacapture_delete_draft_url|default:''|escape }}"
+             data-current-entry-id="{{ focused_render_entry.id|default:'' }}"
+             data-page-status="{{ focused_page_status|default:''|escape }}"
+             data-confirmation-message="{{ datacapture_save_confirm_message|default:''|escape }}"
+             data-delete-draft-confirmation-message="{{ datacapture_delete_draft_confirm_message|default:''|escape }}">
+            {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
+        </div>
+    {% else %}
+        {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
+    {% endif %}
+{% else %}
+    <div class="subject-detail-screen__empty">{% trans "Select a CRF template to continue." %}</div>
+{% endif %}

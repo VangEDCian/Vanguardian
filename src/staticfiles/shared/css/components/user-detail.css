@@ -1,0 +1,351 @@
+.user-detail-form {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-detail-form__feedback {
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid #d6d6d6;
+  background: #f7f7f7;
+  color: #24323b;
+  font-size: 12px;
+}
+
+.user-detail-form__feedback.is-success {
+  border-color: #9ccc9c;
+  background: #edf8ed;
+  color: #1f6d1f;
+}
+
+.user-detail-form__feedback.is-error {
+  border-color: #d9aaaa;
+  background: #fff1f1;
+  color: #a32020;
+}
+
+.user-detail-form__content {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 0 0;
+}
+
+.user-detail-section {
+  margin: 0 0 12px;
+  border-top: 1px solid #cfcfcf;
+  border-bottom: 1px solid #d9d9d9;
+  background: #fff;
+}
+
+.user-detail-section__title {
+  margin: 0;
+  padding: 5px 10px;
+  background: #2196c4;
+  border-bottom: 1px solid #d3d3d3;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.user-detail-section__body {
+  padding: 0 8px 8px;
+  border-top: 1px solid #e4e4e4;
+  background: #f8fbff;
+}
+
+.user-detail-inline-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 28px;
+  padding-top: 8px;
+}
+
+.user-detail-inline-field {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+}
+
+.user-detail-inline-field--full {
+  grid-column: 1 / -1;
+}
+
+.user-detail-inline-field__label {
+  color: #24323b;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.user-detail-inline-field__control-wrap {
+  min-width: 0;
+}
+
+.user-detail-inline-field__control-wrap .old-textbox {
+  width: 100%;
+}
+
+.user-detail-inline-field__display {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+}
+
+.user-detail-field__control {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #c6c6c6;
+  border-radius: 2px;
+  background: #fff;
+  color: #333;
+  font-size: 13px;
+  padding: 4px 8px;
+  box-sizing: border-box;
+}
+
+.user-detail-field__control[readonly] {
+  background: #f8f8f8;
+  color: #666;
+}
+
+.user-detail-field__control::placeholder {
+  color: #a3a3a3;
+}
+
+.user-detail-field__badges {
+  min-height: 32px;
+  border: 1px solid #c6c6c6;
+  border-radius: 2px;
+  background: #fff;
+  padding: 6px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.user-detail-field__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e8f4fd;
+  color: #1565c0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.user-detail-field__empty {
+  color: #a8a8a8;
+  font-size: 13px;
+}
+
+.user-detail-field__status {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.user-detail-field__status-toggle {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-detail-field__checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #2196c4;
+  cursor: pointer;
+}
+
+.user-detail-field__checkbox:disabled {
+  cursor: default;
+}
+
+.user-detail-field__checkbox-label {
+  font-size: 13px;
+  color: #24323b;
+  cursor: pointer;
+}
+
+.user-detail-security-toggle {
+  margin-top: 8px;
+  margin-left: 130px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-detail-password-panel {
+  margin-top: 2px;
+}
+
+.user-detail-section__hint {
+  margin: 6px 0 0 130px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #5f6b76;
+  max-width: 56rem;
+}
+
+.user-detail-password-control {
+  position: relative;
+}
+
+.user-detail-password-control .old-textbox {
+  padding-right: 2rem;
+}
+
+.user-detail-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.125rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: #5f6b76;
+  cursor: pointer;
+}
+
+.user-detail-password-toggle .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.user-detail-generate-button {
+  min-width: 11rem;
+}
+
+.user-detail-field__error {
+  display: block;
+  font-size: 12px;
+  color: #c62828;
+  margin-top: 3px;
+}
+
+@media (max-width: 1080px) {
+  .user-detail-inline-field {
+    grid-template-columns: 108px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .user-detail-inline-row {
+    grid-template-columns: 1fr;
+  }
+
+  .user-detail-security-toggle,
+  .user-detail-section__hint {
+    margin-left: 0;
+  }
+
+  .user-detail-inline-field,
+  .user-detail-inline-field--full {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+}
+
+/* Input Group Styles */
+.input-group {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+}
+
+.input-group > .form-control,
+.input-group > select,
+.input-group > textarea,
+.input-group > .user-detail-field__control,
+.input-group > .old-textbox {
+  position: relative;
+  flex: 1 1 auto;
+  width: 1%;
+  min-width: 0;
+  margin-bottom: 0;
+  height: calc(1.5em + 0.75rem + 2px);
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #495057;
+  background-color: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  box-sizing: border-box;
+}
+
+.input-group > textarea {
+  height: auto;
+  min-height: calc(1.5em + 0.75rem + 2px);
+}
+
+.input-group-prepend,
+.input-group-append {
+  display: flex;
+}
+
+.input-group-text {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  margin-bottom: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #495057;
+  text-align: center;
+  white-space: nowrap;
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+}
+
+.input-group-prepend .input-group-text {
+  border-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  min-width: 150px;
+  justify-content: flex-end;
+}
+
+.input-group-append .input-group-text {
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.input-group > .form-control:not(:first-child),
+.input-group > select:not(:first-child),
+.input-group > textarea:not(:first-child),
+.input-group > .user-detail-field__control:not(:first-child),
+.input-group > .old-textbox:not(:first-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.input-group > .form-control:not(:last-child),
+.input-group > select:not(:last-child),
+.input-group > textarea:not(:last-child),
+.input-group > .user-detail-field__control:not(:last-child),
+.input-group > .old-textbox:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}

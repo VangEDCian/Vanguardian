@@ -1,0 +1,252 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ subject_display_id }} | {% trans "Subject Detail | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet" href="{% static 'subject/css/subject_detail.css' %}">
+    <link rel="stylesheet" href="{% static 'subject/css/_form_render.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">
+        <span class="svg-icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/status/arrow-left-svgrepo-com.svg' %}')"></span>
+    {% trans "Subjects" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel subject-detail-screen">
+        <header class="subject-detail-screen__summary">
+            <div class="subject-detail-screen__summary-left">
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Subject" %}</span>
+                    <strong>{{ subject_display_id }}</strong>
+                </span>
+                <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Site" %}</span>
+                    <strong>{{ subject_obj.site.code }}</strong>
+                </span>
+                <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Screening Code" %}</span>
+                    <strong>{{ subject_obj.screening_code|default:"—" }}</strong>
+                </span>
+            </div>
+            <strong class="subject-detail-screen__study-name">{{ study_header_label }}</strong>
+        </header>
+        {% if focused_forms %}
+            <nav class="subject-detail-screen__tabs"
+                 aria-label="{% if is_form_verification_mode %}{% trans 'Submitted forms (verification)' %}{% else %}{% trans 'CRF templates' %}{% endif %}">
+                {% for form_item in focused_forms %}
+                    <a href="{{ form_item.focus_url }}"
+                       class="subject-detail-screen__tab{% if focused_form and focused_form.id == form_item.id %} is-active{% endif %}">
+                        {{ form_item.title }}
+                    </a>
+                {% endfor %}
+            </nav>
+        {% endif %}
+        <div class="subject-detail-screen__body">
+            <aside class="subject-detail-screen__sidebar"
+                   aria-label="{% trans 'Subject event instances' %}">
+                {% if event_navigation %}
+                    {% for event_item in event_navigation %}
+                        <div class="subject-detail-sidebar__section">
+                            <a href="{{ event_item.focus_url }}"
+                               class="subject-detail-sidebar__group{% if focused_event and focused_event.id == event_item.id %} is-active{% endif %}">
+                                <span class="subject-detail-sidebar__group-name">{{ event_item.name }}</span>
+                                {% if event_item.status == "open" or event_item.status == "in_progress" %}
+                                    <span class="subject-detail-sidebar__group-meta"
+                                          title="{{ event_item.status|upper }}">
+                                        <span class="svg-icon subject-detail-sidebar__group-status-icon"
+                                              aria-hidden="true"
+                                              style="--icon-url: url('{% static 'images/study/edit.svg' %}')"></span>
+                                    </span>
+                                {% else %}
+                                    <span class="subject-detail-sidebar__group-meta">{{ event_item.status|upper }}</span>
+                                {% endif %}
+                            </a>
+                            {% if event_item.forms %}
+                                <div class="subject-detail-sidebar__children">
+                                    {% for form_item in event_item.forms %}
+                                        <a href="{{ form_item.focus_url }}"
+                                           class="subject-detail-sidebar__child{% if focused_form and focused_form.id == form_item.id %} is-active{% endif %}">
+                                            {{ form_item.title }}
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="subject-detail-screen__empty">{% trans "No event instances available for this subject." %}</p>
+                {% endif %}
+            </aside>
+            <main class="subject-detail-screen__content">
+                {% if is_form_verification_mode %}
+                    {% include "subject/includes/subject_detail_review_main.html" %}
+                {% else %}
+                    {% include "subject/includes/subject_detail_page_entry_main.html" %}
+                {% endif %}
+            </main>
+        </div>
+        {% if is_form_verification_mode %}
+            {% if form_verification_reopen_url or form_verification_verify_checked_url %}
+                <footer class="subject-detail-screen__footer subject-detail-screen__footer--verification">
+                    <div class="subject-detail-screen__footer-actions">
+                        {% if form_verification_reopen_url %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-form-verification-reopen
+                                    data-post-url="{{ form_verification_reopen_url|escape }}">
+                                {% trans "Reopen Form" %}
+                            </button>
+                        {% elif form_verification_verify_checked_url %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-form-verification-verify-all
+                                    data-post-url="{{ form_verification_verify_checked_url|escape }}">
+                                {% trans "Verify All Checked" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </footer>
+            {% endif %}
+        {% else %}
+            {% include "subject/includes/subject_detail_page_entry_footer.html" %}
+        {% endif %}
+        {% if not is_form_verification_mode %}
+        {{ current_data_values|json_script:"datacapture-current-data-payload" }}
+        {{ current_data_values|json_script:"datacapture-reset-trackpoint-data-payload" }}
+        {% if previous_data_values is not None %}
+            {{ previous_data_values|json_script:"datacapture-previous-data-payload" }}
+        {% endif %}
+        {% if focused_latest_submitted_entry %}
+            {{ previous_submitted_entry_values|json_script:"datacapture-previous-submitted-payload" }}
+        {% endif %}
+        {{ reason_required_field_keys|json_script:"datacapture-reason-required-field-keys-payload" }}
+        {% endif %}
+        {% if not is_form_verification_mode %}
+        <div class="subject-detail-screen__reason-modal-backdrop"
+             hidden
+             data-datacapture-reason-modal>
+            <div class="subject-detail-screen__reason-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="datacapture-reason-modal-title">
+                <header class="subject-detail-screen__reason-modal-header">
+                    <h3 id="datacapture-reason-modal-title">{% trans "Reason For Changes" %}</h3>
+                </header>
+                <div class="subject-detail-screen__reason-modal-body">
+                    <table class="subject-detail-screen__reason-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date of Entry" %}</th>
+                                <th>{% trans "Field" %}</th>
+                                <th>{% trans "Reason" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody data-datacapture-reason-rows></tbody>
+                    </table>
+                </div>
+                <footer class="subject-detail-screen__reason-modal-footer">
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--primary"
+                            data-datacapture-reason-submit>{% trans "Submit" %}</button>
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--secondary"
+                            data-datacapture-reason-cancel>{% trans "Cancel" %}</button>
+                </footer>
+            </div>
+        </div>
+        <div class="subject-detail-screen__loading"
+             hidden
+             data-datacapture-loading
+             data-default-message="{% trans 'Processing...' %}"
+             data-save-message="{% trans 'Saving data...' %}"
+             data-submit-message="{% trans 'Submitting for review...' %}"
+             data-delete-message="{% trans 'Deleting draft...' %}">
+            <div class="subject-detail-screen__loading-body">
+                <span class="subject-detail-screen__loading-spinner" aria-hidden="true"></span>
+                <p class="subject-detail-screen__loading-message"
+                   data-datacapture-loading-message>{% trans "Processing..." %}</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="subject-detail-screen__loading"
+             hidden
+             data-form-verification-loading
+             data-default-message="{% trans 'Processing verification...' %}">
+            <div class="subject-detail-screen__loading-body">
+                <span class="subject-detail-screen__loading-spinner" aria-hidden="true"></span>
+                <p class="subject-detail-screen__loading-message"
+                   data-form-verification-loading-message>{% trans "Processing verification..." %}</p>
+            </div>
+        </div>
+        {% if form_verification_reopen_url %}
+            <div class="subject-detail-screen__reason-modal-backdrop"
+                 hidden
+                 data-form-verification-reopen-reason-modal>
+                <div class="subject-detail-screen__reason-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="form-verification-reopen-reason-title">
+                    <header class="subject-detail-screen__reason-modal-header">
+                        <h3 id="form-verification-reopen-reason-title">{% trans "Reason For Reopen" %}</h3>
+                    </header>
+                    <div class="subject-detail-screen__reason-modal-body">
+                        <label class="subject-detail-screen__reason-label"
+                               for="form-verification-reopen-reason-text">
+                            {% trans "Reason" %}
+                        </label>
+                        <textarea id="form-verification-reopen-reason-text"
+                                  class="subject-detail-screen__reason-input"
+                                  rows="4"
+                                  required
+                                  data-form-verification-reopen-reason-input></textarea>
+                    </div>
+                    <footer class="subject-detail-screen__reason-modal-footer">
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--primary"
+                                data-form-verification-reopen-reason-submit>{% trans "Submit" %}</button>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-form-verification-reopen-reason-cancel>{% trans "Cancel" %}</button>
+                    </footer>
+                </div>
+            </div>
+        {% endif %}
+        {% endif %}
+    </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    {% if focused_form and not is_form_verification_mode and not is_page_edit_locked %}
+        <script src="{% static 'datacapture/js/modules/shared.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/validation.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/reason-modal.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/network.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/shared.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/checkbox.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/date_picker.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/datetime.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/label_only.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/multi_select.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/number.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/radio.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/select.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/select2.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/text.js' %}"></script>
+        <script src="{% static 'datacapture/js/modules/controls/textarea.js' %}"></script>
+        <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>
+        <script src="{% static 'datacapture/js/subject-detail-behavior-runtime.js' %}"></script>
+    {% endif %}
+    {% if is_form_verification_mode %}
+        {% if form_verification_verify_checked_url or form_verification_reopen_url %}
+            <script src="{% static 'subject/js/subject_form_verification_verify_all.js' %}"></script>
+        {% endif %}
+    {% endif %}
+    <script src="{% static 'subject/js/subject_detail_event_files.js' %}"></script>
+{% endblock %}

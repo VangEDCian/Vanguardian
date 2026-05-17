@@ -1,0 +1,107 @@
+{% load i18n static %}
+<div class="entity-table__scroller">
+    <table class="entity-table"
+           data-common-table
+           {% if enable_detail_click %}data-enable-detail-click="true"{% endif %}>
+        <thead>
+            <tr>
+                <th class="entity-table__select-column"></th>
+                {% for header in headers %}
+                    <th {% if header.key and sortable_columns and header.key in sortable_columns %} class="entity-table__sortable-header" data-sort-header{% endif %}>
+                        <div class="entity-table__header-content">
+                            <span class="entity-table__header-label">
+                                {% if header.label %}
+                                    {{ header.label }}
+                                {% else %}
+                                    {{ header }}
+                                {% endif %}
+                            </span>
+                            {% if header.key and sortable_columns and header.key in sortable_columns %}
+                                <form method="get" class="entity-table__sort-form" data-sort-form>
+                                    {% for param in sort_params %}<input type="hidden" name="{{ param.name }}" value="{{ param.value }}">{% endfor %}
+                                    <input type="hidden" name="sort" value="{{ header.key }}">
+                                    <input type="hidden"
+                                           name="direction"
+                                           value="{% if sort_key == header.key and sort_direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                    <button type="submit"
+                                            class="entity-table__sort-button{% if sort_key == header.key %} is-active{% endif %}"
+                                            aria-label="{% blocktrans with header_label=header.label|default:header %}Sort by {{ header_label }}{% endblocktrans %}">
+                                        <span class="svg-icon entity-table__sort-icon"
+                                              aria-hidden="true"
+                                              style="--icon-url: url('{% if sort_key == header.key and sort_direction == "asc" %}{% static 'images/table/sort-up.svg' %}{% elif sort_key == header.key and sort_direction == "desc" %}{% static 'images/table/sort-down.svg' %}{% else %}{% static 'images/table/sort-both.svg' %}{% endif %}')"></span>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr data-selectable-row
+                    {% if enable_detail_click and row.detail_href %}data-detail-href="{{ row.detail_href }}"{% endif %}>
+                    <td class="entity-table__select-column">
+                        <input type="checkbox"
+                               name="selected_rows"
+                               value="{% if row.selection_value %}{{ row.selection_value }}{% else %}{{ forloop.counter0 }}{% endif %}"
+                               aria-label="{% trans 'Select row' %}"
+                               data-row-checkbox>
+                    </td>
+                    {% for cell in row.cells %}
+                        <td {% if cell.column_class %}class="{{ cell.column_class }}"{% endif %}>
+                            {% if cell.kind == "secondary" %}
+                                <span class="entity-table__secondary">{{ cell.value }}</span>
+                            {% elif cell.kind == "muted" %}
+                                <span class="entity-table__muted">{{ cell.value }}</span>
+                            {% elif cell.kind == "role" %}
+                                <span class="entity-table__role entity-table__role--{{ cell.tone }}">{{ cell.value }}</span>
+                            {% elif cell.kind == "state" %}
+                                <span class="entity-table__state entity-table__state--{{ cell.tone }}">
+                                    {% if cell.tone == "active" %}
+                                        <span class="svg-icon"
+                                              aria-hidden="true"
+                                              style="--icon-url: url('{% static 'images/status/activate.svg' %}')"></span>
+                                    {% else %}
+                                        <span class="svg-icon"
+                                              aria-hidden="true"
+                                              style="--icon-url: url('{% static 'images/status/activate.svg' %}')"></span>
+                                    {% endif %}
+                                    {{ cell.value }}
+                                </span>
+                            {% elif cell.kind == "expandable_text" %}
+                                <div class="entity-table__expandable" data-expandable-text>
+                                    <span class="entity-table__expandable-content" data-expandable-content>{{ cell.value }}</span>
+                                    <button type="button"
+                                            class="entity-table__expandable-toggle"
+                                            data-expand-toggle
+                                            data-more-label="{% trans 'See more' %}"
+                                            data-less-label="{% trans 'See less' %}">
+                                        {% trans "See more" %}
+                                    </button>
+                                </div>
+                            {% elif cell.kind == "post_action" %}
+                                <form method="post"
+                                      action="{{ cell.action }}"
+                                      class="entity-table__post-action"
+                                      data-randomization-delete-form
+                                      {% if cell.confirm_message %}data-confirm-message="{{ cell.confirm_message }}"{% endif %}>
+                                    {% csrf_token %}
+                                    <button type="submit" class="{{ cell.button_class|default:'entity-table__post-action-btn' }}">
+                                        {{ cell.label }}
+                                    </button>
+                                </form>
+                            {% else %}
+                                {{ cell.value }}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="{{ headers|length|add:'1' }}" class="entity-table__empty">{{ empty_text }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

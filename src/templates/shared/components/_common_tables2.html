@@ -1,0 +1,271 @@
+{% load django_tables2 %}
+{% load i18n l10n static %}
+<link rel="stylesheet"
+      href="{% static 'shared/css/components/common-table.css' %}">
+{% with table_anchor_id=table.attrs.id|default:table.prefixed_page_field %}
+    {% block table-wrapper %}
+        <div class="entity-table__scroller">
+            {% block table %}
+                <table id="{{ table_anchor_id }}"
+                       {% if table.attrs %}{{ table.attrs.as_html }}{% endif %}>
+                    {% block table.thead %}
+                        {% if table.show_header %}
+                            <thead {% if table.attrs.thead %}{{ table.attrs.thead.as_html }}{% endif %}>
+                                <tr>
+                                    <th class="entity-table__select-column"></th>
+                                    {% for column in table.columns %}
+                                        <th {% if column.attrs.th %}{{ column.attrs.th.as_html }}{% endif %}>
+                                            <div class="entity-table__header-content">
+                                                {% if column.orderable %}
+                                                    <a href="{% querystring table.prefixed_order_by_field=column.order_by_alias.next %}#{{ table_anchor_id }}"
+                                                       class="entity-table__sort-link{% if column.is_ordered %} is-active{% endif %}"
+                                                       aria-label="{% blocktrans with header_label=column.header %}Sort by {{ header_label }}{% endblocktrans %}">
+                                                        <span class="entity-table__header-label">{{ column.header }}</span>
+                                                        <span class="svg-icon entity-table__sort-icon"
+                                                              aria-hidden="true"
+                                                              style="--icon-url: url('{% if column.is_ordered and column.order_by_alias.is_ascending %}{% static 'images/table/sort-up.svg' %}{% elif column.is_ordered and column.order_by_alias.is_descending %}{% static 'images/table/sort-down.svg' %}{% else %}{% static 'images/table/sort-both.svg' %}{% endif %}')"></span>
+                                                    </a>
+                                                {% else %}
+                                                    <span class="entity-table__header-label">{{ column.header }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                        {% endif %}
+                    {% endblock table.thead %}
+                    {% block table.tbody %}
+                        <tbody {% if table.attrs.tbody %}{{ table.attrs.tbody.as_html }}{% endif %}>
+                            {% for row in table.paginated_rows %}
+                                {% block table.tbody.row %}
+                                    <tr data-selectable-row
+                                        {% if row.attrs %}{{ row.attrs.as_html }}{% endif %}>
+                                        <td class="entity-table__select-column">
+                                            <input type="checkbox"
+                                                   name="selected_rows"
+                                                   value="{{ row.record.pk|default:forloop.counter0 }}"
+                                                   aria-label="{% trans 'Select row' %}"
+                                                   data-row-checkbox>
+                                        </td>
+                                        {% for column, cell in row.items %}
+                                            {% block table.tbody.cell %}
+                                                <td {% if column.attrs.td %}{{ column.attrs.td.as_html }}{% endif %}>
+                                                    {% if column.localize is None %}
+                                                        {{ cell }}
+                                                    {% elif column.localize %}
+                                                        {{ cell|localize }}
+                                                    {% else %}
+                                                        {{ cell|unlocalize }}
+                                                    {% endif %}
+                                                </td>
+                                            {% endblock table.tbody.cell %}
+                                        {% endfor %}
+                                    </tr>
+                                {% endblock table.tbody.row %}
+                            {% empty %}
+                                <tr>
+                                    <td colspan="{{ table.columns|length|add:'1' }}"
+                                        class="entity-table__empty">
+                                        {{ table.empty_text|default:_("No data available.") }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    {% endblock table.tbody %}
+                    {% block table.tfoot %}
+                        {% if table.has_footer %}
+                            <tfoot>
+                                <tr>
+                                    {% for column in table.columns %}
+                                        <td {% if column.attrs.tf %}{{ column.attrs.tf.as_html }}{% endif %}>{{ column.footer }}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            </tfoot>
+                        {% endif %}
+                    {% endblock table.tfoot %}
+                </table>
+            {% endblock table %}
+        </div>
+    {% endblock table-wrapper %}
+    {% block pagination %}
+        {% if table.page and table.paginator.num_pages > 1 %}
+            {% with current_page=table.page.number total_pages=table.paginator.num_pages %}
+                <nav class="entity-table__pagination"
+                     aria-label="{% trans 'Table pagination' %}">
+                    <ul class="entity-table__pagination-list">
+                        {% if table.page.has_previous %}
+                            <li>
+                                <a class="entity-table__pagination-link entity-table__pagination-link--icon"
+                                   href="{% querystring table.prefixed_page_field=1 %}#{{ table_anchor_id }}"
+                                   aria-label="{% trans 'First page' %}">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/double-arrow-left-svgrepo-com.svg' %}')"></span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <span class="entity-table__pagination-link entity-table__pagination-link--icon is-disabled"
+                                      aria-hidden="true">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/double-arrow-left-svgrepo-com.svg' %}')"></span>
+                                </span>
+                            </li>
+                        {% endif %}
+                        {% if table.page.has_previous %}
+                            <li>
+                                <a class="entity-table__pagination-link entity-table__pagination-link--icon"
+                                   href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}#{{ table_anchor_id }}"
+                                   aria-label="{% trans 'Previous page' %}">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/arrow-left-svgrepo-com.svg' %}')"></span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <span class="entity-table__pagination-link entity-table__pagination-link--icon is-disabled"
+                                      aria-hidden="true">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/arrow-left-svgrepo-com.svg' %}')"></span>
+                                </span>
+                            </li>
+                        {% endif %}
+                        {% if total_pages <= 7 %}
+                            {% for page_number in table.paginator.page_range %}
+                                {% if page_number == current_page %}
+                                    <li>
+                                        <span class="entity-table__pagination-link is-active" aria-current="page">{{ page_number }}</span>
+                                    </li>
+                                {% else %}
+                                    <li>
+                                        <a class="entity-table__pagination-link"
+                                           href="{% querystring table.prefixed_page_field=page_number %}#{{ table_anchor_id }}">{{ page_number }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        {% elif current_page <= 3 %}
+                            {% for page_number in table.paginator.page_range %}
+                                {% if page_number <= 5 %}
+                                    {% if page_number == current_page %}
+                                        <li>
+                                            <span class="entity-table__pagination-link is-active" aria-current="page">{{ page_number }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li>
+                                            <a class="entity-table__pagination-link"
+                                               href="{% querystring table.prefixed_page_field=page_number %}#{{ table_anchor_id }}">{{ page_number }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                            <li>
+                                <span class="entity-table__pagination-link is-gap" aria-hidden="true">-</span>
+                            </li>
+                            <li>
+                                <a class="entity-table__pagination-link"
+                                   href="{% querystring table.prefixed_page_field=total_pages %}#{{ table_anchor_id }}">{{ total_pages }}</a>
+                            </li>
+                        {% elif current_page >= total_pages|add:"-2" %}
+                            <li>
+                                <a class="entity-table__pagination-link"
+                                   href="{% querystring table.prefixed_page_field=1 %}#{{ table_anchor_id }}">1</a>
+                            </li>
+                            <li>
+                                <span class="entity-table__pagination-link is-gap" aria-hidden="true">-</span>
+                            </li>
+                            {% for page_number in table.paginator.page_range %}
+                                {% if page_number >= total_pages|add:"-4" %}
+                                    {% if page_number == current_page %}
+                                        <li>
+                                            <span class="entity-table__pagination-link is-active" aria-current="page">{{ page_number }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li>
+                                            <a class="entity-table__pagination-link"
+                                               href="{% querystring table.prefixed_page_field=page_number %}#{{ table_anchor_id }}">{{ page_number }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <li>
+                                <a class="entity-table__pagination-link"
+                                   href="{% querystring table.prefixed_page_field=1 %}#{{ table_anchor_id }}">1</a>
+                            </li>
+                            <li>
+                                <span class="entity-table__pagination-link is-gap" aria-hidden="true">-</span>
+                            </li>
+                            {% for page_number in table.paginator.page_range %}
+                                {% if page_number >= current_page|add:"-1" and page_number <= current_page|add:"1" %}
+                                    {% if page_number == current_page %}
+                                        <li>
+                                            <span class="entity-table__pagination-link is-active" aria-current="page">{{ page_number }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li>
+                                            <a class="entity-table__pagination-link"
+                                               href="{% querystring table.prefixed_page_field=page_number %}#{{ table_anchor_id }}">{{ page_number }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                            <li>
+                                <span class="entity-table__pagination-link is-gap" aria-hidden="true">-</span>
+                            </li>
+                            <li>
+                                <a class="entity-table__pagination-link"
+                                   href="{% querystring table.prefixed_page_field=total_pages %}#{{ table_anchor_id }}">{{ total_pages }}</a>
+                            </li>
+                        {% endif %}
+                        {% if table.page.has_next %}
+                            <li>
+                                <a class="entity-table__pagination-link entity-table__pagination-link--icon"
+                                   href="{% querystring table.prefixed_page_field=table.page.next_page_number %}#{{ table_anchor_id }}"
+                                   aria-label="{% trans 'Next page' %}">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/arrow-right-svgrepo-com.svg' %}')"></span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <span class="entity-table__pagination-link entity-table__pagination-link--icon is-disabled"
+                                      aria-hidden="true">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/arrow-right-svgrepo-com.svg' %}')"></span>
+                                </span>
+                            </li>
+                        {% endif %}
+                        {% if table.page.has_next %}
+                            <li>
+                                <a class="entity-table__pagination-link entity-table__pagination-link--icon"
+                                   href="{% querystring table.prefixed_page_field=total_pages %}#{{ table_anchor_id }}"
+                                   aria-label="{% trans 'Last page' %}">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/double-arrow-right-svgrepo-com.svg' %}')"></span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <span class="entity-table__pagination-link entity-table__pagination-link--icon is-disabled"
+                                      aria-hidden="true">
+                                    <span class="svg-icon"
+                                          aria-hidden="true"
+                                          style="--icon-url: url('{% static 'images/status/double-arrow-right-svgrepo-com.svg' %}')"></span>
+                                </span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endwith %}
+        {% endif %}
+    {% endblock pagination %}
+{% endwith %}
+<script src="{% static 'shared/js/components/common-table.js' %}"></script>

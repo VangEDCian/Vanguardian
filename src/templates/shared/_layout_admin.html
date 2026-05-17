@@ -1,0 +1,86 @@
+{% load i18n shared_layout static %}
+{% get_current_language as CURRENT_LANGUAGE %}
+{% require_authenticate_template_view %}
+<!DOCTYPE html>
+<html lang="{{ CURRENT_LANGUAGE }}" class="h-full">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="keywords" content="edc, vanguard, vanguardian">
+        <meta name="description"
+              content="This is a modern EDC platform for clinical research data management and auditability.">
+        <title>
+            {% block title %}
+                {% trans "Account Management | Vanguardian" %}
+            {% endblock %}
+        </title>
+        <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+        <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
+        <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'shared/css/components/_common_select.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'shared/css/components/request_feedback.css' %}">
+        <link rel="stylesheet" href="{% static 'identity/css/admin_account.css' %}">
+        {% block extra_css %}{% endblock %}
+    </head>
+    <body class="min-h-screen bg-slate-100 text-slate-800 font-sans antialiased">
+        {% url 'identity:current_user_profile' as admin_profile_url %}
+        {% url 'identity:current_user_change_password' as admin_change_password_url %}
+        <div class="admin-shell">
+            <aside class="admin-sidebar" aria-label="{% trans 'Account management navigation' %}">
+                <nav class="admin-sidebar__nav">
+                    <a href="{{ admin_profile_url }}"
+                       class="admin-sidebar__nav-item{% if active_admin_section == 'profile' %} is-active{% endif %}">
+                        <img src="{% static 'images/navigation/user.svg' %}"
+                             alt=""
+                             width="22"
+                             height="22"
+                             class="admin-sidebar__nav-icon"
+                             aria-hidden="true">
+                        <span>{% trans "Personal Information" %}</span>
+                    </a>
+                    <a href="{{ admin_change_password_url }}"
+                       class="admin-sidebar__nav-item{% if active_admin_section == 'change_password' %} is-active{% endif %}">
+                        <img src="{% static 'images/admin/password-lock.svg' %}"
+                             alt=""
+                             width="22"
+                             height="22"
+                             class="admin-sidebar__nav-icon"
+                             aria-hidden="true">
+                        <span>{% trans "Change Password" %}</span>
+                    </a>
+                    <span class="admin-sidebar__nav-item is-disabled" aria-disabled="true">
+                        <span class="admin-nav-icon admin-nav-icon--bell" aria-hidden="true"></span>
+                        <span>{% trans "Notifications" %}</span>
+                    </span>
+                    <span class="admin-sidebar__nav-item is-disabled" aria-disabled="true">
+                        <span class="admin-nav-icon admin-nav-icon--shield" aria-hidden="true"></span>
+                        <span>{% trans "Security" %}</span>
+                    </span>
+                </nav>
+                <form class="language-switch language-switch--admin"
+                      action="{% url 'set_language' %}"
+                      method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    {% trans "Select language" as select_language_aria_label %}
+                    {% include "shared/components/_common_select.html" with select_mode="native" select_id="language-select-admin" select_name="language" select_value=CURRENT_LANGUAGE|slice:":2" select_options=shared_language_select_options select_wrapper_class="common-select--language common-select--admin-language" select_aria_label=select_language_aria_label select_auto_submit=1 %}
+                </form>
+                <a href="{% url 'dashboard:main' %}" class="admin-sidebar__logout">
+                    <span class="admin-nav-icon admin-nav-icon--logout" aria-hidden="true"></span>
+                    <span>{% trans "Back to Home" %}</span>
+                </a>
+            </aside>
+            <section class="admin-workspace">
+                <main class="admin-main">
+                    {% include "shared/components/_request_feedback_messages.html" %}
+                    {% block admin_content %}{% endblock %}
+                </main>
+            </section>
+        </div>
+        <script src="{% static 'identity/js/admin-account.js' %}"></script>
+        <script src="{% static 'shared/js/request_feedback.js' %}"></script>
+        {% block extra_js %}{% endblock %}
+    </body>
+</html>

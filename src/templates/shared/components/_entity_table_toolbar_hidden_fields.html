@@ -1,0 +1,5 @@
+{% for hidden_field in hidden_fields %}
+    <input type="hidden"
+           name="{{ hidden_field.name }}"
+           value="{{ hidden_field.value }}">
+{% endfor %}

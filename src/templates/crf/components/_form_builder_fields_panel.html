@@ -1,0 +1,602 @@
+{% load i18n %}
+<section class="user-detail-section" data-builder-panel="fields" hidden>
+    <div data-builder-panel-view="fields" data-builder-panel-mode="list">
+        <div class="crf-inline-actions">
+            <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-field-add>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                {% trans "Add Field" %}
+            </button>
+        </div>
+    {% if fields %}
+        <div class="crf-collection-grid">
+            {% for field in fields %}
+                {% with field_template=field.field_template section=field.field_template.section %}
+                    <div id="field-card-{{ field.id }}" class="crf-entity-card{% if selected_field_id == field.id %} is-selected{% endif %}">
+                        <div class="crf-entity-card__header">
+                            <div class="crf-entity-card__title-wrap">
+                                <h3 class="crf-entity-card__title">{{ field_template.field_key }}</h3>
+                                <p class="crf-entity-card__subtitle">{{ field_template.label|default:"-" }}</p>
+                            </div>
+                            <div class="crf-entity-card__actions">
+                                <a class="crf-entity-card__action-btn crf-entity-card__action-btn--edit"
+                                   href="?field_id={{ field.id }}{% if field_template.section_template_id %}&section_id={{ field_template.section_template_id }}{% endif %}"
+                                   title="{% trans 'Edit' %}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                </a>
+                                <button type="submit"
+                                        name="builder_action"
+                                        value="delete-field"
+                                        formnovalidate
+                                        class="crf-entity-card__action-btn crf-entity-card__action-btn--delete"
+                                        data-delete-field
+                                        data-delete-id="{{ field.id }}"
+                                        title="{% trans 'Delete field' %}">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         width="16"
+                                         height="16"
+                                         viewBox="0 0 24 24"
+                                         fill="none"
+                                         stroke="currentColor"
+                                         stroke-width="2"
+                                         stroke-linecap="round"
+                                         stroke-linejoin="round"
+                                         class="lucide lucide-trash-2">
+                                        <path d="M3 6h18"></path>
+                                        <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path>
+                                        <path d="M10 11v6"></path>
+                                        <path d="M14 11v6"></path>
+                                        <path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="crf-entity-card__body">
+                            <div class="crf-entity-card__meta">
+                                <span class="crf-meta-badge"><strong>{% trans "Type" %}:</strong> {{ field_template.data_type }}</span>
+                                <span class="crf-meta-badge"><strong>{% trans "Section" %}:</strong> {% if section %}{{ section.section_code }}{% else %}{% trans "Unassigned" %}{% endif %}</span>
+                                <span class="crf-meta-badge"><strong>{% trans "Order" %}:</strong> {{ field_template.display_order }}</span>
+                                <span class="crf-meta-badge"><strong>{% trans "Active" %}:</strong> {{ field_template.is_active }}</span>
+                            </div>
+                        </div>
+                    </div>
+                {% endwith %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="entity-table__empty">{% trans "No fields found for this form." %}</div>
+    {% endif %}
+    </div>
+
+    <div data-builder-panel-view="fields" data-builder-panel-mode="form" hidden>
+        <div class="crf-inline-actions crf-inline-actions--compact">
+            <button type="button" class="entity-table__footer-button entity-table__footer-button--primary" data-field-panel-add>{% trans "Add Field" %}</button>
+        </div>
+        <div data-field-draft-panels>
+        <div class="crf-definition-panel" data-field-draft-panel data-field-draft-index="1">
+            <div class="crf-definition-panel__header" data-sdtm-editor>
+                <div class="crf-definition-panel__header-left">
+                    <button type="button"
+                            class="crf-definition-panel__toggle"
+                            data-field-definition-toggle
+                            aria-expanded="true"
+                            aria-controls="field-definition-body">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                             width="18"
+                             height="18"
+                             viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round"
+                             class="crf-definition-panel__chevron lucide lucide-chevron-up">
+                            <path d="m18 15-6-6-6 6"></path>
+                        </svg>
+                    </button>
+                    <div class="crf-definition-panel__heading">
+                        <div class="crf-definition-panel__title" data-field-draft-title>{% trans "Field 1" %}</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="crf-definition-panel__body-wrap">
+            <div class="crf-definition-panel__body" id="field-definition-body">
+                {% if create_field_form.non_field_errors %}
+                    <div class="user-detail-field__error">{{ create_field_form.non_field_errors }}</div>
+                {% endif %}
+
+                <div hidden>{{ create_field_form.field_id }}</div>
+
+                <div class="crf-definition-panel__grid crf-builder-gap--mb16">
+                    <div class="crf-definition-panel__field crf-definition-panel__field--full">
+                        <label class="crf-builder-field__label">{% trans "FIELD TEMPLATE" %}</label>
+                        <div class="crf-definition-panel__summary-box crf-builder-gap--mb12">
+                            {% trans "Core identity and placement of the field" %}
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field crf-builder-field--block">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Field Key" %}</span>
+                                    </div>
+                                    {{ create_field_form.field_key }}
+                                </div>
+                                <div class="user-detail-field__error">{{ create_field_form.field_key.errors }}</div>
+                            </div>
+                            <div class="user-detail-inline-field crf-builder-field--block">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Label EN" %}</span>
+                                    </div>
+                                    {{ create_field_form.label_en }}
+                                </div>
+                                <div class="user-detail-field__error">{{ create_field_form.label_en.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field crf-builder-field--block">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Label VI" %}</span>
+                                    </div>
+                                    {{ create_field_form.label_vi }}
+                                </div>
+                                <div class="user-detail-field__error">{{ create_field_form.label_vi.errors }}</div>
+                            </div>
+                            <div class="user-detail-inline-field crf-builder-field--block">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Data Type" %}</span>
+                                    </div>
+                                    {{ create_field_form.data_type }}
+                                </div>
+                                <div class="user-detail-field__error">{{ create_field_form.data_type.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field crf-builder-field--block">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Section" %}</span>
+                                    </div>
+                                    {{ create_field_form.section_template_id }}
+                                </div>
+                                <div class="user-detail-field__error">{{ create_field_form.section_template_id.errors }}</div>
+                            </div>
+                            <div class="user-detail-inline-field crf-builder-field--block">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">{% trans "Display Order" %}</span>
+                                    </div>
+                                    {{ create_field_form.display_order }}
+                                </div>
+                                <div class="user-detail-field__error">{{ create_field_form.display_order.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label">{% trans "Active" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">{{ create_field_form.is_active }}</div>
+                                <div class="user-detail-field__error">{{ create_field_form.is_active.errors }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <label class="crf-builder-field__label">{% trans "Field Definition" %}</label>
+                <div class="crf-definition-panel__grid">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text">{% trans "Label" %}</span></div>
+                            {{ create_field_form.label_en }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.label_en.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text">{% trans "Name" %}</span></div>
+                            {{ create_field_form.field_key }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.field_key.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text">{% trans "Type" %}</span></div>
+                            {{ create_field_form.control_type }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.control_type.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field">
+                        <label class="crf-builder-field__label">{% trans "Required" %}</label>
+                        <div class="crf-builder-select-wrap">{{ create_field_form.is_active }}</div>
+                        <div class="user-detail-field__error">{{ create_field_form.is_active.errors }}</div>
+                    </div>
+                </div>
+
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Unit" %}</span>
+                            </div>
+                            {{ create_field_form.unit }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.unit.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Range Min" %}</span>
+                            </div>
+                            {{ create_field_form.range_min }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.range_min.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Range Max" %}</span>
+                            </div>
+                            {{ create_field_form.range_max }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.range_max.errors }}</div>
+                    </div>
+                </div>
+
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Precision" %}</span>
+                            </div>
+                            {{ create_field_form.precision }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.precision.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Allowed Missing Values" %}</span>
+                            </div>
+                            {{ create_field_form.allowed_missing_values }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.allowed_missing_values.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Codelist" %}</span>
+                            </div>
+                            {{ create_field_form.codelist }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.codelist.errors }}</div>
+                    </div>
+                </div>
+
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Data Semantic" %}</span>
+                            </div>
+                            {{ create_field_form.data_semantic }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.data_semantic.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Text Min Length" %}</span>
+                            </div>
+                            {{ create_field_form.text_min_length }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.text_min_length.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Text Max Length" %}</span>
+                            </div>
+                            {{ create_field_form.text_max_length }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.text_max_length.errors }}</div>
+                    </div>
+                </div>
+
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Pattern" %}</span>
+                            </div>
+                            {{ create_field_form.pattern }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.pattern.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-builder-field--block">
+                        <div class="input-group crf-input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">{% trans "Pattern Err Msg" %}</span>
+                            </div>
+                            {{ create_field_form.pattern_err_msg }}
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.pattern_err_msg.errors }}</div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-definition-panel__field--full">
+                        <label class="crf-builder-field__label">{% trans "Comments" %}</label>
+                        {{ create_field_form.comments }}
+                        <div class="user-detail-field__error">{{ create_field_form.comments.errors }}</div>
+                    </div>
+                </div>
+
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-definition-panel__field--full">
+                        <label class="crf-builder-field__label">{% trans "SDTM Data" %}</label>
+                        <div class="crf-definition-panel__summary-row">
+                            <div class="crf-definition-panel__summary-box" id="field-definition-sdtm">
+                                <div data-sdtm-editor>
+                                    <div class="input-group crf-input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">SDTM</span>
+                                        </div>
+                                        <input type="text"
+                                               class="old-textbox crf-input-group__control"
+                                               placeholder="domain + variable + role"
+                                               data-sdtm-composite>
+                                    </div>
+                                    <div hidden>
+                                        {{ create_field_form.sdtm }}
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="crf-definition-panel__anchor" data-sdtm-open>{% trans "Quản lý SDTM" %}</button>
+                        </div>
+                        <div class="user-detail-field__error">{{ create_field_form.sdtm.errors }}</div>
+                    </div>
+
+                </div>
+
+                <div class="crf-definition-panel__grid crf-builder-gap--mt16">
+                    <div class="crf-definition-panel__field crf-definition-panel__field--full">
+                        <label class="crf-builder-field__label">{% trans "FIELD UI CONFIG" %}</label>
+                        <div class="crf-definition-panel__summary-box crf-builder-gap--mb12">
+                            {% trans "Visual behavior and layout for the field" %}
+                        </div>
+                        <div id="field-ui-config-body" data-ui-config-editor>
+                            <div class="flex items-center justify-end gap-3 pb-3">
+                            </div>
+                            <div class="modal-backdrop" data-ui-config-item-panel role="dialog" aria-modal="true" aria-labelledby="ui-config-modal-title">
+                                <div class="modal modal--info modal--ui-config-add-item">
+                                    <div class="modal__header modal__header--left">
+                                        <div class="modal__icon" aria-hidden="true">i</div>
+                                        <h2 class="modal__title" id="ui-config-modal-title">{% trans "Add UI Config Item" %}</h2>
+                                    </div>
+                                    <div class="modal__body modal__body--left">
+                                        <div class="grid gap-3">
+                                            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                <div>
+                                                    <div class="input-group crf-input-group">
+                                                        <div class="input-group-prepend">
+                                                            <span class="input-group-text">{% trans "Target" %}</span>
+                                                        </div>
+                                                        <select id="ui-config-target"
+                                                                class="crf-ui-config-modal-control crf-input-group__control"
+                                                                data-ui-config-target>
+                                                            <option value="">{% trans "Select target" %}</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div class="input-group crf-input-group">
+                                                        <div class="input-group-prepend">
+                                                            <span class="input-group-text">{% trans "Add Key" %}</span>
+                                                        </div>
+                                                        <input id="ui-config-key"
+                                                               type="text"
+                                                               class="crf-ui-config-modal-control crf-input-group__control"
+                                                               placeholder="placeholder"
+                                                               data-ui-config-key>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div class="input-group crf-input-group">
+                                                        <div class="input-group-prepend">
+                                                            <span class="input-group-text">{% trans "Add Value" %}</span>
+                                                        </div>
+                                                        <input id="ui-config-value"
+                                                               type="text"
+                                                               class="crf-ui-config-modal-control crf-input-group__control"
+                                                               placeholder="Enter value"
+                                                               data-ui-config-value>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal__footer modal__footer--end">
+                                        <button type="button"
+                                                class="modal__cancel"
+                                                data-ui-config-cancel>
+                                            {% trans "Close" %}
+                                        </button>
+                                        <button type="button"
+                                                class="entity-table__footer-button entity-table__footer-button--primary"
+                                                data-ui-config-add>
+                                            {% trans "Add" %}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-row">
+                                <div class="user-detail-inline-field crf-builder-field--block">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">{% trans "Control Type" %}</span></div>
+                                        {{ create_field_form.control_type }}
+                                    </div>
+                                    <div class="user-detail-field__error">{{ create_field_form.control_type.errors }}</div>
+                                </div>
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label">{% trans "Layout" %}:</label>
+                                    <div class="crf-ui-config-field-row">
+                                        <div class="user-detail-inline-field__control-wrap crf-ui-config-field-row__control" data-ui-config-source="layout">{{ create_field_form.layout }}</div>
+                                        <button type="button" class="crf-ui-config-manage-button crf-ui-config-manage-button--inline" data-ui-config-manage-target="layout">{% trans "Quản lý layout" %}</button>
+                                    </div>
+
+                                    <div class="user-detail-field__error">{{ create_field_form.layout.errors }}</div>
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-row">
+                                <div class="user-detail-inline-field crf-builder-field--block">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">{% trans "Text" %}</span></div>
+                                        {{ create_field_form.text }}
+                                    </div>
+                                    <div class="user-detail-field__error">{{ create_field_form.text.errors }}</div>
+                                </div>
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label">{% trans "Behavior" %}:</label>
+                                    <div class="crf-ui-config-field-row">
+                                        <div class="user-detail-inline-field__control-wrap crf-ui-config-field-row__control" data-ui-config-source="behavior">{{ create_field_form.behavior }}</div>
+                                        <button type="button" class="crf-ui-config-manage-button crf-ui-config-manage-button--inline" data-ui-config-manage-target="behavior">{% trans "Quản lý behavior" %}</button>
+                                    </div>
+
+                                    <div class="user-detail-field__error">{{ create_field_form.behavior.errors }}</div>
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-row">
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label">{% trans "Options" %}:</label>
+                                    <div class="crf-ui-config-field-row">
+                                        <div class="user-detail-inline-field__control-wrap crf-ui-config-field-row__control" data-ui-config-source="options">{{ create_field_form.options }}</div>
+                                        <button type="button" class="crf-ui-config-manage-button crf-ui-config-manage-button--inline" data-ui-config-manage-target="options">{% trans "Quản lý options" %}</button>
+                                    </div>
+
+                                    <div class="user-detail-field__error">{{ create_field_form.options.errors }}</div>
+                                </div>
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label">{% trans "Style" %}:</label>
+                                    <div class="crf-ui-config-field-row">
+                                        <div class="user-detail-inline-field__control-wrap crf-ui-config-field-row__control" data-ui-config-source="style">{{ create_field_form.style }}</div>
+                                        <button type="button" class="crf-ui-config-manage-button crf-ui-config-manage-button--inline" data-ui-config-manage-target="style">{% trans "Quản lý style" %}</button>
+                                    </div>
+
+                                    <div class="user-detail-field__error">{{ create_field_form.style.errors }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="crf-definition-panel__field crf-definition-panel__field--full">
+                        <label class="crf-builder-field__label">{% trans "FIELD VALIDATION RULE" %}</label>
+                        <div class="crf-definition-panel__summary-box crf-builder-gap--mb12">
+                            {% trans "Validation rules and messages" %}
+                        </div>
+                        <div id="field-validation-body" data-validation-rules-editor>
+                            <div class="flex items-center justify-end gap-3 pb-3">
+                                <button type="button"
+                                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                                        data-validation-rule-add>
+                                    {% trans "Append Rule" %}
+                                </button>
+                            </div>
+                            <div class="crf-validation-rules-grid" data-validation-rules-rows></div>
+                            <div hidden>
+                                {{ create_field_form.validation_rules_json }}
+                            </div>
+                            <div class="user-detail-field__error">{{ create_field_form.validation_rules_json.errors }}</div>
+                        </div>
+
+                        <div class="crf-definition-panel__footer">
+                            <button type="submit"
+                                    name="builder_action"
+                                    value="field"
+                                    formnovalidate
+                                    class="crf-definition-panel__add-field"
+                                    data-field-form-action
+                                    title="{% trans 'Save field' %}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                <span>{{ field_form_submit_label|default:_("Create Field") }}</span>
+                            </button>
+                            <button type="reset" class="entity-table__footer-button entity-table__footer-button--secondary crf-builder-reset-btn" data-field-form-action>{% trans "Reset" %}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+        </div>
+    </div>
+</section>
+
+<div class="crf-sdtm-modal-backdrop" data-sdtm-modal aria-hidden="true">
+    <div class="crf-sdtm-modal" role="dialog" aria-modal="true" aria-labelledby="sdtm-modal-title">
+        <div class="crf-sdtm-modal__header">
+            <h2 class="crf-sdtm-modal__title" id="sdtm-modal-title">{% trans "Quản lý SDTM" %}</h2>
+            <button type="button" class="crf-sdtm-modal__close" data-sdtm-close aria-label="Đóng">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18"></path>
+                    <path d="m6 6 12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="crf-sdtm-modal__body">
+            <div class="crf-sdtm-modal__box" data-sdtm-modal-editor>
+                <div class="crf-sdtm-modal__grid">
+                    <div class="crf-sdtm-modal__label">{% trans "Domain" %}:</div>
+                    <input type="text"
+                           class="crf-sdtm-modal__field"
+                           placeholder="Nhập domain"
+                           data-sdtm-domain>
+
+                    <div class="crf-sdtm-modal__label">{% trans "Variable" %}:</div>
+                    <input type="text"
+                           class="crf-sdtm-modal__field"
+                           placeholder="Nhập variable"
+                           data-sdtm-variable>
+
+                    <div class="crf-sdtm-modal__label">{% trans "Role" %}:</div>
+                    <input type="text"
+                           class="crf-sdtm-modal__field"
+                           placeholder="Nhập role"
+                           data-sdtm-role>
+                </div>
+            </div>
+        </div>
+        <div class="crf-sdtm-modal__footer">
+            <button type="button" class="crf-sdtm-modal__cancel" data-sdtm-cancel>{% trans "Hủy" %}</button>
+            <button type="button" class="crf-sdtm-modal__save" data-sdtm-save>{% trans "Lưu" %}</button>
+        </div>
+    </div>
+</div>
+
+<div class="crf-sdtm-modal-backdrop" data-ui-config-modal aria-hidden="true">
+    <div class="crf-sdtm-modal" role="dialog" aria-modal="true" aria-labelledby="ui-config-kv-modal-title">
+        <div class="crf-sdtm-modal__header">
+            <div>
+                <h2 class="crf-sdtm-modal__title" id="ui-config-kv-modal-title" data-ui-config-modal-title>{% trans "Quản lý Style" %}</h2>
+                <div class="crf-sdtm-modal__subtitle" data-ui-config-modal-target-label></div>
+            </div>
+            <button type="button" class="crf-sdtm-modal__close" data-ui-config-modal-close aria-label="Đóng">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18"></path>
+                    <path d="m6 6 12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="crf-sdtm-modal__body" data-ui-config-modal-body>
+            <div class="space-y-3">
+                <div class="crf-style-modal__items" data-ui-config-modal-items></div>
+                <button type="button" class="crf-style-modal__add" data-ui-config-modal-add>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14"></path>
+                        <path d="M5 12h14"></path>
+                    </svg>
+                    <span>{% trans "Add More" %}</span>
+                </button>
+            </div>
+        </div>
+        <div class="crf-sdtm-modal__footer">
+            <button type="button" class="crf-sdtm-modal__cancel" data-ui-config-modal-cancel>{% trans "Hủy" %}</button>
+            <button type="button" class="crf-sdtm-modal__save" data-ui-config-modal-save>{% trans "Lưu" %}</button>
+        </div>
+    </div>
+</div>

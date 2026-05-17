@@ -1,0 +1,128 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ site.code }} | {% trans "Sites | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_textbox.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_select2_single_choice.css' %}" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/user-detail.css' %}" />
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">{% trans "SITE" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        <form class="user-detail-form"
+              method="post"
+              action="{{ update_url }}"
+              data-site-form
+              data-memberships-api-url="{{ memberships_api_url }}">
+            {% csrf_token %}
+            <div class="user-detail-form__content">
+                <section class="user-detail-section">
+                    <h2 class="user-detail-section__title">{% trans "SITE INFO" %}</h2>
+                    <div class="user-detail-section__body">
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.code.id_for_label }}">{% trans "Code" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=site.code textbox_readonly='readonly' %}
+                                    {% for error in form.code.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.name.id_for_label }}">{% trans "Name" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% if can_update_site %}
+                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.name.id_for_label textbox_name=form.name.html_name textbox_value=form.name.value textbox_class=form.name.errors|yesno:"old-textbox--error," %}
+                                    {% else %}
+                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.name.id_for_label textbox_name=form.name.html_name textbox_value=form.name.value textbox_readonly='readonly' %}
+                                    {% endif %}
+                                    {% for error in form.name.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.investigator.id_for_label }}">{% trans "Investigator" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans "Select investigator" as select_investigator_placeholder %}
+                                    {% if can_update_site %}
+                                        {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.investigator.id_for_label select_name=form.investigator.html_name select_options=investigator_options select_placeholder=select_investigator_placeholder select_class='site-investigator-select' %}
+                                    {% else %}
+                                        {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.investigator.id_for_label select_name=form.investigator.html_name select_options=investigator_options select_placeholder=select_investigator_placeholder select_class='site-investigator-select' select_disabled='disabled' %}
+                                    {% endif %}
+                                    {% for error in form.investigator.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.study_id.id_for_label }}">{% trans "Study" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans "Select study" as select_study_placeholder %}
+                                    {% include 'shared/components/_old_select2_single_choice.html' with select_id=form.study_id.id_for_label select_name=form.study_id.html_name select_options=study_options select_placeholder=select_study_placeholder select_disabled='disabled' %}
+                                    {% for error in form.study_id.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ form.is_active.id_for_label }}">{% trans "Status" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <div class="user-detail-inline-field__display user-detail-field__status-toggle">
+                                        <input type="checkbox"
+                                               id="{{ form.is_active.id_for_label }}"
+                                               name="{{ form.is_active.html_name }}"
+                                               class="user-detail-field__checkbox"
+                                               {% if form.is_active.value %}checked{% endif %}
+                                               {% if not can_update_site %}disabled{% endif %}>
+                                        <label for="{{ form.is_active.id_for_label }}"
+                                               class="user-detail-field__checkbox-label">{% trans "Active" %}</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="entity-table__footer entity-table__footer--actions">
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary"
+                        {% if not can_update_site %}disabled{% endif %}>{% trans "Save" %}</button>
+                <button type="reset"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        {% if not can_update_site %}disabled{% endif %}>{% trans "Reset" %}</button>
+                {% if can_delete_site %}
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--danger"
+                            data-modal-open="modal-delete-site">{% trans "Delete" %}</button>
+                {% endif %}
+            </div>
+        </form>
+    </section>
+    {% if can_delete_site %}
+        {% trans "Delete Site" as modal_title %}
+        {% trans "Delete" as modal_confirm %}
+        {% blocktrans with code=site.code asvar modal_message %}Are you sure you want to delete <strong>{{ code }}</strong>? This action cannot be undone.{% endblocktrans %}
+        {% include "shared/components/modal-confirm.html" with modal_id="modal-delete-site" modal_variant="danger" modal_title=modal_title modal_message=modal_message modal_confirm_label=modal_confirm form_action=delete_url %}
+    {% endif %}
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{% static 'study/js/site_detail.js' %}"></script>
+{% endblock %}

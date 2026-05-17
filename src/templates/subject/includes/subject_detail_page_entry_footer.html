@@ -1,0 +1,74 @@
+{% load i18n %}
+<footer class="subject-detail-screen__footer">
+    <div class="subject-detail-screen__footer-actions">
+        {% if not is_page_edit_locked %}
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--primary"
+                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-save{% else %}disabled{% endif %}>
+                {% trans "Save" %}
+            </button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-reset{% else %}disabled{% endif %}>
+                {% trans "Reset" %}
+            </button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-submit{% else %}disabled{% endif %}>
+                {% trans "Submit for Review" %}
+            </button>
+        {% endif %}
+        {% if is_viewing_submitted_version and view_current_url %}
+            <a href="{{ view_current_url }}"
+               class="entity-table__footer-button entity-table__footer-button--secondary">
+                {% trans "View current draft" %}
+            </a>
+        {% endif %}
+        {% if is_focused_render_draft_version and not is_page_edit_locked %}
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--danger"
+                    {% if can_delete_current_draft %}data-datacapture-delete-draft{% else %}disabled{% endif %}>
+                {% trans "Delete Draft" %}
+            </button>
+            {% if view_submitted_url %}
+                <a href="{{ view_submitted_url }}"
+                   class="entity-table__footer-button entity-table__footer-button--secondary">
+                    {% trans "View Submitted" %}
+                </a>
+            {% endif %}
+        {% endif %}
+        {% if focused_event and event_file_import_url %}
+            <form method="post"
+                  action="{{ event_file_import_url }}"
+                  enctype="multipart/form-data"
+                  class="subject-detail-screen__footer-inline-form"
+                  data-eventinstance-file-invalid-type-message="{% trans 'Unsupported file type. Only image and PDF are allowed.' %}"
+                  data-eventinstance-file-import-form>
+                {% csrf_token %}
+                {% if focused_form %}
+                    <input type="hidden" name="form" value="{{ focused_form.id }}">
+                {% endif %}
+                {% if is_viewing_submitted_version %}
+                    <input type="hidden" name="view" value="submitted">
+                {% endif %}
+                <input type="file"
+                       name="import_file"
+                       accept="image/*,.pdf,application/pdf"
+                       hidden
+                       data-eventinstance-file-input>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        data-eventinstance-file-import-trigger>
+                    {% trans "Import File" %}
+                </button>
+            </form>
+            {% if has_event_instance_files and event_file_preview_url %}
+                <a href="{{ event_file_preview_url }}"
+                   class="entity-table__footer-button entity-table__footer-button--secondary"
+                   data-eventinstance-file-preview-link>
+                    {% trans "Preview Files" %}
+                </a>
+            {% endif %}
+        {% endif %}
+    </div>
+</footer>

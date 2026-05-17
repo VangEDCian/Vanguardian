@@ -1,0 +1,681 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Vanguardian\n"
+"POT-Creation-Date: 2026-03-22 00:00+0700\n"
+"PO-Revision-Date: 2026-03-22 00:00+0700\n"
+"Last-Translator: Vanguardian Team\n"
+"Language-Team: Vietnamese\n"
+"Language: vi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. ==============================
+#. Module: Core Settings
+#. File: Vanguardian/settings.py
+#. ==============================
+msgid "Vietnamese"
+msgstr "Tiếng Việt"
+
+msgid "English"
+msgstr "Tiếng Anh"
+
+#. ==============================
+#. Module: Shared Layout
+#. Template: templates/shared/_anonymous_layout.html
+#. ==============================
+msgid "Vanguardian"
+msgstr "Vanguardian"
+
+msgid "Clinical Trial Management"
+msgstr "Quản lý nghiên cứu lâm sàng"
+
+msgid "Clinical trial operations platform with clear authentication, authorization, and access control workflows."
+msgstr "Nền tảng vận hành nghiên cứu lâm sàng với quy trình xác thực, phân quyền và kiểm soát truy cập rõ ràng."
+
+msgid "Language"
+msgstr "Ngôn ngữ"
+
+msgid "© 2026 Vanguardian"
+msgstr "© 2026 Vanguardian"
+
+#. ==============================
+#. Module: Shared Layout
+#. Template: templates/shared/_layout.html
+#. ==============================
+msgid "Dashboard | Vanguardian"
+msgstr "Bảng điều khiển | Vanguardian"
+
+msgid "Main navigation"
+msgstr "Điều hướng chính"
+
+msgid "SUBJECTS"
+msgstr "ĐỐI TƯỢNG"
+
+msgid "SITES"
+msgstr "ĐIỂM NGHIÊN CỨU"
+
+msgid "PROJECT"
+msgstr "DỰ ÁN"
+
+msgid "USERS"
+msgstr "NGƯỜI DÙNG"
+
+msgid "DASHBOARD"
+msgstr "BẢNG ĐIỀU KHIỂN"
+
+msgid "REACT-AF Training"
+msgstr "REACT-AF Đào tạo"
+
+msgid "REACT-AF Phase II"
+msgstr "REACT-AF Giai đoạn II"
+
+msgid "CARDIO-Study 1"
+msgstr "CARDIO-Nghiên cứu 1"
+
+msgid "Coordinator"
+msgstr "Điều phối viên"
+
+msgid "Profile"
+msgstr "Thông tin"
+
+msgid "Change Password"
+msgstr "Đổi mật khẩu"
+
+msgid "Logout"
+msgstr "Đăng xuất"
+
+msgid "Select Role"
+msgstr "Chọn vai trò"
+
+msgid "Investigator"
+msgstr "Nghiên cứu viên"
+
+msgid "Monitor"
+msgstr "Giám sát viên"
+
+msgid "Data Manager"
+msgstr "Quản lý dữ liệu"
+
+msgid "Administrator"
+msgstr "Quản trị viên"
+
+msgid "Dashboard Layout"
+msgstr "Bố cục bảng điều khiển"
+
+msgid "The main content area will change based on the active module."
+msgstr "Khu vực nội dung chính sẽ thay đổi theo module đang được chọn."
+
+#. ==============================
+#. Module: Dashboard
+#. Template: templates/dashboard/main.html
+#. ==============================
+msgid "Dashboard Main | Vanguardian"
+msgstr "Màn hình chính bảng điều khiển | Vanguardian"
+
+msgid "Total Subjects"
+msgstr "Tổng số đối tượng"
+
+msgid "Sites Active"
+msgstr "Số site đang hoạt động"
+
+msgid "Randomized"
+msgstr "Đã ngẫu nhiên hóa"
+
+msgid "Queries Open"
+msgstr "Truy vấn đang mở"
+
+msgid "Main Content Area"
+msgstr "Khu vực nội dung chính"
+
+msgid "This dashboard layout is based on `DashboardMain` + `TopNav`. You can attach real views for `SUBJECTS`, `SITES`, `PROJECT`, `USERS`, and `DASHBOARD` in this area."
+msgstr "Bố cục dashboard này dựa trên `DashboardMain` + `TopNav`. Bạn có thể gắn các màn hình thật cho `SUBJECTS`, `SITES`, `PROJECT`, `USERS` và `DASHBOARD` tại khu vực này."
+
+#. ==============================
+#. Module: Identity
+#. File: apps/identity/forms.py
+#. ==============================
+msgid "Enter username"
+msgstr "Nhập tên đăng nhập"
+
+msgid "Username, email, or phone number"
+msgstr "Tên đăng nhập, email hoặc số điện thoại"
+
+msgid "Enter username, email, or phone number"
+msgstr "Nhập tên đăng nhập, email hoặc số điện thoại"
+
+msgid "Enter password"
+msgstr "Nhập mật khẩu"
+
+msgid "At least 8 characters"
+msgstr "Ít nhất 8 ký tự"
+
+msgid "Must include uppercase and lowercase letters"
+msgstr "Bao gồm chữ hoa và chữ thường"
+
+msgid "At least one number or special character"
+msgstr "Ít nhất một số hoặc ký tự đặc biệt"
+
+msgid "Enter new password"
+msgstr "Nhập mật khẩu mới"
+
+msgid "Confirm new password"
+msgstr "Xác nhận mật khẩu mới"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/login.html
+#. ==============================
+msgid "Sign In | Vanguardian"
+msgstr "Đăng nhập | Vanguardian"
+
+msgid "Sign In"
+msgstr "Đăng nhập"
+
+msgid "Use your account to continue to the system."
+msgstr "Sử dụng tài khoản của bạn để tiếp tục vào hệ thống."
+
+msgid "Sign in failed."
+msgstr "Đăng nhập thất bại."
+
+msgid "Username"
+msgstr "Tên đăng nhập"
+
+msgid "Password"
+msgstr "Mật khẩu"
+
+msgid "Show or hide password"
+msgstr "Hiện hoặc ẩn mật khẩu"
+
+msgid "Forgot password?"
+msgstr "Quên mật khẩu?"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/access_denied.html
+#. ==============================
+msgid "Access Denied | Vanguardian"
+msgstr "Từ chối truy cập | Vanguardian"
+
+msgid "You do not have access to this system. Please contact the administrator for support."
+msgstr "Bạn chưa có quyền truy cập vào hệ thống này, hãy liên hệ Admin để được hỗ trợ"
+
+msgid "Your account is authenticated, but it is not assigned to any study or site membership yet."
+msgstr "Tài khoản của bạn đã đăng nhập nhưng chưa được gán vào study hoặc site nào."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/forgot_password.html
+#. ==============================
+msgid "Forgot Password | Vanguardian"
+msgstr "Quên mật khẩu | Vanguardian"
+
+msgid "Forgot Password"
+msgstr "Quên mật khẩu"
+
+msgid "Enter your email to receive password reset instructions."
+msgstr "Nhập email để nhận hướng dẫn đặt lại mật khẩu."
+
+msgid "Email Address"
+msgstr "Địa chỉ email"
+
+msgid "Submit Request"
+msgstr "Gửi yêu cầu"
+
+msgid "Back to Sign In"
+msgstr "Quay lại đăng nhập"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/forgot_password_done.html
+#. ==============================
+msgid "Check Your Email | Vanguardian"
+msgstr "Kiểm tra email | Vanguardian"
+
+msgid "Check your email"
+msgstr "Kiểm tra email của bạn"
+
+msgid "If the account exists, we have sent password reset instructions."
+msgstr "Nếu tài khoản tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu."
+
+msgid "Please check your inbox and spam folder. The reset link will expire according to system security policy."
+msgstr "Hãy kiểm tra hộp thư đến và thư mục spam. Liên kết đặt lại mật khẩu sẽ hết hạn theo chính sách bảo mật của hệ thống."
+
+msgid "Next Steps"
+msgstr "Tiếp theo"
+
+msgid "Open the email containing the reset password link."
+msgstr "Mở email chứa liên kết đặt lại mật khẩu."
+
+msgid "Click the link and enter your new password."
+msgstr "Nhấp liên kết và nhập mật khẩu mới."
+
+msgid "If you have not received the email, try sending again after a few minutes."
+msgstr "Nếu chưa nhận được email, thử gửi lại sau vài phút."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/reset_password.html
+#. ==============================
+msgid "Reset Password | Vanguardian"
+msgstr "Đặt lại mật khẩu | Vanguardian"
+
+msgid "Reset Password"
+msgstr "Đặt lại mật khẩu"
+
+msgid "Enter a new password for your account."
+msgstr "Nhập mật khẩu mới cho tài khoản của bạn."
+
+msgid "Weak"
+msgstr "Yếu"
+
+msgid "Medium"
+msgstr "Trung bình"
+
+msgid "Strong"
+msgstr "Mạnh"
+
+msgid "Passwords match"
+msgstr "Mật khẩu khớp"
+
+msgid "Passwords do not match"
+msgstr "Mật khẩu không khớp"
+
+msgid "New Password"
+msgstr "Mật khẩu mới"
+
+msgid "Password strength"
+msgstr "Độ mạnh mật khẩu"
+
+msgid "Confirm Password"
+msgstr "Xác nhận mật khẩu"
+
+msgid "Password Requirements"
+msgstr "Yêu cầu mật khẩu"
+
+msgid "The link is invalid or has expired."
+msgstr "Liên kết không hợp lệ hoặc đã hết hạn."
+
+msgid "Please create a new forgot password request to receive a new link."
+msgstr "Hãy tạo lại yêu cầu quên mật khẩu để nhận liên kết mới."
+
+msgid "Create New Request"
+msgstr "Tạo lại yêu cầu"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/reset_password_done.html
+#. ==============================
+msgid "Password Updated | Vanguardian"
+msgstr "Mật khẩu đã được cập nhật | Vanguardian"
+
+msgid "Password Reset Successful"
+msgstr "Đặt lại mật khẩu thành công"
+
+msgid "You can sign in now with your new password."
+msgstr "Bạn có thể đăng nhập bằng mật khẩu mới ngay bây giờ."
+
+msgid "Your password has been saved successfully. Please continue with a new sign-in session."
+msgstr "Mật khẩu của bạn đã được lưu thành công. Hãy tiếp tục với phiên đăng nhập mới."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/password_reset_email.txt
+#. ==============================
+msgid "You received this email because a password reset was requested for your Vanguardian account."
+msgstr "Bạn nhận được email này vì đã yêu cầu đặt lại mật khẩu cho tài khoản Vanguardian."
+
+msgid "Open the following link to reset your password:"
+msgstr "Hãy mở liên kết sau để đặt lại mật khẩu:"
+
+msgid "If you did not make this request, please ignore this email."
+msgstr "Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email."
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/password_reset_subject.txt
+#. ==============================
+msgid "Vanguardian - Password Reset Instructions"
+msgstr "Vanguardian - Hướng dẫn đặt lại mật khẩu"
+
+#. ==============================
+#. Module: Identity - User First Login
+#. ==============================
+
+msgid "Please enter a new password."
+msgstr "Vui lòng nhập mật khẩu mới."
+
+msgid "Please confirm your new password."
+msgstr "Vui lòng xác nhận mật khẩu mới."
+
+msgid "The new password and confirmation do not match."
+msgstr "Mật khẩu mới và mật khẩu xác nhận không khớp."
+
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/first_login.html
+#. ==============================
+msgid "First Login | Vanguardian"
+msgstr "Đăng nhập lần đầu | Vanguardian"
+
+msgid "First Login"
+msgstr "Đăng nhập lần đầu"
+
+msgid "Set up your password to continue using the system."
+msgstr "Thiết lập mật khẩu để tiếp tục sử dụng hệ thống."
+
+msgid "Set Password"
+msgstr "Thiết lập mật khẩu"
+
+
+msgid "Retype New Password"
+msgstr "Nhập lại mật khẩu mới"
+
+msgid "Retype new password"
+msgstr "Nhập lại mật khẩu mới"
+
+msgid "Signed in account"
+msgstr "Tài khoản đang đăng nhập"
+
+#. ==============================
+#. Module: Study
+#. Template: templates/shared/_layout.html
+#. ==============================
+msgid "STUDIES"
+msgstr "NGHIÊN CỨU"
+
+msgid "Choose a study first."
+msgstr "Phải chọn Nghiên cứu trước."
+
+msgid "Select study"
+msgstr "Chọn Nghiên cứu"
+
+msgid "Select site"
+msgstr "Chọn Điểm nghiên cứu"
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/studies.html
+#. ==============================
+msgid "Studies | Vanguardian"
+msgstr "Nghiên cứu | Vanguardian"
+
+msgid "Filter:"
+msgstr "Lọc:"
+
+msgid "Filter studies"
+msgstr "Lọc nghiên cứu"
+
+msgid "Total Studies"
+msgstr "Tổng số nghiên cứu"
+
+msgid "Search studies..."
+msgstr "Tìm kiếm nghiên cứu..."
+
+msgid "Search studies"
+msgstr "Tìm kiếm nghiên cứu"
+
+msgid "Add New Study"
+msgstr "Thêm nghiên cứu mới"
+
+msgid "No studies found matching your criteria."
+msgstr "Không tìm thấy nghiên cứu nào phù hợp."
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/study_form.html
+#. ==============================
+msgid "Studies"
+msgstr "Nghiên cứu"
+
+msgid "New Study"
+msgstr "Nghiên cứu mới"
+
+msgid "Save"
+msgstr "Lưu"
+
+msgid "Cancel"
+msgstr "Hủy"
+
+#. ==============================
+#. Module: Study
+#. Template: templates/study/study_detail.html
+#. ==============================
+msgid "Study"
+msgstr "Nghiên cứu"
+
+msgid "Info"
+msgstr "Thông tin"
+
+msgid "Edit"
+msgstr "Chỉnh sửa"
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/application/queries/study_directory.py
+#. ==============================
+msgid "CODE"
+msgstr "MÃ"
+
+msgid "NAME"
+msgstr "TÊN"
+
+msgid "SPONSOR"
+msgstr "NHÀ TÀI TRỢ"
+
+msgid "START DATE"
+msgstr "NGÀY BẮT ĐẦU"
+
+msgid "END DATE"
+msgstr "NGÀY KẾT THÚC"
+
+msgid "STATUS"
+msgstr "TRẠNG THÁI"
+
+msgid "Active"
+msgstr "Đang hoạt động"
+
+msgid "Inactive"
+msgstr "Không hoạt động"
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/presentation/web/forms.py
+#. ==============================
+msgid "Study Code"
+msgstr "Mã nghiên cứu"
+
+msgid "Study Name"
+msgstr "Tên nghiên cứu"
+
+msgid "Sponsor"
+msgstr "Nhà tài trợ"
+
+msgid "Start Date"
+msgstr "Ngày bắt đầu"
+
+msgid "End Date"
+msgstr "Ngày kết thúc"
+
+msgid "Description"
+msgstr "Mô tả"
+
+msgid "e.g. STUDY-001"
+msgstr "VD: STUDY-001"
+
+msgid "e.g. REACT-AF Phase II"
+msgstr "VD: REACT-AF Giai đoạn II"
+
+msgid "e.g. Acme Pharma"
+msgstr "VD: Acme Pharma"
+
+msgid "Enter study description..."
+msgstr "Nhập mô tả nghiên cứu..."
+
+#. ==============================
+#. Module: Study
+#. File: apps/study/presentation/web/views.py
+#. ==============================
+msgid "NEW STUDY"
+msgstr "NGHIÊN CỨU MỚI"
+
+msgid "This study code already exists."
+msgstr "Mã nghiên cứu này đã tồn tại."
+
+msgid "Start date cannot be in the past."
+msgstr "Ngày bắt đầu không được là ngày trong quá khứ."
+
+msgid "End date must be on or after start date."
+msgstr "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu."
+msgid "Deactivate this study?"
+msgstr "Bạn có chắc muốn ngưng hoạt động nghiên cứu này?"
+
+msgid "Activate this study?"
+msgstr "Bạn có chắc muốn kích hoạt nghiên cứu này?"
+
+msgid "Deactivate"
+msgstr "Ngưng hoạt động"
+
+msgid "Activate"
+msgstr "Kích hoạt"
+
+msgid "History"
+msgstr "Lịch sử"
+
+msgid "DATE / TIME"
+msgstr "NGÀY / GIỜ"
+
+msgid "ACTION"
+msgstr "HÀNH ĐỘNG"
+
+msgid "PERFORMED BY"
+msgstr "THỰC HIỆN BỞI"
+
+msgid "CHANGES"
+msgstr "THAY ĐỔI"
+
+msgid "No history recorded for this study yet."
+msgstr "Chưa có lịch sử ghi nhận cho nghiên cứu này."
+
+msgid "Created"
+msgstr "Đã tạo"
+
+msgid "Updated"
+msgstr "Đã cập nhật"
+
+msgid "Status changed"
+msgstr "Đã đổi trạng thái"
+
+msgid "Search by name..."
+msgstr "Tìm kiếm theo tên..."
+
+msgid "Search studies by name"
+msgstr "Tìm kiếm nghiên cứu theo tên"
+
+msgid "Filter by code..."
+msgstr "Lọc theo mã..."
+
+msgid "Filter studies by code"
+msgstr "Lọc nghiên cứu theo mã"
+
+#
+# Feat: Study - Site
+#
+
+msgid "Enter search value..."
+msgstr "Nhập giá trị tìm kiếm..."
+
+msgid "All statuses"
+msgstr "Tất cả trạng thái"
+
+#. ==============================
+#. Module: Identity
+#. Template: templates/identity/user_detail.html
+#. ==============================
+msgid "SECURITY"
+msgstr "BẢO MẬT"
+
+msgid "Change password for this user"
+msgstr "Đổi mật khẩu cho người dùng này"
+
+msgid "Leave blank to keep the current password. Setting a new password will reset the user to the first-login flow on their next sign-in."
+msgstr "Để trống để giữ mật khẩu hiện tại. Đặt mật khẩu mới sẽ đưa người dùng quay lại luồng đăng nhập lần đầu tiên ở lần đăng nhập tiếp theo."
+
+msgid "HISTORICAL"
+msgstr "LỊCH SỬ"
+
+msgid "Joined Date"
+msgstr "Ngày tham gia"
+
+msgid "Last Login"
+msgstr "Lần đăng nhập cuối"
+
+msgid "Users | Vanguardian"
+msgstr "Người dùng | Vanguardian"
+
+msgid "Users"
+msgstr "Người dùng"
+
+msgid "NEW USER"
+msgstr "NGƯỜI DÙNG MỚI"
+
+msgid "Reset"
+msgstr "Cài lại"
+
+msgid "Delete"
+msgstr "Xóa"
+
+msgid "Restore"
+msgstr "Khôi phục"
+
+msgid "User details saved successfully."
+msgstr "Chi tiết người dùng đã được lưu thành công."
+
+msgid "Unable to save user details."
+msgstr "Không thể lưu chi tiết người dùng."
+
+msgid "Saving..."
+msgstr "Đang lưu..."
+
+msgid "Delete User"
+msgstr "Xóa người dùng"
+
+msgid "Are you sure you want to delete <strong>%(username)s</strong>? You can restore this user later."
+msgstr "Bạn có chắc muốn xóa <strong>%(username)s</strong>? Bạn có thể khôi phục người dùng này sau."
+
+msgid "Restore User"
+msgstr "Khôi phục người dùng"
+
+msgid "Restore <strong>%(username)s</strong> and re-apply the last saved role, status, and permission groups?"
+msgstr "Khôi phục <strong>%(username)s</strong> và áp dụng lại vai trò, trạng thái, và nhóm quyền đã lưu cuối cùng?"
+
+msgid "This username is already in use."
+msgstr "Tên đăng nhập này đã được sử dụng."
+
+msgid "This email address is already in use."
+msgstr "Địa chỉ email này đã được sử dụng."
+
+msgid "This phone number is already in use."
+msgstr "Số điện thoại này đã được sử dụng."
+
+msgid "Passwords do not match."
+msgstr "Mật khẩu không khớp."
+
+msgid "You do not have permission to update this user."
+msgstr "Bạn không có quyền cập nhật người dùng này."
+
+msgid "Please fill in both password fields to change the password."
+msgstr "Vui lòng điền đầy đủ cả hai trường mật khẩu để thay đổi mật khẩu."
+
+#. ==============================
+#. Module: Study
+#. Feature: Randomization
+#. ==============================
+
+msgid "Import from file"
+msgstr "Nhập dữ liệu từ tệp"
+
+msgid "Download template"
+msgstr "Tải excel mẫu"

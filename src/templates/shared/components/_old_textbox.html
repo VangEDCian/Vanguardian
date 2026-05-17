@@ -1,0 +1,11 @@
+<input type="{{ textbox_type|default:'text' }}"
+       {% if textbox_id %}id="{{ textbox_id }}"{% endif %}
+       {% if textbox_name %}name="{{ textbox_name }}"{% endif %}
+       value="{{ textbox_value|default:'' }}"
+       class="old-textbox{% if textbox_class %} {{ textbox_class }}{% endif %}"
+       {% if textbox_placeholder %}placeholder="{{ textbox_placeholder }}"{% endif %}
+       {% if textbox_autocomplete %}autocomplete="{{ textbox_autocomplete }}"{% endif %}
+       {% if textbox_readonly %}readonly{% endif %}
+       {% if textbox_disabled %}disabled{% endif %}
+       {% if textbox_required %}required{% endif %}
+       {% if textbox_maxlength %}maxlength="{{ textbox_maxlength }}"{% endif %}>

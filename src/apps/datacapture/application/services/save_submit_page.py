@@ -1,0 +1,545 @@
+import json
+from dataclasses import dataclass, replace
+
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+
+from apps.audit.public import AuditContextAdapter
+from apps.datacapture.application.commands import (
+    DeleteDraftPageCommand,
+    SavePageCommand,
+    SubmitFieldChangeReason,
+    SubmitPageCommand,
+)
+from apps.datacapture.application.exceptions import (
+    DataCaptureInvalidPayloadUseCaseError,
+    DataCaptureUnsupportedEntryStatusUseCaseError,
+)
+from apps.datacapture.application.services.check_field_validation_rules import DataCaptureFieldValidationRulesService
+from apps.datacapture.application.validators import DataCaptureSaveSubmitValidator
+from apps.datacapture.domain.exceptions import (
+    InvalidPagePayloadError,
+    PageNotEditableError,
+    UnsupportedEntryStatusError,
+)
+from apps.datacapture.domain.services.page_capture_save_submit import (
+    assert_page_editable_for_capture,
+    build_submit_execution_plan,
+    resolve_save_draft_execution_plan,
+)
+from apps.datacapture.domain.status import DataCapturePageEntry, DataCapturePageState
+from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
+from apps.governance.infrastructure.repositories import DjangoGovernanceLockReadRepository
+from apps.shared.constants import AuditEventAction, AuditEventObjectType
+
+
+@dataclass(frozen=True)
+class SavePageResult:
+    entry_id: int | None
+    entry_status: str
+    page_status: str | None
+    needs_confirmation: bool = False
+    created_new_entry: bool = False
+
+
+@dataclass(frozen=True)
+class SubmitPageResult:
+    entry_id: int | None
+    entry_status: str
+    page_status: str
+    created_new_entry: bool = False
+
+
+@dataclass(frozen=True)
+class DeleteDraftPageResult:
+    entry_id: int | None
+    entry_status: str
+    page_status: str
+
+
+def _raise_as_use_case_error(exc: PageNotEditableError | InvalidPagePayloadError | UnsupportedEntryStatusError) -> None:
+    if isinstance(exc, PageNotEditableError):
+        raise PermissionDenied("Page is not editable") from exc
+    if isinstance(exc, InvalidPagePayloadError):
+        raise DataCaptureInvalidPayloadUseCaseError(str(exc)) from exc
+    raise DataCaptureUnsupportedEntryStatusUseCaseError(str(exc)) from exc
+
+
+def _load_payload_map(raw_payload: str | None) -> dict:
+    try:
+        payload = json.loads(raw_payload or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return payload
+
+
+def _canonical_field_key(raw_key: str) -> str:
+    return str(raw_key or "").strip()
+
+
+def _normalize_value(raw_value):
+    if raw_value is None:
+        return ""
+    return raw_value
+
+
+def _resolve_canonical_value(payload_map: dict, canonical_key: str):
+    return _normalize_value(payload_map.get(canonical_key))
+
+
+def _resolve_changed_field_keys(*, baseline_payload: dict, candidate_payload: dict) -> list[str]:
+    canonical_keys: set[str] = set()
+    for key in baseline_payload:
+        canonical = _canonical_field_key(key)
+        if canonical:
+            canonical_keys.add(canonical)
+    for key in candidate_payload:
+        canonical = _canonical_field_key(key)
+        if canonical:
+            canonical_keys.add(canonical)
+    changed_keys: list[str] = []
+    for canonical_key in sorted(canonical_keys):
+        before_value = _resolve_canonical_value(baseline_payload, canonical_key)
+        after_value = _resolve_canonical_value(candidate_payload, canonical_key)
+        if before_value != after_value:
+            changed_keys.append(canonical_key)
+    return changed_keys
+
+
+def _build_change_reason_map(
+    reasons: tuple[SubmitFieldChangeReason, ...],
+) -> dict[str, SubmitFieldChangeReason]:
+    normalized: dict[str, SubmitFieldChangeReason] = {}
+    for item in reasons:
+        canonical_key = _canonical_field_key(item.field_key)
+        if not canonical_key:
+            continue
+        normalized[canonical_key] = SubmitFieldChangeReason(
+            field_key=canonical_key,
+            field_label=str(item.field_label or "").strip(),
+            reason=str(item.reason or "").strip(),
+        )
+    return normalized
+
+
+def _build_change_reason_audit_payloads(
+    *,
+    baseline_payload: dict,
+    candidate_payload: dict,
+    changed_field_keys: list[str],
+    reason_map: dict[str, SubmitFieldChangeReason],
+) -> tuple[dict, dict]:
+    before_fields: list[dict] = []
+    after_fields: list[dict] = []
+    for field_key in changed_field_keys:
+        reason_item = reason_map[field_key]
+        label = reason_item.field_label or field_key
+        before_fields.append(
+            {
+                "field_key": field_key,
+                "field_label": label,
+                "value": _resolve_canonical_value(baseline_payload, field_key),
+            }
+        )
+        after_fields.append(
+            {
+                "field_key": field_key,
+                "field_label": label,
+                "value": _resolve_canonical_value(candidate_payload, field_key),
+                "reason": reason_item.reason,
+            }
+        )
+    return (
+        {"changed_fields": before_fields},
+        {"changed_fields": after_fields},
+    )
+
+
+class DataCaptureSaveSubmitPageService:
+
+    repository_class = DjangoDataCapturePageRepository
+    validator_class = DataCaptureSaveSubmitValidator
+
+    def __init__(self, repository=None, governance_lock_read_repository=None):
+        self.repository = repository or self.repository_class()
+        self.governance_lock_read_repository = governance_lock_read_repository or DjangoGovernanceLockReadRepository()
+        self.audit_context = AuditContextAdapter()
+        self.field_validation_rules_service = DataCaptureFieldValidationRulesService(self.repository)
+        self.validator = self.validator_class()
+
+    def _assert_capture_not_locked(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> None:
+        if self.governance_lock_read_repository.is_capture_locked_for_scope(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        ):
+            raise PermissionDenied("Data capture is locked by governance lock.")
+
+    def _start_data_entry_page_state(self, command: SavePageCommand):
+        return self.repository.upsert_page_state_for_data_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            actor_user_id=command.actor_user_id,
+        )
+
+    def _with_persisted_lookup_values(self, command):
+        if not hasattr(self.repository, "persist_lookup_values_from_payload"):
+            return command
+        normalized_data = self.repository.persist_lookup_values_from_payload(
+            crf_template_id=command.crf_template_id,
+            data=command.data,
+            actor_user_id=command.actor_user_id,
+        )
+        if normalized_data == command.data:
+            return command
+        return replace(command, data=normalized_data)
+
+    def _resolve_target_page_status_after_validation(self, command: SubmitPageCommand) -> str:
+        validation_result = self.field_validation_rules_service.check_field_validation_rules(
+            crf_template_id=command.crf_template_id,
+            payload_data=command.data,
+        )
+        if validation_result.has_failures:
+            return DataCapturePageState.CORRECTION_REQUIRED
+        return DataCapturePageState.SUBMITTED
+
+    def _submit_noop_identical_submitted(self, command: SubmitPageCommand, latest) -> SubmitPageResult:
+        if latest is None:
+            raise RuntimeError("submit noop requires latest submitted entry")
+        target_page_status = self._resolve_target_page_status_after_validation(command)
+        started_page_state = self.repository.upsert_page_state_for_data_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            actor_user_id=command.actor_user_id,
+        )
+        page_state = self.repository.submit_page_state_with_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            entry_id=latest.id,
+            actor_user_id=command.actor_user_id,
+            trigger_source=(
+                "query"
+                if DataCapturePageState.is_correction_required(started_page_state.status)
+                else "manual"
+            ),
+            target_status=target_page_status,
+        )
+        return SubmitPageResult(
+            entry_id=latest.id,
+            entry_status=latest.status,
+            page_status=page_state.status if page_state is not None else target_page_status,
+            created_new_entry=False,
+        )
+
+    def _has_other_submitted_entry_if_latest_is_draft(self, command: SubmitPageCommand, latest) -> bool:
+        if latest is None or not DataCapturePageEntry.is_draft(latest.status):
+            return False
+        return self.repository.has_other_submitted_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            exclude_entry_id=latest.id,
+        )
+
+    @transaction.atomic
+    def save(self, command: SavePageCommand) -> SavePageResult:
+        self._assert_capture_not_locked(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        command = self._with_persisted_lookup_values(command)
+        page_state = self.repository.get_page_state_by_scope(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        latest = self.repository.get_current_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        try:
+            plan = resolve_save_draft_execution_plan(
+                page_state=page_state,
+                latest=latest,
+                payload=command.data,
+            )
+        except PageNotEditableError as exc:
+            _raise_as_use_case_error(exc)
+        except (InvalidPagePayloadError, UnsupportedEntryStatusError) as exc:
+            _raise_as_use_case_error(exc)
+
+        if plan.branch == "noop_identical_submitted":
+            assert latest is not None
+            return SavePageResult(
+                entry_id=latest.id,
+                entry_status=latest.status,
+                page_status=plan.noop_page_status,
+                needs_confirmation=False,
+                created_new_entry=False,
+            )
+
+        if plan.branch == "create_initial":
+            page_state = self._start_data_entry_page_state(command)
+            entry = self.repository.create_initial_entry(
+                page_state_id=page_state.pk,
+                subject_id=command.subject_id,
+                visit_id=command.visit_id,
+                crf_template_id=command.crf_template_id,
+                data=command.data,
+                actor_user_id=command.actor_user_id,
+            )
+            return SavePageResult(
+                entry_id=entry.pk,
+                entry_status=entry.status,
+                page_status=page_state.status,
+                needs_confirmation=False,
+                created_new_entry=True,
+            )
+
+        if plan.branch == "update_draft":
+            page_state = self._start_data_entry_page_state(command)
+            refreshed = self.repository.update_latest_draft_entry_data(
+                subject_id=command.subject_id,
+                visit_id=command.visit_id,
+                crf_template_id=command.crf_template_id,
+                data=command.data,
+                actor_user_id=command.actor_user_id,
+            )
+            snapshot = refreshed or latest
+            assert snapshot is not None
+            return SavePageResult(
+                entry_id=snapshot.id,
+                entry_status=snapshot.status,
+                page_status=page_state.status,
+                needs_confirmation=False,
+                created_new_entry=False,
+            )
+
+        if plan.branch == "correction_from_submitted":
+            page_state = self._start_data_entry_page_state(command)
+            entry = self.repository.create_correction_draft_from_submitted_entry(
+                page_state_id=page_state.pk,
+                subject_id=command.subject_id,
+                visit_id=command.visit_id,
+                crf_template_id=command.crf_template_id,
+                data=command.data,
+                actor_user_id=command.actor_user_id,
+            )
+            return SavePageResult(
+                entry_id=entry.pk,
+                entry_status=entry.status,
+                page_status=page_state.status,
+                needs_confirmation=True,
+                created_new_entry=True,
+            )
+
+        raise RuntimeError(f"Unhandled save draft branch: {plan.branch!r}")
+
+    @transaction.atomic
+    def submit(self, command: SubmitPageCommand) -> SubmitPageResult:
+        self._assert_capture_not_locked(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        command = self._with_persisted_lookup_values(command)
+        page_state = self.repository.get_page_state_by_scope(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        latest = self.repository.get_current_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        has_other = self._has_other_submitted_entry_if_latest_is_draft(command, latest)
+        latest_submitted = self.repository.get_latest_submitted_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        try:
+            plan = build_submit_execution_plan(
+                page_state=page_state,
+                latest=latest,
+                has_other_submitted_entry=has_other,
+                payload=command.data,
+            )
+        except PageNotEditableError as exc:
+            _raise_as_use_case_error(exc)
+        except (InvalidPagePayloadError, UnsupportedEntryStatusError) as exc:
+            _raise_as_use_case_error(exc)
+
+        if plan.action == "noop_identical_submitted":
+            return self._submit_noop_identical_submitted(command, latest)
+
+        requires_change_reasons = (
+            page_state is not None
+            and DataCapturePageState.requires_change_reason_on_submit(page_state.status)
+        )
+        changed_field_keys: list[str] = []
+        reason_required_field_keys: list[str] = []
+        reason_map: dict[str, SubmitFieldChangeReason] = {}
+        baseline_payload: dict = {}
+        candidate_payload: dict = {}
+        if latest_submitted is not None:
+            baseline_payload = _load_payload_map(latest_submitted.data)
+            candidate_payload = _load_payload_map(command.data)
+            changed_field_keys = _resolve_changed_field_keys(
+                baseline_payload=baseline_payload,
+                candidate_payload=candidate_payload,
+            )
+            if changed_field_keys and requires_change_reasons:
+                reason_map = _build_change_reason_map(command.change_reasons)
+                if page_state is not None:
+                    reason_required_field_keys = self.repository.list_changed_verified_field_keys(
+                        page_state_id=page_state.id,
+                        crf_template_id=command.crf_template_id,
+                        data_version=page_state.data_version,
+                        changed_field_keys=changed_field_keys,
+                    )
+                missing_reason_fields = [
+                    field_key
+                    for field_key in reason_required_field_keys
+                    if not reason_map.get(field_key) or not reason_map[field_key].reason
+                ]
+                self.validator.require_change_reasons_present(missing_reason_fields)
+
+        started_page_state = self.repository.upsert_page_state_for_data_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            actor_user_id=command.actor_user_id,
+        )
+        entry = self.repository.execute_submit_plan(
+            page_state_id=started_page_state.pk,
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            plan=plan,
+            data=command.data,
+            actor_user_id=command.actor_user_id,
+        )
+        target_page_status = self._resolve_target_page_status_after_validation(command)
+        page_state = self.repository.submit_page_state_with_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            entry_id=entry.pk,
+            actor_user_id=command.actor_user_id,
+            trigger_source=(
+                "query"
+                if page_state and DataCapturePageState.is_correction_required(page_state.status)
+                else "manual"
+            ),
+            target_status=target_page_status,
+        )
+        if reason_required_field_keys and reason_map:
+            self.repository.mark_verified_field_reviews_stale_with_reasons(
+                page_state_id=page_state.pk,
+                crf_template_id=command.crf_template_id,
+                data_version=int(started_page_state.data_version or page_state.data_version or 0),
+                reason_by_field_key={
+                    field_key: reason_map[field_key].reason
+                    for field_key in reason_required_field_keys
+                    if field_key in reason_map and reason_map[field_key].reason
+                },
+                actor_user_id=command.actor_user_id,
+            )
+        self.repository.mark_field_reviews_stale_for_changed_field_keys(
+            page_state_id=page_state.pk,
+            crf_template_id=command.crf_template_id,
+            changed_field_keys=changed_field_keys,
+            actor_user_id=command.actor_user_id,
+        )
+        changed_field_keys_with_reasons = [
+            field_key for field_key in changed_field_keys if field_key in reason_map and reason_map[field_key].reason
+        ]
+        if changed_field_keys_with_reasons:
+            before_data, after_data = _build_change_reason_audit_payloads(
+                baseline_payload=baseline_payload,
+                candidate_payload=candidate_payload,
+                changed_field_keys=changed_field_keys_with_reasons,
+                reason_map=reason_map,
+            )
+            self.audit_context.record_event(
+                action=AuditEventAction.DATACAPTURE_PAGEENTRY_CHANGE_REASONS_SUBMITTED,
+                object_type=AuditEventObjectType.PAGEENTRY,
+                object_id=str(entry.pk),
+                before_data=before_data,
+                after_data=after_data,
+                actor_user_id=command.actor_user_id,
+            )
+        return SubmitPageResult(
+            entry_id=entry.pk,
+            entry_status=DataCapturePageEntry.SUBMITTED,
+            page_status=page_state.status,
+            created_new_entry=plan.action in {"initial_submitted", "replace_submitted"},
+        )
+
+    @transaction.atomic
+    def delete_latest_draft(self, command: DeleteDraftPageCommand) -> DeleteDraftPageResult:
+        self._assert_capture_not_locked(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        page_state = self.repository.get_page_state_by_scope(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        try:
+            if page_state is not None:
+                assert_page_editable_for_capture(page_state)
+        except PageNotEditableError as exc:
+            _raise_as_use_case_error(exc)
+
+        canceled_entry = self.repository.cancel_latest_draft_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            actor_user_id=command.actor_user_id,
+        )
+        self.validator.require_active_draft(canceled_entry)
+
+        latest_submitted = self.repository.get_latest_submitted_entry(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+        )
+        if latest_submitted is not None:
+            page_state = self.repository.upsert_page_state(
+                subject_id=command.subject_id,
+                visit_id=command.visit_id,
+                crf_template_id=command.crf_template_id,
+                status=DataCapturePageState.SUBMITTED,
+                actor_user_id=command.actor_user_id,
+            )
+            return DeleteDraftPageResult(
+                entry_id=canceled_entry.id,
+                entry_status=DataCapturePageEntry.CANCELLED,
+                page_status=page_state.status,
+            )
+
+        page_state = self.repository.upsert_page_state(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            crf_template_id=command.crf_template_id,
+            status=DataCapturePageState.NOT_STARTED,
+            actor_user_id=command.actor_user_id,
+            trigger_source="manual",
+        )
+        return DeleteDraftPageResult(
+            entry_id=canceled_entry.id,
+            entry_status=DataCapturePageEntry.CANCELLED,
+            page_status=page_state.status,
+        )

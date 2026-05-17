@@ -1,0 +1,50 @@
+.subject-form-table-row td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #dfe5eb;
+  border-right: 1px solid #dfe5eb;
+  background: #ffffff;
+}
+
+.subject-form-table-row td:last-child {
+  border-right: 0;
+}
+
+.subject-form-table-row__cell--index {
+  color: #4b535c;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.subject-form-table-row__cell--criterion {
+  color: #39414a;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.subject-form-table-row__cell--response {
+  text-align: left;
+}
+
+.subject-form-table-row__criterion-text {
+  color: #39414a;
+  font-weight: 600;
+}
+
+.subject-form-table-row__required {
+  color: #333333;
+}
+
+.subject-form-table-row__helper {
+  margin-top: 6px;
+  color: #65707a;
+  font-size: 13px;
+}
+
+.subject-form-table-row__unsupported,
+.subject-form-table-row__empty {
+  padding: 12px 14px;
+  color: #5e6670;
+  font-size: 13px;
+}
