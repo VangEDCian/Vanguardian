@@ -6,6 +6,8 @@ __all__ = [
     "DataCapturePageStateEventTransitionService",
     "DataCaptureSaveSubmitPageService",
     "DeleteDraftPageResult",
+    "PageEntryStateChangeEventDispatcher",
+    "PageEntrySubmittedEventContext",
     "SavePageResult",
     "SubmitPageResult",
 ]
@@ -24,6 +26,12 @@ _MODULE_BY_NAME = {
         "apps.datacapture.application.services.save_submit_page"
     ),
     "DeleteDraftPageResult": "apps.datacapture.application.services.save_submit_page",
+    "PageEntryStateChangeEventDispatcher": (
+        "apps.datacapture.application.services.pageentry_state_change_events"
+    ),
+    "PageEntrySubmittedEventContext": (
+        "apps.datacapture.application.services.pageentry_state_change_events"
+    ),
     "SavePageResult": "apps.datacapture.application.services.save_submit_page",
     "SubmitPageResult": "apps.datacapture.application.services.save_submit_page",
 }

@@ -369,6 +369,7 @@ class DjangoDataCapturePageRepository:
         visit_id: int,
         crf_template_id: int,
         data: str,
+        status: str,
         actor_user_id: int | None = None,
     ):
         next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
@@ -380,7 +381,7 @@ class DjangoDataCapturePageRepository:
             entry_kind="initial",
             entry_version=self._entry_version_for_no(next_entry_no),
             data=data,
-            status=DataCapturePageEntryStatusChoices.DRAFT,
+            status=status,
             page_state_id=page_state_id,
             subject_id=subject_id,
             visit_id=visit_id,
@@ -397,6 +398,7 @@ class DjangoDataCapturePageRepository:
         visit_id: int,
         crf_template_id: int,
         data: str,
+        status: str,
         actor_user_id: int | None = None,
     ):
         """Save-draft after a submitted row: new correction draft; prior submitted row unchanged (6.2)."""
@@ -412,7 +414,7 @@ class DjangoDataCapturePageRepository:
             entry_kind="correction",
             entry_version=entry_version,
             data=data,
-            status=DataCapturePageEntryStatusChoices.DRAFT,
+            status=status,
             page_state_id=page_state_id,
             parent_entry_id=latest.id,
             subject_id=subject_id,
@@ -429,6 +431,7 @@ class DjangoDataCapturePageRepository:
         visit_id: int,
         crf_template_id: int,
         keep_entry_id: int,
+        target_status: str,
         actor_user_id: int | None = None,
     ) -> int:
         """Mark all submitted rows except ``keep_entry_id`` as superseded (submit flow 6.3)."""
@@ -439,7 +442,7 @@ class DjangoDataCapturePageRepository:
             deleted=False,
             status=DataCapturePageEntryStatusChoices.SUBMITTED,
         ).exclude(pk=keep_entry_id).update(
-            status=DataCapturePageEntryStatusChoices.SUPERSEDED,
+            status=target_status,
             updated_at=self._now(),
             updated_by_id=actor_user_id,
         )
@@ -454,6 +457,21 @@ class DjangoDataCapturePageRepository:
             deleted=False,
             status=DataCapturePageEntryStatusChoices.SUBMITTED,
         ).exclude(pk=exclude_entry_id).exists()
+
+    def list_submitted_entry_ids_except(
+        self, *, subject_id: int, visit_id: int, crf_template_id: int, exclude_entry_id: int | None
+    ) -> list[int]:
+        return list(
+            DataCapturePageEntry.objects.filter(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                deleted=False,
+                status=DataCapturePageEntryStatusChoices.SUBMITTED,
+            )
+            .exclude(pk=exclude_entry_id)
+            .values_list("id", flat=True)
+        )
 
     def get_page_state_by_scope(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         return self.get_page_state(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
@@ -475,13 +493,19 @@ class DjangoDataCapturePageRepository:
         return self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
 
     def cancel_latest_draft_entry(
-        self, *, subject_id: int, visit_id: int, crf_template_id: int, actor_user_id: int | None = None
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        target_status: str,
+        actor_user_id: int | None = None,
     ):
         latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
         if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
             return None
         DataCapturePageEntry.objects.filter(pk=latest.id).update(
-            status=DataCapturePageEntryStatusChoices.CANCELLED,
+            status=target_status,
             updated_at=self._now(),
             updated_by_id=actor_user_id,
         )
@@ -629,6 +653,7 @@ class DjangoDataCapturePageRepository:
         """Persist submit outcome described by a domain ``SubmitExecutionPlan`` (no branching here)."""
         if plan.action == "initial_submitted":
             next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+            assert plan.entry_state_change is not None
             return DataCapturePageEntry.objects.create(
                 created_at=self._now(),
                 updated_at=self._now(),
@@ -637,7 +662,7 @@ class DjangoDataCapturePageRepository:
                 entry_kind="initial",
                 entry_version=self._entry_version_for_no(next_entry_no),
                 data=data,
-                status=DataCapturePageEntryStatusChoices.SUBMITTED,
+                status=plan.entry_state_change.to_status,
                 submitted_at=self._now(),
                 submitted_by_id=actor_user_id,
                 page_state_id=page_state_id,
@@ -651,18 +676,21 @@ class DjangoDataCapturePageRepository:
         if plan.action == "promote_draft":
             assert plan.draft_entry_id is not None
             if plan.supersede_other_submitted_before_promote:
+                assert plan.superseded_entry_state_change is not None
                 self.supersede_submitted_entries_except(
                     subject_id=subject_id,
                     visit_id=visit_id,
                     crf_template_id=crf_template_id,
                     keep_entry_id=plan.draft_entry_id,
+                    target_status=plan.superseded_entry_state_change.to_status,
                     actor_user_id=actor_user_id,
                 )
+            assert plan.entry_state_change is not None
             DataCapturePageEntry.objects.filter(pk=plan.draft_entry_id).update(
                 updated_at=self._now(),
                 updated_by_id=actor_user_id,
                 data=data,
-                status=DataCapturePageEntryStatusChoices.SUBMITTED,
+                status=plan.entry_state_change.to_status,
                 submitted_at=self._now(),
                 submitted_by_id=actor_user_id,
             )
@@ -671,13 +699,15 @@ class DjangoDataCapturePageRepository:
         if plan.action == "replace_submitted":
             snap = plan.superseded_entry_snapshot
             assert snap is not None
+            assert plan.superseded_entry_state_change is not None
             DataCapturePageEntry.objects.filter(pk=snap.id).update(
                 updated_at=self._now(),
                 updated_by_id=actor_user_id,
-                status=DataCapturePageEntryStatusChoices.SUPERSEDED,
+                status=plan.superseded_entry_state_change.to_status,
             )
             next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
             entry_version = self._entry_version_for_no(next_entry_no)
+            assert plan.entry_state_change is not None
             return DataCapturePageEntry.objects.create(
                 created_at=self._now(),
                 updated_at=self._now(),
@@ -686,7 +716,7 @@ class DjangoDataCapturePageRepository:
                 entry_kind="correction",
                 entry_version=entry_version,
                 data=data,
-                status=DataCapturePageEntryStatusChoices.SUBMITTED,
+                status=plan.entry_state_change.to_status,
                 submitted_at=self._now(),
                 submitted_by_id=actor_user_id,
                 page_state_id=page_state_id,

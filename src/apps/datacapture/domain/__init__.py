@@ -2,6 +2,8 @@ from apps.datacapture.domain.entities import (
     DataCaptureFactMappingRule,
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
+    PageEntryChangeStateResult,
+    PageEntryStateChangedEvent,
     SaveDraftExecutionPlan,
     SubmitExecutionPlan,
 )
@@ -12,6 +14,7 @@ from apps.datacapture.domain.exceptions import (
     UnsupportedEntryStatusError,
 )
 from apps.datacapture.domain.services.fact_mapping import DataCaptureFactMappingEvaluator
+from apps.datacapture.domain.services.pageentry_change_state import PageEntryChangeState
 from apps.datacapture.domain.status import (
     DataCaptureFieldReview,
     DataCapturePageEntry,
@@ -22,6 +25,9 @@ __all__ = [
     "DataCaptureFieldReview",
     "DataCaptureFactMappingEvaluator",
     "DataCapturePageEntry",
+    "PageEntryChangeState",
+    "PageEntryChangeStateResult",
+    "PageEntryStateChangedEvent",
     "DataCaptureFactMappingRule",
     "DataCapturePageState",
     "DataCapturePageEntrySnapshot",

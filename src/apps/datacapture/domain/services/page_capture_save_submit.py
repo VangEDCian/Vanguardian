@@ -13,6 +13,7 @@ from apps.datacapture.domain.exceptions import (
     PageNotEditableError,
     UnsupportedEntryStatusError,
 )
+from apps.datacapture.domain.services.pageentry_change_state import PageEntryChangeState
 from apps.datacapture.domain.status import DataCapturePageEntry, DataCapturePageState
 
 
@@ -54,14 +55,20 @@ def resolve_save_draft_execution_plan(
     assert_page_editable_for_capture(page_state)
     validate_capture_payload(payload)
     if latest is None:
-        return SaveDraftExecutionPlan(branch="create_initial")
+        return SaveDraftExecutionPlan(
+            branch="create_initial",
+            entry_state_change=PageEntryChangeState.create_draft(),
+        )
     if DataCapturePageEntry.is_draft(latest.status):
         return SaveDraftExecutionPlan(branch="update_draft")
     if DataCapturePageEntry.is_submitted(latest.status):
         if same_capture_payload(latest.data, payload):
             noop_status = page_state.status if page_state is not None else DataCapturePageEntry.SUBMITTED
             return SaveDraftExecutionPlan(branch="noop_identical_submitted", noop_page_status=noop_status)
-        return SaveDraftExecutionPlan(branch="correction_from_submitted")
+        return SaveDraftExecutionPlan(
+            branch="correction_from_submitted",
+            entry_state_change=PageEntryChangeState.create_draft(),
+        )
     raise UnsupportedEntryStatusError(
         f"Cannot save draft: latest page entry has unexpected status {latest.status!r}",
     )
@@ -77,12 +84,21 @@ def build_submit_execution_plan(
     assert_page_editable_for_capture(page_state)
     validate_capture_payload(payload)
     if latest is None:
-        return SubmitExecutionPlan(action="initial_submitted")
+        return SubmitExecutionPlan(
+            action="initial_submitted",
+            entry_state_change=PageEntryChangeState.create_submitted(),
+        )
     if DataCapturePageEntry.is_draft(latest.status):
         return SubmitExecutionPlan(
             action="promote_draft",
             draft_entry_id=latest.id,
             supersede_other_submitted_before_promote=has_other_submitted_entry,
+            entry_state_change=PageEntryChangeState.submit(latest.status),
+            superseded_entry_state_change=(
+                PageEntryChangeState.supersede(DataCapturePageEntry.SUBMITTED)
+                if has_other_submitted_entry
+                else None
+            ),
         )
     if DataCapturePageEntry.is_submitted(latest.status):
         if same_capture_payload(latest.data, payload):
@@ -90,6 +106,8 @@ def build_submit_execution_plan(
         return SubmitExecutionPlan(
             action="replace_submitted",
             superseded_entry_snapshot=latest,
+            entry_state_change=PageEntryChangeState.create_submitted(),
+            superseded_entry_state_change=PageEntryChangeState.supersede(latest.status),
         )
     raise UnsupportedEntryStatusError(
         f"submit: unsupported latest page entry status {latest.status!r}",

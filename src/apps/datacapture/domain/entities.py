@@ -48,9 +48,53 @@ class DataCaptureFactMappingRule:
 
 
 @dataclass(frozen=True)
+class PageEntryStateChangedEvent:
+    entry_id: int
+    page_state_id: int | None
+    subject_id: int
+    visit_id: int
+    crf_template_id: int
+    from_status: str | None
+    to_status: str
+    actor_user_id: int | None = None
+
+
+@dataclass(frozen=True)
+class PageEntryChangeStateResult:
+    from_status: str | None
+    to_status: str
+
+    @property
+    def changed(self) -> bool:
+        return self.from_status != self.to_status
+
+    def to_event(
+        self,
+        *,
+        entry_id: int,
+        page_state_id: int | None,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        actor_user_id: int | None = None,
+    ) -> PageEntryStateChangedEvent:
+        return PageEntryStateChangedEvent(
+            entry_id=entry_id,
+            page_state_id=page_state_id,
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            from_status=self.from_status,
+            to_status=self.to_status,
+            actor_user_id=actor_user_id,
+        )
+
+
+@dataclass(frozen=True)
 class SaveDraftExecutionPlan:
     branch: Literal["create_initial", "update_draft", "correction_from_submitted", "noop_identical_submitted"]
     noop_page_status: str | None = None
+    entry_state_change: PageEntryChangeStateResult | None = None
 
 
 @dataclass(frozen=True)
@@ -59,12 +103,16 @@ class SubmitExecutionPlan:
     draft_entry_id: int | None = None
     supersede_other_submitted_before_promote: bool = False
     superseded_entry_snapshot: DataCapturePageEntrySnapshot | None = None
+    entry_state_change: PageEntryChangeStateResult | None = None
+    superseded_entry_state_change: PageEntryChangeStateResult | None = None
 
 
 __all__ = [
     "DataCaptureFactMappingRule",
     "DataCapturePageEntrySnapshot",
     "DataCapturePageStateSnapshot",
+    "PageEntryChangeStateResult",
+    "PageEntryStateChangedEvent",
     "SaveDraftExecutionPlan",
     "SubmitExecutionPlan",
 ]
