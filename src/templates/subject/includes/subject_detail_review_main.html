@@ -1,8 +1,0 @@
-{% load i18n %}
-{% if form_verification_review %}
-    {% include "subject/includes/form_verification_field_review.html" %}
-{% elif focused_form %}
-    <div class="subject-detail-screen__empty">{% trans "No review data for this form." %}</div>
-{% else %}
-    <div class="subject-detail-screen__empty">{% trans "No submitted forms are available for verification." %}</div>
-{% endif %}

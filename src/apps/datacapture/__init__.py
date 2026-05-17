@@ -1,1 +1,0 @@
-"""Datacapture bounded context."""

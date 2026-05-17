@@ -1,2 +1,0 @@
-PASSWORD_RESET_BYPASS_SESSION_KEY = "identity.password_reset_bypass_first_login_user_ids"
-

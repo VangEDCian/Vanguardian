@@ -1,9 +1,0 @@
-{% load i18n %}
-<div class="subject-detail-screen__empty subject-detail-screen__empty--verification">
-    <p>{% trans "Form verification review will appear here." %}</p>
-    {% if focused_form %}
-        <p class="subject-detail-screen__muted">
-            {% blocktrans with title=focused_form.title %}Selected form: {{ title }}{% endblocktrans %}
-        </p>
-    {% endif %}
-</div>
