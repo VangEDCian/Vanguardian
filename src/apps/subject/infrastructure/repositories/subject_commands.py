@@ -2,7 +2,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from apps.study.models import EventDefinition, EventTransitionRule, Study
-from apps.subject.models import Subject, SubjectEventInstance
+from apps.subject.models import Subject, SubjectEventInstance, SubjectEventInstanceTransitionLog
 
 
 class DjangoSubjectCommandRepository:
@@ -71,12 +71,83 @@ class DjangoSubjectCommandRepository:
                 "requires_previous_completion",
                 "condition_code",
                 "condition_expression",
+                "offset_days",
             )
             .order_by("display_order", "id")
         )
 
     def bulk_create_event_instances(self, event_instances):
+        event_instances = list(event_instances)
+        if not event_instances:
+            return
+
         SubjectEventInstance.objects.bulk_create(event_instances)
+        self._bulk_create_initial_event_instance_transition_logs(event_instances=event_instances)
 
     def build_event_instance(self, **kwargs):
         return SubjectEventInstance(**kwargs)
+
+    def _bulk_create_initial_event_instance_transition_logs(self, *, event_instances):
+        event_key_to_initial_instance = {
+            (
+                event_instance.subject_id,
+                event_instance.event_definition_id,
+                event_instance.repeat_index,
+            ): event_instance
+            for event_instance in event_instances
+        }
+        subject_ids = {event_instance.subject_id for event_instance in event_instances}
+        event_definition_ids = {
+            event_instance.event_definition_id for event_instance in event_instances
+        }
+        repeat_indexes = {event_instance.repeat_index for event_instance in event_instances}
+        persisted_event_instances = SubjectEventInstance.objects.filter(
+            subject_id__in=subject_ids,
+            event_definition_id__in=event_definition_ids,
+            repeat_index__in=repeat_indexes,
+            deleted=False,
+        ).only(
+            "id",
+            "study_id",
+            "subject_id",
+            "event_definition_id",
+            "repeat_index",
+            "status",
+            "created_at",
+            "created_by_id",
+        )
+
+        transition_logs = []
+        for persisted_event_instance in persisted_event_instances:
+            initial_event_instance = event_key_to_initial_instance.get(
+                (
+                    persisted_event_instance.subject_id,
+                    persisted_event_instance.event_definition_id,
+                    persisted_event_instance.repeat_index,
+                )
+            )
+            if initial_event_instance is None:
+                continue
+            transition_logs.append(
+                SubjectEventInstanceTransitionLog(
+                    study_id=persisted_event_instance.study_id,
+                    subject_id=persisted_event_instance.subject_id,
+                    source_event_instance_id=persisted_event_instance.pk,
+                    target_event_instance_id=None,
+                    transition_rule_id=None,
+                    from_event_definition_id=persisted_event_instance.event_definition_id,
+                    to_event_definition_id=None,
+                    from_status="not_created",
+                    to_status=persisted_event_instance.status,
+                    trigger_source="subject_created",
+                    result="applied",
+                    reason="initial_event_instance_created",
+                    facts_json="{}",
+                    created_at=initial_event_instance.created_at,
+                    updated_at=initial_event_instance.created_at,
+                    created_by_id=initial_event_instance.created_by_id,
+                    updated_by_id=initial_event_instance.created_by_id,
+                )
+            )
+        if transition_logs:
+            SubjectEventInstanceTransitionLog.objects.bulk_create(transition_logs)

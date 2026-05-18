@@ -55,7 +55,7 @@
                     {% for event_item in event_navigation %}
                         <div class="subject-detail-sidebar__section">
                             <a href="{{ event_item.focus_url }}"
-                               class="subject-detail-sidebar__group{% if focused_event and focused_event.id == event_item.id %} is-active{% endif %}">
+                               class="subject-detail-sidebar__group{% if focused_event and focused_event.id == event_item.id %} is-active{% elif focused_event and event_item.is_repeating and focused_event.event_definition_id == event_item.event_definition_id %} is-active{% endif %}">
                                 <span class="subject-detail-sidebar__group-name">{{ event_item.name }}</span>
                                 {% if event_item.status == "open" or event_item.status == "in_progress" %}
                                     <span class="subject-detail-sidebar__group-meta"
@@ -68,7 +68,18 @@
                                     <span class="subject-detail-sidebar__group-meta">{{ event_item.status|upper }}</span>
                                 {% endif %}
                             </a>
-                            {% if event_item.forms %}
+                            {% if event_item.is_repeating %}
+                                {% if event_item.repeat_event_instances %}
+                                    <div class="subject-detail-sidebar__children">
+                                        {% for repeat_item in event_item.repeat_event_instances %}
+                                            <a href="{{ repeat_item.focus_url }}"
+                                               class="subject-detail-sidebar__child{% if focused_event and focused_event.id == repeat_item.id %} is-active{% endif %}">
+                                                {{ repeat_item.completed_at_label }}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            {% elif event_item.forms %}
                                 <div class="subject-detail-sidebar__children">
                                     {% for form_item in event_item.forms %}
                                         <a href="{{ form_item.focus_url }}"

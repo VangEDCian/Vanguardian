@@ -10,6 +10,7 @@ from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
 )
+from apps.datacapture.infrastructure.repositories.page_capture import DjangoDataCapturePageRepository
 
 
 class _NoGovernanceLock:
@@ -17,8 +18,17 @@ class _NoGovernanceLock:
         return False
 
 
+class _SubjectEventLifecycleAdapter:
+    def __init__(self):
+        self.completed_event_instances = []
+
+    def complete_event_instance(self, **kwargs):
+        self.completed_event_instances.append(kwargs)
+        return True
+
+
 class _SubmitReasonRepository:
-    def __init__(self, *, page_status):
+    def __init__(self, *, page_status, all_visit_forms_submitted=False):
         self.page_state = DataCapturePageStateSnapshot(
             id=11,
             status=page_status,
@@ -46,6 +56,7 @@ class _SubmitReasonRepository:
             visit_id=51,
         )
         self.list_changed_verified_field_keys_called = False
+        self.all_visit_forms_submitted = all_visit_forms_submitted
 
     def get_page_state_by_scope(self, **kwargs):
         return self.page_state
@@ -75,6 +86,9 @@ class _SubmitReasonRepository:
     def submit_page_state_with_entry(self, **kwargs):
         return SimpleNamespace(pk=self.page_state.id, status=kwargs["target_status"], data_version=4)
 
+    def are_all_visit_forms_submitted(self, **kwargs):
+        return self.all_visit_forms_submitted
+
     def mark_verified_field_reviews_stale_with_reasons(self, **kwargs):
         return 0
 
@@ -82,10 +96,11 @@ class _SubmitReasonRepository:
         return 0
 
 
-def _service(repository):
+def _service(repository, subject_event_lifecycle_adapter=None):
     return DataCaptureSaveSubmitPageService(
         repository=repository,
         governance_lock_read_repository=_NoGovernanceLock(),
+        subject_event_lifecycle_adapter=subject_event_lifecycle_adapter or _SubjectEventLifecycleAdapter(),
     )
 
 
@@ -158,3 +173,51 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
 
         self.assertEqual(result.entry_id, 22)
         self.assertIs(repository.list_changed_verified_field_keys_called, False)
+
+    def test_submit_completes_visit_when_all_visit_forms_are_submitted(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            all_visit_forms_submitted=True,
+        )
+        subject_event_lifecycle_adapter = _SubjectEventLifecycleAdapter()
+
+        _submit_without_transaction(
+            _service(repository, subject_event_lifecycle_adapter=subject_event_lifecycle_adapter),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(
+            subject_event_lifecycle_adapter.completed_event_instances,
+            [
+                {
+                    "event_instance_id": 51,
+                    "actor_user_id": 1,
+                }
+            ],
+        )
+
+
+class DataCaptureLookupPersistenceTests(SimpleTestCase):
+    def test_select2_lookup_key_reads_options_from_ui_config_translation(self):
+        repository = DjangoDataCapturePageRepository()
+        field = SimpleNamespace(
+            ui_config=SimpleNamespace(
+                control_type="SELECT2",
+                translations=SimpleNamespace(
+                    all=lambda: [
+                        SimpleNamespace(
+                            language_code="en",
+                            options='{"source": "lookup", "lookup": "hospital"}',
+                        )
+                    ]
+                ),
+            )
+        )
+
+        self.assertEqual(repository._select2_lookup_key_for_field(field), "hospital")

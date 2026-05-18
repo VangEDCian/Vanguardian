@@ -17,7 +17,6 @@ class SubjectEventInstance:
 
     TERMINAL_STATUSES = frozenset(
         {
-            COMPLETED,
             VERIFIED,
             LOCKED,
             SKIPPED,

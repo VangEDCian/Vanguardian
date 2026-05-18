@@ -17,7 +17,7 @@ class SubjectEventTransitionPolicyTests(SimpleTestCase):
             event_definition_id=100,
             study_version="1.0",
             repeat_index=1,
-            status="completed",
+            status="verified",
         )
         self.target_event = SubjectEventInstanceSnapshot(
             id=11,
@@ -29,7 +29,7 @@ class SubjectEventTransitionPolicyTests(SimpleTestCase):
             status="not_ready",
         )
 
-    def test_decide_allows_auto_open_when_source_completed_and_condition_is_true(self):
+    def test_decide_allows_auto_open_when_source_verified_and_condition_is_true(self):
         rule = self._build_rule(condition_code="baseline_ok")
 
         decisions = self.policy.decide(
@@ -53,6 +53,27 @@ class SubjectEventTransitionPolicyTests(SimpleTestCase):
             study_version="1.0",
             repeat_index=1,
             status="in_progress",
+        )
+
+        decisions = self.policy.decide(
+            source_event=source_event,
+            transition_rules=[self._build_rule()],
+            target_events_by_definition={101: self.target_event},
+            facts={},
+        )
+
+        self.assertFalse(decisions[0].should_open)
+        self.assertEqual(decisions[0].reason, "source_event_not_terminal")
+
+    def test_decide_rejects_completed_event_because_completion_only_means_data_entry_done(self):
+        source_event = SubjectEventInstanceSnapshot(
+            id=10,
+            study_id=1,
+            subject_id=20,
+            event_definition_id=100,
+            study_version="1.0",
+            repeat_index=1,
+            status="completed",
         )
 
         decisions = self.policy.decide(

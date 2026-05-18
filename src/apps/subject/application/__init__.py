@@ -11,17 +11,24 @@ from apps.subject.application.exceptions import (
     SubjectUseCaseError,
     SubjectValidationError,
 )
-from apps.subject.application.services import CreateSubjectService, SubjectEventTransitionService
+from apps.subject.application.services import (
+    AddRepeatingSubjectEventInstanceService,
+    CreateSubjectService,
+    SubjectEventCompletionService,
+    SubjectEventTransitionService,
+)
 from apps.subject.application.validators import SubjectFormVerificationRequestValidator
 
 __all__ = [
     "CreateSubjectCommand",
     "CreateSubjectService",
+    "AddRepeatingSubjectEventInstanceService",
     "StudyNotFoundError",
     "SubjectFormVerificationFieldTemplateIdsTypeError",
     "SubjectFormVerificationFieldTemplateIdsValueError",
     "SubjectFormVerificationInvalidJsonError",
     "SubjectEventInstanceNotFoundError",
+    "SubjectEventCompletionService",
     "SubjectEventTransitionService",
     "SubjectFormVerificationRequestValidator",
     "SubjectUseCaseError",

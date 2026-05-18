@@ -34,6 +34,7 @@ from apps.datacapture.domain.services.pageentry_change_state import PageEntryCha
 from apps.datacapture.domain.status import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 from apps.governance.infrastructure.repositories import DjangoGovernanceLockReadRepository
+from apps.subject.public import SubjectEventLifecycleAdapter
 
 
 @dataclass(frozen=True)
@@ -131,10 +132,19 @@ class DataCaptureSaveSubmitPageService:
 
     repository_class = DjangoDataCapturePageRepository
     validator_class = DataCaptureSaveSubmitValidator
+    subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter
 
-    def __init__(self, repository=None, governance_lock_read_repository=None):
+    def __init__(
+        self,
+        repository=None,
+        governance_lock_read_repository=None,
+        subject_event_lifecycle_adapter=None,
+    ):
         self.repository = repository or self.repository_class()
         self.governance_lock_read_repository = governance_lock_read_repository or DjangoGovernanceLockReadRepository()
+        self.subject_event_lifecycle_adapter = (
+            subject_event_lifecycle_adapter or self.subject_event_lifecycle_adapter_class()
+        )
         self.page_entry_state_events = PageEntryStateChangeEventDispatcher(repository=self.repository)
         self.field_validation_rules_service = DataCaptureFieldValidationRulesService(self.repository)
         self.validator = self.validator_class()
@@ -199,6 +209,12 @@ class DataCaptureSaveSubmitPageService:
             ),
             target_status=target_page_status,
         )
+        self._complete_visit_if_all_forms_submitted(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            actor_user_id=command.actor_user_id,
+            page_status=page_state.status if page_state is not None else target_page_status,
+        )
         return SubmitPageResult(
             entry_id=latest.id,
             entry_status=latest.status,
@@ -240,6 +256,26 @@ class DataCaptureSaveSubmitPageService:
                 actor_user_id=actor_user_id,
             ),
             context=context,
+        )
+
+    def _complete_visit_if_all_forms_submitted(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        actor_user_id: int | None,
+        page_status: str,
+    ) -> None:
+        if page_status != DataCapturePageState.SUBMITTED:
+            return
+        if not self.repository.are_all_visit_forms_submitted(
+            subject_id=subject_id,
+            visit_id=visit_id,
+        ):
+            return
+        self.subject_event_lifecycle_adapter.complete_event_instance(
+            event_instance_id=visit_id,
+            actor_user_id=actor_user_id,
         )
 
     @transaction.atomic
@@ -469,6 +505,12 @@ class DataCaptureSaveSubmitPageService:
                 else "manual"
             ),
             target_status=target_page_status,
+        )
+        self._complete_visit_if_all_forms_submitted(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+            actor_user_id=command.actor_user_id,
+            page_status=page_state.status,
         )
         if plan.superseded_entry_state_change is not None:
             for superseded_entry_id in superseded_entry_ids:

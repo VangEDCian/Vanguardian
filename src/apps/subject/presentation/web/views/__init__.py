@@ -13,8 +13,12 @@ from apps.subject.presentation.web.views.event_instance_files import (
     SubjectEventInstanceFilePreviewView,
 )
 from apps.subject.presentation.web.views.listing import SubjectListView
+from apps.subject.presentation.web.views.repeating_event_instance import (
+    SubjectAddRepeatingEventInstanceView,
+)
 
 __all__ = [
+    "SubjectAddRepeatingEventInstanceView",
     "SubjectAbstractVerifyStudy",
     "SubjectCreateView",
     "SubjectEventInstanceFileContentView",

@@ -61,6 +61,24 @@ class CrfFieldUpdateView(AuthenticateTemplateView):
             raise Http404
         return selected_study_id
 
+    @staticmethod
+    def get_translated_related_value(instance, field_name, language_code="en", default=""):
+        if instance is None:
+            return default
+        translations = list(getattr(getattr(instance, "translations", None), "all", lambda: [])())
+        translation_by_language = {
+            str(translation.language_code).strip().lower(): translation
+            for translation in translations
+        }
+        for candidate_language in (language_code, "en", "vi"):
+            translation = translation_by_language.get(candidate_language)
+            if translation is None:
+                continue
+            value = getattr(translation, field_name, default)
+            if value not in (None, ""):
+                return value
+        return default
+
     def get_initial_data(self, field):
         definition = getattr(field, "definition", None)
         ui_config = getattr(field, "ui_config", None)
@@ -75,23 +93,23 @@ class CrfFieldUpdateView(AuthenticateTemplateView):
             "label_en": field.safe_translation_getter("label", default="", language_code="en") if hasattr(field, "safe_translation_getter") else "",
             "label_vi": field.safe_translation_getter("label", default="", language_code="vi") if hasattr(field, "safe_translation_getter") else "",
             "sdtm": definition.sdtm if definition else "",
-            "unit": definition.unit if definition else "",
+            "unit": self.get_translated_related_value(definition, "unit"),
             "range_min": definition.range_min if definition else None,
             "range_max": definition.range_max if definition else None,
             "precision": definition.precision if definition else None,
             "allowed_missing_values": definition.allowed_missing_values if definition else "",
-            "codelist": definition.codelist if definition else "",
+            "codelist": self.get_translated_related_value(definition, "codelist"),
             "data_semantic": definition.data_semantic if definition else "",
-            "comments": definition.comments if definition else "",
+            "comments": self.get_translated_related_value(definition, "comments"),
             "text_max_length": definition.text_max_length if definition else None,
             "text_min_length": definition.text_min_length if definition else None,
             "pattern": definition.pattern if definition else "",
-            "pattern_err_msg": definition.pattern_err_msg if definition else "",
+            "pattern_err_msg": self.get_translated_related_value(definition, "pattern_err_msg"),
             "control_type": ui_config.control_type if ui_config else "TEXT_INPUT",
             "layout": ui_config.layout if ui_config else "",
-            "text": ui_config.text if ui_config else "",
+            "text": self.get_translated_related_value(ui_config, "text"),
             "behavior": ui_config.behavior if ui_config else "",
-            "options": json.dumps(ui_config.options, ensure_ascii=False) if ui_config and isinstance(ui_config.options, (dict, list)) else (ui_config.options if ui_config else ""),
+            "options": self.get_translated_related_value(ui_config, "options"),
             "style": ui_config.style if ui_config else "",
             "validation_rules_json": json.dumps([
                 {

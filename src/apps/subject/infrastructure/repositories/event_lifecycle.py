@@ -70,6 +70,7 @@ class DjangoSubjectEventLifecycleRepository:
                 "requires_previous_completion",
                 "allow_skip",
                 "display_order",
+                "offset_days",
             )
             .order_by("display_order", "id")
         )
@@ -142,23 +143,149 @@ class DjangoSubjectEventLifecycleRepository:
         actor_user_id: int | None,
         now,
     ) -> SubjectEventInstanceSnapshot | None:
-        updated_count = SubjectEventInstance.objects.filter(
-            pk=event_instance_id,
-            deleted=False,
-            status__in=[
+        event_instance = self._get_event_instance_model_for_status_update(
+            event_instance_id=event_instance_id,
+            allowed_statuses=[
                 EventInstanceStatusChoices.NOT_READY,
                 EventInstanceStatusChoices.PLANNED,
             ],
-        ).update(
+        )
+        if event_instance is None:
+            return None
+
+        from_status = event_instance.status
+        SubjectEventInstance.objects.filter(pk=event_instance.pk).update(
             status=EventInstanceStatusChoices.OPEN,
             opened_at=now,
             opened_by_id=actor_user_id,
             updated_at=now,
             updated_by_id=actor_user_id,
         )
-        if updated_count == 0:
-            return None
+        self._record_event_instance_status_transition(
+            event_instance=event_instance,
+            from_status=from_status,
+            to_status=EventInstanceStatusChoices.OPEN,
+            trigger_source="subject_event_open",
+            reason="event_opened",
+            facts={},
+            actor_user_id=actor_user_id,
+            now=now,
+        )
         return self.get_event_instance_for_update(event_instance_id=event_instance_id)
+
+    def complete_event_instance(
+        self,
+        *,
+        event_instance_id: int,
+        actor_user_id: int | None,
+        now,
+    ) -> bool:
+        event_instance = self._get_event_instance_model_for_status_update(
+            event_instance_id=event_instance_id,
+            allowed_statuses=[
+                EventInstanceStatusChoices.OPEN,
+                EventInstanceStatusChoices.IN_PROGRESS,
+            ],
+        )
+        if event_instance is None:
+            return False
+
+        from_status = event_instance.status
+        SubjectEventInstance.objects.filter(pk=event_instance.pk).update(
+            status=EventInstanceStatusChoices.COMPLETED,
+            completed_at=now,
+            completed_by_id=actor_user_id,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        self._record_event_instance_status_transition(
+            event_instance=event_instance,
+            from_status=from_status,
+            to_status=EventInstanceStatusChoices.COMPLETED,
+            trigger_source="datacapture_submit",
+            reason="all_visit_forms_submitted",
+            facts={},
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return True
+
+    def mark_event_instance_in_progress(
+        self,
+        *,
+        event_instance_id: int,
+        actor_user_id: int | None,
+        now,
+    ) -> bool:
+        event_instance = self._get_event_instance_model_for_status_update(
+            event_instance_id=event_instance_id,
+            allowed_statuses=[
+                EventInstanceStatusChoices.COMPLETED,
+                EventInstanceStatusChoices.VERIFIED,
+            ],
+        )
+        if event_instance is None:
+            return False
+
+        from_status = event_instance.status
+        SubjectEventInstance.objects.filter(pk=event_instance.pk).update(
+            status=EventInstanceStatusChoices.IN_PROGRESS,
+            completed_at=None,
+            completed_by_id=None,
+            verified_at=None,
+            verified_by_id=None,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        self._record_event_instance_status_transition(
+            event_instance=event_instance,
+            from_status=from_status,
+            to_status=EventInstanceStatusChoices.IN_PROGRESS,
+            trigger_source="reopen_form",
+            reason="correction_required",
+            facts={},
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return True
+
+    def verify_event_instance(
+        self,
+        *,
+        event_instance_id: int,
+        actor_user_id: int | None,
+        now,
+    ) -> bool:
+        event_instance = self._get_event_instance_model_for_status_update(
+            event_instance_id=event_instance_id,
+            allowed_statuses=[
+                EventInstanceStatusChoices.OPEN,
+                EventInstanceStatusChoices.IN_PROGRESS,
+                EventInstanceStatusChoices.COMPLETED,
+            ],
+        )
+        if event_instance is None:
+            return False
+
+        from_status = event_instance.status
+        SubjectEventInstance.objects.filter(pk=event_instance.pk).update(
+            status=EventInstanceStatusChoices.VERIFIED,
+            verified_at=now,
+            verified_by_id=actor_user_id,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        self._record_event_instance_status_transition(
+            event_instance=event_instance,
+            from_status=from_status,
+            to_status=EventInstanceStatusChoices.VERIFIED,
+            trigger_source="verification",
+            reason="all_visit_forms_verified",
+            facts={},
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return True
 
     def create_open_event_instance(
         self,
@@ -168,6 +295,7 @@ class DjangoSubjectEventLifecycleRepository:
         event_definition: StudyEventDefinitionSnapshot,
         actor_user_id: int | None,
         now,
+        planned_date=None,
     ) -> SubjectEventInstanceSnapshot:
         event_instance = SubjectEventInstance.objects.create(
             study_id=study_id,
@@ -175,6 +303,7 @@ class DjangoSubjectEventLifecycleRepository:
             event_definition_id=event_definition.id,
             study_version=event_definition.study_version,
             repeat_index=1,
+            planned_date=planned_date,
             status=EventInstanceStatusChoices.OPEN,
             opened_at=now,
             opened_by_id=actor_user_id,
@@ -227,6 +356,61 @@ class DjangoSubjectEventLifecycleRepository:
             updated_by_id=actor_user_id,
         )
 
+    def _get_event_instance_model_for_status_update(
+        self,
+        *,
+        event_instance_id: int,
+        allowed_statuses: list[str],
+    ):
+        return (
+            SubjectEventInstance.objects.select_for_update()
+            .filter(
+                pk=event_instance_id,
+                deleted=False,
+                status__in=allowed_statuses,
+            )
+            .only(
+                "id",
+                "study_id",
+                "subject_id",
+                "event_definition_id",
+                "status",
+            )
+            .first()
+        )
+
+    def _record_event_instance_status_transition(
+        self,
+        *,
+        event_instance,
+        from_status: str,
+        to_status: str,
+        trigger_source: str,
+        reason: str,
+        facts: dict,
+        actor_user_id: int | None,
+        now,
+    ) -> None:
+        if from_status == to_status:
+            return
+        self.record_transition_log(
+            study_id=event_instance.study_id,
+            subject_id=event_instance.subject_id,
+            source_event_instance_id=event_instance.pk,
+            target_event_instance_id=None,
+            transition_rule_id=None,
+            from_event_definition_id=event_instance.event_definition_id,
+            to_event_definition_id=None,
+            from_status=from_status,
+            to_status=to_status,
+            trigger_source=trigger_source,
+            result="applied",
+            reason=reason,
+            facts=facts,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
     @staticmethod
     def _to_event_instance_snapshot(event_instance) -> SubjectEventInstanceSnapshot:
         return SubjectEventInstanceSnapshot(
@@ -257,6 +441,7 @@ class DjangoSubjectEventLifecycleRepository:
             requires_previous_completion=rule.requires_previous_completion,
             allow_skip=rule.allow_skip,
             display_order=rule.display_order,
+            offset_days=rule.offset_days,
         )
 
     @staticmethod

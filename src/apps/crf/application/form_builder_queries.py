@@ -89,25 +89,25 @@ class FormBuilderReadModelService:
             },
             "field_definition": {
                 "sdtm": self._safe_json(definition.sdtm if definition else ""),
-                "unit": definition.unit if definition else None,
+                "unit": self._translated_related_value(definition, current_language, "unit"),
                 "range_min": definition.range_min if definition else None,
                 "range_max": definition.range_max if definition else None,
                 "precision": definition.precision if definition else None,
                 "allowed_missing_values": definition.allowed_missing_values if definition else "",
-                "codelist": definition.codelist if definition else None,
+                "codelist": self._translated_related_value(definition, current_language, "codelist"),
                 "data_semantic": definition.data_semantic if definition else None,
-                "comments": definition.comments if definition else None,
+                "comments": self._translated_related_value(definition, current_language, "comments"),
                 "text_max_length": definition.text_max_length if definition else None,
                 "text_min_length": definition.text_min_length if definition else None,
                 "pattern": definition.pattern if definition else None,
-                "pattern_err_msg": definition.pattern_err_msg if definition else None,
+                "pattern_err_msg": self._translated_related_value(definition, current_language, "pattern_err_msg"),
             },
             "field_ui_config": {
                 "control_type": ui_config.control_type if ui_config else None,
                 "layout": ui_config.layout if ui_config else None,
-                "text": ui_config.text if ui_config else None,
+                "text": self._translated_related_value(ui_config, current_language, "text"),
                 "behavior": ui_config.behavior if ui_config else None,
-                "options": ui_config.options if ui_config else None,
+                "options": self._translated_related_value(ui_config, current_language, "options"),
                 "style": ui_config.style if ui_config else None,
             },
             "field_validation_rules": [
@@ -213,6 +213,32 @@ class FormBuilderReadModelService:
             return fallback or default
 
         return getattr(instance, field_name, default) or default
+
+    @staticmethod
+    def _translated_related_value(instance, lang_code, field_name, default=None):
+        if instance is None:
+            return default
+
+        language_code = FormBuilderReadModelService._normalize_language_code(lang_code)
+        translations = list(getattr(getattr(instance, "translations", None), "all", lambda: [])())
+        translation_by_language = {
+            str(translation.language_code).strip().lower(): translation
+            for translation in translations
+        }
+
+        for candidate_language in (language_code, "en"):
+            translation = translation_by_language.get(candidate_language)
+            if translation is None:
+                continue
+            value = getattr(translation, field_name, default)
+            if value not in (None, ""):
+                return value
+
+        for translation in translations:
+            value = getattr(translation, field_name, default)
+            if value not in (None, ""):
+                return value
+        return default
 
     @staticmethod
     def _serialize_translations(instance, field_name):

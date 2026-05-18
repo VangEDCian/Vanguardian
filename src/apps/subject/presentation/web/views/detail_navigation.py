@@ -1,5 +1,8 @@
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.formats import date_format
 from django.utils.translation import get_language
+from django.utils.translation import gettext as _
 
 from apps.core.choices.study import EventInstanceStatusChoices
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
@@ -39,7 +42,29 @@ class SubjectDetailNavigationMixin:
         for binding in bindings:
             bindings_map.setdefault(binding.event_definition_id, []).append(binding)
 
-        payload = []
+        repeat_rule_instances = list(
+            SubjectEventInstance.objects.filter(
+                subject_id=self.object.pk,
+                event_definition_id__in=event_definition_ids,
+                deleted=False,
+            ).only("id", "event_definition_id", "status")
+        )
+        event_definition_counts = {}
+        open_event_definition_ids = set()
+        for event_instance in repeat_rule_instances:
+            event_definition_counts[event_instance.event_definition_id] = (
+                event_definition_counts.get(event_instance.event_definition_id, 0) + 1
+            )
+            if event_instance.status == EventInstanceStatusChoices.OPEN:
+                open_event_definition_ids.add(event_instance.event_definition_id)
+
+        last_visible_event_instance_id_by_definition = {}
+        for event_instance in event_instances:
+            last_visible_event_instance_id_by_definition[event_instance.event_definition_id] = (
+                event_instance.pk
+            )
+
+        event_items_by_definition = {}
         for event_instance in event_instances:
             forms = []
             for binding in bindings_map.get(event_instance.event_definition_id, []):
@@ -60,13 +85,83 @@ class SubjectDetailNavigationMixin:
                     }
                 )
 
+            event_definition = event_instance.event_definition
+            event_name = event_instance.event_name_snapshot or event_definition.name
+            event_count = event_definition_counts.get(event_instance.event_definition_id, 0)
+            max_repeats = event_definition.max_repeats
+            is_last_repeat_instance = (
+                last_visible_event_instance_id_by_definition.get(event_instance.event_definition_id)
+                == event_instance.pk
+            )
+            can_add_another = self._can_add_another_repeating_event(
+                is_repeating=event_definition.is_repeating,
+                is_last_repeat_instance=is_last_repeat_instance,
+                has_open_event_instance=event_instance.event_definition_id in open_event_definition_ids,
+                event_count=event_count,
+                max_repeats=max_repeats,
+            )
+            event_items_by_definition.setdefault(event_instance.event_definition_id, []).append(
+                self._build_event_navigation_item(
+                    event_instance=event_instance,
+                    event_definition=event_definition,
+                    event_name=event_name,
+                    forms=forms,
+                    can_add_another=can_add_another,
+                ),
+            )
+        return self._collapse_repeating_event_navigation(event_items_by_definition)
+
+    def _build_event_navigation_item(
+        self,
+        *,
+        event_instance,
+        event_definition,
+        event_name: str,
+        forms: list[dict],
+        can_add_another: bool,
+    ) -> dict:
+        return {
+            "id": str(event_instance.pk),
+            "event_definition_id": str(event_instance.event_definition_id),
+            "code": event_instance.event_code_snapshot or event_definition.code,
+            "name": event_name,
+            "status": event_instance.status,
+            "repeat_index": event_instance.repeat_index,
+            "is_repeating": event_definition.is_repeating,
+            "can_add_another": can_add_another,
+            "add_another_label": _("Add Another %(event_name)s") % {"event_name": event_name},
+            "completed_at_label": self._format_completed_at_label(event_instance.completed_at),
+            "forms": forms,
+            "repeat_event_instances": [],
+        }
+
+    @staticmethod
+    def _collapse_repeating_event_navigation(event_items_by_definition: dict[int, list[dict]]) -> list[dict]:
+        payload = []
+        for event_items in event_items_by_definition.values():
+            if not event_items:
+                continue
+            if not event_items[0].get("is_repeating"):
+                payload.extend(event_items)
+                continue
+
+            primary_item = next(
+                (
+                    event_item
+                    for event_item in event_items
+                    if event_item.get("status") == EventInstanceStatusChoices.OPEN
+                ),
+                event_items[-1],
+            )
+            repeat_event_instances = [
+                event_item
+                for event_item in event_items
+                if event_item.get("status") == EventInstanceStatusChoices.COMPLETED
+            ]
             payload.append(
                 {
-                    "id": str(event_instance.pk),
-                    "code": event_instance.event_code_snapshot or event_instance.event_definition.code,
-                    "name": event_instance.event_name_snapshot or event_instance.event_definition.name,
-                    "status": event_instance.status,
-                    "forms": forms,
+                    **primary_item,
+                    "repeat_event_instances": repeat_event_instances,
                 }
             )
         return payload
@@ -78,7 +173,31 @@ class SubjectDetailNavigationMixin:
         for item in items:
             if item["id"] == focus_id:
                 return item
+            for repeat_item in item.get("repeat_event_instances") or []:
+                if repeat_item["id"] == focus_id:
+                    return repeat_item
         return items[0]
+
+    @staticmethod
+    def _can_add_another_repeating_event(
+        *,
+        is_repeating: bool,
+        is_last_repeat_instance: bool,
+        has_open_event_instance: bool,
+        event_count: int,
+        max_repeats: int | None,
+    ) -> bool:
+        if not is_repeating or not is_last_repeat_instance or has_open_event_instance:
+            return False
+        return max_repeats is None or event_count < max_repeats
+
+    @staticmethod
+    def _format_completed_at_label(value) -> str:
+        if value in (None, ""):
+            return "—"
+        if getattr(value, "tzinfo", None) is not None:
+            value = timezone.localtime(value)
+        return date_format(value, "DATE_FORMAT")
 
     def _with_focus_urls(self, event_navigation):
         detail_url = reverse(
@@ -90,6 +209,7 @@ class SubjectDetailNavigationMixin:
         )
         payload = []
         for event_item in event_navigation:
+            add_another_url = self._build_add_another_url(event_item)
             forms_with_url = [
                 {
                     **form_item,
@@ -101,8 +221,52 @@ class SubjectDetailNavigationMixin:
                 {
                     **event_item,
                     "focus_url": f"{detail_url}?event={event_item['id']}",
+                    "add_another_url": add_another_url,
                     "forms": forms_with_url,
+                    "repeat_event_instances": self._with_repeat_event_focus_urls(
+                        repeat_event_instances=event_item.get("repeat_event_instances") or [],
+                        detail_url=detail_url,
+                        add_another_url=add_another_url,
+                    ),
                 },
+            )
+        return payload
+
+    def _build_add_another_url(self, event_item: dict) -> str:
+        if not event_item.get("can_add_another"):
+            return ""
+        return reverse(
+            "subject:subject_eventinstance_add_another",
+            kwargs={
+                "study_id": self.get_study_id(),
+                "subject_id": self.object.pk,
+                "event_definition_id": event_item["event_definition_id"],
+            },
+        )
+
+    @staticmethod
+    def _with_repeat_event_focus_urls(
+        *,
+        repeat_event_instances: list[dict],
+        detail_url: str,
+        add_another_url: str,
+    ) -> list[dict]:
+        payload = []
+        for repeat_item in repeat_event_instances:
+            forms_with_url = [
+                {
+                    **form_item,
+                    "focus_url": f"{detail_url}?event={repeat_item['id']}&form={form_item['id']}",
+                }
+                for form_item in repeat_item["forms"]
+            ]
+            payload.append(
+                {
+                    **repeat_item,
+                    "focus_url": f"{detail_url}?event={repeat_item['id']}",
+                    "add_another_url": add_another_url,
+                    "forms": forms_with_url,
+                }
             )
         return payload
 

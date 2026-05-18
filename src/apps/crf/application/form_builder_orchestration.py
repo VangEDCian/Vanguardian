@@ -116,6 +116,24 @@ class FormBuilderOrchestrationService:
     def _aggregate_metadata_snapshot(self, aggregate):
         return self._sanitize_for_audit(aggregate.to_persistence_payload())
 
+    @staticmethod
+    def _translated_related_value(instance, field_name, default=None):
+        if instance is None:
+            return default
+        translations = list(getattr(getattr(instance, "translations", None), "all", lambda: [])())
+        for language_code in ("en", "vi"):
+            for translation in translations:
+                if str(translation.language_code).strip().lower() != language_code:
+                    continue
+                value = getattr(translation, field_name, default)
+                if value not in (None, ""):
+                    return value
+        for translation in translations:
+            value = getattr(translation, field_name, default)
+            if value not in (None, ""):
+                return value
+        return default
+
     def _model_metadata_snapshot(self, field):
         definition = getattr(field, "definition", None)
         ui_config = getattr(field, "ui_config", None)
@@ -134,25 +152,25 @@ class FormBuilderOrchestrationService:
                 },
                 "field_definition": {
                     "sdtm": getattr(definition, "sdtm", "") if definition else "",
-                    "unit": getattr(definition, "unit", None) if definition else None,
+                    "unit": self._translated_related_value(definition, "unit"),
                     "range_min": getattr(definition, "range_min", None) if definition else None,
                     "range_max": getattr(definition, "range_max", None) if definition else None,
                     "precision": getattr(definition, "precision", None) if definition else None,
                     "allowed_missing_values": getattr(definition, "allowed_missing_values", "") if definition else "",
-                    "codelist": getattr(definition, "codelist", None) if definition else None,
+                    "codelist": self._translated_related_value(definition, "codelist"),
                     "data_semantic": getattr(definition, "data_semantic", None) if definition else None,
-                    "comments": getattr(definition, "comments", None) if definition else None,
+                    "comments": self._translated_related_value(definition, "comments"),
                     "text_max_length": getattr(definition, "text_max_length", None) if definition else None,
                     "text_min_length": getattr(definition, "text_min_length", None) if definition else None,
                     "pattern": getattr(definition, "pattern", None) if definition else None,
-                    "pattern_err_msg": getattr(definition, "pattern_err_msg", None) if definition else None,
+                    "pattern_err_msg": self._translated_related_value(definition, "pattern_err_msg"),
                 },
                 "field_ui_config": {
                     "control_type": getattr(ui_config, "control_type", None) if ui_config else None,
                     "layout": getattr(ui_config, "layout", None) if ui_config else None,
-                    "text": getattr(ui_config, "text", None) if ui_config else None,
+                    "text": self._translated_related_value(ui_config, "text"),
                     "behavior": getattr(ui_config, "behavior", None) if ui_config else None,
-                    "options": getattr(ui_config, "options", None) if ui_config else None,
+                    "options": self._translated_related_value(ui_config, "options"),
                     "style": getattr(ui_config, "style", None) if ui_config else None,
                 },
                 "field_validation_rules": [

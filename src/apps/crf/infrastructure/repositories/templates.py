@@ -74,7 +74,6 @@ class DjangoCrfTemplateRepository:
                 field_template_id__in=field_template_ids,
                 deleted=False,
             )
-            .defer("unit", "codelist", "comments", "pattern_err_msg")
             .prefetch_related("translations")
         )
 
@@ -84,7 +83,6 @@ class DjangoCrfTemplateRepository:
                 field_template_id__in=field_template_ids,
                 deleted=False,
             )
-            .defer("text", "options")
             .prefetch_related("translations")
         )
 

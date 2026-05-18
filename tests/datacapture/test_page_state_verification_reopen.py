@@ -30,6 +30,7 @@ class _CorrectionRequiredVerificationRepository:
         self.status = DataCapturePageState.CORRECTION_REQUIRED
         self.start_page_review_called = False
         self.verify_page_state_if_ready_called = False
+        self.all_visit_forms_verified = False
 
     def get_page_state(self, **kwargs):
         return DataCapturePageStateSnapshot(
@@ -80,6 +81,9 @@ class _CorrectionRequiredVerificationRepository:
         self.status = DataCapturePageState.VERIFIED
         return DataCapturePageState.VERIFIED
 
+    def are_all_visit_forms_verified(self, **kwargs):
+        return self.all_visit_forms_verified
+
 
 class _VerifiedReopenRepository:
     def __init__(self):
@@ -103,6 +107,25 @@ class _VerifiedReopenRepository:
     def reopen_verified_page_state(self, **kwargs):
         self.reopen_kwargs = kwargs
         return DataCapturePageState.CORRECTION_REQUIRED
+
+
+class _SubjectEventLifecycleAdapter:
+    def __init__(self):
+        self.completed_event_instances = []
+        self.in_progress_event_instances = []
+        self.verified_event_instances = []
+
+    def complete_event_instance(self, **kwargs):
+        self.completed_event_instances.append(kwargs)
+        return True
+
+    def mark_event_instance_in_progress(self, **kwargs):
+        self.in_progress_event_instances.append(kwargs)
+        return True
+
+    def verify_event_instance(self, **kwargs):
+        self.verified_event_instances.append(kwargs)
+        return True
 
 
 class _NotReviewableVerificationRepository:
@@ -158,6 +181,40 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
         self.assertIs(repository.start_page_review_called, True)
         self.assertIs(repository.verify_page_state_if_ready_called, True)
 
+    def test_verify_marks_visit_verified_when_all_visit_forms_are_verified(self):
+        repository = _CorrectionRequiredVerificationRepository()
+        repository.all_visit_forms_verified = True
+        subject_event_lifecycle_adapter = _SubjectEventLifecycleAdapter()
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_NoBlockingQueries(),
+            subject_event_lifecycle_adapter=subject_event_lifecycle_adapter,
+        )
+        service._required_field_template_ids = lambda **kwargs: (1,)
+
+        with patch(
+            "apps.datacapture.application.services.page_state_verification_final_data."
+            "CrfContextAdapter.list_template_fields_with_ui_config",
+            return_value=[{"id": 1, "field_key": "field_1"}],
+        ):
+            service.merge_checked_field_template_ids(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                checked_field_template_ids=[1],
+                actor_user_id=1,
+            )
+
+        self.assertEqual(
+            subject_event_lifecycle_adapter.verified_event_instances,
+            [
+                {
+                    "event_instance_id": 51,
+                    "actor_user_id": 1,
+                }
+            ],
+        )
+
     def test_verify_rejects_page_states_outside_reviewable_statuses(self):
         for status in (
             "",
@@ -205,9 +262,11 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
 
     def test_reopen_passes_normalized_reason_to_repository(self):
         repository = _VerifiedReopenRepository()
+        subject_event_lifecycle_adapter = _SubjectEventLifecycleAdapter()
         service = DataCapturePageStateVerificationFinalDataService(
             repository=repository,
             reconcile_read_service=_NoBlockingQueries(),
+            subject_event_lifecycle_adapter=subject_event_lifecycle_adapter,
         )
 
         page_status = service.reopen_verified_page_state(
@@ -226,4 +285,13 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                 "reason_text": "Need correction after review",
                 "actor_user_id": 1,
             },
+        )
+        self.assertEqual(
+            subject_event_lifecycle_adapter.in_progress_event_instances,
+            [
+                {
+                    "event_instance_id": 51,
+                    "actor_user_id": 1,
+                }
+            ],
         )

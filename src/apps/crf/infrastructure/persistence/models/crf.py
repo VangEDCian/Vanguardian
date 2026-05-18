@@ -283,18 +283,14 @@ class CrfFieldDefinition(models.Model):
     deleted = models.BooleanField(default=False)
 
     sdtm = models.TextField(null=True, blank=True)
-    unit = models.CharField(max_length=50, null=True, blank=True)
     range_min = models.DecimalField(max_digits=21, decimal_places=6, null=True, blank=True)
     range_max = models.DecimalField(max_digits=21, decimal_places=6, null=True, blank=True)
     precision = models.IntegerField(null=True, blank=True)
     allowed_missing_values = models.TextField(default="", blank=True)
-    codelist = models.TextField(null=True, blank=True)
     data_semantic = models.TextField(null=True, blank=True)
-    comments = models.TextField(null=True, blank=True)
     text_max_length = models.IntegerField(null=True, blank=True)
     text_min_length = models.IntegerField(null=True, blank=True)
     pattern = models.TextField(null=True, blank=True)
-    pattern_err_msg = models.TextField(null=True, blank=True)
 
     field_template = models.OneToOneField(
         CrfFieldTemplate,
@@ -359,9 +355,7 @@ class CrfFieldUiConfig(models.Model):
     )
     control_layout = models.CharField(max_length=20, default="normal")
     layout = models.TextField(null=True, blank=True)
-    text = models.TextField(null=True, blank=True)
     behavior = models.TextField(null=True, blank=True)
-    options = models.JSONField(null=True, blank=True)
     style = models.TextField(null=True, blank=True)
     classes = models.CharField(max_length=255, null=True, blank=True)
 

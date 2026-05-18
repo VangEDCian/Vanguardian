@@ -2,6 +2,19 @@
 <footer class="subject-detail-screen__footer">
     <div class="subject-detail-screen__footer-actions">
         {% if not is_page_edit_locked %}
+            {% if focused_event.is_repeating %}
+                <form method="post"
+                      action="{{ focused_event.add_another_url|default:'#' }}"
+                      class="subject-detail-screen__footer-inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit"
+                            class="entity-table__footer-button entity-table__footer-button--secondary"
+                            {% if not focused_event.add_another_url %}disabled{% endif %}>
+                        {{ focused_event.add_another_label }}
+                    </button>
+                </form>
+            {% endif %}
             <button type="button"
                     class="entity-table__footer-button entity-table__footer-button--primary"
                     {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-save{% else %}disabled{% endif %}>

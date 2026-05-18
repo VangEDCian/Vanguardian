@@ -670,6 +670,28 @@ msgid "Please fill in both password fields to change the password."
 msgstr "Vui lòng điền đầy đủ cả hai trường mật khẩu để thay đổi mật khẩu."
 
 #. ==============================
+#. Module: Subject
+#. Feature: Repeating event instances
+#. ==============================
+msgid "Add Another %(event_name)s"
+msgstr "Thêm %(event_name)s"
+
+msgid "Complete the current form before creating another one."
+msgstr "Hãy hoàn tất form hiện tại trước khi tạo mới"
+
+msgid "You have exceeded the allowed number of forms. Please contact the Administrator."
+msgstr "Bạn đã vượt số lượng form được phép tạo, vui lòng liên hệ Quản Trị Viên"
+
+msgid "Another %(event_name)s was created."
+msgstr "Đã tạo thêm %(event_name)s."
+
+msgid "Repeating event definition was not found."
+msgstr "Không tìm thấy event definition có thể lặp."
+
+msgid "Unable to add another subject event instance."
+msgstr "Không thể tạo thêm event instance cho subject."
+
+#. ==============================
 #. Module: Study
 #. Feature: Randomization
 #. ==============================

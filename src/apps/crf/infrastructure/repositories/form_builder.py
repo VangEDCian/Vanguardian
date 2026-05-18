@@ -9,8 +9,10 @@ from apps.crf.domain.repositories import (
 )
 from apps.crf.models import (
     CrfFieldDefinition,
+    CrfFieldDefinitionTranslation,
     CrfFieldTemplate,
     CrfFieldUiConfig,
+    CrfFieldUiConfigTranslation,
     CrfFieldValidationRule,
     CrfSectionTemplate,
     CrfTemplate,
@@ -26,14 +28,22 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
         ).first()
 
     def get_field_by_scope(self, *, study_id, form_id, field_id):
-        return CrfFieldTemplate.objects.filter(
-            pk=field_id,
-            crf_template_id=form_id,
-            crf_template__study_id=study_id,
-            deleted=False,
-        ).select_related("definition", "ui_config", "section_template", "crf_template") \
-         .prefetch_related("translations", "validation_rules__translations") \
-         .first()
+        return (
+            CrfFieldTemplate.objects.filter(
+                pk=field_id,
+                crf_template_id=form_id,
+                crf_template__study_id=study_id,
+                deleted=False,
+            )
+            .select_related("definition", "ui_config", "section_template", "crf_template")
+            .prefetch_related(
+                "translations",
+                "definition__translations",
+                "ui_config__translations",
+                "validation_rules__translations",
+            )
+            .first()
+        )
 
     def get_field_aggregate_by_scope(self, *, study_id, field_id):
         return (
@@ -43,7 +53,12 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
                 deleted=False,
             )
             .select_related("definition", "ui_config", "section_template", "crf_template")
-            .prefetch_related("translations", "validation_rules__translations")
+            .prefetch_related(
+                "translations",
+                "definition__translations",
+                "ui_config__translations",
+                "validation_rules__translations",
+            )
             .first()
         )
 
@@ -79,8 +94,18 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
         self._apply_field_snapshot(field, aggregate.to_persistence_payload()["field_template"], now=now)
         field.save()
 
-        self._save_definition_snapshot(field_template_id=field.pk, snapshot=aggregate.to_persistence_payload()["field_definition"], actor_user_id=actor_user_id, now=now)
-        self._save_ui_config_snapshot(field_template_id=field.pk, snapshot=aggregate.to_persistence_payload()["field_ui_config"], actor_user_id=actor_user_id, now=now)
+        self._save_definition_snapshot(
+            field_template_id=field.pk,
+            snapshot=aggregate.to_persistence_payload()["field_definition"],
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        self._save_ui_config_snapshot(
+            field_template_id=field.pk,
+            snapshot=aggregate.to_persistence_payload()["field_ui_config"],
+            actor_user_id=actor_user_id,
+            now=now,
+        )
         validation_rules = self._replace_validation_rules(
             field_template_id=field.pk,
             snapshots=aggregate.to_persistence_payload()["field_validation_rules"],
@@ -168,7 +193,11 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
             crf_template_id=form_id,
             crf_template__study_id=study_id,
             deleted=False,
-        ).select_related("definition", "ui_config").prefetch_related("validation_rules__translations").first()
+        ).select_related("definition", "ui_config").prefetch_related(
+            "definition__translations",
+            "ui_config__translations",
+            "validation_rules__translations",
+        ).first()
         if field is None:
             return None
 
@@ -182,7 +211,11 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
             crf_template_id=form_id,
             crf_template__study_id=study_id,
             deleted=False,
-        ).select_related("crf_template").prefetch_related("field_templates__definition", "field_templates__ui_config", "field_templates__validation_rules__translations").first()
+        ).select_related("crf_template").prefetch_related(
+            "field_templates__definition__translations",
+            "field_templates__ui_config__translations",
+            "field_templates__validation_rules__translations",
+        ).first()
         if section is None:
             return None
 
@@ -223,7 +256,11 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
     def _soft_delete_field_models(self, field, *, now, actor_user_id):
         definition = getattr(field, "definition", None)
         ui_config = getattr(field, "ui_config", None)
-        validation_rules = list(getattr(field, "validation_rules", []).all()) if hasattr(field, "validation_rules") else []
+        validation_rules = (
+            list(getattr(field, "validation_rules", []).all())
+            if hasattr(field, "validation_rules")
+            else []
+        )
 
         if definition is not None and not definition.deleted:
             definition.deleted = True
@@ -251,32 +288,29 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
         field.save(update_fields=["deleted", "updated_at", "updated_by_id"])
 
     def _save_definition_snapshot(self, *, field_template_id, snapshot, actor_user_id, now):
-        CrfFieldDefinition.objects.update_or_create(
+        definition, _ = CrfFieldDefinition.objects.update_or_create(
             field_template_id=field_template_id,
             defaults={
                 "created_at": now,
                 "updated_at": now,
                 "deleted": False,
                 "sdtm": json.dumps(snapshot["sdtm"], ensure_ascii=True, sort_keys=True),
-                "unit": snapshot["unit"],
                 "range_min": snapshot["range_min"],
                 "range_max": snapshot["range_max"],
                 "precision": snapshot["precision"],
                 "allowed_missing_values": snapshot["allowed_missing_values"],
-                "codelist": snapshot["codelist"] or "",
                 "data_semantic": snapshot["data_semantic"],
-                "comments": snapshot["comments"],
                 "text_max_length": snapshot["text_max_length"],
                 "text_min_length": snapshot["text_min_length"],
                 "pattern": snapshot["pattern"],
-                "pattern_err_msg": snapshot["pattern_err_msg"],
                 "created_by_id": actor_user_id,
                 "updated_by_id": actor_user_id,
             },
         )
+        self._save_definition_translation_snapshots(definition=definition, snapshot=snapshot)
 
     def _save_ui_config_snapshot(self, *, field_template_id, snapshot, actor_user_id, now):
-        CrfFieldUiConfig.objects.update_or_create(
+        ui_config, _ = CrfFieldUiConfig.objects.update_or_create(
             field_template_id=field_template_id,
             defaults={
                 "created_at": now,
@@ -284,14 +318,37 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
                 "deleted": False,
                 "control_type": snapshot["control_type"],
                 "layout": snapshot["layout"],
-                "text": snapshot["text"],
                 "behavior": snapshot["behavior"],
-                "options": snapshot["options"],
                 "style": snapshot["style"],
                 "created_by_id": actor_user_id,
                 "updated_by_id": actor_user_id,
             },
         )
+        self._save_ui_config_translation_snapshots(ui_config=ui_config, snapshot=snapshot)
+
+    def _save_definition_translation_snapshots(self, *, definition, snapshot):
+        for language_code in ("en", "vi"):
+            CrfFieldDefinitionTranslation.objects.update_or_create(
+                master=definition,
+                language_code=language_code,
+                defaults={
+                    "unit": snapshot["unit"],
+                    "codelist": snapshot["codelist"] or "",
+                    "comments": snapshot["comments"],
+                    "pattern_err_msg": snapshot["pattern_err_msg"],
+                },
+            )
+
+    def _save_ui_config_translation_snapshots(self, *, ui_config, snapshot):
+        for language_code in ("en", "vi"):
+            CrfFieldUiConfigTranslation.objects.update_or_create(
+                master=ui_config,
+                language_code=language_code,
+                defaults={
+                    "text": snapshot["text"],
+                    "options": snapshot["options"],
+                },
+            )
 
     def _replace_validation_rules(self, *, field_template_id, snapshots, actor_user_id, now):
         existing_rules = list(
@@ -347,7 +404,12 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
         field_templates_qs = (
             CrfFieldTemplate.objects.filter(deleted=False)
             .select_related("definition", "ui_config", "section_template")
-            .prefetch_related("translations", Prefetch("validation_rules", queryset=validation_rules_qs))
+            .prefetch_related(
+                "translations",
+                "definition__translations",
+                "ui_config__translations",
+                Prefetch("validation_rules", queryset=validation_rules_qs),
+            )
             .order_by("display_order", "id")
         )
 
@@ -372,6 +434,11 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
                 deleted=False,
             )
             .select_related("definition", "ui_config")
-            .prefetch_related("translations", "validation_rules__translations")
+            .prefetch_related(
+                "translations",
+                "definition__translations",
+                "ui_config__translations",
+                "validation_rules__translations",
+            )
             .order_by("display_order", "id")
         )

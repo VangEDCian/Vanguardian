@@ -12,16 +12,21 @@ from apps.datacapture.application.validators import DataCapturePageStateVerifica
 from apps.datacapture.domain.status import DataCapturePageState
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 from apps.reconcile.application.services.dataquery_read import ReconcileDataQueryReadService
+from apps.subject.public import SubjectEventLifecycleAdapter
 
 
 class DataCapturePageStateVerificationFinalDataService:
     """Verify field reviews and page state without mutating clinical ``final_data``."""
 
     validator_class = DataCapturePageStateVerificationValidator
+    subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter
 
-    def __init__(self, repository=None, reconcile_read_service=None):
+    def __init__(self, repository=None, reconcile_read_service=None, subject_event_lifecycle_adapter=None):
         self.repository = repository or DjangoDataCapturePageRepository()
         self.reconcile_read_service = reconcile_read_service or ReconcileDataQueryReadService()
+        self.subject_event_lifecycle_adapter = (
+            subject_event_lifecycle_adapter or self.subject_event_lifecycle_adapter_class()
+        )
         self.validator = self.validator_class()
 
     @staticmethod
@@ -187,7 +192,33 @@ class DataCapturePageStateVerificationFinalDataService:
             page_state_id=snapshot.id,
             actor_user_id=actor_user_id,
         )
+        self._verify_visit_if_all_forms_verified(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            actor_user_id=actor_user_id,
+            page_status=page_status,
+        )
         return True, page_status, []
+
+    def _verify_visit_if_all_forms_verified(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        actor_user_id: int | None,
+        page_status: str,
+    ) -> None:
+        if page_status != DataCapturePageState.VERIFIED:
+            return
+        if not self.repository.are_all_visit_forms_verified(
+            subject_id=subject_id,
+            visit_id=visit_id,
+        ):
+            return
+        self.subject_event_lifecycle_adapter.verify_event_instance(
+            event_instance_id=visit_id,
+            actor_user_id=actor_user_id,
+        )
 
     def list_verified_or_waived_field_template_ids(
         self,
@@ -226,11 +257,17 @@ class DataCapturePageStateVerificationFinalDataService:
         self.validator.require_page_state(snapshot)
         self.validator.require_reopen_status(snapshot.status)
         normalized_reason = self.validator.require_reopen_reason(reason_text)
-        return self.repository.reopen_verified_page_state(
+        page_status = self.repository.reopen_verified_page_state(
             page_state_id=snapshot.id,
             reason_text=normalized_reason,
             actor_user_id=actor_user_id,
         )
+        if page_status == DataCapturePageState.CORRECTION_REQUIRED:
+            self.subject_event_lifecycle_adapter.mark_event_instance_in_progress(
+                event_instance_id=visit_id,
+                actor_user_id=actor_user_id,
+            )
+        return page_status
 
     def list_verified_field_template_ids(
         self,

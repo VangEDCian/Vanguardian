@@ -40,6 +40,7 @@ class StudyEventTransitionRuleSnapshot:
     requires_previous_completion: bool
     allow_skip: bool
     display_order: int
+    offset_days: int | None = None
 
 
 @dataclass(frozen=True)

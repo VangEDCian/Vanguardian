@@ -518,6 +518,29 @@ msgstr "Start date cannot be in the past."
 
 msgid "End date must be on or after start date."
 msgstr "End date must be on or after start date."
+
+#. ==============================
+#. Module: Subject
+#. Feature: Repeating event instances
+#. ==============================
+msgid "Add Another %(event_name)s"
+msgstr "Add Another %(event_name)s"
+
+msgid "Complete the current form before creating another one."
+msgstr "Complete the current form before creating another one."
+
+msgid "You have exceeded the allowed number of forms. Please contact the Administrator."
+msgstr "You have exceeded the allowed number of forms. Please contact the Administrator."
+
+msgid "Another %(event_name)s was created."
+msgstr "Another %(event_name)s was created."
+
+msgid "Repeating event definition was not found."
+msgstr "Repeating event definition was not found."
+
+msgid "Unable to add another subject event instance."
+msgstr "Unable to add another subject event instance."
+
 msgid "Deactivate this study?"
 msgstr "Deactivate this study?"
 

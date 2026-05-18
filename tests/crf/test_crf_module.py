@@ -14,6 +14,7 @@ from apps.crf.domain.aggregate import FieldTemplateAggregate
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError
 from apps.crf.infrastructure.repositories.form_builder import DjangoOrmFormBuilderRepository
 from apps.crf.infrastructure.repositories.templates import DjangoCrfTemplateRepository
+from apps.crf.models import CrfFieldDefinition, CrfFieldUiConfig
 from apps.study.presentation.web.tables import CrfTemplateListTable
 
 
@@ -60,6 +61,13 @@ class CrfTemplateCommandServiceTests(SimpleTestCase):
 
 
 class CrfTemplateQueryServiceTests(SimpleTestCase):
+    def test_translated_config_columns_are_not_declared_on_master_models(self):
+        field_definition_fields = {field.name for field in CrfFieldDefinition._meta.get_fields()}
+        field_ui_config_fields = {field.name for field in CrfFieldUiConfig._meta.get_fields()}
+
+        self.assertFalse({"unit", "codelist", "comments", "pattern_err_msg"} & field_definition_fields)
+        self.assertFalse({"text", "options"} & field_ui_config_fields)
+
     def test_field_definition_query_does_not_select_translated_columns_from_master_table(self):
         repository = DjangoCrfTemplateRepository()
 

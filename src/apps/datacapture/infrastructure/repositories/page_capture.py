@@ -1,6 +1,7 @@
 import json
 
 from django.db.models import Max, Prefetch
+from django.utils.translation import get_language
 
 from apps.core.choices import (
     DataCaptureFieldReviewStatusChoices,
@@ -20,6 +21,8 @@ from apps.datacapture.models import (
     DataCapturePageState,
     DataCapturePageStateTransitionLog,
 )
+from apps.study.models import EventFormBinding
+from apps.subject.models import SubjectEventInstance
 
 
 class DjangoDataCapturePageRepository:
@@ -121,6 +124,33 @@ class DjangoDataCapturePageRepository:
         return str(raw_control_type or "").strip().lower().replace(" ", "") == "select2"
 
     @staticmethod
+    def _normalize_language_code(language_code) -> str:
+        return str(language_code or "en").split("-")[0].strip().lower() or "en"
+
+    @classmethod
+    def _translated_ui_config_options(cls, ui_config):
+        if ui_config is None:
+            return None
+        translations = list(getattr(getattr(ui_config, "translations", None), "all", lambda: [])())
+        if not translations:
+            return None
+        translation_by_language = {
+            cls._normalize_language_code(translation.language_code): translation
+            for translation in translations
+        }
+        current_language = cls._normalize_language_code(get_language())
+        for language_code in (current_language, "en"):
+            translation = translation_by_language.get(language_code)
+            if translation is None:
+                continue
+            if translation.options not in (None, ""):
+                return translation.options
+        for translation in translations:
+            if translation.options not in (None, ""):
+                return translation.options
+        return None
+
+    @staticmethod
     def _normalize_lookup_label(raw_value) -> str:
         return str(raw_value or "").strip()
 
@@ -132,7 +162,7 @@ class DjangoDataCapturePageRepository:
         ui_config = getattr(field, "ui_config", None)
         if ui_config is None or not self._is_select2_control(ui_config.control_type):
             return ""
-        options = self._normalize_ui_options(ui_config.options)
+        options = self._normalize_ui_options(self._translated_ui_config_options(ui_config))
         if str(options.get("source") or "").strip().lower() != "lookup":
             return ""
         return str(options.get("lookup") or "").strip()
@@ -190,11 +220,11 @@ class DjangoDataCapturePageRepository:
                 is_active=True,
             )
             .select_related("ui_config")
+            .prefetch_related("ui_config__translations")
             .only(
                 "id",
                 "field_key",
                 "ui_config__control_type",
-                "ui_config__options",
             )
         )
         now = self._now()
@@ -457,6 +487,59 @@ class DjangoDataCapturePageRepository:
             deleted=False,
             status=DataCapturePageEntryStatusChoices.SUBMITTED,
         ).exclude(pk=exclude_entry_id).exists()
+
+    def are_all_visit_forms_submitted(self, *, subject_id: int, visit_id: int) -> bool:
+        return self._are_all_visit_forms_in_status(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            status=DataCapturePageStateStatusChoices.SUBMITTED,
+        )
+
+    def are_all_visit_forms_verified(self, *, subject_id: int, visit_id: int) -> bool:
+        return self._are_all_visit_forms_in_status(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            status=DataCapturePageStateStatusChoices.VERIFIED,
+        )
+
+    def _are_all_visit_forms_in_status(self, *, subject_id: int, visit_id: int, status: str) -> bool:
+        visit = (
+            SubjectEventInstance.objects.filter(
+                pk=visit_id,
+                subject_id=subject_id,
+                deleted=False,
+            )
+            .only("id", "event_definition_id")
+            .first()
+        )
+        if visit is None:
+            return False
+
+        form_definition_ids = list(
+            EventFormBinding.objects.filter(
+                event_definition_id=visit.event_definition_id,
+                deleted=False,
+                is_enabled=True,
+            )
+            .values_list("form_definition_id", flat=True)
+            .distinct()
+        )
+        if not form_definition_ids:
+            return False
+
+        submitted_form_count = (
+            DataCapturePageState.objects.filter(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id__in=form_definition_ids,
+                deleted=False,
+                status=status,
+            )
+            .values("crf_template_id")
+            .distinct()
+            .count()
+        )
+        return submitted_form_count == len(form_definition_ids)
 
     def list_submitted_entry_ids_except(
         self, *, subject_id: int, visit_id: int, crf_template_id: int, exclude_entry_id: int | None

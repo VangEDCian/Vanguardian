@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction
 
 from apps.subject.application.commands.trigger_event_transition import (
@@ -92,6 +94,10 @@ class SubjectEventTransitionService:
                         event_definition=event_definition,
                         actor_user_id=command.actor_user_id,
                         now=now,
+                        planned_date=self._resolve_planned_date(
+                            offset_days=rule.offset_days,
+                            anchor_datetime=now,
+                        ),
                     )
                 else:
                     opened_event = self.repository.open_event_instance(
@@ -160,6 +166,12 @@ class SubjectEventTransitionService:
             facts[f"trigger_source.{trigger_source}"] = True
         facts.update(external_facts or {})
         return facts
+
+    @staticmethod
+    def _resolve_planned_date(*, offset_days, anchor_datetime):
+        if offset_days is None:
+            return None
+        return anchor_datetime + timedelta(days=offset_days)
 
 
 __all__ = [

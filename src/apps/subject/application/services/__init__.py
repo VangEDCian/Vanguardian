@@ -1,12 +1,16 @@
 from importlib import import_module
 
 __all__ = [
+    "AddRepeatingSubjectEventInstanceService",
     "CreateSubjectService",
+    "SubjectEventCompletionService",
     "SubjectEventTransitionService",
 ]
 
 _MODULE_BY_NAME = {
+    "AddRepeatingSubjectEventInstanceService": "apps.subject.application.services.add_repeating_event_instance",
     "CreateSubjectService": "apps.subject.application.services.create_subject",
+    "SubjectEventCompletionService": "apps.subject.application.services.event_completion",
     "SubjectEventTransitionService": "apps.subject.application.services.event_lifecycle",
 }
 
