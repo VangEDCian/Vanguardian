@@ -28,7 +28,58 @@ def create_data_queries_for_page_change_reasons(
     )
 
 
+def open_reconcile_query(
+    *,
+    page_state_id: int,
+    field_template_id: int,
+    message_text: str,
+    actor_user_id: int | None,
+) -> dict[str, object]:
+    return ReconcileDataQueryWriteService().open_query(
+        page_state_id=page_state_id,
+        field_template_id=field_template_id,
+        message_text=message_text,
+        actor_user_id=actor_user_id,
+    )
+
+
+def reply_to_reconcile_query(
+    *,
+    dataquery_id: int,
+    page_state_id: int,
+    field_template_id: int,
+    message_text: str,
+    actor_user_id: int | None,
+) -> dict[str, object]:
+    return ReconcileDataQueryWriteService().reply_to_query(
+        dataquery_id=dataquery_id,
+        page_state_id=page_state_id,
+        field_template_id=field_template_id,
+        message_text=message_text,
+        actor_user_id=actor_user_id,
+    )
+
+
+def reply_and_close_reconcile_query(
+    *,
+    dataquery_id: int,
+    page_state_id: int,
+    field_template_id: int,
+    message_text: str,
+    actor_user_id: int | None,
+) -> dict[str, object]:
+    return ReconcileDataQueryWriteService().reply_and_close_query(
+        dataquery_id=dataquery_id,
+        page_state_id=page_state_id,
+        field_template_id=field_template_id,
+        message_text=message_text,
+        actor_user_id=actor_user_id,
+    )
+
+
 __all__ = [
     "create_data_queries_for_page_change_reasons",
+    "open_reconcile_query",
+    "reply_and_close_reconcile_query",
+    "reply_to_reconcile_query",
 ]
-

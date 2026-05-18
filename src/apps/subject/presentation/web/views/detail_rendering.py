@@ -426,10 +426,16 @@ class SubjectDetailRenderingMixin:
         time_value = f"{hour}:{minute}" if hour and minute else ""
         return day, month, year, time_value
 
-    def _build_form_render_sections(self, focused_form_fields, entry_payload_map=None):
+    def _build_form_render_sections(
+        self,
+        focused_form_fields,
+        entry_payload_map=None,
+        field_query_state_by_id=None,
+    ):
         if not focused_form_fields:
             return []
         payload_map = entry_payload_map if isinstance(entry_payload_map, dict) else {}
+        query_state_by_id = field_query_state_by_id if isinstance(field_query_state_by_id, dict) else {}
 
         sections_by_key = {}
         for field in focused_form_fields:
@@ -499,6 +505,11 @@ class SubjectDetailRenderingMixin:
                 payload_map.get(f"{resolved_alias}__time")
             )
 
+            try:
+                query_state_key = int(field.get("id"))
+            except (TypeError, ValueError):
+                query_state_key = field.get("id")
+
             sections_by_key[section_key]["fields"].append(
                 {
                     "id": field.get("id"),
@@ -538,6 +549,7 @@ class SubjectDetailRenderingMixin:
                     "date_month": date_month,
                     "date_year": date_year,
                     "date_time": date_time,
+                    **query_state_by_id.get(query_state_key, {}),
                 }
             )
 

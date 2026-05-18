@@ -1,7 +1,8 @@
 {% load i18n subject_form_tags %}
-<tr class="subject-form-table-row{% if field.classes %} {{ field.classes }}{% endif %}"
+<tr class="subject-form-table-row{% if field.active_query_id %} subject-form-field--has-open-query{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
     data-field-key="{{ field.field_key }}"
     data-field-id="{{ field.id|default:'' }}"
+    data-query-field-container
     data-field-control-type="{{ field.control_type|default:'' }}"
     data-visible-when="{{ field.behavior_visible_when|default:''|escape }}"
     data-readonly-when="{{ field.behavior_readonly_when|default:''|escape }}"
@@ -29,6 +30,9 @@
                     {{ cell.text }}
                     {% if cell.show_required %}
                         <span class="subject-form-table-row__required">*</span>
+                    {% endif %}
+                    {% if cell.source == "label" %}
+                        {% include "subject/components/_field_query_indicator.html" with field=field %}
                     {% endif %}
                 </div>
                 {% if cell.helper_text %}

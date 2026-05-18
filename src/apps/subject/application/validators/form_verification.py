@@ -44,5 +44,32 @@ class SubjectFormVerificationRequestValidator:
         body = cls._parse_json_body(raw_body)
         return str(body.get("reason_text") or "").strip()
 
+    @classmethod
+    def parse_query_thread_action(cls, raw_body: bytes | str) -> dict[str, object]:
+        body = cls._parse_json_body(raw_body)
+        try:
+            dataquery_id = int(body.get("dataquery_id"))
+            field_template_id = int(body.get("field_template_id"))
+        except (TypeError, ValueError) as exc:
+            raise SubjectFormVerificationFieldTemplateIdsValueError() from exc
+        return {
+            "dataquery_id": dataquery_id,
+            "field_template_id": field_template_id,
+            "message_text": str(body.get("message_text") or "").strip(),
+            "close_query": body.get("close_query") is True,
+        }
+
+    @classmethod
+    def parse_open_query_action(cls, raw_body: bytes | str) -> dict[str, object]:
+        body = cls._parse_json_body(raw_body)
+        try:
+            field_template_id = int(body.get("field_template_id"))
+        except (TypeError, ValueError) as exc:
+            raise SubjectFormVerificationFieldTemplateIdsValueError() from exc
+        return {
+            "field_template_id": field_template_id,
+            "message_text": str(body.get("message_text") or "").strip(),
+        }
+
 
 __all__ = ["SubjectFormVerificationRequestValidator"]

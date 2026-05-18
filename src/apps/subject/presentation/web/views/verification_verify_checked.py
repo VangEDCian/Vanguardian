@@ -6,9 +6,11 @@ from django.views.decorators.csrf import csrf_exempt
 
 from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.public import (
+    get_page_state_id_for_subject_visit_crf,
     merge_form_verification_checked_fields_into_page_state_final_data,
     reopen_verified_form_verification_page_state,
 )
+from apps.reconcile.public import open_reconcile_query, reply_and_close_reconcile_query, reply_to_reconcile_query
 from apps.subject.application import (
     SubjectFormVerificationRequestValidator,
     SubjectValidationError,
@@ -83,4 +85,101 @@ class SubjectFormVerificationReopenView(
         )
 
 
-__all__ = ["SubjectFormVerificationReopenView", "SubjectFormVerificationVerifyCheckedView"]
+@method_decorator(csrf_exempt, name="dispatch")
+class SubjectFormVerificationQueryThreadView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SubjectAbstractVerifyStudy,
+    View,
+):
+    permission_required = "subject.verify_form"
+    raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        try:
+            normalized = SubjectFormVerificationRequestValidator.parse_query_thread_action(
+                request.body
+            )
+            page_state_id = get_page_state_id_for_subject_visit_crf(
+                subject_id=int(kwargs["subject_id"]),
+                visit_id=int(kwargs["visit_id"]),
+                crf_template_id=int(kwargs["crf_template_id"]),
+            )
+            if page_state_id is None:
+                return JsonResponse({"error": ["Page state not found."]}, status=400)
+            service_fn = (
+                reply_and_close_reconcile_query
+                if normalized["close_query"]
+                else reply_to_reconcile_query
+            )
+            result = service_fn(
+                dataquery_id=int(normalized["dataquery_id"]),
+                page_state_id=int(page_state_id),
+                field_template_id=int(normalized["field_template_id"]),
+                message_text=str(normalized["message_text"]),
+                actor_user_id=getattr(request.user, "id", None),
+            )
+        except (SubjectValidationError, DataCaptureValidationError, ValueError) as exc:
+            messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
+            return JsonResponse({"error": messages}, status=400)
+        return JsonResponse(
+            {
+                "ok": True,
+                "dataquery_id": result["dataquery_id"],
+                "message_text": result["message_text"],
+                "message_type": result["message_type"],
+                "created_at": result["created_at"],
+                "closed": result["closed"],
+            }
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SubjectFormVerificationOpenQueryView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SubjectAbstractVerifyStudy,
+    View,
+):
+    permission_required = "subject.verify_form"
+    raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        try:
+            normalized = SubjectFormVerificationRequestValidator.parse_open_query_action(
+                request.body
+            )
+            page_state_id = get_page_state_id_for_subject_visit_crf(
+                subject_id=int(kwargs["subject_id"]),
+                visit_id=int(kwargs["visit_id"]),
+                crf_template_id=int(kwargs["crf_template_id"]),
+            )
+            if page_state_id is None:
+                return JsonResponse({"error": ["Page state not found."]}, status=400)
+            result = open_reconcile_query(
+                page_state_id=int(page_state_id),
+                field_template_id=int(normalized["field_template_id"]),
+                message_text=str(normalized["message_text"]),
+                actor_user_id=getattr(request.user, "id", None),
+            )
+        except (SubjectValidationError, DataCaptureValidationError, ValueError) as exc:
+            messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
+            return JsonResponse({"error": messages}, status=400)
+        return JsonResponse(
+            {
+                "ok": True,
+                "dataquery_id": result["dataquery_id"],
+                "field_template_id": result["field_template_id"],
+                "message_text": result["message_text"],
+                "message_type": result["message_type"],
+                "created_at": result["created_at"],
+            }
+        )
+
+
+__all__ = [
+    "SubjectFormVerificationOpenQueryView",
+    "SubjectFormVerificationQueryThreadView",
+    "SubjectFormVerificationReopenView",
+    "SubjectFormVerificationVerifyCheckedView",
+]

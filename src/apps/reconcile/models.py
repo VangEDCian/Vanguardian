@@ -4,6 +4,10 @@ from apps.reconcile.infrastructure.persistence.models import (
     ReconcileDataQuerySourceChoices,
     ReconcileDataQueryStatusChoices,
     ReconcileDataQueryTypeChoices,
+    ReconcileQueryThread,
+    ReconcileQueryThreadMessageTypeChoices,
+    ReconcileQueryThreadSourceChoices,
+    ReconcileQueryThreadVisibilityChoices,
 )
 
 __all__ = [
@@ -12,4 +16,8 @@ __all__ = [
     "ReconcileDataQuerySourceChoices",
     "ReconcileDataQueryStatusChoices",
     "ReconcileDataQueryTypeChoices",
+    "ReconcileQueryThread",
+    "ReconcileQueryThreadMessageTypeChoices",
+    "ReconcileQueryThreadSourceChoices",
+    "ReconcileQueryThreadVisibilityChoices",
 ]

@@ -378,15 +378,67 @@ class SubjectDetailView(
                 has_event_instance_files = self.get_event_instance_file_repository().has_files(
                     event_instance_id=focused_event_id,
                 )
-        form_render_sections = self._build_form_render_sections(
-            focused_form_fields,
-            entry_payload_map=focused_entry_values,
-        )
-
         form_verification_review = None
         form_verification_verify_checked_url = ""
         form_verification_reopen_url = ""
+        form_verification_open_query_url = ""
+        form_verification_query_thread_url = ""
         form_verification_show_field_checkboxes = True
+        field_query_state_by_id = {}
+        if focused_form and focused_event and focused_form_fields and not is_form_verification_mode:
+            try:
+                visit_pk = int(focused_event["id"])
+                template_pk = int(focused_form.get("form_definition_id") or "")
+            except (TypeError, ValueError):
+                visit_pk = None
+                template_pk = None
+            if visit_pk is not None and template_pk is not None:
+                page_state_pk = get_page_state_id_for_subject_visit_crf(
+                    subject_id=subject.pk,
+                    visit_id=visit_pk,
+                    crf_template_id=template_pk,
+                )
+                if page_state_pk is not None:
+                    query_review = FormFieldReviewTableService().build_for_verification(
+                        subject_code=subject.subject_code or subject.screening_code or "",
+                        site_id=subject.site.code,
+                        event_name=str(focused_event.get("name") or ""),
+                        event_instance_id=visit_pk,
+                        form_name=str(focused_form.get("title") or ""),
+                        form_status=focused_page_status,
+                        entry_version=str(getattr(focused_render_entry, "entry_version", "") or ""),
+                        entry_updated_at=getattr(focused_render_entry, "updated_at", None),
+                        entry_updated_by_id=getattr(focused_render_entry, "updated_by_id", None),
+                        field_templates_payload=focused_form_fields,
+                        entry_payload=focused_entry_values,
+                        page_state_id=page_state_pk,
+                        current_user_id=getattr(self.request.user, "id", None),
+                        verified_field_template_ids=verified_field_template_ids,
+                    )
+                    for row in query_review.get("rows", []):
+                        if not row.get("active_query_id"):
+                            continue
+                        field_query_state_by_id[int(row["field_template_id"])] = {
+                            "active_query_id": row.get("active_query_id"),
+                            "query_thread_badge_count": row.get("query_thread_badge_count"),
+                            "query_messages": row.get("query_messages"),
+                        }
+                    if field_query_state_by_id:
+                        form_verification_query_thread_url = reverse(
+                            "subject:subject_form_verification_query_thread",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": visit_pk,
+                                "crf_template_id": template_pk,
+                            },
+                        )
+
+        form_render_sections = self._build_form_render_sections(
+            focused_form_fields,
+            entry_payload_map=focused_entry_values,
+            field_query_state_by_id=field_query_state_by_id,
+        )
         # Do not require non-empty focused_form_fields: the verification endpoint still
         # needs visit + template IDs to initialize field review rows.
         if is_form_verification_mode and focused_form and focused_event:
@@ -420,6 +472,7 @@ class SubjectDetailView(
                     field_templates_payload=focused_form_fields,
                     entry_payload=focused_entry_values,
                     page_state_id=page_state_pk,
+                    current_user_id=getattr(self.request.user, "id", None),
                     verified_field_template_ids=verified_field_template_ids,
                 )
                 normalized_page_status = (focused_page_status or "").strip().lower()
@@ -432,6 +485,24 @@ class SubjectDetailView(
                     DataCapturePageState.IN_PROGRESS,
                 }
                 if self.request.user.has_perm(VERIFY_FORM_PERMISSION):
+                    form_verification_open_query_url = reverse(
+                        "subject:subject_form_verification_open_query",
+                        kwargs={
+                            "study_id": self.get_study_id(),
+                            "subject_id": subject.pk,
+                            "visit_id": visit_pk,
+                            "crf_template_id": template_pk,
+                        },
+                    )
+                    form_verification_query_thread_url = reverse(
+                        "subject:subject_form_verification_query_thread",
+                        kwargs={
+                            "study_id": self.get_study_id(),
+                            "subject_id": subject.pk,
+                            "visit_id": visit_pk,
+                            "crf_template_id": template_pk,
+                        },
+                    )
                     if DataCapturePageState.can_start_or_continue_review(normalized_page_status):
                         form_verification_verify_checked_url = reverse(
                             "subject:subject_form_verification_verify_checked",
@@ -497,6 +568,11 @@ class SubjectDetailView(
         context["datacapture_save_url"] = datacapture_save_url
         context["datacapture_submit_url"] = datacapture_submit_url
         context["datacapture_delete_draft_url"] = datacapture_delete_draft_url
+        context["can_show_datacapture_entry_actions"] = (
+            bool(datacapture_save_url)
+            and not is_viewing_submitted_version
+            and not DataCapturePageState.is_capture_locked(focused_page_status)
+        )
         context["event_file_import_url"] = event_file_import_url
         context["event_file_preview_url"] = event_file_preview_url
         context["has_event_instance_files"] = has_event_instance_files
@@ -504,6 +580,9 @@ class SubjectDetailView(
         context["form_verification_review"] = form_verification_review
         context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
         context["form_verification_reopen_url"] = form_verification_reopen_url
+        context["form_verification_open_query_url"] = form_verification_open_query_url
+        context["form_verification_query_thread_url"] = form_verification_query_thread_url
+        context["page_entry_has_open_queries"] = bool(field_query_state_by_id)
         context["form_verification_show_field_checkboxes"] = form_verification_show_field_checkboxes
         context["form_verification_fields_locked"] = (
             is_form_verification_mode

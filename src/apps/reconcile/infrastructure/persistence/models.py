@@ -31,6 +31,24 @@ class ReconcileDataQuerySeverityChoices(models.TextChoices):
     CRITICAL = "critical", _("Critical")
 
 
+class ReconcileQueryThreadMessageTypeChoices(models.TextChoices):
+    COMMENT = "comment", _("Comment")
+    STATUS_CHANGE = "status_change", _("Status Change")
+    RESOLUTION = "resolution", _("Resolution")
+
+
+class ReconcileQueryThreadVisibilityChoices(models.TextChoices):
+    SITE = "site", _("Site")
+    SPONSOR = "sponsor", _("Sponsor")
+    INTERNAL = "internal", _("Internal")
+
+
+class ReconcileQueryThreadSourceChoices(models.TextChoices):
+    MANUAL = "manual", _("Manual")
+    SYSTEM = "system", _("System")
+    IMPORT = "import", _("Import")
+
+
 class ReconcileDataQuery(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -129,10 +147,57 @@ class ReconcileDataQuery(models.Model):
         verbose_name_plural = "reconcile data queries"
 
 
+class ReconcileQueryThread(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    message_text = models.TextField()
+    message_type = models.CharField(
+        max_length=16,
+        choices=ReconcileQueryThreadMessageTypeChoices.choices,
+        default=ReconcileQueryThreadMessageTypeChoices.COMMENT,
+    )
+    visibility = models.CharField(
+        max_length=16,
+        choices=ReconcileQueryThreadVisibilityChoices.choices,
+        default=ReconcileQueryThreadVisibilityChoices.SITE,
+    )
+    source = models.CharField(
+        max_length=16,
+        choices=ReconcileQueryThreadSourceChoices.choices,
+        default=ReconcileQueryThreadSourceChoices.MANUAL,
+    )
+
+    dataquery = models.ForeignKey(
+        ReconcileDataQuery,
+        on_delete=models.DO_NOTHING,
+        db_column="dataquery_id",
+        related_name="query_threads",
+    )
+    author_id = models.BigIntegerField(null=True, blank=True)
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "reconcile_query_thread"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(fields=["dataquery", "created_at"], name="recon_qthread_query_time_idx"),
+        ]
+        verbose_name = "reconcile query thread"
+        verbose_name_plural = "reconcile query threads"
+
+
 __all__ = [
     "ReconcileDataQuery",
     "ReconcileDataQuerySeverityChoices",
     "ReconcileDataQuerySourceChoices",
     "ReconcileDataQueryStatusChoices",
     "ReconcileDataQueryTypeChoices",
+    "ReconcileQueryThread",
+    "ReconcileQueryThreadMessageTypeChoices",
+    "ReconcileQueryThreadSourceChoices",
+    "ReconcileQueryThreadVisibilityChoices",
 ]

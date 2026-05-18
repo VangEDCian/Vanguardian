@@ -43,6 +43,7 @@ class FormFieldReviewTableService:
         field_templates_payload: list[dict[str, Any]],
         entry_payload: dict[str, Any],
         page_state_id: int | None,
+        current_user_id: int | None = None,
         verified_snapshot: dict[str, Any] | None = None,
         verified_field_template_ids: set[int] | None = None,
     ) -> dict[str, Any]:
@@ -57,10 +58,33 @@ class FormFieldReviewTableService:
             except (TypeError, ValueError):
                 continue
         counts: dict[int, int] = {}
+        active_query_ids: dict[int, int] = {}
+        query_thread_badge_counts: dict[int, int] = {}
+        query_messages_by_field: dict[int, list[dict[str, Any]]] = {}
         if page_state_id is not None and field_template_ids:
             counts = self._reconcile_read_service.count_open_queries_by_page_state_and_field_templates(
                 page_state_id=page_state_id,
                 field_template_ids=tuple(field_template_ids),
+            )
+            active_query_ids = (
+                self._reconcile_read_service.list_latest_active_query_ids_by_page_state_and_field_templates(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                )
+            )
+            query_thread_badge_counts = (
+                self._reconcile_read_service.count_query_threads_since_current_user_last_comment(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                    current_user_id=current_user_id,
+                )
+            )
+            query_messages_by_field = (
+                self._reconcile_read_service.list_latest_query_messages_by_page_state_and_field_templates(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                    limit_per_field=10,
+                )
             )
 
         modified_by_display = get_username_display_for_user_id(entry_updated_by_id)
@@ -100,6 +124,7 @@ class FormFieldReviewTableService:
             rows.append(
                 {
                     "field_template_id": field_template_id,
+                    "field_key": field_key,
                     "brief_description": brief,
                     "data_type": str(field_row.get("data_type") or "").strip(),
                     "unit": str(field_row.get("unit") or "").strip(),
@@ -107,6 +132,11 @@ class FormFieldReviewTableService:
                     "raw_value": raw_value,
                     "display_value": display_value,
                     "open_query_count": int(counts.get(field_template_id, 0)),
+                    "active_query_id": active_query_ids.get(field_template_id),
+                    "query_thread_badge_count": int(query_thread_badge_counts.get(field_template_id, 0)),
+                    "query_messages": self._format_query_messages(
+                        query_messages_by_field.get(field_template_id, []),
+                    ),
                     "modified_by": modified_by_display,
                     "is_checked": is_checked,
                 },
@@ -217,6 +247,24 @@ class FormFieldReviewTableService:
         local_value = timezone.localtime(value) if timezone.is_aware(value) else value
         return formats.date_format(local_value, format="SHORT_DATETIME_FORMAT", use_l10n=True)
 
+    @classmethod
+    def _format_query_messages(cls, messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+        out: list[dict[str, str]] = []
+        for message in messages[:10]:
+            opened_by_id = message.get("opened_by_id")
+            opened_by = get_username_display_for_user_id(opened_by_id)
+            timestamp = message.get("opened_at") or message.get("created_at")
+            out.append(
+                {
+                    "dataquery_id": message.get("dataquery_id"),
+                    "text": str(message.get("text") or "").strip(),
+                    "status": str(message.get("status") or "").strip(),
+                    "opened_by": opened_by,
+                    "opened_at": cls._format_datetime(timestamp),
+                },
+            )
+        return out
+
     @staticmethod
     def _normalize_control_type(control_type: object) -> str:
         raw = str(control_type or "").strip().lower().replace(" ", "_").replace("-", "_")
@@ -298,7 +346,7 @@ class FormFieldReviewTableService:
         if isinstance(parsed, list):
             return parsed
         if isinstance(parsed, dict):
-            for key in ("choices", "options", "items"):
+            for key in ("static", "choices", "options", "items"):
                 inner = parsed.get(key)
                 if isinstance(inner, list):
                     return inner

@@ -5,21 +5,40 @@ from django.test import SimpleTestCase
 
 
 class FormVerificationTemplateTests(SimpleTestCase):
-    def _render_field_review_table(self, *, show_checkboxes: bool) -> str:
+    def _render_field_review_table(
+        self,
+        *,
+        show_checkboxes: bool,
+        fields_locked: bool = False,
+        active_query_id: int | None = 101,
+        query_thread_badge_count: int = 2,
+    ) -> str:
         return render_to_string(
             "subject/includes/form_verification_field_review_table.html",
             {
                 "LANGUAGE_CODE": "en",
-                "form_verification_fields_locked": False,
+                "form_verification_fields_locked": fields_locked,
                 "form_verification_show_field_checkboxes": show_checkboxes,
                 "form_verification_review": SimpleNamespace(
                     rows=[
                         {
                             "field_template_id": 11,
+                            "field_key": "field_11",
                             "is_checked": False,
                             "brief_description": "Field 1",
                             "display_value": "Value 1",
                             "open_query_count": 0,
+                            "active_query_id": active_query_id,
+                            "query_thread_badge_count": query_thread_badge_count,
+                            "query_messages": [
+                                {
+                                    "dataquery_id": 101,
+                                    "text": "Newest query",
+                                    "status": "open",
+                                    "opened_by": "Reviewer",
+                                    "opened_at": "05/18/2026 10:00",
+                                },
+                            ],
                             "modified_by": "User 1",
                         }
                     ],
@@ -34,6 +53,123 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("subject-form-verification-review__col-check", rendered)
         self.assertIn("disabled", rendered)
         self.assertIn('aria-disabled="true"', rendered)
+
+    def test_field_review_action_button_is_enabled_when_page_status_is_not_locked(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            active_query_id=None,
+            query_thread_badge_count=0,
+        )
+
+        action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
+
+        self.assertIn("subject-form-verification-review__action-btn", action_button)
+        self.assertNotIn("hidden", action_button)
+        self.assertNotIn("disabled", action_button)
+        self.assertNotIn('aria-disabled="true"', action_button)
+        self.assertIn("data-query-modal-trigger", action_button)
+        self.assertIn('data-field-template-id="11"', action_button)
+        self.assertIn('data-field-label="Field 1"', action_button)
+        self.assertIn('data-field-key="field_11"', action_button)
+        self.assertIn('data-field-value="Value 1"', action_button)
+
+    def test_field_review_action_button_is_hidden_when_field_has_open_query(self):
+        rendered = self._render_field_review_table(show_checkboxes=True, fields_locked=False)
+
+        action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
+
+        self.assertIn("hidden", action_button)
+
+    def test_field_review_action_button_is_disabled_when_page_status_is_locked(self):
+        rendered = self._render_field_review_table(show_checkboxes=True, fields_locked=True)
+
+        action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
+
+        self.assertIn("subject-form-verification-review__action-btn", action_button)
+        self.assertIn("disabled", action_button)
+        self.assertIn('aria-disabled="true"', action_button)
+
+    def test_field_review_table_embeds_latest_query_messages_for_modal(self):
+        rendered = self._render_field_review_table(show_checkboxes=True)
+
+        self.assertIn("data-query-message-source", rendered)
+        self.assertIn('data-message-dataquery-id="101"', rendered)
+        self.assertIn('data-message-text="Newest query"', rendered)
+        self.assertIn('data-message-status="open"', rendered)
+        self.assertIn('data-message-opened-by="Reviewer"', rendered)
+
+    def test_field_review_table_renders_queries_button_with_badge(self):
+        rendered = self._render_field_review_table(show_checkboxes=True)
+
+        queries_button = self._action_button_markup(rendered, "data-query-thread-modal-trigger")
+
+        self.assertIn("data-query-thread-modal-trigger", queries_button)
+        self.assertIn('data-active-query-id="101"', queries_button)
+        self.assertIn('data-field-template-id="11"', queries_button)
+        self.assertIn('title="Current Query"', queries_button)
+        self.assertIn('aria-label="Current Query"', queries_button)
+        self.assertNotIn("hidden", queries_button)
+        self.assertIn("images/datacapture/message.svg", rendered)
+        self.assertIn("data-query-thread-badge", rendered)
+        self.assertIn(">2</span>", rendered)
+
+    def test_field_review_table_hides_current_query_button_without_open_query(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            active_query_id=None,
+            query_thread_badge_count=0,
+        )
+
+        queries_button = self._action_button_markup(rendered, "data-query-thread-modal-trigger")
+
+        self.assertIn("hidden", queries_button)
+        self.assertIn("disabled", queries_button)
+        self.assertIn('aria-disabled="true"', queries_button)
+        self.assertNotIn("data-query-thread-badge", rendered)
+
+    def test_field_review_panel_renders_open_query_and_thread_query_modals(self):
+        rendered = render_to_string(
+            "subject/includes/form_verification_field_review.html",
+            {
+                "LANGUAGE_CODE": "vi",
+                "form_verification_fields_locked": False,
+                "form_verification_show_field_checkboxes": True,
+                "form_verification_open_query_url": "/open-query/",
+                "form_verification_query_thread_url": "/query-thread/",
+                "form_verification_review": SimpleNamespace(
+                    header={
+                        "event_name": "Visit 1",
+                        "event_start_date": "05/18/2026",
+                        "form_name": "Vitals",
+                        "form_status": "submitted",
+                        "form_version": "1",
+                        "last_modified": "05/18/2026",
+                    },
+                    rows=[],
+                ),
+            },
+        )
+
+        self.assertIn("data-open-query-modal", rendered)
+        self.assertIn('data-open-query-url="/open-query/"', rendered)
+        self.assertIn("data-open-query-modal-comment-input", rendered)
+        self.assertIn("data-open-query-modal-submit", rendered)
+        self.assertIn("data-open-query-modal-close", rendered)
+        self.assertIn("data-query-modal", rendered)
+        self.assertIn('data-query-thread-url="/query-thread/"', rendered)
+        self.assertIn("Mở Câu hỏi cho trường", rendered)
+        self.assertIn("data-query-modal-comment-input", rendered)
+        self.assertIn("data-query-modal-reply", rendered)
+        self.assertIn("data-query-modal-reply-close", rendered)
+        self.assertIn("data-query-modal-messages", rendered)
+
+    @staticmethod
+    def _action_button_markup(rendered: str, marker: str) -> str:
+        class_index = rendered.index(marker)
+        button_start = rendered.rfind("<button", 0, class_index)
+        button_end = rendered.index(">", class_index)
+        return rendered[button_start : button_end + 1]
 
     def test_field_review_table_shows_checkbox_column_when_status_can_show_review_controls(self):
         rendered = self._render_field_review_table(show_checkboxes=True)

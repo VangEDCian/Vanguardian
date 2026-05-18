@@ -15,21 +15,23 @@
                     </button>
                 </form>
             {% endif %}
-            <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--primary"
-                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-save{% else %}disabled{% endif %}>
-                {% trans "Save" %}
-            </button>
-            <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--secondary"
-                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-reset{% else %}disabled{% endif %}>
-                {% trans "Reset" %}
-            </button>
-            <button type="button"
-                    class="entity-table__footer-button entity-table__footer-button--secondary"
-                    {% if datacapture_save_url and not is_viewing_submitted_version %}data-datacapture-submit{% else %}disabled{% endif %}>
-                {% trans "Submit for Review" %}
-            </button>
+            {% if can_show_datacapture_entry_actions %}
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--primary"
+                        data-datacapture-save>
+                    {% trans "Save" %}
+                </button>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        data-datacapture-reset>
+                    {% trans "Reset" %}
+                </button>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        data-datacapture-submit>
+                    {% trans "Submit for Review" %}
+                </button>
+            {% endif %}
         {% endif %}
         {% if is_viewing_submitted_version and view_current_url %}
             <a href="{{ view_current_url }}"

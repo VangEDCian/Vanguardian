@@ -24,7 +24,7 @@ urlpatterns = [
     path("", RedirectView.as_view(pattern_name="identity:login", permanent=False)),
     path("api/", include("apps.crf.presentation.api.urls")),
     path("crf/", include("apps.crf.presentation.web.urls")),
-    path("datacapture/", include("apps.datacapture.presentation.api.urls")),
+    path("api/", include("apps.datacapture.presentation.api.urls")),
     path("", include("apps.identity.presentation.web.urls")),
     path("", include("apps.dashboard.presentation.web.urls")),
     path("", include("apps.study.presentation.web.urls")),

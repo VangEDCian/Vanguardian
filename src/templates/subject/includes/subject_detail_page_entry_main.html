@@ -14,6 +14,61 @@
     {% else %}
         {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections %}
     {% endif %}
+    {% if page_entry_has_open_queries %}
+        <div class="subject-form-verification-query-modal-backdrop"
+             hidden
+             data-query-modal
+             data-language-code="{{ LANGUAGE_CODE }}"
+             data-query-thread-url="{{ form_verification_query_thread_url|default:'' }}"
+             data-queries-en-prefix="Queries for field"
+             data-queries-vi-prefix="Câu hỏi cho trường">
+            <div class="subject-form-verification-query-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="subject-form-page-entry-query-modal-title">
+                <header class="subject-form-verification-query-modal__header">
+                    <h3 id="subject-form-page-entry-query-modal-title"
+                        class="subject-form-verification-query-modal__title"
+                        data-query-modal-title></h3>
+                </header>
+                <div class="subject-form-verification-query-modal__body">
+                    <section class="subject-form-verification-query-modal__section">
+                        <dl class="subject-form-verification-query-modal__facts">
+                            <div class="subject-form-verification-query-modal__fact-row">
+                                <dt>{% trans "Brief Description" %}</dt>
+                                <dd data-query-modal-brief></dd>
+                            </div>
+                            <div class="subject-form-verification-query-modal__fact-row">
+                                <dt>{% trans "Value" %}</dt>
+                                <dd data-query-modal-value></dd>
+                            </div>
+                        </dl>
+                    </section>
+                    <section class="subject-form-verification-query-modal__section">
+                        <textarea class="subject-form-verification-query-modal__textarea"
+                                  rows="2"
+                                  data-query-modal-comment-input></textarea>
+                        <div class="subject-form-verification-query-modal__actions">
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-query-modal-reply>{% trans "Reply" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-query-modal-reply-close>{% trans "Reply and Close Query" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-query-modal-close>{% trans "Close" %}</button>
+                        </div>
+                    </section>
+                    <section class="subject-form-verification-query-modal__section subject-form-verification-query-modal__messages"
+                             data-query-modal-messages>
+                        <p class="subject-form-verification-query-modal__empty"
+                           data-query-modal-empty>{% trans "No query messages." %}</p>
+                    </section>
+                </div>
+            </div>
+        </div>
+    {% endif %}
 {% else %}
     <div class="subject-detail-screen__empty">{% trans "Select a CRF template to continue." %}</div>
 {% endif %}

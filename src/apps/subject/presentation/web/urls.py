@@ -10,6 +10,8 @@ from apps.subject.presentation.web.views import (
     SubjectListView,
 )
 from apps.subject.presentation.web.views.verification_verify_checked import (
+    SubjectFormVerificationOpenQueryView,
+    SubjectFormVerificationQueryThreadView,
     SubjectFormVerificationReopenView,
     SubjectFormVerificationVerifyCheckedView,
 )
@@ -28,14 +30,24 @@ urlpatterns = [
         name="subject_create",
     ),
     path(
-        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/verify-checked/",
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/verify-checked/",
         SubjectFormVerificationVerifyCheckedView.as_view(),
         name="subject_form_verification_verify_checked",
     ),
     path(
-        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/reopen/",
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/reopen/",
         SubjectFormVerificationReopenView.as_view(),
         name="subject_form_verification_reopen",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/query-thread/",
+        SubjectFormVerificationQueryThreadView.as_view(),
+        name="subject_form_verification_query_thread",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/open-query/",
+        SubjectFormVerificationOpenQueryView.as_view(),
+        name="subject_form_verification_open_query",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/event-definitions/<int:event_definition_id>/add-another/",

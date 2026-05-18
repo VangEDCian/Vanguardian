@@ -39,6 +39,7 @@
         </header>
         {% if focused_forms %}
             <nav class="subject-detail-screen__tabs"
+                 hidden
                  aria-label="{% if is_form_verification_mode %}{% trans 'Submitted forms (verification)' %}{% else %}{% trans 'CRF templates' %}{% endif %}">
                 {% for form_item in focused_forms %}
                     <a href="{{ form_item.focus_url }}"
@@ -254,10 +255,14 @@
         <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>
         <script src="{% static 'datacapture/js/subject-detail-behavior-runtime.js' %}"></script>
     {% endif %}
+    {% if focused_form and not is_form_verification_mode and page_entry_has_open_queries %}
+        <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
+    {% endif %}
     {% if is_form_verification_mode %}
         {% if form_verification_verify_checked_url or form_verification_reopen_url %}
             <script src="{% static 'subject/js/subject_form_verification_verify_all.js' %}"></script>
         {% endif %}
+        <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
     {% endif %}
     <script src="{% static 'subject/js/subject_detail_event_files.js' %}"></script>
 {% endblock %}
