@@ -1,4 +1,3 @@
-import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -77,47 +76,11 @@ class SubjectEventTransitionPolicy:
         facts: Mapping[str, bool],
     ) -> bool:
         condition_code = (rule.condition_code or "").strip()
-        condition_expression = (rule.condition_expression or "").strip()
 
-        if not condition_code and not condition_expression:
+        if not condition_code:
             return True
 
-        if condition_code and not facts.get(condition_code, False):
-            return False
-
-        if not condition_expression:
-            return True
-
-        return self._evaluate_condition_expression(condition_expression, facts)
-
-    def _evaluate_condition_expression(
-        self,
-        condition_expression: str,
-        facts: Mapping[str, bool],
-    ) -> bool:
-        or_groups = re.split(r"\s+\bor\b\s+", condition_expression, flags=re.IGNORECASE)
-        for or_group in or_groups:
-            and_terms = re.split(r"\s+\band\b\s+", or_group, flags=re.IGNORECASE)
-            if all(self._evaluate_condition_term(term, facts) for term in and_terms):
-                return True
-        return False
-
-    @staticmethod
-    def _evaluate_condition_term(term: str, facts: Mapping[str, bool]) -> bool:
-        normalized_term = term.strip()
-        if not normalized_term:
-            return True
-
-        is_negated = False
-        while normalized_term.startswith(("!", "not ")):
-            if normalized_term.startswith("!"):
-                normalized_term = normalized_term[1:].strip()
-            else:
-                normalized_term = normalized_term[4:].strip()
-            is_negated = not is_negated
-
-        value = facts.get(normalized_term, False)
-        return not value if is_negated else value
+        return facts.get(condition_code, False)
 
     @staticmethod
     def _normalize_facts(facts: Mapping[str, Any]) -> dict[str, bool]:

@@ -7,6 +7,8 @@ from apps.core.choices import (
     EventExecutionModeChoices,
     EventTransitionConditionScopeChoices,
     EventTransitionTypeChoices,
+    StudyConditionDefinitionScopeChoices,
+    StudyConditionDefinitionStatusChoices,
 )
 from apps.shared.constants import EventFormEntryModeChoices
 
@@ -93,6 +95,55 @@ class EventDefinition(models.Model):
         verbose_name_plural = "study event definitions"
 
 
+class ConditionDefinition(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="condition_definitions",
+    )
+    study_version = models.CharField(max_length=20)
+
+    code = models.CharField(max_length=64)
+    scope = models.CharField(
+        max_length=32,
+        choices=StudyConditionDefinitionScopeChoices.choices,
+    )
+    expression_json = models.TextField()
+
+    status = models.CharField(
+        max_length=32,
+        choices=StudyConditionDefinitionStatusChoices.choices,
+        default=StudyConditionDefinitionStatusChoices.DRAFT,
+    )
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+    approved_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_condition_definition"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["study", "study_version", "code"],
+                name="std_conddef_code_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["study", "study_version", "status"],
+                name="std_conddef_status_idx",
+            ),
+        ]
+        verbose_name = "study condition definition"
+        verbose_name_plural = "study condition definitions"
+
+
 class EventTransitionRule(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -130,7 +181,14 @@ class EventTransitionRule(models.Model):
         default=EventTransitionConditionScopeChoices.SUBJECT_EVENT,
     )
     condition_code = models.CharField(max_length=64, null=True, blank=True)
-    condition_expression = models.TextField(null=True, blank=True)
+    condition_definition = models.ForeignKey(
+        ConditionDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="condition_definition_id",
+        related_name="event_transition_rules",
+        null=True,
+        blank=True,
+    )
 
     offset_days = models.IntegerField(null=True, blank=True)
     window_before_days = models.IntegerField(null=True, blank=True)
@@ -169,6 +227,10 @@ class EventTransitionRule(models.Model):
             models.Index(
                 fields=["to_event_definition", "is_enabled"],
                 name="std_evttr_to_en_idx",
+            ),
+            models.Index(
+                fields=["condition_definition", "is_enabled"],
+                name="std_evttr_cond_en_idx",
             ),
         ]
         verbose_name = "study event transition rule"

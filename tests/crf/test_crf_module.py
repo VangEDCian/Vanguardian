@@ -10,11 +10,15 @@ from apps.crf.application.form_builder_orchestration import (
 )
 from apps.crf.application.services import CrfTemplateCommandService
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
+from apps.crf.application.services.field_template_import import CrfFieldTemplateImportService
 from apps.crf.domain.aggregate import FieldTemplateAggregate
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError
 from apps.crf.infrastructure.repositories.form_builder import DjangoOrmFormBuilderRepository
 from apps.crf.infrastructure.repositories.templates import DjangoCrfTemplateRepository
-from apps.crf.models import CrfFieldDefinition, CrfFieldUiConfig
+from apps.crf.models import (
+    CrfFieldDefinition,
+    CrfFieldUiConfig,
+)
 from apps.study.presentation.web.tables import CrfTemplateListTable
 
 
@@ -324,6 +328,93 @@ class DjangoOrmFormBuilderRepositoryTests(SimpleTestCase):
         created_rule.set_current_language.assert_any_call("vi", initialize=True)
         self.assertEqual(created_rule.message, "Bat buoc")
         self.assertEqual(rules, [created_rule])
+
+
+class CrfFieldTemplateImportServiceTests(SimpleTestCase):
+    def test_upsert_template_field_writes_master_and_translation_snapshots(self):
+        repository = MagicMock()
+        repository.get_field_template_for_import.return_value = None
+        field_template = MagicMock(pk=31)
+        definition = MagicMock(pk=41)
+        ui_config = MagicMock(pk=51)
+        repository.build_field_template.return_value = field_template
+        repository.save_field_definition.return_value = definition
+        repository.save_field_ui_config.return_value = ui_config
+        service = CrfFieldTemplateImportService(repository=repository)
+        action, field_template = CrfFieldTemplateImportService.upsert_template_field.__wrapped__(
+            service,
+            crf_template_id=17,
+            section_template_id=23,
+            payload={
+                "field_key": "AETERM",
+                "label_vi": "Bien co bat loi",
+                "label_en": "Adverse Event Term",
+                "data_type": "TEXT",
+                "display_order": 1,
+                "control_type": "TEXT",
+                "control_layout": "normal",
+                "layout": '{"columns": 6}',
+                "behavior": '{"required": true}',
+                "style": "font-weight: 600;",
+                "classes": "col-span-6",
+                "text_vi": "Nhap bien co",
+                "text_en": "Enter adverse event",
+                "options_vi": "Co|Khong",
+                "options_en": "Yes|No",
+                "sdtm": '{"domain":"AE"}',
+                "range_min": None,
+                "range_max": None,
+                "precision": None,
+                "allowed_missing_values": "NA",
+                "data_semantic": "clinical",
+                "text_max_length": 255,
+                "text_min_length": 1,
+                "pattern": None,
+                "pattern_err_msg_vi": "Khong hop le",
+                "pattern_err_msg_en": "Invalid",
+                "unit_vi": "ngay",
+                "unit_en": "day",
+                "codelist_vi": "Danh sach",
+                "codelist_en": "Codelist",
+                "comments_vi": "Ghi chu",
+                "comments_en": "Comments",
+            },
+            actor_user_id=9,
+            now="2026-05-19T10:00:00",
+        )
+
+        self.assertEqual(action, "created")
+        repository.build_field_template.assert_called_once_with(
+            crf_template_id=17,
+            field_key="AETERM",
+            created_at="2026-05-19T10:00:00",
+            created_by_id=9,
+        )
+        repository.save_field_template_translation.assert_any_call(
+            field_template=field_template,
+            language_code="vi",
+            label="Bien co bat loi",
+        )
+        repository.save_field_definition.assert_called_once()
+        repository.save_field_definition_translation.assert_any_call(
+            definition=definition,
+            language_code="en",
+            values={
+                "unit": "day",
+                "codelist": "Codelist",
+                "comments": "Comments",
+                "pattern_err_msg": "Invalid",
+            },
+        )
+        repository.save_field_ui_config.assert_called_once()
+        repository.save_field_ui_config_translation.assert_any_call(
+            ui_config=ui_config,
+            language_code="vi",
+            values={
+                "text": "Nhap bien co",
+                "options": "Co|Khong",
+            },
+        )
 
 
 class CrfFormBuilderViewValidationTests(SimpleTestCase):

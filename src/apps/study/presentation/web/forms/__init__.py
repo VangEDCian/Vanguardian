@@ -1,4 +1,5 @@
 from apps.study.presentation.web.forms.crftemplates import (
+    CrfTemplateFieldsImportTemplateForm,
     CrfTemplateImportTemplateForm,
     CrfTemplatesToolbarForm,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "SitesToolbarForm",
     "CrfTemplatesToolbarForm",
     "EventDefinitionsToolbarForm",
+    "CrfTemplateFieldsImportTemplateForm",
     "CrfTemplateImportTemplateForm",
     "EventFormBindingImportTemplateForm",
     "EventDefinitionImportTemplateForm",

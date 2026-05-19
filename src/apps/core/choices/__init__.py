@@ -12,6 +12,8 @@ from apps.core.choices.study import (
     EventInstanceStatusChoices,
     EventTransitionConditionScopeChoices,
     EventTransitionTypeChoices,
+    StudyConditionDefinitionScopeChoices,
+    StudyConditionDefinitionStatusChoices,
 )
 
 __all__ = [
@@ -26,4 +28,6 @@ __all__ = [
     "EventInstanceStatusChoices",
     "EventTransitionConditionScopeChoices",
     "EventTransitionTypeChoices",
+    "StudyConditionDefinitionScopeChoices",
+    "StudyConditionDefinitionStatusChoices",
 ]

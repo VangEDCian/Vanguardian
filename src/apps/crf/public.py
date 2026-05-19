@@ -3,12 +3,14 @@ from apps.crf.application import (
     CrfTemplateApplicationService,
     CrfTemplateNotFoundError,
 )
+from apps.crf.application.services import CrfFieldTemplateImportService
 from apps.crf.models import CrfSectionTemplate
 
 
 class CrfContextAdapter:
-    def __init__(self, crf_template_service=None):
+    def __init__(self, crf_template_service=None, field_template_import_service=None):
         self.crf_template_service = crf_template_service or CrfTemplateApplicationService()
+        self.field_template_import_service = field_template_import_service or CrfFieldTemplateImportService()
 
     def get_crf_template_model(self):
         return self.crf_template_service.get_crf_template_model()
@@ -137,6 +139,35 @@ class CrfContextAdapter:
         if is_legacy_import_contract:
             return import_outcome or "updated"
         return result
+
+    def resolve_import_template_by_name_or_code(self, *, study_id, form_name):
+        return self.field_template_import_service.resolve_template_by_name_or_code(
+            study_id=study_id,
+            form_name=form_name,
+        )
+
+    def resolve_import_section_by_name_or_code(self, *, crf_template_id, section_name):
+        return self.field_template_import_service.resolve_section_by_name_or_code(
+            crf_template_id=crf_template_id,
+            section_name=section_name,
+        )
+
+    def upsert_import_template_field(
+        self,
+        *,
+        crf_template_id,
+        section_template_id,
+        payload,
+        actor_user_id,
+        now=None,
+    ):
+        return self.field_template_import_service.upsert_template_field(
+            crf_template_id=crf_template_id,
+            section_template_id=section_template_id,
+            payload=payload,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
 
 
 def get_crf_template_model():

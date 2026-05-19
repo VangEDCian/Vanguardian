@@ -591,3 +591,9 @@ msgstr "Filter by code..."
 
 msgid "Filter studies by code"
 msgstr "Filter studies by code"
+
+msgid "Import Template Fields"
+msgstr "Import Template Fields"
+
+msgid "Required worksheet: Template Fields."
+msgstr "Required worksheet: Template Fields."

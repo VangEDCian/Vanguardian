@@ -59,9 +59,13 @@ class StudyEventTransitionRuleAutoOpenUseCase:
             if not SubjectEventInstance.is_terminal(from_event_status):
                 return False
 
+        condition_code = transition_rule.condition_code or getattr(
+            getattr(transition_rule, "condition_definition", None),
+            "code",
+            None,
+        )
         return self._is_rule_condition_satisfied(
-            condition_code=transition_rule.condition_code,
-            condition_expression=transition_rule.condition_expression,
+            condition_code=condition_code,
             condition_flags=condition_flags,
         )
 
@@ -69,18 +73,12 @@ class StudyEventTransitionRuleAutoOpenUseCase:
         self,
         *,
         condition_code: str | None,
-        condition_expression: str | None,
         condition_flags: Mapping[str, bool],
     ) -> bool:
-        code_result = self._evaluate_condition_code(
+        return self._evaluate_condition_code(
             condition_code=condition_code,
             condition_flags=condition_flags,
         )
-        expression_result = self._evaluate_condition_expression(
-            condition_expression=condition_expression,
-            condition_flags=condition_flags,
-        )
-        return code_result and expression_result
 
     def _evaluate_condition_code(
         self,
@@ -100,87 +98,3 @@ class StudyEventTransitionRuleAutoOpenUseCase:
             return bool(condition_flags[code_lower])
 
         return False
-
-    def _evaluate_condition_expression(  # noqa: C901
-        self,
-        *,
-        condition_expression: str | None,
-        condition_flags: Mapping[str, bool],
-    ) -> bool:
-        expression = (condition_expression or "").strip()
-        if not expression:
-            return True
-
-        expression_lower = expression.lower()
-        if expression_lower in self.true_values:
-            return True
-        if expression_lower in self.false_values:
-            return False
-
-        if " and " in expression_lower:
-            return all(
-                self._evaluate_condition_expression(
-                    condition_expression=part,
-                    condition_flags=condition_flags,
-                )
-                for part in expression.split(" and ")
-            )
-
-        if " or " in expression_lower:
-            return any(
-                self._evaluate_condition_expression(
-                    condition_expression=part,
-                    condition_flags=condition_flags,
-                )
-                for part in expression.split(" or ")
-            )
-
-        if expression_lower.startswith("not "):
-            return not self._evaluate_condition_expression(
-                condition_expression=expression[4:],
-                condition_flags=condition_flags,
-            )
-
-        if "==" in expression:
-            left_token, right_token = expression.split("==", 1)
-            return self._resolve_token_value(left_token, condition_flags) == self._resolve_token_value(
-                right_token,
-                condition_flags,
-            )
-
-        if "!=" in expression:
-            left_token, right_token = expression.split("!=", 1)
-            return self._resolve_token_value(left_token, condition_flags) != self._resolve_token_value(
-                right_token,
-                condition_flags,
-            )
-
-        if expression in condition_flags:
-            return bool(condition_flags[expression])
-
-        if expression_lower in condition_flags:
-            return bool(condition_flags[expression_lower])
-
-        return False
-
-    def _resolve_token_value(self, token: str, condition_flags: Mapping[str, bool]):
-        normalized_token = token.strip()
-        normalized_token_lower = normalized_token.lower()
-
-        if normalized_token_lower in self.true_values:
-            return True
-        if normalized_token_lower in self.false_values:
-            return False
-
-        if (
-            (normalized_token.startswith("'") and normalized_token.endswith("'"))
-            or (normalized_token.startswith('"') and normalized_token.endswith('"'))
-        ) and len(normalized_token) >= 2:
-            return normalized_token[1:-1]
-
-        if normalized_token in condition_flags:
-            return condition_flags[normalized_token]
-        if normalized_token_lower in condition_flags:
-            return condition_flags[normalized_token_lower]
-
-        return None

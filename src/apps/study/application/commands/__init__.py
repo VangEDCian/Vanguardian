@@ -19,6 +19,10 @@ from apps.study.application.commands.import_crf_templates_template import (
     ImportStudyCrfTemplatesTemplateCommand,
     ImportStudyCrfTemplatesTemplateResult,
 )
+from apps.study.application.commands.import_crf_template_fields_template import (
+    ImportStudyCrfTemplateFieldsTemplateCommand,
+    ImportStudyCrfTemplateFieldsTemplateResult,
+)
 from apps.study.application.commands.import_event_form_bindings_template import (
     EventFormBindingImportDependencyError,
     EventFormBindingImportFormatError,
@@ -69,6 +73,8 @@ __all__ = [
     "EventFormBindingImportFormatError",
     "ImportStudyCrfTemplatesTemplateCommand",
     "ImportStudyCrfTemplatesTemplateResult",
+    "ImportStudyCrfTemplateFieldsTemplateCommand",
+    "ImportStudyCrfTemplateFieldsTemplateResult",
     "ImportStudyEventDefinitionsTemplateCommand",
     "ImportStudyEventDefinitionsTemplateResult",
     "ImportStudyEventFormBindingsTemplateCommand",

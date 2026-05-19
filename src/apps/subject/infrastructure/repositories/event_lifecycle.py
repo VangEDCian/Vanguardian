@@ -57,6 +57,7 @@ class DjangoSubjectEventLifecycleRepository:
                 deleted=False,
                 is_enabled=True,
             )
+            .select_related("condition_definition")
             .only(
                 "id",
                 "from_event_definition_id",
@@ -64,7 +65,8 @@ class DjangoSubjectEventLifecycleRepository:
                 "transition_type",
                 "condition_scope",
                 "condition_code",
-                "condition_expression",
+                "condition_definition_id",
+                "condition_definition__code",
                 "auto_open",
                 "auto_create",
                 "requires_previous_completion",
@@ -434,8 +436,8 @@ class DjangoSubjectEventLifecycleRepository:
             to_event_definition_id=rule.to_event_definition_id,
             transition_type=rule.transition_type,
             condition_scope=rule.condition_scope,
-            condition_code=rule.condition_code,
-            condition_expression=rule.condition_expression,
+            condition_code=rule.condition_code or getattr(rule.condition_definition, "code", None),
+            condition_definition_id=rule.condition_definition_id,
             auto_open=rule.auto_open,
             auto_create=rule.auto_create,
             requires_previous_completion=rule.requires_previous_completion,

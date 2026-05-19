@@ -1,5 +1,5 @@
 from .study import Study
-from .events import EventDefinition, EventFormBinding, EventTransitionRule
+from .events import ConditionDefinition, EventDefinition, EventFormBinding, EventTransitionRule
 from .randomization import (
     RandomizationScheme,
     RandomizationArm,
@@ -10,6 +10,7 @@ from .site import Site, SiteMembership
 
 __all__ = [
     "Study",
+    "ConditionDefinition",
     "EventDefinition",
     "EventFormBinding",
     "EventTransitionRule",

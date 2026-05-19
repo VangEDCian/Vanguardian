@@ -701,3 +701,9 @@ msgstr "Nhập dữ liệu từ tệp"
 
 msgid "Download template"
 msgstr "Tải excel mẫu"
+
+msgid "Import Template Fields"
+msgstr "Nhập trường từ template"
+
+msgid "Required worksheet: Template Fields."
+msgstr "Worksheet bắt buộc: Template Fields."

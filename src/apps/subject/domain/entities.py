@@ -34,7 +34,7 @@ class StudyEventTransitionRuleSnapshot:
     transition_type: str
     condition_scope: str
     condition_code: str | None
-    condition_expression: str | None
+    condition_definition_id: int | None
     auto_open: bool
     auto_create: bool
     requires_previous_completion: bool

@@ -65,12 +65,14 @@ class DjangoSubjectCommandRepository:
                 is_enabled=True,
                 to_event_definition_id__in=event_definition_ids,
             )
+            .select_related("condition_definition")
             .only(
                 "to_event_definition_id",
                 "from_event_definition_id",
                 "requires_previous_completion",
                 "condition_code",
-                "condition_expression",
+                "condition_definition_id",
+                "condition_definition__code",
                 "offset_days",
             )
             .order_by("display_order", "id")

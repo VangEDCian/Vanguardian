@@ -7,6 +7,8 @@ from apps.core.choices import (
     EventExecutionModeChoices,
     EventTransitionConditionScopeChoices,
     EventTransitionTypeChoices,
+    StudyConditionDefinitionScopeChoices,
+    StudyConditionDefinitionStatusChoices,
 )
 from apps.study.application.commands.import_event_definitions_template.transitions import EventDefinitionTransitionMixin
 from apps.study.application.commands.import_event_definitions_template.types import (
@@ -130,6 +132,20 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "randomization": EventTransitionConditionScopeChoices.RANDOMIZATION,
         "eligibility": EventTransitionConditionScopeChoices.ELIGIBILITY,
     }
+    condition_definition_scope_aliases = {
+        "subject": StudyConditionDefinitionScopeChoices.SUBJECT,
+        "subject_event": StudyConditionDefinitionScopeChoices.EVENT,
+        "subject event": StudyConditionDefinitionScopeChoices.EVENT,
+        "subject-event": StudyConditionDefinitionScopeChoices.EVENT,
+        "event": StudyConditionDefinitionScopeChoices.EVENT,
+        "subject_period": StudyConditionDefinitionScopeChoices.PERIOD,
+        "subject period": StudyConditionDefinitionScopeChoices.PERIOD,
+        "subject-period": StudyConditionDefinitionScopeChoices.PERIOD,
+        "period": StudyConditionDefinitionScopeChoices.PERIOD,
+        "randomization": StudyConditionDefinitionScopeChoices.RANDOMIZATION,
+        "eligibility": StudyConditionDefinitionScopeChoices.ELIGIBILITY,
+        "page": StudyConditionDefinitionScopeChoices.PAGE,
+    }
     true_values = {"true", "1", "yes", "y"}
     false_values = {"", "false", "0", "no", "n"}
 
@@ -238,6 +254,11 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             ) or EventTransitionConditionScopeChoices.SUBJECT_EVENT
             condition_code = self._nullable_text(row_data.get("condition_code"))
             condition_expression = self._nullable_text(row_data.get("condition_expression"))
+            condition_definition_scope = self._condition_definition_scope_from_transition_scope(condition_scope)
+            if condition_expression and not condition_code:
+                raise EventDefinitionImportFormatError(
+                    "Condition Code is required when Condition Expression is provided."
+                )
             offset_days = self._coerce_int(row_data.get("offset_days"), field_label="Offset Days", allow_blank=True)
             window_before_days = self._coerce_int(
                 row_data.get("window_before_days"),
@@ -262,6 +283,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             condition_scope = None
             condition_code = None
             condition_expression = None
+            condition_definition_scope = None
             offset_days = None
             window_before_days = None
             window_after_days = None
@@ -305,6 +327,15 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                     created_by_id=actor_user_id,
                     **defaults,
                 )
+                condition_definition = self._sync_condition_definition(
+                    study_id=study_id,
+                    study_version=study_version,
+                    condition_code=condition_code,
+                    condition_scope=condition_definition_scope,
+                    condition_expression=condition_expression,
+                    actor_user_id=actor_user_id,
+                    now=now,
+                )
                 self._sync_transition_rule(
                     event_definition=event_definition,
                     study_id=study_id,
@@ -313,8 +344,8 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                     precondition_code=precondition_code,
                     transition_type=transition_type,
                     condition_scope=condition_scope,
-                    condition_code=condition_code,
-                    condition_expression=condition_expression,
+                    condition_code=None if condition_definition is not None else condition_code,
+                    condition_definition=condition_definition,
                     offset_days=offset_days,
                     window_before_days=window_before_days,
                     window_after_days=window_after_days,
@@ -330,6 +361,15 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             for field_name, value in defaults.items():
                 setattr(event_definition, field_name, value)
             self.repository.save_event_definition(event_definition, update_fields=list(defaults.keys()))
+            condition_definition = self._sync_condition_definition(
+                study_id=study_id,
+                study_version=study_version,
+                condition_code=condition_code,
+                condition_scope=condition_definition_scope,
+                condition_expression=condition_expression,
+                actor_user_id=actor_user_id,
+                now=now,
+            )
             self._sync_transition_rule(
                 event_definition=event_definition,
                 study_id=study_id,
@@ -338,8 +378,8 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 precondition_code=precondition_code,
                 transition_type=transition_type,
                 condition_scope=condition_scope,
-                condition_code=condition_code,
-                condition_expression=condition_expression,
+                condition_code=None if condition_definition is not None else condition_code,
+                condition_definition=condition_definition,
                 offset_days=offset_days,
                 window_before_days=window_before_days,
                 window_after_days=window_after_days,
@@ -351,3 +391,54 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 now=now,
             )
             return "updated"
+
+    def _sync_condition_definition(
+        self,
+        *,
+        study_id,
+        study_version,
+        condition_code,
+        condition_scope,
+        condition_expression,
+        actor_user_id,
+        now,
+    ):
+        if not condition_expression:
+            return None
+
+        defaults = {
+            "scope": condition_scope,
+            "expression_json": condition_expression,
+            "status": StudyConditionDefinitionStatusChoices.ACTIVE,
+            "deleted": False,
+            "updated_at": now,
+            "updated_by_id": actor_user_id,
+        }
+        condition_definition = self.repository.get_condition_definition(
+            study_id=study_id,
+            study_version=study_version,
+            code=condition_code,
+        )
+        if condition_definition is None:
+            return self.repository.create_condition_definition(
+                study_id=study_id,
+                study_version=study_version,
+                code=condition_code,
+                created_at=now,
+                created_by_id=actor_user_id,
+                **defaults,
+            )
+
+        for field_name, value in defaults.items():
+            setattr(condition_definition, field_name, value)
+        return self.repository.save_condition_definition(
+            condition_definition,
+            update_fields=list(defaults.keys()),
+        )
+
+    def _condition_definition_scope_from_transition_scope(self, condition_scope):
+        return self._normalize_choice(
+            raw_value=condition_scope,
+            aliases=self.condition_definition_scope_aliases,
+            field_label="Condition Scope",
+        )

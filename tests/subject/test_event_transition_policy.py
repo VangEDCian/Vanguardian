@@ -100,9 +100,10 @@ class SubjectEventTransitionPolicyTests(SimpleTestCase):
         self.assertTrue(decisions[0].should_create)
         self.assertEqual(decisions[0].reason, "allowed")
 
-    def test_condition_expression_supports_and_or_not(self):
+    def test_condition_code_from_condition_definition_code_is_evaluated_as_fact(self):
         rule = self._build_rule(
-            condition_expression="baseline_ok and not screen_failed or override_open",
+            condition_code="baseline_ok",
+            condition_definition_id=55,
         )
 
         decisions = self.policy.decide(
@@ -118,7 +119,7 @@ class SubjectEventTransitionPolicyTests(SimpleTestCase):
     def _build_rule(
         *,
         condition_code=None,
-        condition_expression=None,
+        condition_definition_id=None,
         auto_open=True,
         auto_create=False,
     ):
@@ -129,7 +130,7 @@ class SubjectEventTransitionPolicyTests(SimpleTestCase):
             transition_type="sequential",
             condition_scope="subject_event",
             condition_code=condition_code,
-            condition_expression=condition_expression,
+            condition_definition_id=condition_definition_id,
             auto_open=auto_open,
             auto_create=auto_create,
             requires_previous_completion=True,

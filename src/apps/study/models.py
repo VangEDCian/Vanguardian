@@ -1,4 +1,5 @@
 from apps.study.infrastructure.persistence.models import (
+    ConditionDefinition,
     EventDefinition,
     EventFormBinding,
     EventTransitionRule,
@@ -13,6 +14,7 @@ from apps.study.infrastructure.persistence.models import (
 
 __all__ = [
     "Study",
+    "ConditionDefinition",
     "EventDefinition",
     "EventFormBinding",
     "EventTransitionRule",

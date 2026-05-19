@@ -20,7 +20,11 @@
             <button type="button"
                     class="entity-table__footer-button entity-table__footer-button--secondary"
                     data-modal-open="modal-import-crftemplates">{% trans "Import By Template" %}</button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    data-modal-open="modal-import-crf-template-fields">{% trans "Import Template Fields" %}</button>
         </div>
     </section>
     {% include "study/components/_crf_template_import_modal.html" %}
+    {% include "study/components/_crf_template_field_import_modal.html" %}
 {% endblock %}

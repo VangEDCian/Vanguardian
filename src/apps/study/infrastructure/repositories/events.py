@@ -1,4 +1,5 @@
 from apps.study.infrastructure.persistence.models import (
+    ConditionDefinition,
     EventDefinition,
     EventFormBinding,
     EventTransitionRule,
@@ -29,6 +30,20 @@ class DjangoStudyEventRepository:
     def save_event_definition(self, event_definition, *, update_fields):
         event_definition.save(update_fields=update_fields)
         return event_definition
+
+    def get_condition_definition(self, *, study_id, study_version, code):
+        return ConditionDefinition.objects.filter(
+            study_id=study_id,
+            study_version=study_version,
+            code=code,
+        ).first()
+
+    def create_condition_definition(self, **values):
+        return ConditionDefinition.objects.create(**values)
+
+    def save_condition_definition(self, condition_definition, *, update_fields):
+        condition_definition.save(update_fields=update_fields)
+        return condition_definition
 
     def get_active_event_definition_by_code(self, *, study_id, study_version, code):
         return EventDefinition.objects.filter(

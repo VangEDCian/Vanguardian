@@ -6,6 +6,7 @@ from django.test import SimpleTestCase
 from openpyxl import load_workbook
 
 from apps.study.application.services import (
+    ImportStudyCrfTemplateFieldsTemplateService,
     ImportStudyCrfTemplatesTemplateService,
     StudyCrfTemplateDirectoryQueryService,
 )
@@ -120,3 +121,79 @@ class ImportStudyCrfTemplatesTemplateServiceTests(SimpleTestCase):
 
         self.assertEqual(outcome, ("updated", 17, "AE"))
         mock_adapter.upsert_crf_template.assert_called_once()
+
+
+class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
+    def setUp(self):
+        self.service = ImportStudyCrfTemplateFieldsTemplateService()
+
+    def test_static_field_template_contains_required_sheet_and_headers(self):
+        workbook = load_workbook(
+            Path(__file__).resolve().parents[2]
+            / "src/staticfiles/study/templates/crf_template_fields_import_template.xlsx",
+            read_only=True,
+        )
+
+        self.assertEqual(workbook.sheetnames, ["Template Fields"])
+        self.assertEqual(
+            list(next(workbook["Template Fields"].iter_rows(values_only=True))),
+            list(self.service.expected_columns["Template Fields"]),
+        )
+
+    @patch.object(
+        ImportStudyCrfTemplateFieldsTemplateService,
+        "_load_rows_from_workbook",
+        return_value={
+            "Template Fields": [
+                (
+                    2,
+                    {
+                        "form_name": "AE",
+                        "section_name": "General",
+                        "field_name": "AETERM",
+                        "field_description_vi": "Bien co bat loi",
+                        "field_description_en": "Adverse Event Term",
+                        "data_type": "TEXT",
+                        "display_order": "1",
+                        "control_type": "TEXT",
+                    },
+                )
+            ],
+        },
+    )
+    def test_execute_imports_template_field_through_crf_adapter(self, mock_load_rows):
+        form_template = SimpleNamespace(pk=17)
+        section_template = SimpleNamespace(pk=23)
+        mock_adapter = MagicMock()
+        mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
+        mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
+        mock_adapter.upsert_import_template_field.return_value = ("created", SimpleNamespace(pk=31))
+        service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
+
+        result = service.execute(
+            command=SimpleNamespace(
+                actor_user_id=7,
+                selected_study_id=3,
+                study_id=3,
+                file_name="crf_template_fields_import_template.xlsx",
+                file_content=b"xlsx",
+            )
+        )
+
+        self.assertEqual(result.total_rows, 1)
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.updated_count, 0)
+        self.assertEqual(result.skipped_count, 0)
+        mock_adapter.resolve_import_template_by_name_or_code.assert_called_once_with(
+            study_id=3,
+            form_name="AE",
+        )
+        mock_adapter.resolve_import_section_by_name_or_code.assert_called_once_with(
+            crf_template_id=17,
+            section_name="General",
+        )
+        mock_adapter.upsert_import_template_field.assert_called_once()
+        payload = mock_adapter.upsert_import_template_field.call_args.kwargs["payload"]
+        self.assertEqual(payload["field_key"], "AETERM")
+        self.assertEqual(payload["label_vi"], "Bien co bat loi")
+        self.assertEqual(payload["label_en"], "Adverse Event Term")

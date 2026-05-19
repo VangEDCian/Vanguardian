@@ -28,7 +28,7 @@ class CreateSubjectEventInstanceScheduleTests(SimpleTestCase):
                 to_event_definition_id=101,
                 requires_previous_completion=True,
                 condition_code=None,
-                condition_expression=None,
+                condition_definition=None,
                 offset_days=3,
             )
         ]
@@ -136,7 +136,7 @@ class _SubjectEventLifecycleRepositoryStub:
                 transition_type="sequential",
                 condition_scope="subject_event",
                 condition_code=None,
-                condition_expression=None,
+                condition_definition_id=None,
                 auto_open=True,
                 auto_create=True,
                 requires_previous_completion=True,

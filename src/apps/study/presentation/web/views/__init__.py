@@ -1,4 +1,5 @@
 from apps.study.presentation.web.views.crf_templates import (
+    StudyCrfTemplateFieldImportTemplateView,
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
 )
@@ -44,6 +45,7 @@ __all__ = [
     "SiteListView",
     "SiteMembershipOptionsApiView",
     "StudyCreateView",
+    "StudyCrfTemplateFieldImportTemplateView",
     "StudyCrfTemplateImportTemplateView",
     "StudyCrfTemplateListView",
     "StudyDeleteView",

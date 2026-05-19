@@ -6,6 +6,7 @@ from apps.crf.public import get_crf_template_model
 from apps.shared.filters import SharedSearch, SharedTotal
 
 __all__ = [
+    "CrfTemplateFieldsImportTemplateForm",
     "CrfTemplateImportTemplateForm",
     "CrfTemplatesToolbarForm",
 ]
@@ -28,6 +29,19 @@ class CrfTemplateImportTemplateForm(forms.Form):
         if not file_name.endswith((".xlsx", ".xls")):
             raise forms.ValidationError(_("Only .xlsx and .xls files are supported."))
         return uploaded_file
+
+
+class CrfTemplateFieldsImportTemplateForm(CrfTemplateImportTemplateForm):
+    import_file = forms.FileField(
+        label=_("Import File"),
+        allow_empty_file=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": ".xlsx,.xls",
+                "id": "id_field_import_file",
+            }
+        ),
+    )
 
 
 class CrfTemplatesToolbarForm(SharedSearch, SharedTotal):

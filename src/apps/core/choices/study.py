@@ -45,6 +45,21 @@ class EventTransitionConditionScopeChoices(models.TextChoices):
     ELIGIBILITY = "eligibility", _("Eligibility")
 
 
+class StudyConditionDefinitionScopeChoices(models.TextChoices):
+    SUBJECT = "subject", _("Subject")
+    EVENT = "event", _("Event")
+    ELIGIBILITY = "eligibility", _("Eligibility")
+    RANDOMIZATION = "randomization", _("Randomization")
+    PERIOD = "period", _("Period")
+    PAGE = "page", _("Page")
+
+
+class StudyConditionDefinitionStatusChoices(models.TextChoices):
+    DRAFT = "draft", _("Draft")
+    ACTIVE = "active", _("Active")
+    RETIRED = "retired", _("Retired")
+
+
 class EventInstanceStatusChoices(models.TextChoices):
     NOT_READY = "not_ready", _("Not ready")
     PLANNED = "planned", _("Planned")

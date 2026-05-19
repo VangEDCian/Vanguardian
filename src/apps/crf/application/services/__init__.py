@@ -1,6 +1,7 @@
 from importlib import import_module
 
 __all__ = [
+    "CrfFieldTemplateImportService",
     "CrfTemplateApplicationService",
     "CrfFieldLookupQueryService",
     "CrfTemplateCommandService",
@@ -8,6 +9,7 @@ __all__ = [
 ]
 
 _MODULE_BY_NAME = {
+    "CrfFieldTemplateImportService": "apps.crf.application.services.field_template_import",
     "CrfTemplateApplicationService": "apps.crf.application.services.crf_template_application",
     "CrfFieldLookupQueryService": "apps.crf.application.services.field_lookup",
     "CrfTemplateCommandService": "apps.crf.application.services.crf_template_command",

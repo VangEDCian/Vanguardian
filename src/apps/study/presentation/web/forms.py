@@ -1,4 +1,5 @@
 from apps.study.presentation.web.forms.crftemplates import (
+    CrfTemplateFieldsImportTemplateForm,
     CrfTemplateImportTemplateForm,
     CrfTemplatesToolbarForm,
 )
@@ -13,6 +14,7 @@ from apps.study.presentation.web.forms.study import StudyForm
 
 __all__ = [
     "StudyForm",
+    "CrfTemplateFieldsImportTemplateForm",
     "CrfTemplateImportTemplateForm",
     "CrfTemplatesToolbarForm",
     "EventFormBindingImportTemplateForm",
