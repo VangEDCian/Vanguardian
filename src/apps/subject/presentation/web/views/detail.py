@@ -303,20 +303,18 @@ class SubjectDetailView(
                         visit_id=int(focused_event["id"]) if focused_event else None,
                         crf_template_id=template_id,
                     )
-                    normalized_page_status = (focused_page_status or "").strip().lower()
                     reason_required_field_keys = []
-                    if DataCapturePageState.requires_change_reason_on_submit(normalized_page_status):
-                        for field in focused_form_fields:
-                            try:
-                                field_template_id = int(field.get("id"))
-                            except (TypeError, ValueError):
-                                continue
-                            field_key = str(field.get("field_key") or "").strip()
-                            if field_template_id in verified_field_template_ids:
-                                if field_key:
-                                    reason_required_field_keys.append(field_key)
-                                reason_required_field_keys.append(f"field_{field_template_id}")
-                        reason_required_field_keys = sorted(set(reason_required_field_keys))
+                    for field in focused_form_fields:
+                        try:
+                            field_template_id = int(field.get("id"))
+                        except (TypeError, ValueError):
+                            continue
+                        field_key = str(field.get("field_key") or "").strip()
+                        if field_template_id in verified_field_template_ids:
+                            if field_key:
+                                reason_required_field_keys.append(field_key)
+                            reason_required_field_keys.append(f"field_{field_template_id}")
+                    reason_required_field_keys = sorted(set(reason_required_field_keys))
                     if focused_event and not is_form_verification_mode:
                         url_kw = {
                             "study_id": self.get_study_id(),

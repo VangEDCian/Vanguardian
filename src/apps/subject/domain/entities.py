@@ -40,6 +40,9 @@ class StudyEventTransitionRuleSnapshot:
     requires_previous_completion: bool
     allow_skip: bool
     display_order: int
+    condition_definition_scope: str | None = None
+    condition_definition_code: str | None = None
+    condition_expression_json: str | dict[str, Any] | None = None
     offset_days: int | None = None
 
 

@@ -6,6 +6,7 @@ from django.test import SimpleTestCase
 from apps.datacapture.application.exceptions import (
     DataCapturePageReopenReasonRequiredError,
     DataCapturePageVerifyStateError,
+    DataCaptureValidationError,
 )
 from apps.datacapture.application.services.page_state_verification_final_data import (
     DataCapturePageStateVerificationFinalDataService,
@@ -18,11 +19,25 @@ from apps.datacapture.infrastructure.models.capture import (
 
 
 class _NoBlockingQueries:
+    def has_open_query_for_page_field(self, **kwargs):
+        return False
+
     def has_active_blocking_query_for_page_field(self, **kwargs):
         return False
 
     def has_active_blocking_query_for_page(self, **kwargs):
         return False
+
+
+class _BlockingFieldQueries:
+    def has_open_query_for_page_field(self, **kwargs):
+        return True
+
+    def has_active_blocking_query_for_page_field(self, **kwargs):
+        return True
+
+    def has_active_blocking_query_for_page(self, **kwargs):
+        return True
 
 
 class _CorrectionRequiredVerificationRepository:
@@ -128,6 +143,14 @@ class _SubjectEventLifecycleAdapter:
         return True
 
 
+class _EventTransitionService:
+    def __init__(self):
+        self.commands = []
+
+    def execute(self, command):
+        self.commands.append(command)
+
+
 class _NotReviewableVerificationRepository:
     def __init__(self, *, status):
         self.status = status
@@ -185,10 +208,12 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
         repository = _CorrectionRequiredVerificationRepository()
         repository.all_visit_forms_verified = True
         subject_event_lifecycle_adapter = _SubjectEventLifecycleAdapter()
+        event_transition_service = _EventTransitionService()
         service = DataCapturePageStateVerificationFinalDataService(
             repository=repository,
             reconcile_read_service=_NoBlockingQueries(),
             subject_event_lifecycle_adapter=subject_event_lifecycle_adapter,
+            event_transition_service=event_transition_service,
         )
         service._required_field_template_ids = lambda **kwargs: (1,)
 
@@ -213,6 +238,12 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                     "actor_user_id": 1,
                 }
             ],
+        )
+        self.assertEqual(event_transition_service.commands[0].page_state_id, 11)
+        self.assertEqual(event_transition_service.commands[0].actor_user_id, 1)
+        self.assertEqual(
+            event_transition_service.commands[0].trigger_source,
+            "datacapture_page_state_verified",
         )
 
     def test_verify_rejects_page_states_outside_reviewable_statuses(self):
@@ -244,6 +275,27 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                     )
 
                 self.assertIs(repository.start_page_review_called, False)
+
+    def test_verify_rejects_checked_field_with_open_query_before_starting_review(self):
+        repository = _CorrectionRequiredVerificationRepository()
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_BlockingFieldQueries(),
+        )
+
+        with self.assertRaisesMessage(
+            DataCaptureValidationError,
+            "yêu cầu đóng Query trước khi verify",
+        ):
+            service.merge_checked_field_template_ids(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                checked_field_template_ids=[1],
+                actor_user_id=1,
+            )
+
+        self.assertIs(repository.start_page_review_called, False)
 
     def test_reopen_requires_reason_text(self):
         service = DataCapturePageStateVerificationFinalDataService(

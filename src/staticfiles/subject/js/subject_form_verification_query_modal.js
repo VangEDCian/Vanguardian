@@ -28,6 +28,11 @@
   const openTitleViPrefix = String(openQueryModal?.dataset.titleViPrefix || 'Mo Cau hoi cho truong').trim();
   const queriesEnPrefix = String(modal.dataset.queriesEnPrefix || 'Queries for field').trim();
   const queriesViPrefix = String(modal.dataset.queriesViPrefix || 'Cau hoi cho truong').trim();
+  const notificationDurationMs = 2600;
+  const notificationHost = document.createElement('div');
+  notificationHost.className = 'subject-detail-screen__notifications';
+  notificationHost.setAttribute('data-form-verification-query-notifications', '');
+  document.body.appendChild(notificationHost);
   let activeContext = null;
   let activeOpenContext = null;
 
@@ -40,6 +45,25 @@
     if (node) {
       node.textContent = String(value || '');
     }
+  }
+
+  function showNotification(message, tone) {
+    if (!message || !notificationHost) {
+      return;
+    }
+    const normalizedTone = tone === 'error' ? 'error' : 'success';
+    const notice = document.createElement('div');
+    notice.className = `subject-detail-screen__notification subject-detail-screen__notification--${normalizedTone}`;
+    notice.textContent = String(message);
+    notificationHost.appendChild(notice);
+    window.setTimeout(function () {
+      notice.classList.add('is-leaving');
+      window.setTimeout(function () {
+        if (notice.parentNode) {
+          notice.parentNode.removeChild(notice);
+        }
+      }, 220);
+    }, notificationDurationMs);
   }
 
   function clearMessages() {
@@ -168,6 +192,10 @@
 
   function openNewQueryModal(trigger) {
     if (!(openQueryModal instanceof HTMLElement)) {
+      return;
+    }
+    if (String(trigger.dataset.fieldVerified || '').trim().toLowerCase() === 'true') {
+      showNotification('Dữ liệu đã được verify không thể tạo Query', 'error');
       return;
     }
     const fieldLabel = String(trigger.dataset.fieldLabel || '').trim();
@@ -302,6 +330,15 @@
             openTrigger.disabled = false;
             openTrigger.removeAttribute('aria-disabled');
           }
+          const checkbox = row ? row.querySelector('input[name="verify_field"]') : null;
+          if (
+            checkbox instanceof HTMLInputElement &&
+            String(checkbox.dataset.fieldVerified || '').trim().toLowerCase() !== 'true'
+          ) {
+            checkbox.dataset.blockedByOpenQuery = 'false';
+            checkbox.disabled = false;
+            checkbox.removeAttribute('aria-disabled');
+          }
           if (row instanceof HTMLElement) {
             row.classList.remove('subject-form-field--has-open-query');
           }
@@ -355,6 +392,7 @@
       })
       .then(function (result) {
         if (!result.ok || !result.data || result.data.ok !== true) {
+          showNotification(normalizeErrorMessage(result), 'error');
           return;
         }
         const row = activeOpenContext.trigger.closest('tr');
@@ -376,6 +414,13 @@
           }
         }
         activeOpenContext.trigger.hidden = true;
+        const checkbox = row ? row.querySelector('input[name="verify_field"]') : null;
+        if (checkbox instanceof HTMLInputElement) {
+          checkbox.checked = false;
+          checkbox.dataset.blockedByOpenQuery = 'true';
+          checkbox.disabled = true;
+          checkbox.setAttribute('aria-disabled', 'true');
+        }
         const countCell = row ? row.querySelector('[data-open-query-count]') : null;
         if (countCell) {
           const current = parseInt(String(countCell.textContent || '0').trim(), 10);

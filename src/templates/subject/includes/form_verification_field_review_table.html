@@ -15,15 +15,18 @@
         </thead>
         <tbody>
             {% for row in form_verification_review.rows %}
-                <tr>
+                <tr data-field-template-id="{{ row.field_template_id }}"
+                    data-field-verified="{% if row.is_checked %}true{% else %}false{% endif %}">
                     <td class="subject-form-verification-review__col-check">
                         <input type="checkbox"
                                name="verify_field"
                                value="{{ row.field_template_id }}"
                                class="subject-form-verification-review__checkbox"
                                data-field-template-id="{{ row.field_template_id }}"
+                               data-field-verified="{% if row.is_checked %}true{% else %}false{% endif %}"
+                               data-blocked-by-open-query="{% if row.active_query_id or row.open_query_count %}true{% else %}false{% endif %}"
                                {% if row.is_checked %}checked{% endif %}
-                               {% if row.is_checked or form_verification_fields_locked or not form_verification_show_field_checkboxes %}disabled aria-disabled="true"{% endif %}
+                               {% if row.is_checked or row.active_query_id or row.open_query_count or form_verification_fields_locked or not form_verification_show_field_checkboxes %}disabled aria-disabled="true"{% endif %}
                                aria-label="{% trans 'Select field for verification' %}" />
                     </td>
                     <td>{{ row.brief_description }}</td>
@@ -39,7 +42,8 @@
                                     data-field-label="{{ row.brief_description|escape }}"
                                     data-field-key="{{ row.field_key|escape }}"
                                     data-field-value="{{ row.display_value|default:'—'|escape }}"
-                                    {% if row.active_query_id %}hidden{% endif %}
+                                    data-field-verified="{% if row.is_checked %}true{% else %}false{% endif %}"
+                                    {% if row.is_checked or row.active_query_id %}hidden{% endif %}
                                     {% if form_verification_fields_locked %}disabled aria-disabled="true"{% endif %}
                                     aria-label="{% trans 'Open Query' %}">
                                 <span class="svg-icon"

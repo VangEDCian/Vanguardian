@@ -8,6 +8,9 @@ from apps.core.choices import (
 )
 from apps.crf.models import CrfFieldReviewPolicy
 from apps.crf.public import CrfContextAdapter
+from apps.datacapture.application.commands import TriggerPageStateEventTransitionCommand
+from apps.datacapture.application.exceptions import DataCaptureValidationError
+from apps.datacapture.application.services.trigger_event_transition import DataCapturePageStateEventTransitionService
 from apps.datacapture.application.validators import DataCapturePageStateVerificationValidator
 from apps.datacapture.domain.status import DataCapturePageState
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
@@ -20,13 +23,21 @@ class DataCapturePageStateVerificationFinalDataService:
 
     validator_class = DataCapturePageStateVerificationValidator
     subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter
+    event_transition_service_class = DataCapturePageStateEventTransitionService
 
-    def __init__(self, repository=None, reconcile_read_service=None, subject_event_lifecycle_adapter=None):
+    def __init__(
+        self,
+        repository=None,
+        reconcile_read_service=None,
+        subject_event_lifecycle_adapter=None,
+        event_transition_service=None,
+    ):
         self.repository = repository or DjangoDataCapturePageRepository()
         self.reconcile_read_service = reconcile_read_service or ReconcileDataQueryReadService()
         self.subject_event_lifecycle_adapter = (
             subject_event_lifecycle_adapter or self.subject_event_lifecycle_adapter_class()
         )
+        self.event_transition_service = event_transition_service or self.event_transition_service_class()
         self.validator = self.validator_class()
 
     @staticmethod
@@ -112,6 +123,14 @@ class DataCapturePageStateVerificationFinalDataService:
             visit_id=visit_id,
             crf_template_id=crf_template_id,
         )
+        checked_set = self._normalize_checked_ids(checked_field_template_ids)
+        for field_template_id in sorted(checked_set):
+            if self.reconcile_read_service.has_open_query_for_page_field(
+                page_state_id=snapshot.id,
+                field_template_id=field_template_id,
+            ):
+                raise DataCaptureValidationError("yêu cầu đóng Query trước khi verify")
+
         page_state = self.repository.start_page_review(
             page_state_id=snapshot.id,
             actor_user_id=actor_user_id,
@@ -135,7 +154,6 @@ class DataCapturePageStateVerificationFinalDataService:
             review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
         )
 
-        checked_set = self._normalize_checked_ids(checked_field_template_ids)
         latest_entry = self.repository.get_current_entry(
             subject_id=subject_id,
             visit_id=visit_id,
@@ -193,6 +211,7 @@ class DataCapturePageStateVerificationFinalDataService:
             actor_user_id=actor_user_id,
         )
         self._verify_visit_if_all_forms_verified(
+            page_state_id=snapshot.id,
             subject_id=subject_id,
             visit_id=visit_id,
             actor_user_id=actor_user_id,
@@ -200,9 +219,22 @@ class DataCapturePageStateVerificationFinalDataService:
         )
         return True, page_status, []
 
+    def is_field_verified_for_page_state(
+        self,
+        *,
+        page_state_id: int,
+        field_template_id: int,
+    ) -> bool:
+        return self.repository.is_field_review_verified(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        )
+
     def _verify_visit_if_all_forms_verified(
         self,
         *,
+        page_state_id: int,
         subject_id: int,
         visit_id: int,
         actor_user_id: int | None,
@@ -215,9 +247,18 @@ class DataCapturePageStateVerificationFinalDataService:
             visit_id=visit_id,
         ):
             return
-        self.subject_event_lifecycle_adapter.verify_event_instance(
+        changed = self.subject_event_lifecycle_adapter.verify_event_instance(
             event_instance_id=visit_id,
             actor_user_id=actor_user_id,
+        )
+        if not changed:
+            return
+        self.event_transition_service.execute(
+            TriggerPageStateEventTransitionCommand(
+                page_state_id=page_state_id,
+                actor_user_id=actor_user_id,
+                trigger_source="datacapture_page_state_verified",
+            )
         )
 
     def list_verified_or_waived_field_template_ids(

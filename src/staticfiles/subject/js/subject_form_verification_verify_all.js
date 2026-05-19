@@ -173,7 +173,7 @@
       showNotification('Review panel not found.', 'error');
       return;
     }
-    const checked = Array.from(root.querySelectorAll('input[name="verify_field"]:checked'))
+    const checked = Array.from(root.querySelectorAll('input[name="verify_field"]:checked:not(:disabled)'))
       .map(function (el) {
         return parseInt(String(el.value || '').trim(), 10);
       })

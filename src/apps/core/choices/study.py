@@ -33,8 +33,6 @@ class EventExecutionModeChoices(models.TextChoices):
 class EventTransitionTypeChoices(models.TextChoices):
     SEQUENTIAL = "sequential", _("Sequential")
     CONDITIONAL = "conditional", _("Conditional")
-    MANUAL = "manual", _("Manual")
-    AUTOMATIC = "automatic", _("Automatic")
 
 
 class EventTransitionConditionScopeChoices(models.TextChoices):
@@ -68,6 +66,7 @@ class EventInstanceStatusChoices(models.TextChoices):
     COMPLETED = "completed", _("Completed")
     VERIFIED = "verified", _("Verified")
     LOCKED = "locked", _("Locked")
+    FINALIZED = "finalized", _("Finalized")
     SKIPPED = "skipped", _("Skipped")
     CANCELLED = "cancelled", _("Cancelled")
 

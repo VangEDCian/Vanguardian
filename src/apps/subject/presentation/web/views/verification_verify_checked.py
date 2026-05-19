@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.public import (
     get_page_state_id_for_subject_visit_crf,
+    is_field_verified_for_page_state,
     merge_form_verification_checked_fields_into_page_state_final_data,
     reopen_verified_form_verification_page_state,
 )
@@ -156,6 +157,11 @@ class SubjectFormVerificationOpenQueryView(
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
+            if is_field_verified_for_page_state(
+                page_state_id=int(page_state_id),
+                field_template_id=int(normalized["field_template_id"]),
+            ):
+                return JsonResponse({"error": ["Dữ liệu đã được verify không thể tạo Query"]}, status=400)
             result = open_reconcile_query(
                 page_state_id=int(page_state_id),
                 field_template_id=int(normalized["field_template_id"]),

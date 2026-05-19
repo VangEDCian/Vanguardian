@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from django.utils.translation import get_language
+
 from apps.crf.models import CrfFieldTemplate
 from apps.reconcile.models import (
     ReconcileDataQuery,
@@ -22,6 +24,47 @@ class DjangoReconcileDataQueryWriteRepository:
                 deleted=False,
             ).values_list("field_key", "id"),
         )
+
+    @staticmethod
+    def list_field_thread_value_contexts(
+        *,
+        crf_template_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, dict[str, object]]:
+        if not field_template_ids:
+            return {}
+        current_language = str(get_language() or "").split("-")[0].lower()
+        fields = (
+            CrfFieldTemplate.objects.filter(
+                crf_template_id=crf_template_id,
+                id__in=field_template_ids,
+                deleted=False,
+            )
+            .select_related("ui_config")
+            .prefetch_related("ui_config__translations")
+        )
+        contexts: dict[int, dict[str, object]] = {}
+        for field in fields:
+            ui_config = getattr(field, "ui_config", None)
+            if ui_config is None or ui_config.deleted:
+                continue
+            translations = list(getattr(getattr(ui_config, "translations", None), "all", lambda: [])())
+            preferred_translation = next(
+                (
+                    translation
+                    for translation in translations
+                    if str(translation.language_code or "").split("-")[0].lower() == current_language
+                    and translation.options
+                ),
+                None,
+            )
+            fallback_translation = next((translation for translation in translations if translation.options), None)
+            translation = preferred_translation or fallback_translation
+            contexts[field.pk] = {
+                "control_type": ui_config.control_type,
+                "options": getattr(translation, "options", "") if translation is not None else "",
+            }
+        return contexts
 
     @staticmethod
     def bulk_create_manual_open_queries(
@@ -73,6 +116,30 @@ class DjangoReconcileDataQueryWriteRepository:
         ).exists()
 
     @staticmethod
+    def list_latest_open_query_ids_by_page_state_and_field_templates(
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, int]:
+        if not field_template_ids:
+            return {}
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                field_template_id__in=field_template_ids,
+                field_template_id__isnull=False,
+                status=ReconcileDataQueryStatusChoices.OPEN,
+                deleted=False,
+            )
+            .order_by("field_template_id", "-opened_at", "-created_at", "-id")
+            .values("field_template_id", "id")
+        )
+        query_ids_by_field_template: dict[int, int] = {}
+        for row in rows:
+            query_ids_by_field_template.setdefault(int(row["field_template_id"]), int(row["id"]))
+        return query_ids_by_field_template
+
+    @staticmethod
     def create_manual_open_query(
         *,
         page_state_id: int,
@@ -111,6 +178,7 @@ class DjangoReconcileDataQueryWriteRepository:
         message_type: str,
         actor_user_id: int | None,
         now: datetime,
+        source: str = ReconcileQueryThreadSourceChoices.MANUAL,
     ) -> ReconcileQueryThread:
         return ReconcileQueryThread.objects.create(
             created_at=now,
@@ -119,7 +187,7 @@ class DjangoReconcileDataQueryWriteRepository:
             message_text=message_text,
             message_type=message_type,
             visibility=ReconcileQueryThreadVisibilityChoices.SITE,
-            source=ReconcileQueryThreadSourceChoices.MANUAL,
+            source=source,
             dataquery_id=dataquery_id,
             author_id=actor_user_id,
             created_by_id=actor_user_id,

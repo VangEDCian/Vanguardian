@@ -34,6 +34,7 @@ from apps.datacapture.domain.services.pageentry_change_state import PageEntryCha
 from apps.datacapture.domain.status import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 from apps.governance.infrastructure.repositories import DjangoGovernanceLockReadRepository
+from apps.reconcile.application import ReconcileDataQueryWriteService
 from apps.subject.public import SubjectEventLifecycleAdapter
 
 
@@ -133,17 +134,22 @@ class DataCaptureSaveSubmitPageService:
     repository_class = DjangoDataCapturePageRepository
     validator_class = DataCaptureSaveSubmitValidator
     subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter
+    reconcile_data_query_write_service_class = ReconcileDataQueryWriteService
 
     def __init__(
         self,
         repository=None,
         governance_lock_read_repository=None,
         subject_event_lifecycle_adapter=None,
+        reconcile_data_query_write_service=None,
     ):
         self.repository = repository or self.repository_class()
         self.governance_lock_read_repository = governance_lock_read_repository or DjangoGovernanceLockReadRepository()
         self.subject_event_lifecycle_adapter = (
             subject_event_lifecycle_adapter or self.subject_event_lifecycle_adapter_class()
+        )
+        self.reconcile_data_query_write_service = (
+            reconcile_data_query_write_service or self.reconcile_data_query_write_service_class()
         )
         self.page_entry_state_events = PageEntryStateChangeEventDispatcher(repository=self.repository)
         self.field_validation_rules_service = DataCaptureFieldValidationRulesService(self.repository)
@@ -275,6 +281,31 @@ class DataCaptureSaveSubmitPageService:
             return
         self.subject_event_lifecycle_adapter.complete_event_instance(
             event_instance_id=visit_id,
+            actor_user_id=actor_user_id,
+        )
+
+    def _add_update_value_threads_for_open_queries(
+        self,
+        *,
+        page_state_id: int,
+        crf_template_id: int,
+        changed_field_keys: list[str],
+        candidate_payload: dict,
+        actor_user_id: int | None,
+    ) -> None:
+        if not changed_field_keys:
+            return
+        values_by_field_key = {
+            field_key: candidate_payload.get(field_key)
+            for field_key in changed_field_keys
+            if field_key in candidate_payload
+        }
+        if not values_by_field_key:
+            return
+        self.reconcile_data_query_write_service.add_update_value_threads_for_changed_fields(
+            page_state_id=page_state_id,
+            crf_template_id=crf_template_id,
+            values_by_field_key=values_by_field_key,
             actor_user_id=actor_user_id,
         )
 
@@ -435,10 +466,6 @@ class DataCaptureSaveSubmitPageService:
         if plan.action == "noop_identical_submitted":
             return self._submit_noop_identical_submitted(command, latest)
 
-        requires_change_reasons = (
-            page_state is not None
-            and DataCapturePageState.requires_change_reason_on_submit(page_state.status)
-        )
         changed_field_keys: list[str] = []
         reason_required_field_keys: list[str] = []
         reason_map: dict[str, SubmitFieldChangeReason] = {}
@@ -451,15 +478,14 @@ class DataCaptureSaveSubmitPageService:
                 baseline_payload=baseline_payload,
                 candidate_payload=candidate_payload,
             )
-            if changed_field_keys and requires_change_reasons:
+            if changed_field_keys and page_state is not None:
                 reason_map = _build_change_reason_map(command.change_reasons)
-                if page_state is not None:
-                    reason_required_field_keys = self.repository.list_changed_verified_field_keys(
-                        page_state_id=page_state.id,
-                        crf_template_id=command.crf_template_id,
-                        data_version=page_state.data_version,
-                        changed_field_keys=changed_field_keys,
-                    )
+                reason_required_field_keys = self.repository.list_changed_verified_field_keys(
+                    page_state_id=page_state.id,
+                    crf_template_id=command.crf_template_id,
+                    data_version=page_state.data_version,
+                    changed_field_keys=changed_field_keys,
+                )
                 missing_reason_fields = [
                     field_key
                     for field_key in reason_required_field_keys
@@ -511,6 +537,13 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             actor_user_id=command.actor_user_id,
             page_status=page_state.status,
+        )
+        self._add_update_value_threads_for_open_queries(
+            page_state_id=page_state.pk,
+            crf_template_id=command.crf_template_id,
+            changed_field_keys=changed_field_keys,
+            candidate_payload=candidate_payload,
+            actor_user_id=command.actor_user_id,
         )
         if plan.superseded_entry_state_change is not None:
             for superseded_entry_id in superseded_entry_ids:

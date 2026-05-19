@@ -118,8 +118,6 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
     transition_type_aliases = {
         "sequential": EventTransitionTypeChoices.SEQUENTIAL,
         "conditional": EventTransitionTypeChoices.CONDITIONAL,
-        "manual": EventTransitionTypeChoices.MANUAL,
-        "automatic": EventTransitionTypeChoices.AUTOMATIC,
     }
     transition_condition_scope_aliases = {
         "subject": EventTransitionConditionScopeChoices.SUBJECT,

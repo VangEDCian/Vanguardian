@@ -152,12 +152,12 @@ class SubjectEventTransitionService:
     def _build_transition_facts(*, source_event, external_facts, trigger_source=None):
         facts = {
             "subject_event.triggered": True,
-            "subject_event.completed": SubjectEventInstance.is_terminal(source_event.status),
+            "subject_event.completed": SubjectEventInstance.is_transition_ready(source_event.status),
             f"subject.{source_event.subject_id}.event.{source_event.event_definition_id}.completed": (
-                SubjectEventInstance.is_terminal(source_event.status)
+                SubjectEventInstance.is_transition_ready(source_event.status)
             ),
             f"event.{source_event.event_definition_id}.completed": (
-                SubjectEventInstance.is_terminal(source_event.status)
+                SubjectEventInstance.is_transition_ready(source_event.status)
             ),
             f"event.{source_event.event_definition_id}.status.{source_event.status}": True,
             f"source_event.status.{source_event.status}": True,

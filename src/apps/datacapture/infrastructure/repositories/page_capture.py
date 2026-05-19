@@ -1195,6 +1195,21 @@ class DjangoDataCapturePageRepository:
         )
         return set(queryset.values_list("field_template_id", flat=True))
 
+    def is_field_review_verified(
+        self,
+        *,
+        page_state_id: int,
+        field_template_id: int,
+        review_type: str = DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+    ) -> bool:
+        return DataCaptureFieldReview.objects.filter(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            review_type=review_type,
+            deleted=False,
+            status=DataCaptureFieldReviewStatusChoices.VERIFIED,
+        ).exists()
+
     def find_page_verification_field_review_blockers(
         self,
         *,
@@ -1268,6 +1283,18 @@ class DjangoDataCapturePageRepository:
             updated_by_id=actor_user_id,
             status=DataCapturePageStateStatusChoices.CORRECTION_REQUIRED,
             final_data=self.EMPTY_PAGE_STATE_FINAL_DATA,
+        )
+        DataCaptureFieldReview.objects.filter(
+            page_state_id=page_state.pk,
+            review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+            deleted=False,
+            status=DataCaptureFieldReviewStatusChoices.VERIFIED,
+        ).update(
+            status=DataCaptureFieldReviewStatusChoices.STALE,
+            reason_code="reopen_form",
+            reason_text=reason_text,
+            updated_at=now,
+            updated_by_id=actor_user_id,
         )
         page_state.refresh_from_db()
         self._record_page_state_transition(

@@ -1,8 +1,13 @@
 .subject-form-flat-field {
   display: grid;
-  margin: 1rem;
+  margin: 0 1rem 1rem;
+  padding-top: 1rem;
   grid-auto-rows: min-content;
   gap: 0.375rem;
+}
+
+.subject-form-flat-field:not(:first-child) {
+  border-top: 1px solid #efefef;
 }
 
 .subject-form-flat-field__label {
@@ -18,9 +23,9 @@
 }
 
 .subject-form-flat-field__helper {
+  display: inline-block;
   margin: -0.375rem 0 0 0;
-  text-align: left;
-  font-size: 13px;
+  font-size: 12px;
   color: #5e6670;
 }
 

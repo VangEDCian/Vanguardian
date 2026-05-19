@@ -187,6 +187,21 @@ def get_verified_field_template_ids_for_subject_visit_crf(
     )
 
 
+def is_field_verified_for_page_state(
+    *,
+    page_state_id: int,
+    field_template_id: int,
+) -> bool:
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().is_field_verified_for_page_state(
+        page_state_id=page_state_id,
+        field_template_id=field_template_id,
+    )
+
+
 def reopen_verified_form_verification_page_state(
     *,
     subject_id: int,
@@ -235,6 +250,7 @@ __all__ = [
     "get_page_state_status_for_subject_visit_crf",
     "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
+    "is_field_verified_for_page_state",
     "merge_form_verification_checked_fields_into_page_state_final_data",
     "reopen_verified_form_verification_page_state",
     "save_page_for_subject_visit_crf",

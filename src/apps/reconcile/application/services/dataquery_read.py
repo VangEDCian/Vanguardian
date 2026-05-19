@@ -16,6 +16,12 @@ class ReconcileDataQueryReadService:
             field_template_ids=field_template_ids,
         )
 
+    def has_open_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
+        return self.repository.has_open_query_for_page_field(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+        )
+
     def has_active_blocking_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
         return self.repository.has_active_blocking_query_for_page_field(
             page_state_id=page_state_id,

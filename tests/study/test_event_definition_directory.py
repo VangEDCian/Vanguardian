@@ -177,7 +177,7 @@ class StudyEventDefinitionDirectoryQueryServiceTests(SimpleTestCase):
                 study_version="v3",
                 from_event_definition_id=31,
                 to_event_definition_id=32,
-                transition_type="automatic",
+                transition_type="conditional",
             )
         ]
 
@@ -189,7 +189,7 @@ class StudyEventDefinitionDirectoryQueryServiceTests(SimpleTestCase):
                 {
                     "from": "31",
                     "to": "32",
-                    "label": "Automatic",
+                    "label": "Conditional",
                     "stroke": "#90a4b4",
                     "strokeDashArray": None,
                 },
@@ -220,7 +220,7 @@ class StudyEventDefinitionDirectoryQueryServiceTests(SimpleTestCase):
                 study_version="v1.0",
                 from_event_definition_id=41,
                 to_event_definition_id=42,
-                transition_type="automatic",
+                transition_type="conditional",
                 condition_code="eligible",
             )
         ]
@@ -234,7 +234,7 @@ class StudyEventDefinitionDirectoryQueryServiceTests(SimpleTestCase):
         self.assertNotIn("Version v1.0", mermaid)
         self.assertIn('event_41["1. SCREEN<br/>Screening<br/>Visit Based · Scheduled · Form Entry"]', mermaid)
         self.assertIn('event_42["2. RAND<br/>Randomization<br/>Visit Based · Scheduled · Randomization · Workflow Action"]', mermaid)
-        self.assertIn("event_41 -->|Automatic · Eligible| event_42", mermaid)
+        self.assertIn("event_41 -->|Conditional · Eligible| event_42", mermaid)
         self.assertIn("style event_41 fill:#fdf2e2,stroke:#1e88b9,stroke-width:1.5px,color:#1b2b34", mermaid)
         self.assertIn("style event_42 fill:#f2e8ff,stroke:#1e88b9,stroke-width:1.5px,color:#1b2b34", mermaid)
         self.assertIn("linkStyle 0 stroke:#90a4b4,stroke-width:1.5px", mermaid)

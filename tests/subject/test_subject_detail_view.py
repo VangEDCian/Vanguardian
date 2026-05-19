@@ -31,6 +31,57 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
             ],
         )
 
+    def test_radio_display_value_uses_static_option_label(self):
+        result = SubjectDetailView._display_value_for_control(
+            raw_value="F",
+            selected_values=["F"],
+            options_config={
+                "source": "static",
+                "static": [
+                    {"value": "M", "label": "Male"},
+                    {"value": "F", "label": "Female"},
+                ],
+            },
+            options=[
+                {"value": "M", "label": "Male"},
+                {"value": "F", "label": "Female"},
+            ],
+        )
+
+        self.assertEqual(result, "Female")
+
+    def test_checkbox_display_value_uses_static_option_labels(self):
+        result = SubjectDetailView._display_value_for_control(
+            raw_value="headache,nausea",
+            selected_values=["headache", "nausea"],
+            options_config={
+                "source": "static",
+                "static": [
+                    {"value": "headache", "label": "Headache"},
+                    {"value": "nausea", "label": "Nausea"},
+                ],
+            },
+            options=[
+                {"value": "headache", "label": "Headache"},
+                {"value": "nausea", "label": "Nausea"},
+            ],
+        )
+
+        self.assertEqual(result, "Headache, Nausea")
+
+    def test_display_value_falls_back_to_raw_value_when_options_are_not_static(self):
+        result = SubjectDetailView._display_value_for_control(
+            raw_value="F",
+            selected_values=["F"],
+            options_config={
+                "source": "lookup",
+                "static": [{"value": "F", "label": "Female"}],
+            },
+            options=[{"value": "F", "label": "Female"}],
+        )
+
+        self.assertEqual(result, "F")
+
 
 class SubjectDetailPageEntryFooterTests(SimpleTestCase):
     def _render_footer(self, **overrides):
@@ -107,6 +158,7 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
                                 "label": "Heart Rate",
                                 "control_type": "text",
                                 "value": "72",
+                                "display_value": "72 bpm",
                                 "active_query_id": 101,
                                 "query_thread_badge_count": 2,
                                 "query_messages": [
@@ -131,6 +183,7 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         self.assertIn("images/datacapture/message.svg", rendered)
         self.assertIn("data-query-thread-badge", rendered)
         self.assertIn(">2</span>", rendered)
+        self.assertIn('data-field-value="72 bpm"', rendered)
         self.assertIn("data-query-message-source", rendered)
         self.assertIn('data-message-text="Please confirm value"', rendered)
         self.assertIn("data-query-modal", rendered)

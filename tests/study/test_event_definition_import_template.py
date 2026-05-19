@@ -69,7 +69,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
                 "max_repeats": "",
                 "required": "yes",
                 "precondition": "SCREENING",
-                "transition_type": "automatic",
+                "transition_type": "conditional",
                 "condition_scope": "eligibility",
                 "condition_code": "eligible",
                 "condition_expression": '{"fact":"eligible"}',
@@ -124,7 +124,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             study_version="v1.0",
             sequence_no=7,
             precondition_code="SCREENING",
-            transition_type=EventTransitionTypeChoices.AUTOMATIC,
+            transition_type=EventTransitionTypeChoices.CONDITIONAL,
             condition_scope=EventTransitionConditionScopeChoices.ELIGIBILITY,
             condition_code=None,
             condition_definition=condition_definition,
@@ -252,7 +252,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             study_version="v1.0",
             sequence_no=4,
             precondition_code="SCREENING",
-            transition_type=EventTransitionTypeChoices.AUTOMATIC,
+            transition_type=EventTransitionTypeChoices.CONDITIONAL,
             condition_scope=EventTransitionConditionScopeChoices.ELIGIBILITY,
             condition_code="eligible",
             condition_definition=None,
@@ -281,7 +281,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             to_event_definition=self.event_definition,
             from_event_definition=from_event_definition,
         )
-        self.assertEqual(transition_rule.transition_type, EventTransitionTypeChoices.AUTOMATIC)
+        self.assertEqual(transition_rule.transition_type, EventTransitionTypeChoices.CONDITIONAL)
         self.assertEqual(transition_rule.condition_scope, EventTransitionConditionScopeChoices.ELIGIBILITY)
         self.assertEqual(transition_rule.condition_code, "eligible")
         self.assertIsNone(transition_rule.condition_definition)

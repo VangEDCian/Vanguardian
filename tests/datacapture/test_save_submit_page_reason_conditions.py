@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 
 from apps.core.choices import DataCapturePageEntryStatusChoices, DataCapturePageStateStatusChoices
 from apps.datacapture.application.commands import SavePageCommand, SubmitPageCommand
+from apps.datacapture.application.exceptions import DataCaptureChangeReasonRequiredError
 from apps.datacapture.application.services.save_submit_page import DataCaptureSaveSubmitPageService
 from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageEntrySnapshot,
@@ -27,8 +28,24 @@ class _SubjectEventLifecycleAdapter:
         return True
 
 
+class _ReconcileDataQueryWriteService:
+    def __init__(self):
+        self.update_value_thread_calls = []
+
+    def add_update_value_threads_for_changed_fields(self, **kwargs):
+        self.update_value_thread_calls.append(kwargs)
+        return 1
+
+
 class _SubmitReasonRepository:
-    def __init__(self, *, page_status, all_visit_forms_submitted=False):
+    def __init__(
+        self,
+        *,
+        page_status,
+        all_visit_forms_submitted=False,
+        changed_verified_field_keys=(),
+        validation_rules_by_field_key=None,
+    ):
         self.page_state = DataCapturePageStateSnapshot(
             id=11,
             status=page_status,
@@ -57,6 +74,9 @@ class _SubmitReasonRepository:
         )
         self.list_changed_verified_field_keys_called = False
         self.all_visit_forms_submitted = all_visit_forms_submitted
+        self.changed_verified_field_keys = list(changed_verified_field_keys)
+        self.validation_rules_by_field_key = validation_rules_by_field_key or {}
+        self.submit_page_state_calls = []
 
     def get_page_state_by_scope(self, **kwargs):
         return self.page_state
@@ -72,7 +92,7 @@ class _SubmitReasonRepository:
 
     def list_changed_verified_field_keys(self, **kwargs):
         self.list_changed_verified_field_keys_called = True
-        return ["field_1"]
+        return list(self.changed_verified_field_keys)
 
     def upsert_page_state_for_data_entry(self, **kwargs):
         return SimpleNamespace(pk=self.page_state.id, data_version=self.page_state.data_version)
@@ -81,9 +101,10 @@ class _SubmitReasonRepository:
         return SimpleNamespace(pk=22)
 
     def list_form_field_validation_rules(self, **kwargs):
-        return {}
+        return self.validation_rules_by_field_key
 
     def submit_page_state_with_entry(self, **kwargs):
+        self.submit_page_state_calls.append(kwargs)
         return SimpleNamespace(pk=self.page_state.id, status=kwargs["target_status"], data_version=4)
 
     def are_all_visit_forms_submitted(self, **kwargs):
@@ -96,11 +117,12 @@ class _SubmitReasonRepository:
         return 0
 
 
-def _service(repository, subject_event_lifecycle_adapter=None):
+def _service(repository, subject_event_lifecycle_adapter=None, reconcile_data_query_write_service=None):
     return DataCaptureSaveSubmitPageService(
         repository=repository,
         governance_lock_read_repository=_NoGovernanceLock(),
         subject_event_lifecycle_adapter=subject_event_lifecycle_adapter or _SubjectEventLifecycleAdapter(),
+        reconcile_data_query_write_service=reconcile_data_query_write_service or _ReconcileDataQueryWriteService(),
     )
 
 
@@ -157,7 +179,27 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
                         ),
                     )
 
-    def test_submit_does_not_require_change_reason_when_page_state_is_not_locked(self):
+    def test_submit_requires_change_reason_when_changed_field_is_verified(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            changed_verified_field_keys=["field_1"],
+        )
+
+        with self.assertRaises(DataCaptureChangeReasonRequiredError):
+            _submit_without_transaction(
+                _service(repository),
+                SubmitPageCommand(
+                    subject_id=41,
+                    visit_id=51,
+                    crf_template_id=31,
+                    data='{"field_1": "new"}',
+                    actor_user_id=1,
+                ),
+            )
+
+        self.assertIs(repository.list_changed_verified_field_keys_called, True)
+
+    def test_submit_does_not_require_change_reason_when_changed_field_is_not_verified(self):
         repository = _SubmitReasonRepository(page_status=DataCapturePageStateStatusChoices.SUBMITTED)
 
         result = _submit_without_transaction(
@@ -172,7 +214,7 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
         )
 
         self.assertEqual(result.entry_id, 22)
-        self.assertIs(repository.list_changed_verified_field_keys_called, False)
+        self.assertIs(repository.list_changed_verified_field_keys_called, True)
 
     def test_submit_completes_visit_when_all_visit_forms_are_submitted(self):
         repository = _SubmitReasonRepository(
@@ -200,6 +242,82 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
                     "actor_user_id": 1,
                 }
             ],
+        )
+
+    def test_submit_adds_update_value_threads_for_changed_fields_with_open_queries(self):
+        repository = _SubmitReasonRepository(page_status=DataCapturePageStateStatusChoices.SUBMITTED)
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(
+                repository,
+                reconcile_data_query_write_service=reconcile_data_query_write_service,
+            ),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(
+            reconcile_data_query_write_service.update_value_thread_calls,
+            [
+                {
+                    "page_state_id": 11,
+                    "crf_template_id": 31,
+                    "values_by_field_key": {"field_1": "new"},
+                    "actor_user_id": 1,
+                },
+            ],
+        )
+
+    def test_submit_sets_page_status_correction_required_when_field_validation_fails(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={"field_1": ("$val == 'expected'",)},
+        )
+
+        result = _submit_without_transaction(
+            _service(repository),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.CORRECTION_REQUIRED)
+        self.assertEqual(
+            repository.submit_page_state_calls[-1]["target_status"],
+            DataCapturePageStateStatusChoices.CORRECTION_REQUIRED,
+        )
+
+    def test_submit_sets_page_status_submitted_when_field_validation_passes(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={"field_1": ("$val == 'new'",)},
+        )
+
+        result = _submit_without_transaction(
+            _service(repository),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
+        self.assertEqual(
+            repository.submit_page_state_calls[-1]["target_status"],
+            DataCapturePageStateStatusChoices.SUBMITTED,
         )
 
 

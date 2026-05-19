@@ -333,14 +333,14 @@ class SubjectDetailRenderingMixin:
 
         if isinstance(parsed, list):
             return {
-                "source": "static",
+                "source": "",
                 "static": cls._normalize_choice_option_items(parsed),
                 "lookup": "",
             }
         if isinstance(parsed, dict):
             source = str(parsed.get("source") or "").strip().lower()
             if source not in {"static", "lookup"}:
-                source = "lookup" if parsed.get("lookup") else "static"
+                source = ""
             return {
                 "source": source,
                 "static": cls._normalize_choice_option_items(parsed.get("static") or []),
@@ -395,6 +395,40 @@ class SubjectDetailRenderingMixin:
             stripped_value = raw_value.strip()
             return [stripped_value] if stripped_value else []
         return [str(raw_value)]
+
+    @classmethod
+    def _option_label_by_value(cls, *, options_config, options):
+        if not cls._has_static_options_source(options_config):
+            return {}
+        label_by_value = {}
+        for option in options or []:
+            if not isinstance(option, dict):
+                continue
+            label = str(option.get("label") or "").strip()
+            value = str(option.get("value") or label).strip()
+            if value and label:
+                label_by_value[value] = label
+        return label_by_value
+
+    @classmethod
+    def _display_value_for_control(cls, *, raw_value, selected_values, options_config, options):
+        label_by_value = cls._option_label_by_value(options_config=options_config, options=options)
+        if not label_by_value:
+            return cls._normalize_scalar_field_value(raw_value)
+
+        values = selected_values or cls._normalize_multi_value(raw_value)
+        labels = [label_by_value.get(str(value), str(value)) for value in values if str(value).strip()]
+        if labels:
+            return ", ".join(labels)
+        return cls._normalize_scalar_field_value(raw_value)
+
+    @staticmethod
+    def _has_static_options_source(options_config):
+        return bool(
+            options_config
+            and options_config.get("source") == "static"
+            and options_config.get("static")
+        )
 
     @staticmethod
     def _resolve_field_payload_value(payload_map, field):
@@ -489,6 +523,12 @@ class SubjectDetailRenderingMixin:
             resolved_alias, resolved_value = self._resolve_field_payload_value(payload_map, field)
             selected_values = self._normalize_multi_value(resolved_value)
             normalized_value = self._normalize_scalar_field_value(resolved_value)
+            display_value = self._display_value_for_control(
+                raw_value=resolved_value,
+                selected_values=selected_values,
+                options_config=options_config,
+                options=options,
+            )
             date_day, date_month, date_year, date_time = self._extract_composite_date_parts(
                 normalized_value
             )
@@ -543,6 +583,7 @@ class SubjectDetailRenderingMixin:
                     "pattern": field.get("pattern"),
                     "pattern_err_msg": field.get("pattern_err_msg"),
                     "value": normalized_value,
+                    "display_value": display_value,
                     "is_checked": str(normalized_value).lower() in {"1", "true", "yes", "on"},
                     "selected_values": selected_values,
                     "date_day": date_day,

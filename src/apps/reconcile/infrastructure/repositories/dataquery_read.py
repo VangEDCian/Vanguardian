@@ -30,6 +30,14 @@ class DjangoReconcileDataQueryReadRepository:
         )
         return {int(row["field_template_id"]): int(row["query_count"]) for row in rows}
 
+    def has_open_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
+        return ReconcileDataQuery.objects.filter(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            deleted=False,
+            status=ReconcileDataQueryStatusChoices.OPEN,
+        ).exists()
+
     def has_active_blocking_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
         return (
             ReconcileDataQuery.objects.filter(

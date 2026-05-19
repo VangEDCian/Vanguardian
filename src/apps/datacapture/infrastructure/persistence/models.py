@@ -200,12 +200,6 @@ class DataCaptureFieldReview(models.Model):
         db_table = "datacapture_fieldreview"
         managed = True
         default_permissions = ()
-        constraints = [
-            models.UniqueConstraint(
-                fields=["page_state", "field_template", "review_type"],
-                name="datacapture_fieldreview_page_field_type_uniq",
-            )
-        ]
         indexes = [
             models.Index(fields=["page_state", "status"], name="dcfr_page_status_idx"),
             models.Index(fields=["field_template", "status"], name="dcfr_field_status_idx"),

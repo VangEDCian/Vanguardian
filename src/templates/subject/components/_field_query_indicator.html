@@ -7,7 +7,7 @@
             data-field-template-id="{{ field.id|default:'' }}"
             data-field-label="{{ field.label|escape }}"
             data-field-key="{{ field.field_key|escape }}"
-            data-field-value="{{ field.value|default:'—'|escape }}"
+            data-field-value="{{ field.display_value|default:field.value|default:'—'|escape }}"
             title="{% trans 'Current Query' %}"
             aria-label="{% trans 'Current Query' %}">
         <span class="svg-icon"

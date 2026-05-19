@@ -343,13 +343,10 @@ class FormFieldReviewTableService:
 
     @staticmethod
     def _parse_options_list(parsed: Any) -> list[Any]:
-        if isinstance(parsed, list):
-            return parsed
-        if isinstance(parsed, dict):
-            for key in ("static", "choices", "options", "items"):
-                inner = parsed.get(key)
-                if isinstance(inner, list):
-                    return inner
+        if isinstance(parsed, dict) and parsed.get("source") == "static":
+            inner = parsed.get("static")
+            if isinstance(inner, list):
+                return inner
         return []
 
     def _options_value_label_map(self, options_raw: object) -> dict[str, str]:
@@ -384,20 +381,9 @@ class FormFieldReviewTableService:
         control_norm: str,
         label_by_value: dict[str, str],
     ) -> str:
-        raw_types = {
-            "text",
-            "number",
-            "date",
-            "free_text",
-            "datetime",
-            "label_only",
-        }
-        option_types = {"checkbox", "radio", "select", "multi_select"}
-        if control_norm in raw_types:
+        if not label_by_value:
             return self._raw_display_value(raw_value)
-        if control_norm in option_types:
-            return self._map_options_value(raw_value, label_by_value, control_norm)
-        return self._raw_display_value(raw_value)
+        return self._map_options_value(raw_value, label_by_value)
 
     @staticmethod
     def _raw_display_value(raw_value: Any) -> str:
@@ -417,7 +403,6 @@ class FormFieldReviewTableService:
         self,
         raw_value: Any,
         label_by_value: dict[str, str],
-        control_norm: str,
     ) -> str:
         if not label_by_value:
             return self._raw_display_value(raw_value)
@@ -426,12 +411,9 @@ class FormFieldReviewTableService:
         tokens = self._storage_tokens(raw_value)
         if not tokens:
             return "—"
-        if control_norm in {"checkbox", "multi_select"} and len(tokens) > 1:
-            labels = [label_by_value.get(t, t) for t in tokens]
-            joined = ", ".join(labels)
-            return joined if joined else "—"
-        primary = tokens[0]
-        return label_by_value.get(primary, self._raw_display_value(raw_value))
+        labels = [label_by_value.get(t, t) for t in tokens]
+        joined = ", ".join(labels)
+        return joined if joined else "—"
 
     @staticmethod
     def _storage_tokens(raw_value: Any) -> list[str]:

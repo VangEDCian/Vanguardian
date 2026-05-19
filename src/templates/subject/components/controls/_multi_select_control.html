@@ -7,6 +7,7 @@
     {% for option in field.options %}
         <label>
             <input type="checkbox"
+                   name="{{ field.field_key }}"
                    value="{{ option.value }}"
                    disabled
                    {% if option.value in field.selected_values %}checked{% endif %} />

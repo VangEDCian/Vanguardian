@@ -12,6 +12,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
         fields_locked: bool = False,
         active_query_id: int | None = 101,
         query_thread_badge_count: int = 2,
+        is_checked: bool = False,
+        open_query_count: int = 0,
     ) -> str:
         return render_to_string(
             "subject/includes/form_verification_field_review_table.html",
@@ -24,10 +26,10 @@ class FormVerificationTemplateTests(SimpleTestCase):
                         {
                             "field_template_id": 11,
                             "field_key": "field_11",
-                            "is_checked": False,
+                            "is_checked": is_checked,
                             "brief_description": "Field 1",
                             "display_value": "Value 1",
-                            "open_query_count": 0,
+                            "open_query_count": open_query_count,
                             "active_query_id": active_query_id,
                             "query_thread_badge_count": query_thread_badge_count,
                             "query_messages": [
@@ -80,6 +82,36 @@ class FormVerificationTemplateTests(SimpleTestCase):
         action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
 
         self.assertIn("hidden", action_button)
+
+    def test_field_review_action_button_is_hidden_when_field_is_verified(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            active_query_id=None,
+            query_thread_badge_count=0,
+            is_checked=True,
+        )
+
+        action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
+
+        self.assertIn("hidden", action_button)
+
+    def test_field_review_checkbox_is_disabled_when_field_has_open_query(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            active_query_id=101,
+            open_query_count=1,
+        )
+
+        checkbox_start = rendered.index('name="verify_field"')
+        input_start = rendered.rfind("<input", 0, checkbox_start)
+        input_end = rendered.index(">", checkbox_start)
+        checkbox = rendered[input_start : input_end + 1]
+
+        self.assertIn("disabled", checkbox)
+        self.assertIn('aria-disabled="true"', checkbox)
+        self.assertIn('data-blocked-by-open-query="true"', checkbox)
 
     def test_field_review_action_button_is_disabled_when_page_status_is_locked(self):
         rendered = self._render_field_review_table(show_checkboxes=True, fields_locked=True)

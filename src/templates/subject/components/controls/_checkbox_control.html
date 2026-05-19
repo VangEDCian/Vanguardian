@@ -3,12 +3,22 @@
 <div class="{{ choice_list_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
      data-submitted-diff-control="checkbox"
      {% if field.style %}style="{{ field.style }}"{% endif %}>
-    <label>
-        <input type="checkbox" disabled {% if field.is_checked %}checked{% endif %} />
-        {% if field.options and field.options.0 %}
-            {{ field.options.0.label|default:field.label }}
-        {% else %}
+    {% for option in field.options %}
+        <label>
+            <input type="checkbox"
+                   name="{{ field.field_key }}"
+                   value="{{ option.value }}"
+                   disabled
+                   {% if option.value in field.selected_values %}checked{% elif field.is_checked and forloop.first %}checked{% endif %} />
+            {{ option.label|default:field.label }}
+        </label>
+    {% empty %}
+        <label>
+            <input type="checkbox"
+                   name="{{ field.field_key }}"
+                   disabled
+                   {% if field.is_checked %}checked{% endif %} />
             {{ field.label|default:checkbox_control_i18n.default_label }}
-        {% endif %}
-    </label>
+        </label>
+    {% endfor %}
 </div>
