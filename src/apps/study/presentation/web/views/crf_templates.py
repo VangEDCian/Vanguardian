@@ -12,10 +12,14 @@ from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.study.application import (
     CrfTemplateImportDependencyError,
     CrfTemplateImportFormatError,
+    ImportStudyCrfTemplateFieldsTemplateResult,
     ImportStudyCrfTemplateFieldsTemplateService,
     ImportStudyCrfTemplatesTemplateService,
     StudyDirectoryQueryService,
     StudyNotFoundError,
+)
+from apps.study.application.commands.import_crf_template_fields_template import (
+    CrfTemplateFieldImportIssue,
 )
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import (
@@ -217,6 +221,70 @@ class StudyCrfTemplateFieldImportTemplateView(StudyCrfTemplateListView):
             reverse("study:study_crf_templates", kwargs={"study_id": self._study.pk}) + "?open_field_import_modal=1"
         )
 
+    @staticmethod
+    def _add_file_context_to_issues(*, file_name, issues):
+        return tuple(
+            CrfTemplateFieldImportIssue(
+                sheet_name=f"{file_name} / {issue.sheet_name}",
+                row_number=issue.row_number,
+                identifier=issue.identifier,
+                reason=issue.reason,
+            )
+            for issue in issues
+        )
+
+    def _import_field_template_files(self, *, uploaded_files, actor_user_id):
+        service = self.get_import_crf_template_fields_template_service()
+        total_rows = 0
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
+        issues = []
+        warnings = []
+
+        for uploaded_file in uploaded_files:
+            command = to_import_study_crf_template_fields_template_command(
+                actor_user_id=actor_user_id,
+                selected_study_id=self._study.pk,
+                study_id=self._study.pk,
+                file_name=uploaded_file.name,
+                file_content=uploaded_file.read(),
+            )
+            try:
+                file_result = service.execute(command)
+            except (CrfTemplateImportDependencyError, CrfTemplateImportFormatError) as exc:
+                skipped_count += 1
+                issues.append(
+                    CrfTemplateFieldImportIssue(
+                        sheet_name=uploaded_file.name,
+                        row_number=0,
+                        identifier=uploaded_file.name,
+                        reason=str(exc),
+                    )
+                )
+                continue
+
+            total_rows += file_result.total_rows
+            created_count += file_result.created_count
+            updated_count += file_result.updated_count
+            skipped_count += file_result.skipped_count
+            issues.extend(
+                self._add_file_context_to_issues(
+                    file_name=uploaded_file.name,
+                    issues=file_result.issues,
+                )
+            )
+            warnings.extend(file_result.warnings)
+
+        return ImportStudyCrfTemplateFieldsTemplateResult(
+            total_rows=total_rows,
+            created_count=created_count,
+            updated_count=updated_count,
+            skipped_count=skipped_count,
+            issues=tuple(issues),
+            warnings=tuple(warnings),
+        )
+
     def post(self, request, *args, **kwargs):
         import_form = CrfTemplateFieldsImportTemplateForm(request.POST, request.FILES)
         if not import_form.is_valid():
@@ -224,21 +292,10 @@ class StudyCrfTemplateFieldImportTemplateView(StudyCrfTemplateListView):
                 self.get_context_data(field_import_form=import_form, field_import_modal_open=True)
             )
 
-        uploaded_file = import_form.cleaned_data["import_file"]
-        command = to_import_study_crf_template_fields_template_command(
+        import_result = self._import_field_template_files(
+            uploaded_files=import_form.cleaned_data["import_file"],
             actor_user_id=request.user.pk,
-            selected_study_id=self._study.pk,
-            study_id=self._study.pk,
-            file_name=uploaded_file.name,
-            file_content=uploaded_file.read(),
         )
-        try:
-            import_result = self.get_import_crf_template_fields_template_service().execute(command)
-        except (CrfTemplateImportDependencyError, CrfTemplateImportFormatError) as exc:
-            import_form.add_error(None, str(exc))
-            return self.render_to_response(
-                self.get_context_data(field_import_form=import_form, field_import_modal_open=True)
-            )
 
         if import_result.skipped_count == 0 and not import_result.warnings:
             return redirect(

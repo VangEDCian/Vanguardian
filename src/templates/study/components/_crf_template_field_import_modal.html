@@ -30,6 +30,7 @@
                             </div>
                         {% endif %}
                         <p class="crf-template-import-form__help">{% trans "Accepted formats: .xlsx, .xls" %}</p>
+                        <p class="crf-template-import-form__help">{% trans "You can select multiple files." %}</p>
                         <p class="crf-template-import-form__help">
                             {% trans "Required worksheet: Template Fields." %}
                         </p>
@@ -64,7 +65,11 @@
                                 <ul>
                                     {% for issue in field_import_result.issues %}
                                         <li>
-                                            {% blocktrans with sheet_name=issue.sheet_name row_number=issue.row_number identifier=issue.identifier reason=issue.reason %}Sheet {{ sheet_name }}, row {{ row_number }} ({{ identifier }}): {{ reason }}{% endblocktrans %}
+                                            {% if issue.row_number %}
+                                                {% blocktrans with sheet_name=issue.sheet_name row_number=issue.row_number identifier=issue.identifier reason=issue.reason %}Sheet {{ sheet_name }}, row {{ row_number }} ({{ identifier }}): {{ reason }}{% endblocktrans %}
+                                            {% else %}
+                                                {% blocktrans with file_name=issue.identifier reason=issue.reason %}File {{ file_name }}: {{ reason }}{% endblocktrans %}
+                                            {% endif %}
                                         </li>
                                     {% endfor %}
                                 </ul>
