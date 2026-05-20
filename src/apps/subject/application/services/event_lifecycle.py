@@ -6,6 +6,7 @@ from apps.subject.application.commands.trigger_event_transition import (
     SubjectEventInstanceNotFoundError,
     TriggerSubjectEventTransitionCommand,
 )
+from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
 from apps.subject.domain import (
     SubjectEventInstance,
     SubjectEventTransitionApplied,
@@ -24,11 +25,13 @@ class SubjectEventTransitionService:
     repository_class = DjangoSubjectEventLifecycleRepository
     transition_policy_class = SubjectEventTransitionPolicy
     event_publisher_class = NoopSubjectEventPublisher
+    workflow_action_service_class = SubjectWorkflowActionService
 
-    def __init__(self, repository=None, transition_policy=None, event_publisher=None):
+    def __init__(self, repository=None, transition_policy=None, event_publisher=None, workflow_action_service=None):
         self.repository = repository or self.repository_class()
         self.transition_policy = transition_policy or self.transition_policy_class()
         self.event_publisher = event_publisher or self.event_publisher_class()
+        self.workflow_action_service = workflow_action_service or self.workflow_action_service_class()
 
     def execute(
         self,
@@ -138,6 +141,10 @@ class SubjectEventTransitionService:
                     facts=facts,
                     actor_user_id=command.actor_user_id,
                     now=now,
+                )
+                self.workflow_action_service.execute_for_open_event(
+                    event_instance_id=target_event.id,
+                    actor_user_id=command.actor_user_id,
                 )
 
             result = SubjectEventTransitionResult(

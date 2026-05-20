@@ -1,10 +1,16 @@
 from .study import Study
-from .events import ConditionDefinition, EventDefinition, EventFormBinding, EventTransitionRule
+from .events import (
+    ConditionDefinition,
+    EventDefinition,
+    EventFormBinding,
+    EventGateConditionResult,
+    EventGateEvaluation,
+    EventTransitionRule,
+)
 from .randomization import (
     RandomizationScheme,
     RandomizationArm,
     RandomizationSlot,
-    RandomizationEligibility,
 )
 from .site import Site, SiteMembership
 
@@ -13,11 +19,12 @@ __all__ = [
     "ConditionDefinition",
     "EventDefinition",
     "EventFormBinding",
+    "EventGateConditionResult",
+    "EventGateEvaluation",
     "EventTransitionRule",
     "RandomizationScheme",
     "RandomizationArm",
     "RandomizationSlot",
-    "RandomizationEligibility",
     "Site",
     "SiteMembership",
 ]

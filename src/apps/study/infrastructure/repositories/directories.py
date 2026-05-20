@@ -5,7 +5,6 @@ from apps.study.infrastructure.persistence.models import (
     EventDefinition,
     EventTransitionRule,
     RandomizationArm,
-    RandomizationEligibility,
     RandomizationScheme,
     RandomizationSlot,
     Site,
@@ -85,16 +84,6 @@ class DjangoStudyDirectoryRepository:
                 deleted=False,
             )
             .order_by("scheme__code", "sequence_no", "id")
-        )
-
-    def list_randomization_eligibilities(self, *, study_id):
-        return (
-            RandomizationEligibility.objects.select_related("scheme")
-            .filter(
-                study_id=study_id,
-                deleted=False,
-            )
-            .order_by("-evaluated_at", "scheme__code", "subject_id")
         )
 
     def get_site_model(self):

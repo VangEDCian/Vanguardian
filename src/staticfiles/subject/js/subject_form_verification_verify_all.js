@@ -152,7 +152,15 @@
         verifiedCheckedEnabled.forEach(function (el) {
           el.disabled = true;
           el.setAttribute('aria-disabled', 'true');
+          el.dataset.fieldVerified = 'true';
+          el.setAttribute('data-field-verified', 'true');
+          const row = el.closest('tr[data-field-template-id]');
+          if (row instanceof HTMLElement) {
+            row.dataset.fieldVerified = 'true';
+            row.setAttribute('data-field-verified', 'true');
+          }
         });
+        root.dispatchEvent(new CustomEvent('verification:items-updated'));
       })
       .catch(function () {
         showNotification('Network error.', 'error');

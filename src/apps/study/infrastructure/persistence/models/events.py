@@ -237,6 +237,131 @@ class EventTransitionRule(models.Model):
         verbose_name_plural = "study event transition rules"
 
 
+class EventGateEvaluation(models.Model):
+    class GateType(models.TextChoices):
+        TRANSITION = "transition", "Transition"
+        ACTION = "action", "Action"
+        READINESS = "readiness", "Readiness"
+
+    class Result(models.TextChoices):
+        PASS = "pass", "Pass"
+        FAIL = "fail", "Fail"
+        WARNING = "warning", "Warning"
+        NOT_EVALUABLE = "not_evaluable", "Not evaluable"
+
+    created_at = models.DateTimeField()
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="event_gate_evaluations",
+    )
+    subject_id = models.BigIntegerField()
+    event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="event_definition_id",
+        related_name="gate_evaluations",
+    )
+    event_instance_id = models.BigIntegerField(null=True, blank=True)
+
+    gate_code = models.CharField(max_length=64)
+    gate_type = models.CharField(max_length=32, choices=GateType.choices)
+    target_action = models.CharField(max_length=64)
+
+    result = models.CharField(max_length=32, choices=Result.choices)
+
+    evaluated_at = models.DateTimeField()
+    evaluated_by_id = models.BigIntegerField(null=True, blank=True)
+    rule_code = models.CharField(max_length=64, null=True, blank=True)
+    rule_version = models.CharField(max_length=20, null=True, blank=True)
+
+    facts_json = models.TextField(null=True, blank=True)
+    failed_conditions_json = models.TextField(null=True, blank=True)
+    blocking_reasons_json = models.TextField(null=True, blank=True)
+
+    source_context = models.CharField(max_length=64)
+    source_object_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_event_gate_evaluation"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["study", "subject_id", "evaluated_at"],
+                name="std_evtgate_subj_eval_ix",
+            ),
+            models.Index(
+                fields=["event_definition", "result"],
+                name="std_evtgate_evtdef_res_ix",
+            ),
+            models.Index(
+                fields=["event_instance_id", "gate_type"],
+                name="std_evtgate_evtinst_type_ix",
+            ),
+            models.Index(
+                fields=["gate_code", "rule_code"],
+                name="std_evtgate_code_rule_ix",
+            ),
+        ]
+        verbose_name = "study event gate evaluation"
+        verbose_name_plural = "study event gate evaluations"
+
+
+class EventGateConditionResult(models.Model):
+    class Result(models.TextChoices):
+        PASS = "pass", "Pass"
+        FAIL = "fail", "Fail"
+        NOT_AVAILABLE = "not_available", "Not available"
+        ERROR = "error", "Error"
+
+    gate_evaluation = models.ForeignKey(
+        EventGateEvaluation,
+        on_delete=models.DO_NOTHING,
+        db_column="gate_evaluation_id",
+        related_name="condition_results",
+    )
+
+    condition_order = models.IntegerField()
+    fact_key = models.CharField(max_length=128)
+    source_context = models.CharField(max_length=64)
+    source_object_type = models.CharField(max_length=64)
+    source_object_id = models.BigIntegerField(null=True, blank=True)
+
+    operator = models.CharField(max_length=64)
+    expected_value = models.TextField(null=True, blank=True)
+    actual_value = models.TextField(null=True, blank=True)
+    value_type = models.CharField(max_length=32)
+
+    result = models.CharField(max_length=32, choices=Result.choices)
+
+    reason_code = models.CharField(max_length=64, null=True, blank=True)
+    reason_message = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_event_gate_condition_result"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["gate_evaluation", "condition_order"],
+                name="std_evtgate_cond_order_ix",
+            ),
+            models.Index(
+                fields=["gate_evaluation", "result"],
+                name="std_evtgate_cond_result_ix",
+            ),
+            models.Index(
+                fields=["fact_key"],
+                name="std_evtgate_cond_fact_ix",
+            ),
+        ]
+        verbose_name = "study event gate condition result"
+        verbose_name_plural = "study event gate condition results"
+
+
 class EventFormBinding(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()

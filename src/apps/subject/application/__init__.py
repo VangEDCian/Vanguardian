@@ -16,6 +16,7 @@ from apps.subject.application.services import (
     CreateSubjectService,
     SubjectEventCompletionService,
     SubjectEventTransitionService,
+    SubjectWorkflowActionService,
 )
 from apps.subject.application.validators import SubjectFormVerificationRequestValidator
 
@@ -30,6 +31,7 @@ __all__ = [
     "SubjectEventInstanceNotFoundError",
     "SubjectEventCompletionService",
     "SubjectEventTransitionService",
+    "SubjectWorkflowActionService",
     "SubjectFormVerificationRequestValidator",
     "SubjectUseCaseError",
     "SubjectValidationError",

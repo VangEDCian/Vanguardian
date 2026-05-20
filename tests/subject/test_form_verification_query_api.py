@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.subject.presentation.web.views.verification_verify_checked import (
     SubjectFormVerificationOpenQueryView,
+    SubjectFormVerificationQueryThreadView,
 )
 
 
@@ -60,9 +61,19 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             ) as get_page_state_id,
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ) as get_page_state_status,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
                 "is_field_verified_for_page_state",
                 return_value=False,
             ) as is_field_verified,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "has_verified_reconcile_query_for_page_field",
+                return_value=False,
+            ) as has_verified_query,
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked.open_reconcile_query",
                 return_value={
@@ -91,7 +102,13 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             visit_id=3,
             crf_template_id=4,
         )
+        get_page_state_status.assert_called_once_with(
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
+        )
         is_field_verified.assert_called_once_with(page_state_id=23, field_template_id=11)
+        has_verified_query.assert_called_once_with(page_state_id=23, field_template_id=11)
         open_reconcile_query.assert_called_once_with(
             page_state_id=23,
             field_template_id=11,
@@ -120,7 +137,17 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             ),
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
                 "is_field_verified_for_page_state",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "has_verified_reconcile_query_for_page_field",
                 return_value=False,
             ),
             patch(
@@ -139,6 +166,57 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 400)
         payload = json.loads(response.content)
         self.assertEqual(payload["error"], ["An open query already exists for this field."])
+
+    def test_post_returns_400_when_page_state_is_not_submitted(self):
+        request = RequestFactory().post(
+            "/open-query/",
+            data=json.dumps(
+                {
+                    "field_template_id": 11,
+                    "message_text": "Open this query",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="in_progress",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "is_field_verified_for_page_state",
+            ) as is_field_verified,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "has_verified_reconcile_query_for_page_field",
+            ) as has_verified_query,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.open_reconcile_query",
+            ) as open_reconcile_query,
+        ):
+            response = SubjectFormVerificationOpenQueryView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["error"], ["Chỉ được tạo Query khi Page State ở trạng thái Submitted."])
+        is_field_verified.assert_not_called()
+        has_verified_query.assert_not_called()
+        open_reconcile_query.assert_not_called()
 
     def test_post_returns_400_when_field_is_verified(self):
         request = RequestFactory().post(
@@ -161,7 +239,68 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             ),
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
                 "is_field_verified_for_page_state",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "has_verified_reconcile_query_for_page_field",
+            ) as has_verified_query,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.open_reconcile_query",
+            ) as open_reconcile_query,
+        ):
+            response = SubjectFormVerificationOpenQueryView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["error"], ["Dữ liệu đã được verify không thể tạo Query"])
+        has_verified_query.assert_not_called()
+        open_reconcile_query.assert_not_called()
+
+    def test_post_returns_400_when_reconcile_query_is_verified(self):
+        request = RequestFactory().post(
+            "/open-query/",
+            data=json.dumps(
+                {
+                    "field_template_id": 11,
+                    "message_text": "Open this query",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "is_field_verified_for_page_state",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "has_verified_reconcile_query_for_page_field",
                 return_value=True,
             ),
             patch(
@@ -178,5 +317,157 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 400)
         payload = json.loads(response.content)
-        self.assertEqual(payload["error"], ["Dữ liệu đã được verify không thể tạo Query"])
+        self.assertEqual(payload["error"], ["Query đã được verify không thể tạo Query mới"])
         open_reconcile_query.assert_not_called()
+
+    def test_query_thread_close_requires_resolved_flag(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Close this query",
+                    "close_query": True,
+                    "is_resolved": False,
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.reply_and_close_reconcile_query",
+                side_effect=ValueError("Query must be resolved before it can be closed."),
+            ) as reply_and_close,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["error"], ["Query must be resolved before it can be closed."])
+        reply_and_close.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Close this query",
+            actor_user_id=7,
+            is_resolved=False,
+        )
+
+    def test_query_thread_close_passes_resolved_flag(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Close this query",
+                    "close_query": True,
+                    "is_resolved": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.reply_and_close_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "Close this query",
+                    "message_type": "resolution",
+                    "created_at": created_at,
+                    "closed": True,
+                },
+            ) as reply_and_close,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIs(payload["closed"], True)
+        reply_and_close.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Close this query",
+            actor_user_id=7,
+            is_resolved=True,
+        )
+
+    def test_query_thread_cancel_calls_cancel_reconcile_query(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "cancel_query": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.cancel_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "",
+                    "message_type": "cancelled",
+                    "created_at": created_at,
+                    "closed": False,
+                    "cancelled": True,
+                },
+            ) as cancel_query,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIs(payload["cancelled"], True)
+        cancel_query.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            actor_user_id=7,
+        )

@@ -84,18 +84,6 @@
                 </header>
                 {% include "shared/components/_common_table.html" with headers=randomization_slot_headers rows=randomization_slot_rows empty_text=randomization_slot_empty_text %}
             </section>
-            <section class="randomization-section">
-                <header class="randomization-section__header">
-                    <div class="randomization-section__title-group">
-                        <h2 class="randomization-section__title">{% trans "Eligibility Policy" %}</h2>
-                        <p class="randomization-section__description">
-                            {% trans "Eligibility records captured before a subject can be randomized." %}
-                        </p>
-                    </div>
-                    <span class="randomization-section__count">{{ randomization_eligibility_total }}</span>
-                </header>
-                {% include "shared/components/_common_table.html" with headers=randomization_eligibility_headers rows=randomization_eligibility_rows empty_text=randomization_eligibility_empty_text %}
-            </section>
         </div>
         <div id="scheme-import-i18n"
              data-no-file="{% trans 'Please select a file first.' %}"

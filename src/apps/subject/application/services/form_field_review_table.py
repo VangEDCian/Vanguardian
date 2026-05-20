@@ -59,15 +59,30 @@ class FormFieldReviewTableService:
                 continue
         counts: dict[int, int] = {}
         active_query_ids: dict[int, int] = {}
+        active_query_answered_flags: dict[int, bool] = {}
+        verified_query_field_template_ids: set[int] = set()
         query_thread_badge_counts: dict[int, int] = {}
         query_messages_by_field: dict[int, list[dict[str, Any]]] = {}
+        closed_query_histories_by_field: dict[int, list[dict[str, Any]]] = {}
         if page_state_id is not None and field_template_ids:
             counts = self._reconcile_read_service.count_open_queries_by_page_state_and_field_templates(
                 page_state_id=page_state_id,
                 field_template_ids=tuple(field_template_ids),
             )
+            verified_query_field_template_ids = (
+                self._reconcile_read_service.list_field_template_ids_with_verified_queries(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                )
+            )
             active_query_ids = (
                 self._reconcile_read_service.list_latest_active_query_ids_by_page_state_and_field_templates(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                )
+            )
+            active_query_answered_flags = (
+                self._reconcile_read_service.list_latest_active_query_answered_flags_by_page_state_and_field_templates(
                     page_state_id=page_state_id,
                     field_template_ids=tuple(field_template_ids),
                 )
@@ -84,6 +99,13 @@ class FormFieldReviewTableService:
                     page_state_id=page_state_id,
                     field_template_ids=tuple(field_template_ids),
                     limit_per_field=10,
+                )
+            )
+            closed_query_histories_by_field = (
+                self._reconcile_read_service.list_closed_query_histories_by_page_state_and_field_templates(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                    limit_per_query=10,
                 )
             )
 
@@ -133,9 +155,14 @@ class FormFieldReviewTableService:
                     "display_value": display_value,
                     "open_query_count": int(counts.get(field_template_id, 0)),
                     "active_query_id": active_query_ids.get(field_template_id),
+                    "active_query_is_answered": bool(active_query_answered_flags.get(field_template_id, False)),
+                    "has_verified_query": field_template_id in verified_query_field_template_ids,
                     "query_thread_badge_count": int(query_thread_badge_counts.get(field_template_id, 0)),
                     "query_messages": self._format_query_messages(
                         query_messages_by_field.get(field_template_id, []),
+                    ),
+                    "closed_query_histories": self._format_closed_query_histories(
+                        closed_query_histories_by_field.get(field_template_id, []),
                     ),
                     "modified_by": modified_by_display,
                     "is_checked": is_checked,
@@ -261,6 +288,24 @@ class FormFieldReviewTableService:
                     "status": str(message.get("status") or "").strip(),
                     "opened_by": opened_by,
                     "opened_at": cls._format_datetime(timestamp),
+                },
+            )
+        return out
+
+    @classmethod
+    def _format_closed_query_histories(cls, histories: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for history in histories:
+            dataquery_id = history.get("dataquery_id")
+            closed_at = history.get("closed_at") or history.get("updated_at") or history.get("created_at")
+            out.append(
+                {
+                    "dataquery_id": dataquery_id,
+                    "label": f"Query #{dataquery_id}" if dataquery_id else "Query",
+                    "question_text": str(history.get("question_text") or "").strip(),
+                    "opened_at": cls._format_datetime(history.get("opened_at")),
+                    "closed_at": cls._format_datetime(closed_at),
+                    "messages": cls._format_query_messages(history.get("messages", [])),
                 },
             )
         return out

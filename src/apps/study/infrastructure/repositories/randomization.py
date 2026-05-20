@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from apps.core.choices.study import RandomizationSlotStatusChoice
+from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
 from apps.study.infrastructure.persistence.models import (
     RandomizationArm,
     RandomizationScheme,
@@ -176,3 +176,52 @@ class DjangoRandomizationRepository:
         if not slots:
             return []
         return RandomizationSlot.objects.bulk_create(slots)
+
+    def assign_random_available_slot_for_subject(
+        self,
+        *,
+        study_id,
+        subject_id,
+        event_instance_id,
+        actor_user_id,
+        now,
+        excluded_slot_ids=(),
+    ):
+        queryset = (
+            RandomizationSlot.objects.select_for_update(nowait=True)
+            .select_related("scheme", "arm")
+            .filter(
+                scheme__study_id=study_id,
+                scheme__deleted=False,
+                scheme__status=RandomizationSchemeStatusChoice.ACTIVE,
+                deleted=False,
+                status=RandomizationSlotStatusChoice.AVAILABLE,
+            )
+        )
+        if excluded_slot_ids:
+            queryset = queryset.exclude(pk__in=excluded_slot_ids)
+        slot = queryset.order_by("?").first()
+        if slot is None:
+            return None
+
+        updated = RandomizationSlot.objects.filter(
+            pk=slot.pk,
+            deleted=False,
+            status=RandomizationSlotStatusChoice.AVAILABLE,
+        ).update(
+            status=RandomizationSlotStatusChoice.ASSIGNED,
+            assigned_subject_id=subject_id,
+            assigned_event_id=event_instance_id,
+            assigned_at=now,
+            updated_at=now,
+        )
+        return {
+            "assigned": updated == 1,
+            "slot_id": slot.pk,
+            "scheme_id": slot.scheme_id,
+            "scheme_code": slot.scheme.code,
+            "arm_id": slot.arm_id,
+            "arm_code": slot.arm.arm_code,
+            "arm_name": slot.arm.arm_name,
+            "sequence_no": slot.sequence_no,
+        }

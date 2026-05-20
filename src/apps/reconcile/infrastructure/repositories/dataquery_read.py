@@ -30,6 +30,35 @@ class DjangoReconcileDataQueryReadRepository:
         )
         return {int(row["field_template_id"]): int(row["query_count"]) for row in rows}
 
+    def list_field_template_ids_with_verified_queries(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        if not field_template_ids:
+            return set()
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status="verified",
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .values_list("field_template_id", flat=True)
+            .distinct()
+        )
+        return {int(field_template_id) for field_template_id in rows}
+
+    def has_verified_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
+        return ReconcileDataQuery.objects.filter(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            deleted=False,
+            status="verified",
+        ).exists()
+
     def has_open_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
         return ReconcileDataQuery.objects.filter(
             page_state_id=page_state_id,
@@ -108,6 +137,84 @@ class DjangoReconcileDataQueryReadRepository:
             )
         return grouped
 
+    def list_closed_query_histories_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+        limit_per_query: int = 10,
+    ) -> dict[int, list[dict[str, object]]]:
+        if not field_template_ids:
+            return {}
+        query_rows = list(
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.CLOSED,
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .annotate(sort_at=Coalesce("closed_at", "updated_at", "created_at"))
+            .order_by("field_template_id", "-sort_at", "-id")
+            .values(
+                "id",
+                "field_template_id",
+                "question_text",
+                "opened_at",
+                "closed_at",
+                "created_at",
+                "updated_at",
+            )
+        )
+        query_ids = tuple(int(row["id"]) for row in query_rows)
+        messages_by_query_id: dict[int, list[dict[str, object]]] = {}
+        if query_ids:
+            thread_rows = (
+                ReconcileQueryThread.objects.filter(
+                    dataquery_id__in=query_ids,
+                    deleted=False,
+                )
+                .order_by("dataquery_id", "-created_at", "-id")
+                .values(
+                    "dataquery_id",
+                    "message_text",
+                    "message_type",
+                    "created_at",
+                    "author_id",
+                )
+            )
+            for row in thread_rows:
+                dataquery_id = int(row["dataquery_id"])
+                bucket = messages_by_query_id.setdefault(dataquery_id, [])
+                if len(bucket) >= limit_per_query:
+                    continue
+                bucket.append(
+                    {
+                        "dataquery_id": dataquery_id,
+                        "text": row["message_text"],
+                        "status": row["message_type"],
+                        "created_at": row["created_at"],
+                        "opened_by_id": row["author_id"],
+                    },
+                )
+
+        grouped: dict[int, list[dict[str, object]]] = {}
+        for row in query_rows:
+            dataquery_id = int(row["id"])
+            field_template_id = int(row["field_template_id"])
+            grouped.setdefault(field_template_id, []).append(
+                {
+                    "dataquery_id": dataquery_id,
+                    "question_text": row["question_text"],
+                    "opened_at": row["opened_at"],
+                    "closed_at": row["closed_at"],
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                    "messages": messages_by_query_id.get(dataquery_id, []),
+                },
+            )
+        return grouped
+
     def list_latest_active_query_ids_by_page_state_and_field_templates(
         self,
         *,
@@ -132,6 +239,34 @@ class DjangoReconcileDataQueryReadRepository:
         for row in rows:
             field_template_id = int(row["field_template_id"])
             out.setdefault(field_template_id, int(row["id"]))
+        return out
+
+    def list_latest_active_query_answered_flags_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, bool]:
+        if not field_template_ids:
+            return {}
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.OPEN,
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .annotate(sort_at=Coalesce("opened_at", "created_at"))
+            .order_by("field_template_id", "-sort_at", "-id")
+            .values("field_template_id", "answered_at", "answered_by_id")
+        )
+        out: dict[int, bool] = {}
+        for row in rows:
+            field_template_id = int(row["field_template_id"])
+            if field_template_id in out:
+                continue
+            out[field_template_id] = row["answered_at"] is not None or row["answered_by_id"] is not None
         return out
 
     def count_query_threads_since_current_user_last_comment(

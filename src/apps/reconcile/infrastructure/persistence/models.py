@@ -113,7 +113,7 @@ class ReconcileDataQuery(models.Model):
         null=True,
         blank=True,
     )
-    data_version = models.IntegerField(null=True, blank=True)
+    data_version = models.CharField(max_length=16, null=True, blank=True)
     field_path = models.CharField(max_length=512, null=True, blank=True)
     value_snapshot = models.TextField(null=True, blank=True)
 

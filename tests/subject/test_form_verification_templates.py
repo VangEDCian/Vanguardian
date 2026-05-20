@@ -10,10 +10,14 @@ class FormVerificationTemplateTests(SimpleTestCase):
         *,
         show_checkboxes: bool,
         fields_locked: bool = False,
+        show_actions: bool = True,
         active_query_id: int | None = 101,
         query_thread_badge_count: int = 2,
         is_checked: bool = False,
+        has_verified_query: bool = False,
         open_query_count: int = 0,
+        closed_query_histories: list[dict] | None = None,
+        active_query_is_answered: bool = False,
     ) -> str:
         return render_to_string(
             "subject/includes/form_verification_field_review_table.html",
@@ -21,6 +25,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
                 "LANGUAGE_CODE": "en",
                 "form_verification_fields_locked": fields_locked,
                 "form_verification_show_field_checkboxes": show_checkboxes,
+                "form_verification_show_actions": show_actions,
                 "form_verification_review": SimpleNamespace(
                     rows=[
                         {
@@ -31,6 +36,9 @@ class FormVerificationTemplateTests(SimpleTestCase):
                             "display_value": "Value 1",
                             "open_query_count": open_query_count,
                             "active_query_id": active_query_id,
+                            "active_query_is_answered": active_query_is_answered,
+                            "has_verified_query": has_verified_query,
+                            "closed_query_histories": closed_query_histories or [],
                             "query_thread_badge_count": query_thread_badge_count,
                             "query_messages": [
                                 {
@@ -55,6 +63,18 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("subject-form-verification-review__col-check", rendered)
         self.assertIn("disabled", rendered)
         self.assertIn('aria-disabled="true"', rendered)
+
+    def test_field_review_table_keeps_actions_column_when_page_state_is_not_submitted(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=False,
+            show_actions=False,
+            active_query_id=None,
+            query_thread_badge_count=0,
+        )
+
+        self.assertIn(">Actions<", rendered)
+        self.assertIn("data-query-modal-trigger", rendered)
+        self.assertIn("data-query-thread-modal-trigger", rendered)
 
     def test_field_review_action_button_is_enabled_when_page_status_is_not_locked(self):
         rendered = self._render_field_review_table(
@@ -90,6 +110,36 @@ class FormVerificationTemplateTests(SimpleTestCase):
             active_query_id=None,
             query_thread_badge_count=0,
             is_checked=True,
+        )
+
+        action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
+
+        self.assertIn("hidden", action_button)
+
+    def test_field_review_table_hides_verified_rows_by_default_filter(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            active_query_id=None,
+            query_thread_badge_count=0,
+            is_checked=True,
+        )
+
+        row_start = rendered.index('data-field-template-id="11"')
+        tr_start = rendered.rfind("<tr", 0, row_start)
+        tr_end = rendered.index(">", row_start)
+        row = rendered[tr_start : tr_end + 1]
+
+        self.assertIn('data-field-verified="true"', row)
+        self.assertIn("hidden", row)
+
+    def test_field_review_action_button_is_hidden_when_field_has_verified_query(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            active_query_id=None,
+            query_thread_badge_count=0,
+            has_verified_query=True,
         )
 
         action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
@@ -160,6 +210,61 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn('aria-disabled="true"', queries_button)
         self.assertNotIn("data-query-thread-badge", rendered)
 
+    def test_field_review_table_marks_current_query_button_when_query_is_answered(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            active_query_id=101,
+            active_query_is_answered=True,
+        )
+
+        queries_button = self._action_button_markup(rendered, "data-query-thread-modal-trigger")
+
+        self.assertIn('data-query-answered="true"', queries_button)
+
+    def test_field_review_table_shows_queries_history_button_for_closed_queries(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            active_query_id=None,
+            query_thread_badge_count=0,
+            closed_query_histories=[
+                {
+                    "dataquery_id": 201,
+                    "label": "Query #201",
+                    "opened_at": "05/18/2026 09:00",
+                    "closed_at": "05/18/2026 10:00",
+                    "messages": [
+                        {
+                            "dataquery_id": 201,
+                            "text": "Closed message",
+                            "status": "comment",
+                            "opened_by": "Reviewer",
+                            "opened_at": "05/18/2026 09:30",
+                        },
+                    ],
+                },
+            ],
+        )
+
+        history_button = self._action_button_markup(rendered, "data-query-history-modal-trigger")
+
+        self.assertIn('title="Queries History"', history_button)
+        self.assertIn("images/datacapture/history.svg", rendered)
+        self.assertNotIn("hidden", history_button)
+        self.assertIn("data-query-history-source", rendered)
+        self.assertIn('data-history-dataquery-id="201"', rendered)
+        self.assertIn('data-message-text="Closed message"', rendered)
+
+    def test_field_review_table_hides_queries_history_button_without_closed_queries(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            active_query_id=None,
+            query_thread_badge_count=0,
+        )
+
+        history_button = self._action_button_markup(rendered, "data-query-history-modal-trigger")
+
+        self.assertIn("hidden", history_button)
+
     def test_field_review_panel_renders_open_query_and_thread_query_modals(self):
         rendered = render_to_string(
             "subject/includes/form_verification_field_review.html",
@@ -167,6 +272,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
                 "LANGUAGE_CODE": "vi",
                 "form_verification_fields_locked": False,
                 "form_verification_show_field_checkboxes": True,
+                "form_verification_show_actions": True,
                 "form_verification_open_query_url": "/open-query/",
                 "form_verification_query_thread_url": "/query-thread/",
                 "form_verification_review": SimpleNamespace(
@@ -188,13 +294,27 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("data-open-query-modal-comment-input", rendered)
         self.assertIn("data-open-query-modal-submit", rendered)
         self.assertIn("data-open-query-modal-close", rendered)
+        self.assertIn("data-verification-item-filter", rendered)
+        self.assertIn("Show all items", rendered)
+        self.assertIn("Show items needing verification", rendered)
+        self.assertIn('value="needs_verification"', rendered)
+        self.assertIn("checked", rendered)
         self.assertIn("data-query-modal", rendered)
         self.assertIn('data-query-thread-url="/query-thread/"', rendered)
         self.assertIn("Mở Câu hỏi cho trường", rendered)
         self.assertIn("data-query-modal-comment-input", rendered)
         self.assertIn("data-query-modal-reply", rendered)
+        self.assertIn("data-query-modal-resolved-wrap", rendered)
+        self.assertIn("data-query-modal-resolved-input", rendered)
+        self.assertIn("Is this Resolved?", rendered)
         self.assertIn("data-query-modal-reply-close", rendered)
+        self.assertIn("data-query-modal-cancel", rendered)
+        self.assertIn("Cancel Query", rendered)
         self.assertIn("data-query-modal-messages", rendered)
+        self.assertIn("data-query-history-modal", rendered)
+        self.assertIn("data-query-history-modal-list", rendered)
+        self.assertIn("data-query-history-modal-messages", rendered)
+        self.assertIn("data-query-history-modal-close", rendered)
 
     @staticmethod
     def _action_button_markup(rendered: str, marker: str) -> str:

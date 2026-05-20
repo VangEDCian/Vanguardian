@@ -5,11 +5,11 @@ from datetime import datetime
 from django.utils import timezone
 
 from apps.reconcile.infrastructure.repositories import DjangoReconcileDataQueryWriteRepository
-from apps.reconcile.models import ReconcileQueryThreadSourceChoices
 
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
 _QUERY_THREAD_COMMENT = "comment"
 _QUERY_THREAD_RESOLUTION = "resolution"
+_QUERY_THREAD_SOURCE_SYSTEM = "system"
 
 
 @dataclass(frozen=True)
@@ -125,16 +125,17 @@ class ReconcileDataQueryWriteService:
         now: datetime = timezone.now()
         created_count = 0
         for field_template_id, dataquery_id in query_ids_by_field_template.items():
+            formatted_value = self._format_thread_value(
+                field_id_to_value.get(field_template_id),
+                field_contexts.get(field_template_id),
+            )
             self.repository.create_query_thread_message(
                 dataquery_id=dataquery_id,
-                message_text=(
-                    f"update value to "
-                    f"{self._format_thread_value(field_id_to_value.get(field_template_id), field_contexts.get(field_template_id))}"
-                ),
+                message_text=self._format_system_update_value_thread_message(formatted_value),
                 message_type=_QUERY_THREAD_COMMENT,
                 actor_user_id=actor_user_id,
                 now=now,
-                source=ReconcileQueryThreadSourceChoices.SYSTEM,
+                source=_QUERY_THREAD_SOURCE_SYSTEM,
             )
             created_count += 1
         return created_count
@@ -208,6 +209,13 @@ class ReconcileDataQueryWriteService:
             actor_user_id=actor_user_id,
             now=now,
         )
+        self.repository.mark_query_answered(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
         return {
             "dataquery_id": dataquery_id,
             "message_text": thread.message_text,
@@ -228,10 +236,13 @@ class ReconcileDataQueryWriteService:
         field_template_id: int,
         message_text: str,
         actor_user_id: int | None,
+        is_resolved: bool = False,
     ) -> dict[str, object]:
         normalized_text = str(message_text or "").strip()
         if not normalized_text:
             raise ValueError("Message text is required.")
+        if is_resolved is not True:
+            raise ValueError("Query must be resolved before it can be closed.")
         if not self.repository.query_belongs_to_scope(
             dataquery_id=dataquery_id,
             page_state_id=page_state_id,
@@ -253,6 +264,7 @@ class ReconcileDataQueryWriteService:
             resolution_note=normalized_text,
             actor_user_id=actor_user_id,
             now=now,
+            is_resolved=is_resolved,
         )
         return {
             "dataquery_id": dataquery_id,
@@ -266,6 +278,37 @@ class ReconcileDataQueryWriteService:
             "closed": closed,
         }
 
+    def cancel_query(
+        self,
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int,
+        actor_user_id: int | None,
+    ) -> dict[str, object]:
+        if not self.repository.query_belongs_to_scope(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+        ):
+            raise ValueError("Query does not belong to the current field.")
+        now: datetime = timezone.now()
+        cancelled = self.repository.cancel_query(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return {
+            "dataquery_id": dataquery_id,
+            "message_text": "",
+            "message_type": "cancelled",
+            "created_at": timezone.localtime(now) if timezone.is_aware(now) else now,
+            "closed": False,
+            "cancelled": cancelled,
+        }
+
     @classmethod
     def _format_thread_value(cls, value, field_context: dict[str, object] | None = None) -> str:
         if field_context and field_context.get("options"):
@@ -277,6 +320,12 @@ class ReconcileDataQueryWriteService:
         if isinstance(value, bool):
             return "true" if value else "false"
         return str(value)
+
+    @staticmethod
+    def _format_system_update_value_thread_message(formatted_value: str) -> str:
+        if not formatted_value:
+            return "Update value to"
+        return f"Update value to **{formatted_value}**"
 
     @classmethod
     def _format_option_label_value(cls, value, raw_options) -> str:

@@ -22,6 +22,23 @@ class ReconcileDataQueryReadService:
             field_template_id=field_template_id,
         )
 
+    def list_field_template_ids_with_verified_queries(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        return self.repository.list_field_template_ids_with_verified_queries(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
+    def has_verified_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
+        return self.repository.has_verified_query_for_page_field(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+        )
+
     def has_active_blocking_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
         return self.repository.has_active_blocking_query_for_page_field(
             page_state_id=page_state_id,
@@ -44,6 +61,19 @@ class ReconcileDataQueryReadService:
             limit_per_field=limit_per_field,
         )
 
+    def list_closed_query_histories_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+        limit_per_query: int = 10,
+    ) -> dict[int, list[dict[str, object]]]:
+        return self.repository.list_closed_query_histories_by_page_state_and_field_templates(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+            limit_per_query=limit_per_query,
+        )
+
     def list_latest_active_query_ids_by_page_state_and_field_templates(
         self,
         *,
@@ -51,6 +81,17 @@ class ReconcileDataQueryReadService:
         field_template_ids: tuple[int, ...],
     ) -> dict[int, int]:
         return self.repository.list_latest_active_query_ids_by_page_state_and_field_templates(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
+    def list_latest_active_query_answered_flags_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, bool]:
+        return self.repository.list_latest_active_query_answered_flags_by_page_state_and_field_templates(
             page_state_id=page_state_id,
             field_template_ids=field_template_ids,
         )

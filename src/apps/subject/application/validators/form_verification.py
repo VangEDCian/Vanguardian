@@ -57,6 +57,8 @@ class SubjectFormVerificationRequestValidator:
             "field_template_id": field_template_id,
             "message_text": str(body.get("message_text") or "").strip(),
             "close_query": body.get("close_query") is True,
+            "cancel_query": body.get("cancel_query") is True,
+            "is_resolved": body.get("is_resolved") is True,
         }
 
     @classmethod

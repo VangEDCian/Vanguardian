@@ -10,6 +10,7 @@ from apps.subject.application.commands.create_subject import (
     CreateSubjectCommand,
     StudyNotFoundError,
 )
+from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
 from apps.subject.domain import SubjectEventInstance
 from apps.subject.infrastructure.repositories import DjangoSubjectCommandRepository
 
@@ -17,13 +18,21 @@ from apps.subject.infrastructure.repositories import DjangoSubjectCommandReposit
 class CreateSubjectService:
     repository_class = DjangoSubjectCommandRepository
     transition_rule_auto_open_use_case_class = StudyEventTransitionRuleAutoOpenUseCase
+    workflow_action_service_class = SubjectWorkflowActionService
 
-    def __init__(self, repository=None, code_generation_service=None, transition_rule_auto_open_use_case=None):
+    def __init__(
+        self,
+        repository=None,
+        code_generation_service=None,
+        transition_rule_auto_open_use_case=None,
+        workflow_action_service=None,
+    ):
         self.repository = repository or self.repository_class()
         self.code_generation_service = code_generation_service or StudySubjectCodeGenerationService()
         self.transition_rule_auto_open_use_case = (
             transition_rule_auto_open_use_case or self.transition_rule_auto_open_use_case_class()
         )
+        self.workflow_action_service = workflow_action_service or self.workflow_action_service_class()
 
     def execute(self, command: CreateSubjectCommand):
         max_retries = 3
@@ -105,6 +114,11 @@ class CreateSubjectService:
                 for event_definition in event_definitions
             ]
         )
+        for event_instance_id in self.repository.list_open_event_instance_ids_for_subject(subject_id=subject.pk):
+            self.workflow_action_service.execute_for_open_event(
+                event_instance_id=event_instance_id,
+                actor_user_id=actor_user_id,
+            )
 
     def _build_initial_event_instance(
         self,

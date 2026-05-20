@@ -86,6 +86,15 @@ class DjangoSubjectCommandRepository:
         SubjectEventInstance.objects.bulk_create(event_instances)
         self._bulk_create_initial_event_instance_transition_logs(event_instances=event_instances)
 
+    def list_open_event_instance_ids_for_subject(self, *, subject_id):
+        return list(
+            SubjectEventInstance.objects.filter(
+                subject_id=subject_id,
+                deleted=False,
+                status="open",
+            ).values_list("id", flat=True)
+        )
+
     def build_event_instance(self, **kwargs):
         return SubjectEventInstance(**kwargs)
 

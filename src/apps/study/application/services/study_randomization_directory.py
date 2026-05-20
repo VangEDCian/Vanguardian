@@ -51,15 +51,6 @@ class StudyRandomizationDirectoryQueryService:
         {"label": _("VOID REASON")},
         {"label": _("NOTES")},
     )
-    randomization_eligibility_headers = (
-        {"label": _("SCHEME")},
-        {"label": _("SUBJECT ID")},
-        {"label": _("ELIGIBLE")},
-        {"label": _("EVALUATED AT")},
-        {"label": _("REASON CODE")},
-        {"label": _("SCREENING STATUS")},
-    )
-
     def __init__(self, repository=None):
         self.repository = repository or self.repository_class()
 
@@ -67,7 +58,6 @@ class StudyRandomizationDirectoryQueryService:
         schemes = list(self.repository.list_randomization_schemes(study_id=study_id))
         arms = list(self.repository.list_randomization_arms(study_id=study_id))
         slots = list(self.repository.list_randomization_slots(study_id=study_id))
-        eligibilities = list(self.repository.list_randomization_eligibilities(study_id=study_id))
 
         return {
             "randomization_scheme_headers": self.randomization_scheme_headers,
@@ -90,15 +80,6 @@ class StudyRandomizationDirectoryQueryService:
             "randomization_slot_status_summary": self._build_slot_status_summary(slots),
             "randomization_slot_empty_text": _(
                 "No randomization slots have been configured for this study."
-            ),
-            "randomization_eligibility_headers": self.randomization_eligibility_headers,
-            "randomization_eligibility_rows": [
-                self._build_eligibility_row(eligibility)
-                for eligibility in eligibilities
-            ],
-            "randomization_eligibility_total": len(eligibilities),
-            "randomization_eligibility_empty_text": _(
-                "No eligibility policy records have been captured for this study."
             ),
         }
 
@@ -223,31 +204,6 @@ class StudyRandomizationDirectoryQueryService:
                 "count": status_counter.get(RandomizationSlot.VOID, 0),
             },
         )
-
-    def _build_eligibility_row(self, eligibility):
-        return {
-            "selection_value": eligibility.pk,
-            "cells": [
-                self._build_text_cell(
-                    eligibility.scheme.code if eligibility.scheme_id else ""
-                ),
-                self._build_text_cell(str(eligibility.subject_id)),
-                {
-                    "kind": "state",
-                    "value": _("Eligible")
-                    if eligibility.is_eligible
-                    else _("Ineligible"),
-                    "tone": "active" if eligibility.is_eligible else "inactive",
-                },
-                self._build_text_cell(
-                    date_format(eligibility.evaluated_at, "DATETIME_FORMAT")
-                    if eligibility.evaluated_at
-                    else ""
-                ),
-                self._build_text_cell(eligibility.reason_code),
-                self._build_text_cell(eligibility.screening_status_snapshot),
-            ],
-        }
 
     @staticmethod
     def _build_text_cell(value, *, column_class=None):

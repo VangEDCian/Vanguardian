@@ -5,13 +5,21 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.datacapture.application.exceptions import DataCaptureValidationError
+from apps.datacapture.domain import DataCapturePageState
 from apps.datacapture.public import (
     get_page_state_id_for_subject_visit_crf,
+    get_page_state_status_for_subject_visit_crf,
     is_field_verified_for_page_state,
     merge_form_verification_checked_fields_into_page_state_final_data,
     reopen_verified_form_verification_page_state,
 )
-from apps.reconcile.public import open_reconcile_query, reply_and_close_reconcile_query, reply_to_reconcile_query
+from apps.reconcile.public import (
+    cancel_reconcile_query,
+    has_verified_reconcile_query_for_page_field,
+    open_reconcile_query,
+    reply_and_close_reconcile_query,
+    reply_to_reconcile_query,
+)
 from apps.subject.application import (
     SubjectFormVerificationRequestValidator,
     SubjectValidationError,
@@ -108,18 +116,30 @@ class SubjectFormVerificationQueryThreadView(
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
-            service_fn = (
-                reply_and_close_reconcile_query
-                if normalized["close_query"]
-                else reply_to_reconcile_query
-            )
-            result = service_fn(
-                dataquery_id=int(normalized["dataquery_id"]),
-                page_state_id=int(page_state_id),
-                field_template_id=int(normalized["field_template_id"]),
-                message_text=str(normalized["message_text"]),
-                actor_user_id=getattr(request.user, "id", None),
-            )
+            if normalized["cancel_query"]:
+                result = cancel_reconcile_query(
+                    dataquery_id=int(normalized["dataquery_id"]),
+                    page_state_id=int(page_state_id),
+                    field_template_id=int(normalized["field_template_id"]),
+                    actor_user_id=getattr(request.user, "id", None),
+                )
+            elif normalized["close_query"]:
+                result = reply_and_close_reconcile_query(
+                    dataquery_id=int(normalized["dataquery_id"]),
+                    page_state_id=int(page_state_id),
+                    field_template_id=int(normalized["field_template_id"]),
+                    message_text=str(normalized["message_text"]),
+                    actor_user_id=getattr(request.user, "id", None),
+                    is_resolved=normalized["is_resolved"],
+                )
+            else:
+                result = reply_to_reconcile_query(
+                    dataquery_id=int(normalized["dataquery_id"]),
+                    page_state_id=int(page_state_id),
+                    field_template_id=int(normalized["field_template_id"]),
+                    message_text=str(normalized["message_text"]),
+                    actor_user_id=getattr(request.user, "id", None),
+                )
         except (SubjectValidationError, DataCaptureValidationError, ValueError) as exc:
             messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
             return JsonResponse({"error": messages}, status=400)
@@ -131,6 +151,7 @@ class SubjectFormVerificationQueryThreadView(
                 "message_type": result["message_type"],
                 "created_at": result["created_at"],
                 "closed": result["closed"],
+                "cancelled": result.get("cancelled", False),
             }
         )
 
@@ -157,11 +178,23 @@ class SubjectFormVerificationOpenQueryView(
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
+            page_state_status = get_page_state_status_for_subject_visit_crf(
+                subject_id=int(kwargs["subject_id"]),
+                visit_id=int(kwargs["visit_id"]),
+                crf_template_id=int(kwargs["crf_template_id"]),
+            )
+            if (page_state_status or "").strip().lower() != DataCapturePageState.SUBMITTED:
+                return JsonResponse({"error": ["Chỉ được tạo Query khi Page State ở trạng thái Submitted."]}, status=400)
             if is_field_verified_for_page_state(
                 page_state_id=int(page_state_id),
                 field_template_id=int(normalized["field_template_id"]),
             ):
                 return JsonResponse({"error": ["Dữ liệu đã được verify không thể tạo Query"]}, status=400)
+            if has_verified_reconcile_query_for_page_field(
+                page_state_id=int(page_state_id),
+                field_template_id=int(normalized["field_template_id"]),
+            ):
+                return JsonResponse({"error": ["Query đã được verify không thể tạo Query mới"]}, status=400)
             result = open_reconcile_query(
                 page_state_id=int(page_state_id),
                 field_template_id=int(normalized["field_template_id"]),

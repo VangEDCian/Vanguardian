@@ -8,10 +8,12 @@ from apps.subject.infrastructure.repositories.repeating_event_instance import (
     DjangoSubjectRepeatingEventInstanceRepository,
 )
 from apps.subject.infrastructure.repositories.subject_commands import DjangoSubjectCommandRepository
+from apps.subject.infrastructure.repositories.workflow_action import DjangoSubjectWorkflowActionRepository
 
 __all__ = [
     "DjangoSubjectCommandRepository",
     "DjangoSubjectEventInstanceFileRepository",
     "DjangoSubjectEventLifecycleRepository",
     "DjangoSubjectRepeatingEventInstanceRepository",
+    "DjangoSubjectWorkflowActionRepository",
 ]

@@ -5,6 +5,7 @@ __all__ = [
     "CreateSubjectService",
     "SubjectEventCompletionService",
     "SubjectEventTransitionService",
+    "SubjectWorkflowActionService",
 ]
 
 _MODULE_BY_NAME = {
@@ -12,6 +13,7 @@ _MODULE_BY_NAME = {
     "CreateSubjectService": "apps.subject.application.services.create_subject",
     "SubjectEventCompletionService": "apps.subject.application.services.event_completion",
     "SubjectEventTransitionService": "apps.subject.application.services.event_lifecycle",
+    "SubjectWorkflowActionService": "apps.subject.application.services.workflow_action",
 }
 
 

@@ -30,6 +30,25 @@
             </dl>
         </header>
     {% endwith %}
+    <fieldset class="subject-form-verification-review__filter"
+              data-verification-item-filter>
+        <legend class="subject-form-verification-review__sr-only">{% trans "Verification item filter" %}</legend>
+        <label class="subject-form-verification-review__filter-option">
+            <input type="radio"
+                   name="verification_item_filter"
+                   value="all"
+                   data-verification-item-filter-option />
+            <span>{% trans "Show all items" %}</span>
+        </label>
+        <label class="subject-form-verification-review__filter-option">
+            <input type="radio"
+                   name="verification_item_filter"
+                   value="needs_verification"
+                   checked
+                   data-verification-item-filter-option />
+            <span>{% trans "Show items needing verification" %}</span>
+        </label>
+    </fieldset>
     {% include "subject/includes/form_verification_field_review_table.html" %}
     <div class="subject-form-verification-query-modal-backdrop"
          hidden
@@ -113,13 +132,23 @@
                     <textarea class="subject-form-verification-query-modal__textarea"
                               rows="2"
                               data-query-modal-comment-input></textarea>
+                    <label class="subject-form-verification-query-modal__resolved-check"
+                           hidden
+                           data-query-modal-resolved-wrap>
+                        <input type="checkbox" data-query-modal-resolved-input />
+                        <span>{% trans "Is this Resolved?" %}</span>
+                    </label>
                     <div class="subject-form-verification-query-modal__actions">
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--primary"
                                 data-query-modal-reply>{% trans "Reply" %}</button>
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--danger"
+                                hidden
                                 data-query-modal-reply-close>{% trans "Reply and Close Query" %}</button>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--danger"
+                                data-query-modal-cancel>{% trans "Cancel Query" %}</button>
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--secondary"
                                 data-query-modal-close>{% trans "Close" %}</button>
@@ -130,6 +159,52 @@
                     <p class="subject-form-verification-query-modal__empty"
                        data-query-modal-empty>{% trans "No query messages." %}</p>
                 </section>
+            </div>
+        </div>
+    </div>
+    <div class="subject-form-verification-query-modal-backdrop"
+         hidden
+         data-query-history-modal
+         data-language-code="{{ LANGUAGE_CODE|default:'' }}"
+         data-history-en-prefix="Queries History for field"
+         data-history-vi-prefix="Lịch sử câu hỏi cho trường">
+        <div class="subject-form-verification-query-modal subject-form-verification-query-modal--history"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="subject-form-verification-query-history-modal-title">
+            <header class="subject-form-verification-query-modal__header">
+                <h3 id="subject-form-verification-query-history-modal-title"
+                    class="subject-form-verification-query-modal__title"
+                    data-query-history-modal-title></h3>
+            </header>
+            <div class="subject-form-verification-query-modal__body subject-form-verification-query-modal__body--history">
+                <aside class="subject-form-verification-query-modal__history-list"
+                       aria-label="{% trans 'Closed queries' %}"
+                       data-query-history-modal-list></aside>
+                <div class="subject-form-verification-query-modal__history-detail">
+                    <section class="subject-form-verification-query-modal__section">
+                        <dl class="subject-form-verification-query-modal__facts">
+                            <div class="subject-form-verification-query-modal__fact-row">
+                                <dt>{% trans "Brief Description" %}</dt>
+                                <dd data-query-history-modal-brief></dd>
+                            </div>
+                            <div class="subject-form-verification-query-modal__fact-row">
+                                <dt>{% trans "Value" %}</dt>
+                                <dd data-query-history-modal-value></dd>
+                            </div>
+                        </dl>
+                    </section>
+                    <section class="subject-form-verification-query-modal__section subject-form-verification-query-modal__messages"
+                             data-query-history-modal-messages>
+                        <p class="subject-form-verification-query-modal__empty"
+                           data-query-history-modal-empty>{% trans "No query messages." %}</p>
+                    </section>
+                    <div class="subject-form-verification-query-modal__actions">
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-query-history-modal-close>{% trans "Close" %}</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

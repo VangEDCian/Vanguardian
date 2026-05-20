@@ -58,6 +58,27 @@ class CreateSubjectEventInstanceScheduleTests(SimpleTestCase):
         self.assertIsNone(event_instances_by_definition[101].opened_at)
         self.assertIsNone(event_instances_by_definition[101].opened_by_id)
 
+    def test_initial_open_events_trigger_workflow_actions(self):
+        anchor_datetime = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)
+        repository = _SubjectCommandRepositoryStub(
+            event_definitions=[self._event_definition(pk=100, code="RANDOMIZATION")],
+            transition_rules=[],
+            open_event_instance_ids=[55],
+        )
+        workflow_action_service = _WorkflowActionServiceStub()
+        subject = SimpleNamespace(pk=20, study_id=1)
+
+        CreateSubjectService(
+            repository=repository,
+            workflow_action_service=workflow_action_service,
+        )._initialize_subject_event_instances(
+            subject=subject,
+            actor_user_id=99,
+            now=anchor_datetime,
+        )
+
+        self.assertEqual(workflow_action_service.open_event_ids, [55])
+
     @staticmethod
     def _event_definition(*, pk, code):
         return SimpleNamespace(
@@ -75,7 +96,11 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
         repository = _SubjectEventLifecycleRepositoryStub(now=anchor_datetime)
 
         with patch("apps.subject.application.services.event_lifecycle.transaction.atomic", return_value=nullcontext()):
-            SubjectEventTransitionService(repository=repository).execute(
+            workflow_action_service = _WorkflowActionServiceStub()
+            SubjectEventTransitionService(
+                repository=repository,
+                workflow_action_service=workflow_action_service,
+            ).execute(
                 TriggerSubjectEventTransitionCommand(
                     source_event_instance_id=10,
                     actor_user_id=99,
@@ -84,13 +109,15 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
             )
 
         self.assertEqual(repository.created_planned_date, anchor_datetime + timedelta(days=5))
+        self.assertEqual(workflow_action_service.open_event_ids, [11])
 
 
 class _SubjectCommandRepositoryStub:
-    def __init__(self, *, event_definitions, transition_rules):
+    def __init__(self, *, event_definitions, transition_rules, open_event_instance_ids=()):
         self.event_definitions = event_definitions
         self.transition_rules = transition_rules
         self.created_event_instances = []
+        self.open_event_instance_ids = list(open_event_instance_ids)
 
     def list_enabled_event_definitions(self, *, study_id):
         return self.event_definitions
@@ -103,6 +130,17 @@ class _SubjectCommandRepositoryStub:
 
     def bulk_create_event_instances(self, event_instances):
         self.created_event_instances = list(event_instances)
+
+    def list_open_event_instance_ids_for_subject(self, *, subject_id):
+        return list(self.open_event_instance_ids)
+
+
+class _WorkflowActionServiceStub:
+    def __init__(self):
+        self.open_event_ids = []
+
+    def execute_for_open_event(self, *, event_instance_id, actor_user_id):
+        self.open_event_ids.append(event_instance_id)
 
 
 class _SubjectEventLifecycleRepositoryStub:

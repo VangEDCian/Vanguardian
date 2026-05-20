@@ -382,6 +382,7 @@ class SubjectDetailView(
         form_verification_open_query_url = ""
         form_verification_query_thread_url = ""
         form_verification_show_field_checkboxes = True
+        form_verification_show_actions = False
         field_query_state_by_id = {}
         if focused_form and focused_event and focused_form_fields and not is_form_verification_mode:
             try:
@@ -418,6 +419,7 @@ class SubjectDetailView(
                             continue
                         field_query_state_by_id[int(row["field_template_id"])] = {
                             "active_query_id": row.get("active_query_id"),
+                            "active_query_is_answered": row.get("active_query_is_answered"),
                             "query_thread_badge_count": row.get("query_thread_badge_count"),
                             "query_messages": row.get("query_messages"),
                         }
@@ -474,6 +476,7 @@ class SubjectDetailView(
                     verified_field_template_ids=verified_field_template_ids,
                 )
                 normalized_page_status = (focused_page_status or "").strip().lower()
+                form_verification_show_actions = normalized_page_status == DataCapturePageState.SUBMITTED
                 form_verification_show_field_checkboxes = normalized_page_status not in {
                     "",
                     "none",
@@ -483,24 +486,25 @@ class SubjectDetailView(
                     DataCapturePageState.IN_PROGRESS,
                 }
                 if self.request.user.has_perm(VERIFY_FORM_PERMISSION):
-                    form_verification_open_query_url = reverse(
-                        "subject:subject_form_verification_open_query",
-                        kwargs={
-                            "study_id": self.get_study_id(),
-                            "subject_id": subject.pk,
-                            "visit_id": visit_pk,
-                            "crf_template_id": template_pk,
-                        },
-                    )
-                    form_verification_query_thread_url = reverse(
-                        "subject:subject_form_verification_query_thread",
-                        kwargs={
-                            "study_id": self.get_study_id(),
-                            "subject_id": subject.pk,
-                            "visit_id": visit_pk,
-                            "crf_template_id": template_pk,
-                        },
-                    )
+                    if form_verification_show_actions:
+                        form_verification_open_query_url = reverse(
+                            "subject:subject_form_verification_open_query",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": visit_pk,
+                                "crf_template_id": template_pk,
+                            },
+                        )
+                        form_verification_query_thread_url = reverse(
+                            "subject:subject_form_verification_query_thread",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": visit_pk,
+                                "crf_template_id": template_pk,
+                            },
+                        )
                     if DataCapturePageState.can_start_or_continue_review(normalized_page_status):
                         form_verification_verify_checked_url = reverse(
                             "subject:subject_form_verification_verify_checked",
@@ -582,6 +586,7 @@ class SubjectDetailView(
         context["form_verification_query_thread_url"] = form_verification_query_thread_url
         context["page_entry_has_open_queries"] = bool(field_query_state_by_id)
         context["form_verification_show_field_checkboxes"] = form_verification_show_field_checkboxes
+        context["form_verification_show_actions"] = form_verification_show_actions
         context["form_verification_fields_locked"] = (
             is_form_verification_mode
             and DataCapturePageState.is_capture_locked(focused_page_status)

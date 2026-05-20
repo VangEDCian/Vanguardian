@@ -1,6 +1,7 @@
 (function () {
   const modal = document.querySelector('[data-query-modal]');
   const openQueryModal = document.querySelector('[data-open-query-modal]');
+  const historyModal = document.querySelector('[data-query-history-modal]');
   if (!(modal instanceof HTMLElement)) {
     return;
   }
@@ -17,17 +18,30 @@
   const input = modal.querySelector('[data-query-modal-comment-input]');
   const replyButton = modal.querySelector('[data-query-modal-reply]');
   const replyCloseButton = modal.querySelector('[data-query-modal-reply-close]');
+  const cancelButton = modal.querySelector('[data-query-modal-cancel]');
+  const resolvedWrap = modal.querySelector('[data-query-modal-resolved-wrap]');
+  const resolvedInput = modal.querySelector('[data-query-modal-resolved-input]');
   const closeButton = modal.querySelector('[data-query-modal-close]');
   const messagesNode = modal.querySelector('[data-query-modal-messages]');
   const emptyNode = modal.querySelector('[data-query-modal-empty]');
+  const historyTitleNode = historyModal?.querySelector('[data-query-history-modal-title]');
+  const historyBriefNode = historyModal?.querySelector('[data-query-history-modal-brief]');
+  const historyValueNode = historyModal?.querySelector('[data-query-history-modal-value]');
+  const historyListNode = historyModal?.querySelector('[data-query-history-modal-list]');
+  const historyMessagesNode = historyModal?.querySelector('[data-query-history-modal-messages]');
+  const historyEmptyNode = historyModal?.querySelector('[data-query-history-modal-empty]');
+  const historyCloseButton = historyModal?.querySelector('[data-query-history-modal-close]');
   const languageCode = String(modal.dataset.languageCode || '').trim().toLowerCase();
   const openLanguageCode = String(openQueryModal?.dataset.languageCode || languageCode).trim().toLowerCase();
+  const historyLanguageCode = String(historyModal?.dataset.languageCode || languageCode).trim().toLowerCase();
   const postUrl = String(modal.dataset.queryThreadUrl || '').trim();
   const openPostUrl = String(openQueryModal?.dataset.openQueryUrl || '').trim();
   const openTitleEnPrefix = String(openQueryModal?.dataset.titleEnPrefix || 'Open Query for field').trim();
   const openTitleViPrefix = String(openQueryModal?.dataset.titleViPrefix || 'Mo Cau hoi cho truong').trim();
   const queriesEnPrefix = String(modal.dataset.queriesEnPrefix || 'Queries for field').trim();
   const queriesViPrefix = String(modal.dataset.queriesViPrefix || 'Cau hoi cho truong').trim();
+  const historyEnPrefix = String(historyModal?.dataset.historyEnPrefix || 'Queries History for field').trim();
+  const historyViPrefix = String(historyModal?.dataset.historyViPrefix || 'Lich su cau hoi cho truong').trim();
   const notificationDurationMs = 2600;
   const notificationHost = document.createElement('div');
   notificationHost.className = 'subject-detail-screen__notifications';
@@ -82,6 +96,22 @@
     emptyNode.hidden = messagesNode.querySelector('[data-query-modal-message]') !== null;
   }
 
+  function clearHistoryMessages() {
+    if (!historyMessagesNode) {
+      return;
+    }
+    Array.from(historyMessagesNode.querySelectorAll('[data-query-modal-message]')).forEach(function (node) {
+      node.remove();
+    });
+  }
+
+  function updateHistoryEmptyState() {
+    if (!historyEmptyNode || !historyMessagesNode) {
+      return;
+    }
+    historyEmptyNode.hidden = historyMessagesNode.querySelector('[data-query-modal-message]') !== null;
+  }
+
   function buildMessageNode(message) {
     const item = document.createElement('article');
     item.className = 'subject-form-verification-query-modal__message';
@@ -103,17 +133,50 @@
 
     const text = document.createElement('p');
     text.className = 'subject-form-verification-query-modal__message-text';
-    text.textContent = String(message.text || '').trim();
+    appendFormattedMessageText(text, message.text);
     item.appendChild(text);
     return item;
   }
 
+  function appendFormattedMessageText(node, rawText) {
+    const text = String(rawText || '').trim();
+    text.split(/(\*\*[^*]+\*\*)/g).forEach(function (part) {
+      if (!part) {
+        return;
+      }
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const strong = document.createElement('strong');
+        strong.textContent = part.slice(2, -2);
+        node.appendChild(strong);
+        return;
+      }
+      node.appendChild(document.createTextNode(part));
+    });
+  }
+
   function setThreadActionsEnabled(enabled) {
-    [replyButton, replyCloseButton].forEach(function (button) {
+    [replyButton, replyCloseButton, cancelButton].forEach(function (button) {
       if (button instanceof HTMLButtonElement) {
         button.disabled = !enabled;
       }
     });
+  }
+
+  function isResolvedChecked() {
+    return resolvedInput instanceof HTMLInputElement && resolvedInput.checked;
+  }
+
+  function updateResolvedControls() {
+    const canResolve = activeContext && activeContext.isAnswered === true;
+    if (resolvedWrap instanceof HTMLElement) {
+      resolvedWrap.hidden = !canResolve;
+    }
+    if (resolvedInput instanceof HTMLInputElement && !canResolve) {
+      resolvedInput.checked = false;
+    }
+    if (replyCloseButton instanceof HTMLButtonElement && resolvedInput instanceof HTMLInputElement) {
+      replyCloseButton.hidden = !(canResolve && resolvedInput.checked);
+    }
   }
 
   function setOpenActionsEnabled(enabled) {
@@ -143,6 +206,19 @@
     updateEmptyState();
   }
 
+  function appendHistoryMessage(message) {
+    if (!historyMessagesNode) {
+      return;
+    }
+    const node = buildMessageNode(message);
+    if (historyEmptyNode) {
+      historyMessagesNode.insertBefore(node, historyEmptyNode);
+    } else {
+      historyMessagesNode.appendChild(node);
+    }
+    updateHistoryEmptyState();
+  }
+
   function appendSourceMessage(row, message) {
     if (!row) {
       return;
@@ -167,6 +243,48 @@
       });
   }
 
+  function promoteCurrentQueryToHistory(row, trigger, closedAt) {
+    if (!row || !(trigger instanceof HTMLElement)) {
+      return;
+    }
+    const historySource = row.querySelector('[data-query-history-source]');
+    const messageSource = row.querySelector('[data-query-message-source]');
+    if (!historySource || !messageSource) {
+      return;
+    }
+    const dataqueryId = String(trigger.dataset.activeQueryId || '').trim();
+    if (!dataqueryId) {
+      return;
+    }
+    const historyNode = document.createElement('div');
+    historyNode.setAttribute('data-query-history', '');
+    historyNode.dataset.historyDataqueryId = dataqueryId;
+    historyNode.dataset.historyLabel = `Query #${dataqueryId}`;
+    historyNode.dataset.historyClosedAt = String(closedAt || '');
+
+    Array.from(messageSource.querySelectorAll('[data-query-message]'))
+      .filter(function (node) {
+        return node.dataset.messageDataqueryId === dataqueryId;
+      })
+      .slice(0, 10)
+      .forEach(function (node) {
+        const messageNode = document.createElement('div');
+        messageNode.setAttribute('data-query-history-message', '');
+        messageNode.dataset.messageDataqueryId = String(node.dataset.messageDataqueryId || '');
+        messageNode.dataset.messageText = String(node.dataset.messageText || '');
+        messageNode.dataset.messageStatus = String(node.dataset.messageStatus || '');
+        messageNode.dataset.messageOpenedBy = String(node.dataset.messageOpenedBy || '');
+        messageNode.dataset.messageOpenedAt = String(node.dataset.messageOpenedAt || '');
+        historyNode.appendChild(messageNode);
+      });
+
+    historySource.insertBefore(historyNode, historySource.firstChild);
+    const historyTrigger = row.querySelector('[data-query-history-modal-trigger]');
+    if (historyTrigger instanceof HTMLButtonElement) {
+      historyTrigger.hidden = false;
+    }
+  }
+
   function loadMessages(trigger) {
     clearMessages();
     const container = trigger.closest('[data-query-field-container]') || trigger.closest('tr');
@@ -188,6 +306,74 @@
       );
     });
     updateEmptyState();
+  }
+
+  function historySourceItems(trigger) {
+    const container = trigger.closest('[data-query-field-container]') || trigger.closest('tr');
+    const source = container ? container.querySelector('[data-query-history-source]') : null;
+    if (!source) {
+      return [];
+    }
+    return Array.from(source.children).filter(function (node) {
+      return node instanceof HTMLElement && node.hasAttribute('data-query-history');
+    });
+  }
+
+  function selectHistorySource(sourceNode) {
+    if (!(sourceNode instanceof HTMLElement) || !historyListNode) {
+      return;
+    }
+    Array.from(historyListNode.querySelectorAll('[data-query-history-item]')).forEach(function (node) {
+      node.setAttribute(
+        'aria-selected',
+        node instanceof HTMLElement && node.dataset.historyDataqueryId === sourceNode.dataset.historyDataqueryId
+          ? 'true'
+          : 'false',
+      );
+    });
+    clearHistoryMessages();
+    Array.from(sourceNode.querySelectorAll('[data-query-history-message]')).slice(0, 10).forEach(function (node) {
+      appendHistoryMessage({
+        text: node.dataset.messageText,
+        status: node.dataset.messageStatus,
+        openedBy: node.dataset.messageOpenedBy,
+        openedAt: node.dataset.messageOpenedAt,
+        dataqueryId: node.dataset.messageDataqueryId,
+      });
+    });
+    updateHistoryEmptyState();
+  }
+
+  function loadHistoryList(trigger) {
+    if (!historyListNode) {
+      return;
+    }
+    historyListNode.replaceChildren();
+    const sources = historySourceItems(trigger);
+    sources.forEach(function (sourceNode, index) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'subject-form-verification-query-modal__history-item';
+      item.setAttribute('data-query-history-item', '');
+      item.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+      item.dataset.historyDataqueryId = String(sourceNode.dataset.historyDataqueryId || '');
+
+      const label = document.createElement('span');
+      label.className = 'subject-form-verification-query-modal__history-item-label';
+      label.textContent = String(sourceNode.dataset.historyLabel || sourceNode.dataset.historyDataqueryId || '');
+      item.appendChild(label);
+
+      const date = document.createElement('span');
+      date.className = 'subject-form-verification-query-modal__history-item-date';
+      date.textContent = String(sourceNode.dataset.historyClosedAt || sourceNode.dataset.historyOpenedAt || '');
+      item.appendChild(date);
+
+      item.addEventListener('click', function () {
+        selectHistorySource(sourceNode);
+      });
+      historyListNode.appendChild(item);
+    });
+    selectHistorySource(sources[0]);
   }
 
   function openNewQueryModal(trigger) {
@@ -230,6 +416,7 @@
       trigger: trigger,
       dataqueryId: String(trigger.dataset.activeQueryId || '').trim(),
       fieldTemplateId: String(trigger.dataset.fieldTemplateId || '').trim(),
+      isAnswered: String(trigger.dataset.queryAnswered || '').trim().toLowerCase() === 'true',
     };
     setText(titleNode, `${titlePrefix} ${titleField}`.trim());
     setText(briefNode, fieldLabel || fieldKey || '-');
@@ -237,6 +424,10 @@
     if (input instanceof HTMLTextAreaElement) {
       input.value = '';
     }
+    if (resolvedInput instanceof HTMLInputElement) {
+      resolvedInput.checked = false;
+    }
+    updateResolvedControls();
     loadMessages(trigger);
     setThreadActionsEnabled(!!activeContext.dataqueryId && !!postUrl);
     modal.hidden = false;
@@ -245,9 +436,31 @@
     }
   }
 
+  function openHistoryModal(trigger) {
+    if (!(historyModal instanceof HTMLElement)) {
+      return;
+    }
+    const fieldLabel = String(trigger.dataset.fieldLabel || '').trim();
+    const fieldKey = String(trigger.dataset.fieldKey || '').trim();
+    const fieldValue = String(trigger.dataset.fieldValue || '').trim();
+    const titleField = isVietnamese(historyLanguageCode) ? fieldKey || fieldLabel : fieldLabel || fieldKey;
+    const titlePrefix = isVietnamese(historyLanguageCode) ? historyViPrefix : historyEnPrefix;
+    setText(historyTitleNode, `${titlePrefix} ${titleField}`.trim());
+    setText(historyBriefNode, fieldLabel || fieldKey || '-');
+    setText(historyValueNode, fieldValue || '-');
+    loadHistoryList(trigger);
+    historyModal.hidden = false;
+  }
+
   function closeModal() {
     modal.hidden = true;
     activeContext = null;
+  }
+
+  function closeHistoryModal() {
+    if (historyModal instanceof HTMLElement) {
+      historyModal.hidden = true;
+    }
   }
 
   function closeOpenQueryModal() {
@@ -268,12 +481,43 @@
     return 'Request failed.';
   }
 
-  function postThreadAction(closeQuery) {
+  function releaseQueryRow(row, trigger) {
+    if (trigger instanceof HTMLButtonElement) {
+      trigger.disabled = true;
+      trigger.setAttribute('aria-disabled', 'true');
+      trigger.hidden = true;
+    }
+    const openTrigger = row ? row.querySelector('[data-query-modal-trigger]') : null;
+    if (openTrigger instanceof HTMLButtonElement) {
+      openTrigger.hidden = false;
+      openTrigger.disabled = false;
+      openTrigger.removeAttribute('aria-disabled');
+    }
+    const checkbox = row ? row.querySelector('input[name="verify_field"]') : null;
+    if (
+      checkbox instanceof HTMLInputElement &&
+      String(checkbox.dataset.fieldVerified || '').trim().toLowerCase() !== 'true'
+    ) {
+      checkbox.dataset.blockedByOpenQuery = 'false';
+      checkbox.disabled = false;
+      checkbox.removeAttribute('aria-disabled');
+    }
+    if (row instanceof HTMLElement) {
+      row.classList.remove('subject-form-field--has-open-query');
+    }
+    const countCell = row ? row.querySelector('[data-open-query-count]') : null;
+    if (countCell) {
+      const current = parseInt(String(countCell.textContent || '0').trim(), 10);
+      countCell.textContent = String(Number.isNaN(current) ? 0 : Math.max(0, current - 1));
+    }
+  }
+
+  function postThreadAction(closeQuery, cancelQuery) {
     if (!activeContext || !postUrl || !(input instanceof HTMLTextAreaElement)) {
       return;
     }
     const messageText = String(input.value || '').trim();
-    if (!messageText) {
+    if (!messageText && cancelQuery !== true) {
       return;
     }
     setThreadActionsEnabled(false);
@@ -286,6 +530,8 @@
           field_template_id: parseInt(activeContext.fieldTemplateId, 10),
           message_text: messageText,
           close_query: closeQuery === true,
+          cancel_query: cancelQuery === true,
+          is_resolved: closeQuery === true && isResolvedChecked(),
         }),
       })
       .then(function (response) {
@@ -306,47 +552,39 @@
           appendMessage({ text: normalizeErrorMessage(result), status: 'error' }, 'prepend');
           return;
         }
-        appendMessage(
-          {
+        const row = activeContext.trigger.closest('[data-query-field-container]') || activeContext.trigger.closest('tr');
+        if (result.data.message_text) {
+          const message = {
+            dataqueryId: activeContext.dataqueryId,
             text: result.data.message_text,
             status: result.data.message_type,
             openedAt: result.data.created_at,
-          },
-          'prepend',
-        );
+          };
+          appendMessage(message, 'prepend');
+          appendSourceMessage(row, message);
+        }
         input.value = '';
         const badge = activeContext.trigger.querySelector('[data-query-thread-badge]');
         if (badge) {
           badge.remove();
         }
         if (result.data.closed === true && activeContext.trigger instanceof HTMLButtonElement) {
-          activeContext.trigger.disabled = true;
-          activeContext.trigger.setAttribute('aria-disabled', 'true');
-          activeContext.trigger.hidden = true;
-          const row = activeContext.trigger.closest('[data-query-field-container]') || activeContext.trigger.closest('tr');
-          const openTrigger = row ? row.querySelector('[data-query-modal-trigger]') : null;
-          if (openTrigger instanceof HTMLButtonElement) {
-            openTrigger.hidden = false;
-            openTrigger.disabled = false;
-            openTrigger.removeAttribute('aria-disabled');
-          }
-          const checkbox = row ? row.querySelector('input[name="verify_field"]') : null;
-          if (
-            checkbox instanceof HTMLInputElement &&
-            String(checkbox.dataset.fieldVerified || '').trim().toLowerCase() !== 'true'
-          ) {
-            checkbox.dataset.blockedByOpenQuery = 'false';
-            checkbox.disabled = false;
-            checkbox.removeAttribute('aria-disabled');
-          }
-          if (row instanceof HTMLElement) {
-            row.classList.remove('subject-form-field--has-open-query');
-          }
-          const countCell = row ? row.querySelector('[data-open-query-count]') : null;
-          if (countCell) {
-            const current = parseInt(String(countCell.textContent || '0').trim(), 10);
-            countCell.textContent = String(Number.isNaN(current) ? 0 : Math.max(0, current - 1));
-          }
+          promoteCurrentQueryToHistory(row, activeContext.trigger, result.data.created_at);
+          releaseQueryRow(row, activeContext.trigger);
+        }
+        if (result.data.cancelled === true && activeContext.trigger instanceof HTMLButtonElement) {
+          releaseQueryRow(row, activeContext.trigger);
+          closeModal();
+        }
+        if (
+          result.data.closed !== true &&
+          result.data.cancelled !== true &&
+          activeContext &&
+          activeContext.trigger instanceof HTMLElement
+        ) {
+          activeContext.trigger.dataset.queryAnswered = 'true';
+          activeContext.isAnswered = true;
+          updateResolvedControls();
         }
       })
       .catch(function () {
@@ -446,6 +684,14 @@
       openModal(threadTrigger);
       return;
     }
+    const historyTrigger = target.closest('[data-query-history-modal-trigger]');
+    if (historyTrigger instanceof HTMLButtonElement) {
+      if (historyTrigger.disabled) {
+        return;
+      }
+      openHistoryModal(historyTrigger);
+      return;
+    }
     const trigger = target.closest('[data-query-modal-trigger]');
     if (trigger instanceof HTMLButtonElement) {
       if (trigger.disabled) {
@@ -460,6 +706,9 @@
     if (target === openQueryModal) {
       closeOpenQueryModal();
     }
+    if (target === historyModal) {
+      closeHistoryModal();
+    }
   });
 
   if (replyButton instanceof HTMLElement) {
@@ -470,8 +719,18 @@
 
   if (replyCloseButton instanceof HTMLElement) {
     replyCloseButton.addEventListener('click', function () {
-      postThreadAction(true);
+      postThreadAction(true, false);
     });
+  }
+
+  if (cancelButton instanceof HTMLElement) {
+    cancelButton.addEventListener('click', function () {
+      postThreadAction(false, true);
+    });
+  }
+
+  if (resolvedInput instanceof HTMLElement) {
+    resolvedInput.addEventListener('change', updateResolvedControls);
   }
 
   if (closeButton instanceof HTMLElement) {
@@ -480,6 +739,10 @@
 
   if (openCloseButton instanceof HTMLElement) {
     openCloseButton.addEventListener('click', closeOpenQueryModal);
+  }
+
+  if (historyCloseButton instanceof HTMLElement) {
+    historyCloseButton.addEventListener('click', closeHistoryModal);
   }
 
   if (openSubmitButton instanceof HTMLElement) {
@@ -495,6 +758,9 @@
     }
     if (openQueryModal instanceof HTMLElement && !openQueryModal.hidden) {
       closeOpenQueryModal();
+    }
+    if (historyModal instanceof HTMLElement && !historyModal.hidden) {
+      closeHistoryModal();
     }
   });
 })();
