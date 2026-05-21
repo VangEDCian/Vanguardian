@@ -12,6 +12,9 @@
               style="--icon-url: url('{% static 'images/table/ellipsis-vertical-svgrepo-com.svg' %}')"></span>
     </button>
     <div class="crf-template-actions__menu" data-dropdown-menu hidden>
+        <a href="{{ subject_detail_base_url }}?mode=viewonly"
+           class="crf-template-actions__item"
+           data-dropdown-option>{% trans "View Detail" %}</a>
         {% if record.pk in table.verify_eligible_subject_ids %}
             <button type="button"
                     class="crf-template-actions__item"

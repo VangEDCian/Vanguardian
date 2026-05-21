@@ -271,6 +271,12 @@ class SubjectDetailNavigationMixin:
         return payload
 
     def _with_verification_focus_urls(self, event_navigation):
+        return self._with_readonly_mode_focus_urls(event_navigation, mode="verification")
+
+    def _with_viewonly_focus_urls(self, event_navigation):
+        return self._with_readonly_mode_focus_urls(event_navigation, mode="viewonly")
+
+    def _with_readonly_mode_focus_urls(self, event_navigation, *, mode: str):
         detail_url = reverse(
             "subject:subject_detail",
             kwargs={
@@ -284,7 +290,7 @@ class SubjectDetailNavigationMixin:
                 {
                     **form_item,
                     "focus_url": (
-                        f"{detail_url}?mode=verification&event={event_item['id']}&form={form_item['id']}"
+                        f"{detail_url}?mode={mode}&event={event_item['id']}&form={form_item['id']}"
                     ),
                 }
                 for form_item in event_item["forms"]
@@ -292,7 +298,7 @@ class SubjectDetailNavigationMixin:
             payload.append(
                 {
                     **event_item,
-                    "focus_url": f"{detail_url}?mode=verification&event={event_item['id']}",
+                    "focus_url": f"{detail_url}?mode={mode}&event={event_item['id']}",
                     "forms": forms_with_url,
                 },
             )

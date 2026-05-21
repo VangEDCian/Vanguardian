@@ -503,10 +503,12 @@
   cursor: auto;
 }
 
+.subject-form-verification-review__table--styled thead tr>th:nth-child(1),
 .subject-form-verification-review__table--styled tbody tr>td:nth-child(1) {
   min-width: 51px;
 }
 
+.subject-form-verification-review__table--styled thead tr>th:nth-child(2),
 .subject-form-verification-review__table--styled tbody tr>td:nth-child(2) {
   width: 100%;
 }

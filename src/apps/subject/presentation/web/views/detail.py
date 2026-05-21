@@ -121,17 +121,13 @@ class SubjectDetailView(
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         mode = (request.GET.get("mode") or "").strip().lower()
-        if mode == "verification" and not request.GET.get("event") and not request.GET.get("form"):
+        if mode in {"verification", "viewonly"} and not request.GET.get("event") and not request.GET.get("form"):
             raw_nav = self._build_event_navigation()
             submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
                 subject_id=self.object.pk,
                 event_navigation=raw_nav,
             )
-            first_url = SubjectFormVerificationNavigationService.first_verification_url(
-                study_id=self.get_study_id(),
-                subject_id=self.object.pk,
-                event_navigation_submitted=submitted_nav,
-            )
+            first_url = self._first_readonly_mode_url(mode=mode, event_navigation_submitted=submitted_nav)
             if first_url:
                 return redirect(first_url)
         return super().get(request, *args, **kwargs)
@@ -139,15 +135,22 @@ class SubjectDetailView(
     def get_context_data(self, **kwargs):  # noqa: C901
         context = super().get_context_data(**kwargs)
         subject = self.object
-        is_form_verification_mode = (self.request.GET.get("mode") or "").strip().lower() == "verification"
+        detail_mode = (self.request.GET.get("mode") or "").strip().lower()
+        is_form_verification_mode = detail_mode == "verification"
+        is_subject_detail_viewonly_mode = detail_mode == "viewonly"
+        is_submitted_readonly_mode = is_form_verification_mode or is_subject_detail_viewonly_mode
 
         raw_event_navigation = self._build_event_navigation()
-        if is_form_verification_mode:
+        if is_submitted_readonly_mode:
             submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
                 subject_id=subject.pk,
                 event_navigation=raw_event_navigation,
             )
-            event_navigation = self._with_verification_focus_urls(submitted_nav)
+            event_navigation = (
+                self._with_verification_focus_urls(submitted_nav)
+                if is_form_verification_mode
+                else self._with_viewonly_focus_urls(submitted_nav)
+            )
         else:
             event_navigation = self._with_focus_urls(raw_event_navigation)
 
@@ -197,6 +200,10 @@ class SubjectDetailView(
                             focus_detail_url = (
                                 f"{detail_url}?mode=verification&event={focused_event['id']}&form={form_id}"
                             )
+                        elif is_subject_detail_viewonly_mode:
+                            focus_detail_url = (
+                                f"{detail_url}?mode=viewonly&event={focused_event['id']}&form={form_id}"
+                            )
                         else:
                             focus_detail_url = f"{detail_url}?event={focused_event['id']}&form={form_id}"
                     focused_page_status = get_page_state_status_for_subject_visit_crf(
@@ -207,7 +214,7 @@ class SubjectDetailView(
                     if (
                         not focused_page_status
                         and focused_event
-                        and not is_form_verification_mode
+                        and not is_submitted_readonly_mode
                         and visit_id is not None
                     ):
                         ensure_draft_page_state_if_not_exists(
@@ -234,7 +241,7 @@ class SubjectDetailView(
                                 crf_template_id=template_id,
                             )
                         )
-                        if is_form_verification_mode:
+                        if is_submitted_readonly_mode:
                             focused_render_entry = focused_latest_submitted_entry
                             if (
                                 focused_render_entry is None
@@ -315,7 +322,7 @@ class SubjectDetailView(
                                 reason_required_field_keys.append(field_key)
                             reason_required_field_keys.append(f"field_{field_template_id}")
                     reason_required_field_keys = sorted(set(reason_required_field_keys))
-                    if focused_event and not is_form_verification_mode:
+                    if focused_event and not is_submitted_readonly_mode:
                         url_kw = {
                             "study_id": self.get_study_id(),
                             "subject_id": subject.pk,
@@ -344,7 +351,7 @@ class SubjectDetailView(
                     datacapture_submit_url = ""
                     datacapture_delete_draft_url = ""
 
-        if focused_event and not is_form_verification_mode:
+        if focused_event and not is_submitted_readonly_mode:
             try:
                 focused_event_id = int(focused_event["id"])
             except (TypeError, ValueError):
@@ -384,7 +391,7 @@ class SubjectDetailView(
         form_verification_show_field_checkboxes = True
         form_verification_show_actions = False
         field_query_state_by_id = {}
-        if focused_form and focused_event and focused_form_fields and not is_form_verification_mode:
+        if focused_form and focused_event and focused_form_fields and not is_submitted_readonly_mode:
             try:
                 visit_pk = int(focused_event["id"])
                 template_pk = int(focused_form.get("form_definition_id") or "")
@@ -441,7 +448,7 @@ class SubjectDetailView(
         )
         # Do not require non-empty focused_form_fields: the verification endpoint still
         # needs visit + template IDs to initialize field review rows.
-        if is_form_verification_mode and focused_form and focused_event:
+        if is_submitted_readonly_mode and focused_form and focused_event:
             try:
                 visit_pk = int(focused_event["id"])
                 template_pk = int(focused_form.get("form_definition_id") or "")
@@ -475,17 +482,18 @@ class SubjectDetailView(
                     current_user_id=getattr(self.request.user, "id", None),
                     verified_field_template_ids=verified_field_template_ids,
                 )
-                normalized_page_status = (focused_page_status or "").strip().lower()
-                form_verification_show_actions = normalized_page_status == DataCapturePageState.SUBMITTED
-                form_verification_show_field_checkboxes = normalized_page_status not in {
-                    "",
-                    "none",
-                    "null",
-                    DataCapturePageState.NOT_STARTED,
-                    "not_start",
-                    DataCapturePageState.IN_PROGRESS,
-                }
-                if self.request.user.has_perm(VERIFY_FORM_PERMISSION):
+                if is_form_verification_mode:
+                    normalized_page_status = (focused_page_status or "").strip().lower()
+                    form_verification_show_actions = normalized_page_status == DataCapturePageState.SUBMITTED
+                    form_verification_show_field_checkboxes = normalized_page_status not in {
+                        "",
+                        "none",
+                        "null",
+                        DataCapturePageState.NOT_STARTED,
+                        "not_start",
+                        DataCapturePageState.IN_PROGRESS,
+                    }
+                if is_form_verification_mode and self.request.user.has_perm(VERIFY_FORM_PERMISSION):
                     if form_verification_show_actions:
                         form_verification_open_query_url = reverse(
                             "subject:subject_form_verification_open_query",
@@ -573,12 +581,14 @@ class SubjectDetailView(
         context["can_show_datacapture_entry_actions"] = (
             bool(datacapture_save_url)
             and not is_viewing_submitted_version
+            and not is_subject_detail_viewonly_mode
             and not DataCapturePageState.is_capture_locked(focused_page_status)
         )
         context["event_file_import_url"] = event_file_import_url
         context["event_file_preview_url"] = event_file_preview_url
         context["has_event_instance_files"] = has_event_instance_files
         context["is_form_verification_mode"] = is_form_verification_mode
+        context["is_subject_detail_viewonly_mode"] = is_subject_detail_viewonly_mode
         context["form_verification_review"] = form_verification_review
         context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
         context["form_verification_reopen_url"] = form_verification_reopen_url
@@ -600,6 +610,20 @@ class SubjectDetailView(
                 "Delete current draft version? This action marks it as canceled."
             )
         return context
+
+    def _first_readonly_mode_url(self, *, mode: str, event_navigation_submitted: list) -> str | None:
+        if not event_navigation_submitted:
+            return None
+        first_event = event_navigation_submitted[0]
+        forms = first_event.get("forms") or []
+        if not forms:
+            return None
+        first_form = forms[0]
+        base = reverse(
+            "subject:subject_detail",
+            kwargs={"study_id": self.get_study_id(), "subject_id": self.object.pk},
+        )
+        return f"{base}?mode={mode}&event={first_event['id']}&form={first_form['id']}"
 
     @staticmethod
     def _extract_entry_payload_map(raw_payload):
