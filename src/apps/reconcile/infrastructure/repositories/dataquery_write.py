@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils.translation import get_language
 
 from apps.core.choices import DataCapturePageEntryStatusChoices
@@ -311,6 +311,17 @@ class DjangoReconcileDataQueryWriteRepository:
             page_state_id=page_state_id,
             field_template_id=field_template_id,
             deleted=False,
+        ).exists()
+
+    @staticmethod
+    def user_can_respond_to_query(*, dataquery_id: int, actor_user_id: int | None) -> bool:
+        if actor_user_id is None:
+            return False
+        return ReconcileDataQuery.objects.filter(
+            pk=dataquery_id,
+            deleted=False,
+        ).filter(
+            Q(opened_by_id=actor_user_id) | Q(assigned_to_id=actor_user_id),
         ).exists()
 
     @classmethod

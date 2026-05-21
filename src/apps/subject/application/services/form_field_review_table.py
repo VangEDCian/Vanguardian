@@ -59,6 +59,7 @@ class FormFieldReviewTableService:
                 continue
         counts: dict[int, int] = {}
         active_query_ids: dict[int, int] = {}
+        active_query_participants: dict[int, dict[str, int | None]] = {}
         active_query_answered_flags: dict[int, bool] = {}
         verified_query_field_template_ids: set[int] = set()
         query_thread_badge_counts: dict[int, int] = {}
@@ -77,6 +78,12 @@ class FormFieldReviewTableService:
             )
             active_query_ids = (
                 self._reconcile_read_service.list_latest_active_query_ids_by_page_state_and_field_templates(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                )
+            )
+            active_query_participants = (
+                self._reconcile_read_service.list_latest_active_query_participants_by_page_state_and_field_templates(
                     page_state_id=page_state_id,
                     field_template_ids=tuple(field_template_ids),
                 )
@@ -155,6 +162,10 @@ class FormFieldReviewTableService:
                     "display_value": display_value,
                     "open_query_count": int(counts.get(field_template_id, 0)),
                     "active_query_id": active_query_ids.get(field_template_id),
+                    "active_query_can_respond": self._user_can_respond_to_query(
+                        current_user_id=current_user_id,
+                        participants=active_query_participants.get(field_template_id),
+                    ),
                     "active_query_is_answered": bool(active_query_answered_flags.get(field_template_id, False)),
                     "has_verified_query": field_template_id in verified_query_field_template_ids,
                     "query_thread_badge_count": int(query_thread_badge_counts.get(field_template_id, 0)),
@@ -182,6 +193,26 @@ class FormFieldReviewTableService:
             },
             "rows": rows,
         }
+
+    @staticmethod
+    def _user_can_respond_to_query(
+        *,
+        current_user_id: int | None,
+        participants: dict[str, int | None] | None,
+    ) -> bool:
+        if current_user_id is None or not participants:
+            return False
+        try:
+            user_id = int(current_user_id)
+        except (TypeError, ValueError):
+            return False
+        for key in ("opened_by_id", "assigned_to_id"):
+            try:
+                if participants.get(key) is not None and int(participants[key]) == user_id:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        return False
 
     @classmethod
     def storage_keys_for_field(cls, field_key: str, field_template_id: int) -> list[str]:

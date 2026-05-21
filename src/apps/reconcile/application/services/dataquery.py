@@ -10,6 +10,7 @@ _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
 _QUERY_THREAD_COMMENT = "comment"
 _QUERY_THREAD_RESOLUTION = "resolution"
 _QUERY_THREAD_SOURCE_SYSTEM = "system"
+_QUERY_RESPONSE_PERMISSION_ERROR = "Only the query opener or assignee can respond to this query."
 
 
 @dataclass(frozen=True)
@@ -201,6 +202,11 @@ class ReconcileDataQueryWriteService:
             field_template_id=field_template_id,
         ):
             raise ValueError("Query does not belong to the current field.")
+        if not self.repository.user_can_respond_to_query(
+            dataquery_id=dataquery_id,
+            actor_user_id=actor_user_id,
+        ):
+            raise ValueError(_QUERY_RESPONSE_PERMISSION_ERROR)
         now: datetime = timezone.now()
         thread = self.repository.create_query_thread_message(
             dataquery_id=dataquery_id,
@@ -249,6 +255,11 @@ class ReconcileDataQueryWriteService:
             field_template_id=field_template_id,
         ):
             raise ValueError("Query does not belong to the current field.")
+        if not self.repository.user_can_respond_to_query(
+            dataquery_id=dataquery_id,
+            actor_user_id=actor_user_id,
+        ):
+            raise ValueError(_QUERY_RESPONSE_PERMISSION_ERROR)
         now: datetime = timezone.now()
         thread = self.repository.create_query_thread_message(
             dataquery_id=dataquery_id,
@@ -292,6 +303,11 @@ class ReconcileDataQueryWriteService:
             field_template_id=field_template_id,
         ):
             raise ValueError("Query does not belong to the current field.")
+        if not self.repository.user_can_respond_to_query(
+            dataquery_id=dataquery_id,
+            actor_user_id=actor_user_id,
+        ):
+            raise ValueError(_QUERY_RESPONSE_PERMISSION_ERROR)
         now: datetime = timezone.now()
         cancelled = self.repository.cancel_query(
             dataquery_id=dataquery_id,

@@ -18,12 +18,17 @@ class FormVerificationTemplateTests(SimpleTestCase):
         open_query_count: int = 0,
         closed_query_histories: list[dict] | None = None,
         active_query_is_answered: bool = False,
+        active_query_can_respond: bool = True,
+        query_actions_locked: bool = False,
+        show_actions_column: bool = True,
     ) -> str:
         return render_to_string(
             "subject/includes/form_verification_field_review_table.html",
             {
                 "LANGUAGE_CODE": "en",
                 "form_verification_fields_locked": fields_locked,
+                "form_verification_query_actions_locked": query_actions_locked,
+                "form_verification_show_actions_column": show_actions_column,
                 "form_verification_show_field_checkboxes": show_checkboxes,
                 "form_verification_show_actions": show_actions,
                 "form_verification_review": SimpleNamespace(
@@ -37,6 +42,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
                             "open_query_count": open_query_count,
                             "active_query_id": active_query_id,
                             "active_query_is_answered": active_query_is_answered,
+                            "active_query_can_respond": active_query_can_respond,
                             "has_verified_query": has_verified_query,
                             "closed_query_histories": closed_query_histories or [],
                             "query_thread_badge_count": query_thread_badge_count,
@@ -64,17 +70,18 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("disabled", rendered)
         self.assertIn('aria-disabled="true"', rendered)
 
-    def test_field_review_table_keeps_actions_column_when_page_state_is_not_submitted(self):
+    def test_field_review_table_hides_actions_column_without_submitted_entry(self):
         rendered = self._render_field_review_table(
             show_checkboxes=False,
             show_actions=False,
             active_query_id=None,
             query_thread_badge_count=0,
+            show_actions_column=False,
         )
 
-        self.assertIn(">Actions<", rendered)
-        self.assertIn("data-query-modal-trigger", rendered)
-        self.assertIn("data-query-thread-modal-trigger", rendered)
+        self.assertNotIn(">Actions<", rendered)
+        self.assertNotIn("data-query-modal-trigger", rendered)
+        self.assertNotIn("data-query-thread-modal-trigger", rendered)
 
     def test_field_review_action_button_is_enabled_when_page_status_is_not_locked(self):
         rendered = self._render_field_review_table(
@@ -171,6 +178,37 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("subject-form-verification-review__action-btn", action_button)
         self.assertIn("disabled", action_button)
         self.assertIn('aria-disabled="true"', action_button)
+
+    def test_field_review_open_query_is_disabled_but_current_query_stays_clickable_when_query_actions_are_locked(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            query_actions_locked=True,
+            active_query_id=101,
+            query_thread_badge_count=1,
+        )
+
+        open_query_button = self._action_button_markup(rendered, "data-query-modal-trigger")
+        current_query_button = self._action_button_markup(rendered, "data-query-thread-modal-trigger")
+
+        self.assertIn("subject-form-verification-review__action-btn", open_query_button)
+        self.assertIn("disabled", open_query_button)
+        self.assertIn('aria-disabled="true"', open_query_button)
+        self.assertNotIn("disabled", current_query_button)
+        self.assertNotIn('aria-disabled="true"', current_query_button)
+        self.assertIn('data-query-can-respond="true"', current_query_button)
+
+    def test_field_review_current_query_embeds_readonly_permission_flag(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            active_query_id=101,
+            active_query_can_respond=False,
+        )
+
+        current_query_button = self._action_button_markup(rendered, "data-query-thread-modal-trigger")
+
+        self.assertNotIn("disabled", current_query_button)
+        self.assertIn('data-query-can-respond="false"', current_query_button)
 
     def test_field_review_table_embeds_latest_query_messages_for_modal(self):
         rendered = self._render_field_review_table(show_checkboxes=True)
@@ -271,6 +309,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
             {
                 "LANGUAGE_CODE": "vi",
                 "form_verification_fields_locked": False,
+                "form_verification_query_actions_locked": False,
+                "form_verification_show_actions_column": True,
                 "form_verification_show_field_checkboxes": True,
                 "form_verification_show_actions": True,
                 "form_verification_open_query_url": "/open-query/",

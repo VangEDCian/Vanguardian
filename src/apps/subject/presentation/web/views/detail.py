@@ -27,6 +27,13 @@ from apps.subject.presentation.web.views.detail_navigation import SubjectDetailN
 from apps.subject.presentation.web.views.detail_rendering import SubjectDetailRenderingMixin
 
 
+def _same_user_id(left, right) -> bool:
+    try:
+        return int(left) == int(right)
+    except (TypeError, ValueError):
+        return False
+
+
 class SubjectDetailView(
     SubjectDetailNavigationMixin,
     SubjectDetailRenderingMixin,
@@ -390,6 +397,8 @@ class SubjectDetailView(
         form_verification_query_thread_url = ""
         form_verification_show_field_checkboxes = True
         form_verification_show_actions = False
+        form_verification_user_can_review = True
+        form_verification_has_submitted_entry = False
         field_query_state_by_id = {}
         if focused_form and focused_event and focused_form_fields and not is_submitted_readonly_mode:
             try:
@@ -405,6 +414,13 @@ class SubjectDetailView(
                     crf_template_id=template_pk,
                 )
                 if page_state_pk is not None:
+                    form_verification_user_can_review = (
+                        getattr(focused_render_entry, "updated_by_id", None) is None
+                        or not _same_user_id(
+                            getattr(self.request.user, "id", None),
+                            getattr(focused_render_entry, "updated_by_id", None),
+                        )
+                    )
                     query_review = FormFieldReviewTableService().build_for_verification(
                         subject_code=subject.subject_code or subject.screening_code or "",
                         site_id=subject.site.code,
@@ -482,6 +498,17 @@ class SubjectDetailView(
                     current_user_id=getattr(self.request.user, "id", None),
                     verified_field_template_ids=verified_field_template_ids,
                 )
+                form_verification_has_submitted_entry = (
+                    focused_render_entry is not None
+                    and DataCapturePageEntry.is_submitted(getattr(focused_render_entry, "status", ""))
+                )
+                form_verification_user_can_review = (
+                    getattr(focused_render_entry, "updated_by_id", None) is None
+                    or not _same_user_id(
+                        getattr(self.request.user, "id", None),
+                        getattr(focused_render_entry, "updated_by_id", None),
+                    )
+                )
                 if is_form_verification_mode:
                     normalized_page_status = (focused_page_status or "").strip().lower()
                     form_verification_show_actions = normalized_page_status == DataCapturePageState.SUBMITTED
@@ -493,7 +520,11 @@ class SubjectDetailView(
                         "not_start",
                         DataCapturePageState.IN_PROGRESS,
                     }
-                if is_form_verification_mode and self.request.user.has_perm(VERIFY_FORM_PERMISSION):
+                if (
+                    is_form_verification_mode
+                    and form_verification_user_can_review
+                    and self.request.user.has_perm(VERIFY_FORM_PERMISSION)
+                ):
                     if form_verification_show_actions:
                         form_verification_open_query_url = reverse(
                             "subject:subject_form_verification_open_query",
@@ -595,11 +626,16 @@ class SubjectDetailView(
         context["form_verification_open_query_url"] = form_verification_open_query_url
         context["form_verification_query_thread_url"] = form_verification_query_thread_url
         context["page_entry_has_open_queries"] = bool(field_query_state_by_id)
-        context["form_verification_show_field_checkboxes"] = form_verification_show_field_checkboxes
+        context["form_verification_show_field_checkboxes"] = (
+            form_verification_show_field_checkboxes and form_verification_user_can_review
+        )
         context["form_verification_show_actions"] = form_verification_show_actions
+        context["form_verification_show_actions_column"] = form_verification_has_submitted_entry
         context["form_verification_fields_locked"] = (
-            is_form_verification_mode
-            and DataCapturePageState.is_capture_locked(focused_page_status)
+            is_form_verification_mode and DataCapturePageState.is_capture_locked(focused_page_status)
+        )
+        context["form_verification_query_actions_locked"] = (
+            is_form_verification_mode and not form_verification_user_can_review
         )
         context["is_page_edit_locked"] = DataCapturePageState.is_capture_locked(focused_page_status)
         if datacapture_save_url:

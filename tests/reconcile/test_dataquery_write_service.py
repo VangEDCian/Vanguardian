@@ -69,6 +69,21 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(repository.answered_calls[0]["actor_user_id"], 7)
         self.assertIs(repository.answered_calls[0]["now"], repository.created_threads[0]["now"])
 
+    def test_reply_to_query_rejects_non_participant(self):
+        repository = _ReplyRepositoryStub(can_respond=False)
+
+        with self.assertRaisesMessage(ValueError, "Only the query opener or assignee can respond to this query."):
+            ReconcileDataQueryWriteService(repository=repository).reply_to_query(
+                dataquery_id=101,
+                page_state_id=23,
+                field_template_id=11,
+                message_text="Answered by site",
+                actor_user_id=99,
+            )
+
+        self.assertEqual(repository.created_threads, [])
+        self.assertEqual(repository.answered_calls, [])
+
     def test_reply_and_close_query_requires_resolved_flag(self):
         repository = _ReplyRepositoryStub()
 
@@ -300,15 +315,20 @@ class _ReconcileRepositoryStub:
 
 
 class _ReplyRepositoryStub:
-    def __init__(self):
+    def __init__(self, *, can_respond=True):
         self.created_threads = []
         self.answered_calls = []
         self.closed_calls = []
         self.cancelled_calls = []
+        self.can_respond = can_respond
 
     def query_belongs_to_scope(self, **kwargs):
         self.scope_check = kwargs
         return True
+
+    def user_can_respond_to_query(self, **kwargs):
+        self.response_actor_check = kwargs
+        return self.can_respond
 
     def create_query_thread_message(self, **kwargs):
         self.created_threads.append(kwargs)

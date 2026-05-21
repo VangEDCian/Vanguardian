@@ -241,6 +241,38 @@ class DjangoReconcileDataQueryReadRepository:
             out.setdefault(field_template_id, int(row["id"]))
         return out
 
+    def list_latest_active_query_participants_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, dict[str, int | None]]:
+        if not field_template_ids:
+            return {}
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.OPEN,
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .annotate(sort_at=Coalesce("opened_at", "created_at"))
+            .order_by("field_template_id", "-sort_at", "-id")
+            .values("field_template_id", "opened_by_id", "assigned_to_id")
+        )
+        out: dict[int, dict[str, int | None]] = {}
+        for row in rows:
+            field_template_id = int(row["field_template_id"])
+            out.setdefault(
+                field_template_id,
+                {
+                    "opened_by_id": row["opened_by_id"],
+                    "assigned_to_id": row["assigned_to_id"],
+                },
+            )
+        return out
+
     def list_latest_active_query_answered_flags_by_page_state_and_field_templates(
         self,
         *,

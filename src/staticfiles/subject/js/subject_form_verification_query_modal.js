@@ -155,11 +155,27 @@
   }
 
   function setThreadActionsEnabled(enabled) {
+    const canRespond = activeContext && activeContext.canRespond === true;
     [replyButton, replyCloseButton, cancelButton].forEach(function (button) {
       if (button instanceof HTMLButtonElement) {
-        button.disabled = !enabled;
+        button.disabled = !enabled || !canRespond;
       }
     });
+  }
+
+  function setThreadResponseControlsVisible(visible) {
+    if (input instanceof HTMLTextAreaElement) {
+      input.hidden = !visible;
+      input.disabled = !visible;
+    }
+    [replyButton, replyCloseButton, cancelButton].forEach(function (button) {
+      if (button instanceof HTMLButtonElement) {
+        button.hidden = !visible;
+      }
+    });
+    if (!visible && resolvedWrap instanceof HTMLElement) {
+      resolvedWrap.hidden = true;
+    }
   }
 
   function isResolvedChecked() {
@@ -167,7 +183,8 @@
   }
 
   function updateResolvedControls() {
-    const canResolve = activeContext && activeContext.isAnswered === true;
+    const canRespond = activeContext && activeContext.canRespond === true;
+    const canResolve = canRespond && activeContext && activeContext.isAnswered === true;
     if (resolvedWrap instanceof HTMLElement) {
       resolvedWrap.hidden = !canResolve;
     }
@@ -417,6 +434,7 @@
       dataqueryId: String(trigger.dataset.activeQueryId || '').trim(),
       fieldTemplateId: String(trigger.dataset.fieldTemplateId || '').trim(),
       isAnswered: String(trigger.dataset.queryAnswered || '').trim().toLowerCase() === 'true',
+      canRespond: String(trigger.dataset.queryCanRespond || '').trim().toLowerCase() === 'true',
     };
     setText(titleNode, `${titlePrefix} ${titleField}`.trim());
     setText(briefNode, fieldLabel || fieldKey || '-');
@@ -427,11 +445,12 @@
     if (resolvedInput instanceof HTMLInputElement) {
       resolvedInput.checked = false;
     }
+    setThreadResponseControlsVisible(activeContext.canRespond);
     updateResolvedControls();
     loadMessages(trigger);
-    setThreadActionsEnabled(!!activeContext.dataqueryId && !!postUrl);
+    setThreadActionsEnabled(activeContext.canRespond && !!activeContext.dataqueryId && !!postUrl);
     modal.hidden = false;
-    if (input instanceof HTMLTextAreaElement) {
+    if (activeContext.canRespond && input instanceof HTMLTextAreaElement) {
       input.focus();
     }
   }
@@ -591,7 +610,11 @@
         appendMessage({ text: 'Network error.', status: 'error' }, 'prepend');
       })
       .finally(function () {
-        if (activeContext && !(activeContext.trigger instanceof HTMLButtonElement && activeContext.trigger.disabled)) {
+        if (
+          activeContext &&
+          activeContext.canRespond === true &&
+          !(activeContext.trigger instanceof HTMLButtonElement && activeContext.trigger.disabled)
+        ) {
           setThreadActionsEnabled(true);
         }
       });
@@ -643,6 +666,7 @@
         });
         if (currentTrigger instanceof HTMLButtonElement) {
           currentTrigger.dataset.activeQueryId = String(result.data.dataquery_id || '');
+          currentTrigger.dataset.queryCanRespond = 'true';
           currentTrigger.hidden = false;
           currentTrigger.disabled = false;
           currentTrigger.removeAttribute('aria-disabled');

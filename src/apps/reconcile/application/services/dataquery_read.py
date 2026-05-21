@@ -96,6 +96,17 @@ class ReconcileDataQueryReadService:
             field_template_ids=field_template_ids,
         )
 
+    def list_latest_active_query_participants_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, dict[str, int | None]]:
+        return self.repository.list_latest_active_query_participants_by_page_state_and_field_templates(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
     def count_query_threads_since_current_user_last_comment(
         self,
         *,
