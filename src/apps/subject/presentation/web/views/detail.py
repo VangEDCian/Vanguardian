@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
+from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
 from apps.datacapture.domain import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.public import (
     ensure_draft_page_state_if_not_exists,
@@ -671,4 +672,5 @@ class SubjectDetailView(
             return {}
         if not isinstance(loaded, dict):
             return {}
-        return loaded
+        doc = normalize_form_data(loaded, strict=False)
+        return flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")

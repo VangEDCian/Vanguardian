@@ -1,4 +1,7 @@
 import json
+import re
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from django.db.models import Max, Prefetch
 from django.utils.translation import get_language
@@ -9,25 +12,38 @@ from apps.core.choices import (
     DataCapturePageEntryStatusChoices,
     DataCapturePageStateStatusChoices,
 )
-from apps.crf.models import CrfFieldLookup, CrfFieldTemplate, CrfFieldValidationRule
+from apps.core.form_data_document import (
+    FieldTemplateSnapshot,
+    FormTemplateSnapshot,
+    SectionTemplateSnapshot,
+    flatten_form_data_for_export,
+    is_canonical_form_data,
+    iter_field_values,
+    normalize_form_data,
+)
+from apps.crf.models import CrfFieldLookup, CrfFieldTemplate, CrfFieldValidationRule, CrfSectionTemplate, CrfTemplate
 from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
     SubmitExecutionPlan,
 )
 from apps.datacapture.models import (
+    DataCaptureFieldEntry,
     DataCaptureFieldReview,
     DataCapturePageEntry,
     DataCapturePageState,
     DataCapturePageStateTransitionLog,
+    DataCaptureSectionInstance,
 )
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
 
 
 class DjangoDataCapturePageRepository:
-    EMPTY_PAGE_STATE_FINAL_DATA = "{}"
+    EMPTY_PAGE_STATE_FINAL_DATA = json.dumps(normalize_form_data(None), ensure_ascii=False, sort_keys=True)
     LOOKUP_LABELS_PAYLOAD_KEY = "_field_lookup_labels"
+    REPEAT_KEY_RE = re.compile(r"^(?P<base>.+)__repeat_(?P<repeat_index>\d+)$")
+    DATE_PART_KEY_RE = re.compile(r"^(?P<base>.+)__(?P<part>day|month|year|time)$")
 
     @staticmethod
     def _normalize_field_key_list(field_keys: list[str] | tuple[str, ...]) -> list[str]:
@@ -104,6 +120,349 @@ class DjangoDataCapturePageRepository:
         except (TypeError, ValueError, json.JSONDecodeError):
             return {}
         return payload if isinstance(payload, dict) else {}
+
+    def get_form_template_snapshot(self, *, crf_template_id: int) -> FormTemplateSnapshot | None:
+        crf_template = (
+            CrfTemplate.objects.filter(pk=crf_template_id, deleted=False)
+            .only("id", "code", "version")
+            .first()
+        )
+        if crf_template is None:
+            return None
+        fields_by_section_id: dict[int, list[FieldTemplateSnapshot]] = {}
+        fields = (
+            CrfFieldTemplate.objects.filter(
+                crf_template_id=crf_template_id,
+                deleted=False,
+                is_active=True,
+                section_template_id__isnull=False,
+            )
+            .select_related("section_template")
+            .only(
+                "id",
+                "field_key",
+                "data_type",
+                "display_order",
+                "section_template_id",
+                "section_template__section_code",
+            )
+            .order_by("section_template__display_order", "display_order", "id")
+        )
+        for field in fields:
+            section_code = str(getattr(field.section_template, "section_code", "") or "").strip()
+            field_key = str(field.field_key or "").strip()
+            if not section_code or not field_key:
+                continue
+            fields_by_section_id.setdefault(int(field.section_template_id), []).append(
+                FieldTemplateSnapshot(
+                    field_key=field_key,
+                    section_code=section_code,
+                    data_type=str(field.data_type or "").strip() or None,
+                    display_order=field.display_order,
+                )
+            )
+        sections = (
+            CrfSectionTemplate.objects.filter(
+                crf_template_id=crf_template_id,
+                deleted=False,
+                is_enabled=True,
+            )
+            .only("id", "section_code", "is_repeatable", "display_order")
+            .order_by("display_order", "id")
+        )
+        return FormTemplateSnapshot(
+            form_code=str(crf_template.code or "").strip(),
+            form_version=str(crf_template.version or "").strip(),
+            sections=[
+                SectionTemplateSnapshot(
+                    section_code=str(section.section_code or "").strip(),
+                    is_repeatable=bool(section.is_repeatable),
+                    display_order=section.display_order,
+                    fields=fields_by_section_id.get(int(section.pk), []),
+                )
+                for section in sections
+                if str(section.section_code or "").strip()
+            ],
+        )
+
+    def normalize_form_data_json_for_storage(
+        self,
+        *,
+        crf_template_id: int,
+        data: str,
+        entry_version: str | int | None = None,
+        strict: bool = True,
+    ) -> str:
+        payload = self._load_json_map(data)
+        template_snapshot = self.get_form_template_snapshot(crf_template_id=crf_template_id)
+        doc = normalize_form_data(
+            payload,
+            template_snapshot=template_snapshot,
+            entry_version=entry_version,
+            strict=strict,
+        )
+        return json.dumps(doc, ensure_ascii=False, sort_keys=True)
+
+    def flatten_form_data_json_for_read(self, *, data: str, crf_template_id: int | None = None) -> dict:
+        payload = self._load_json_map(data)
+        template_snapshot = (
+            self.get_form_template_snapshot(crf_template_id=crf_template_id)
+            if crf_template_id is not None and not is_canonical_form_data(payload)
+            else None
+        )
+        doc = normalize_form_data(payload, template_snapshot=template_snapshot, strict=False)
+        return flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
+
+    @classmethod
+    def _split_payload_key(cls, raw_key: str) -> tuple[str, int, str | None]:
+        key = str(raw_key or "").strip()
+        date_part = None
+        date_part_match = cls.DATE_PART_KEY_RE.match(key)
+        if date_part_match:
+            key = date_part_match.group("base")
+            date_part = date_part_match.group("part")
+        repeat_index = 1
+        repeat_match = cls.REPEAT_KEY_RE.match(key)
+        if repeat_match:
+            key = repeat_match.group("base")
+            repeat_index = int(repeat_match.group("repeat_index"))
+        return key, repeat_index, date_part
+
+    @staticmethod
+    def _section_instance_key(*, section_template_id: int, repeat_index: int) -> str:
+        return f"section_{section_template_id}_{repeat_index}"
+
+    @staticmethod
+    def _normalize_payload_scalar(raw_value):
+        if raw_value is None:
+            return None
+        if isinstance(raw_value, str):
+            return raw_value
+        if isinstance(raw_value, bool):
+            return "true" if raw_value else "false"
+        if isinstance(raw_value, int | float | Decimal):
+            return str(raw_value)
+        return None
+
+    @staticmethod
+    def _parse_decimal(raw_value):
+        if raw_value in (None, ""):
+            return None
+        try:
+            return Decimal(str(raw_value).strip().replace(",", "."))
+        except (InvalidOperation, ValueError):
+            return None
+
+    @staticmethod
+    def _parse_bool(raw_value):
+        if raw_value in (None, ""):
+            return None
+        if isinstance(raw_value, bool):
+            return raw_value
+        if isinstance(raw_value, int | float):
+            return raw_value != 0
+        normalized = str(raw_value).strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+        return None
+
+    @staticmethod
+    def _parse_date(raw_value):
+        if raw_value in (None, ""):
+            return None
+        normalized = str(raw_value).strip()
+        matched = re.match(r"^(\d{4})-(\d{2})-(\d{2})", normalized)
+        if not matched:
+            return None
+        try:
+            return date(
+                int(matched.group(1)),
+                int(matched.group(2)),
+                int(matched.group(3)),
+            )
+        except ValueError:
+            return None
+
+    @classmethod
+    def _field_entry_values(cls, *, raw_value, data_type: str) -> dict:
+        normalized_type = str(data_type or "").strip().upper()
+        values = {
+            "value_text": cls._normalize_payload_scalar(raw_value),
+            "value_json": None,
+            "value_date": None,
+            "value_number": None,
+            "value_bool": None,
+        }
+        if isinstance(raw_value, list | dict):
+            values["value_json"] = json.dumps(raw_value, ensure_ascii=False, sort_keys=True)
+            return values
+        if normalized_type in {"INTEGER", "DECIMAL", "NUMBER"}:
+            values["value_number"] = cls._parse_decimal(raw_value)
+            return values
+        if normalized_type in {"DATE", "DATETIME"}:
+            values["value_date"] = cls._parse_date(raw_value)
+            return values
+        if normalized_type == "BOOLEAN":
+            values["value_bool"] = cls._parse_bool(raw_value)
+            return values
+        return values
+
+    def _payload_values_by_field_repeat(self, *, crf_template_id: int, payload: dict) -> dict[tuple[int, int], object]:
+        fields = CrfFieldTemplate.objects.filter(
+            crf_template_id=crf_template_id,
+            deleted=False,
+            is_active=True,
+        ).only("id", "field_key", "data_type", "section_template_id")
+        field_by_alias: dict[str, CrfFieldTemplate] = {}
+        for field in fields:
+            field_key = str(field.field_key or "").strip()
+            if field_key:
+                field_by_alias[field_key] = field
+            field_by_alias[f"field_{field.pk}"] = field
+
+        values_by_field_repeat: dict[tuple[int, int], object] = {}
+        if is_canonical_form_data(payload):
+            for ref in iter_field_values(payload):
+                field = field_by_alias.get(ref.field_key)
+                if field is None:
+                    continue
+                values_by_field_repeat[(int(field.pk), int(ref.row_no or 1))] = ref.value
+            return values_by_field_repeat
+
+        date_parts_by_field_repeat: dict[tuple[int, int], dict[str, str]] = {}
+        for raw_key, raw_value in payload.items():
+            base_key, repeat_index, date_part = self._split_payload_key(raw_key)
+            field = field_by_alias.get(base_key)
+            if field is None:
+                continue
+            key = (int(field.pk), repeat_index)
+            if date_part:
+                date_parts_by_field_repeat.setdefault(key, {})[date_part] = str(raw_value or "").strip()
+                continue
+            values_by_field_repeat[key] = raw_value
+
+        for key, parts in date_parts_by_field_repeat.items():
+            if key in values_by_field_repeat:
+                continue
+            year = parts.get("year")
+            month = parts.get("month")
+            day = parts.get("day")
+            if year and month and day:
+                values_by_field_repeat[key] = f"{year}-{str(month).zfill(2)}-{str(day).zfill(2)}"
+        return values_by_field_repeat
+
+    def persist_entry_values_from_payload(
+        self,
+        *,
+        page_entry_id: int,
+        page_state_id: int,
+        crf_template_id: int,
+        data: str,
+        actor_user_id: int | None = None,
+    ) -> None:
+        payload = self._load_json_map(data)
+        if not payload:
+            return
+        payload.pop(self.LOOKUP_LABELS_PAYLOAD_KEY, None)
+        values_by_field_repeat = self._payload_values_by_field_repeat(
+            crf_template_id=crf_template_id,
+            payload=payload,
+        )
+        now = self._now()
+        touched_section_ids: set[int] = set()
+        touched_field_ids: set[int] = set()
+        fields = {
+            int(field.pk): field
+            for field in CrfFieldTemplate.objects.filter(
+                id__in=[field_id for field_id, _repeat_index in values_by_field_repeat],
+                deleted=False,
+            ).only("id", "data_type", "section_template_id")
+        }
+        section_instance_by_key: dict[tuple[int, int], DataCaptureSectionInstance] = {}
+        for (field_template_id, repeat_index), raw_value in values_by_field_repeat.items():
+            field = fields.get(field_template_id)
+            if field is None:
+                continue
+            section_instance = None
+            if field.section_template_id:
+                section_key = (int(field.section_template_id), repeat_index)
+                section_instance = section_instance_by_key.get(section_key)
+                if section_instance is None:
+                    section_instance, _created = DataCaptureSectionInstance.objects.update_or_create(
+                        page_entry_id=page_entry_id,
+                        section_template_id=field.section_template_id,
+                        repeat_index=repeat_index,
+                        defaults={
+                            "updated_at": now,
+                            "deleted": False,
+                            "page_state_id": page_state_id,
+                            "instance_key": self._section_instance_key(
+                                section_template_id=int(field.section_template_id),
+                                repeat_index=repeat_index,
+                            ),
+                            "status": "active",
+                            "updated_by_id": actor_user_id,
+                        },
+                        create_defaults={
+                            "created_at": now,
+                            "updated_at": now,
+                            "deleted": False,
+                            "page_state_id": page_state_id,
+                            "instance_key": self._section_instance_key(
+                                section_template_id=int(field.section_template_id),
+                                repeat_index=repeat_index,
+                            ),
+                            "status": "active",
+                            "created_by_id": actor_user_id,
+                            "updated_by_id": actor_user_id,
+                        },
+                    )
+                    section_instance_by_key[section_key] = section_instance
+                touched_section_ids.add(int(section_instance.pk))
+
+            field_values = self._field_entry_values(raw_value=raw_value, data_type=field.data_type)
+            field_entry, _created = DataCaptureFieldEntry.objects.update_or_create(
+                page_entry_id=page_entry_id,
+                section_instance_id=section_instance.pk if section_instance is not None else None,
+                field_template_id=field_template_id,
+                defaults={
+                    "updated_at": now,
+                    "deleted": False,
+                    "page_state_id": page_state_id,
+                    "status": "active",
+                    "updated_by_id": actor_user_id,
+                    **field_values,
+                },
+                create_defaults={
+                    "created_at": now,
+                    "updated_at": now,
+                    "deleted": False,
+                    "page_state_id": page_state_id,
+                    "status": "active",
+                    "created_by_id": actor_user_id,
+                    "updated_by_id": actor_user_id,
+                    **field_values,
+                },
+            )
+            touched_field_ids.add(int(field_entry.pk))
+
+        stale_sections = DataCaptureSectionInstance.objects.filter(
+            page_entry_id=page_entry_id,
+            deleted=False,
+        )
+        if touched_section_ids:
+            stale_sections = stale_sections.exclude(pk__in=touched_section_ids)
+        stale_sections.update(deleted=True, updated_at=now, updated_by_id=actor_user_id)
+
+        stale_fields = DataCaptureFieldEntry.objects.filter(
+            page_entry_id=page_entry_id,
+            deleted=False,
+        )
+        if touched_field_ids:
+            stale_fields = stale_fields.exclude(pk__in=touched_field_ids)
+        stale_fields.update(deleted=True, updated_at=now, updated_by_id=actor_user_id)
 
     @staticmethod
     def _normalize_ui_options(raw_options) -> dict:
@@ -403,13 +762,20 @@ class DjangoDataCapturePageRepository:
         actor_user_id: int | None = None,
     ):
         next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        entry_version = self._entry_version_for_no(next_entry_no)
+        data = self.normalize_form_data_json_for_storage(
+            crf_template_id=crf_template_id,
+            data=data,
+            entry_version=entry_version,
+            strict=True,
+        )
         return DataCapturePageEntry.objects.create(
             created_at=self._now(),
             updated_at=self._now(),
             deleted=False,
             entry_no=next_entry_no,
             entry_kind="initial",
-            entry_version=self._entry_version_for_no(next_entry_no),
+            entry_version=entry_version,
             data=data,
             status=status,
             page_state_id=page_state_id,
@@ -436,6 +802,12 @@ class DjangoDataCapturePageRepository:
         assert latest is not None and latest.status == DataCapturePageEntryStatusChoices.SUBMITTED
         next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
         entry_version = self._entry_version_for_no(next_entry_no)
+        data = self.normalize_form_data_json_for_storage(
+            crf_template_id=crf_template_id,
+            data=data,
+            entry_version=entry_version,
+            strict=True,
+        )
         return DataCapturePageEntry.objects.create(
             created_at=self._now(),
             updated_at=self._now(),
@@ -568,6 +940,12 @@ class DjangoDataCapturePageRepository:
         latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
         if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
             return latest
+        data = self.normalize_form_data_json_for_storage(
+            crf_template_id=crf_template_id,
+            data=data,
+            entry_version=latest.entry_version,
+            strict=True,
+        )
         DataCapturePageEntry.objects.filter(pk=latest.id).update(
             data=data,
             updated_at=self._now(),
@@ -737,13 +1115,20 @@ class DjangoDataCapturePageRepository:
         if plan.action == "initial_submitted":
             next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
             assert plan.entry_state_change is not None
+            entry_version = self._entry_version_for_no(next_entry_no)
+            data = self.normalize_form_data_json_for_storage(
+                crf_template_id=crf_template_id,
+                data=data,
+                entry_version=entry_version,
+                strict=True,
+            )
             return DataCapturePageEntry.objects.create(
                 created_at=self._now(),
                 updated_at=self._now(),
                 deleted=False,
                 entry_no=next_entry_no,
                 entry_kind="initial",
-                entry_version=self._entry_version_for_no(next_entry_no),
+                entry_version=entry_version,
                 data=data,
                 status=plan.entry_state_change.to_status,
                 submitted_at=self._now(),
@@ -769,6 +1154,13 @@ class DjangoDataCapturePageRepository:
                     actor_user_id=actor_user_id,
                 )
             assert plan.entry_state_change is not None
+            draft_entry = DataCapturePageEntry.objects.only("entry_version").get(pk=plan.draft_entry_id)
+            data = self.normalize_form_data_json_for_storage(
+                crf_template_id=crf_template_id,
+                data=data,
+                entry_version=draft_entry.entry_version,
+                strict=True,
+            )
             DataCapturePageEntry.objects.filter(pk=plan.draft_entry_id).update(
                 updated_at=self._now(),
                 updated_by_id=actor_user_id,
@@ -791,6 +1183,12 @@ class DjangoDataCapturePageRepository:
             next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
             entry_version = self._entry_version_for_no(next_entry_no)
             assert plan.entry_state_change is not None
+            data = self.normalize_form_data_json_for_storage(
+                crf_template_id=crf_template_id,
+                data=data,
+                entry_version=entry_version,
+                strict=True,
+            )
             return DataCapturePageEntry.objects.create(
                 created_at=self._now(),
                 updated_at=self._now(),
@@ -1436,7 +1834,32 @@ class DjangoDataCapturePageRepository:
             if not isinstance(value_map, dict):
                 continue
             payload.update(value_map)
-        return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        page_state = (
+            DataCapturePageState.objects.filter(pk=page_state_id, deleted=False)
+            .only("crf_template_id", "current_entry_id")
+            .first()
+        )
+        crf_template_id = int(page_state.crf_template_id) if page_state is not None else 0
+        entry_version = ""
+        if page_state is not None and page_state.current_entry_id:
+            entry_version = (
+                DataCapturePageEntry.objects.filter(pk=page_state.current_entry_id)
+                .values_list("entry_version", flat=True)
+                .first()
+                or ""
+            )
+        template_snapshot = (
+            self.get_form_template_snapshot(crf_template_id=crf_template_id)
+            if crf_template_id
+            else None
+        )
+        doc = normalize_form_data(
+            payload,
+            template_snapshot=template_snapshot,
+            entry_version=entry_version,
+            strict=False,
+        )
+        return json.dumps(doc, ensure_ascii=False, sort_keys=True)
 
     def _record_page_state_transition(
         self,

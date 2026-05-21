@@ -3,6 +3,8 @@ import json
 import re
 from dataclasses import dataclass
 
+from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
+
 
 @dataclass(frozen=True)
 class FieldValidationCheckResult:
@@ -87,6 +89,10 @@ class DataCaptureFieldValidationRulesService:
             payload_map = {}
         if not isinstance(payload_map, dict):
             payload_map = {}
+        payload_map = flatten_form_data_for_export(
+            normalize_form_data(payload_map, strict=False),
+            repeat_strategy="legacy_repeat_suffix",
+        )
         rules_by_field_key = self.repository.list_form_field_validation_rules(crf_template_id=crf_template_id)
         failed_field_keys: list[str] = []
         for field_key, expressions in rules_by_field_key.items():

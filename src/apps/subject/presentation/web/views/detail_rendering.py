@@ -445,6 +445,115 @@ class SubjectDetailRenderingMixin:
         return field_key, None
 
     @staticmethod
+    def _repeat_field_key(field_key, repeat_index):
+        if repeat_index <= 1:
+            return str(field_key or "").strip()
+        return f"{str(field_key or '').strip()}__repeat_{repeat_index}"
+
+    @classmethod
+    def _repeat_aliases_for_field(cls, field, repeat_index):
+        aliases = []
+        field_key = str(field.get("field_key") or "").strip()
+        if field_key:
+            aliases.append(cls._repeat_field_key(field_key, repeat_index))
+        field_id = field.get("id")
+        if field_id not in (None, ""):
+            aliases.append(cls._repeat_field_key(f"field_{field_id}", repeat_index))
+        return aliases
+
+    @classmethod
+    def _resolve_repeat_payload_value(cls, payload_map, field, repeat_index):
+        if repeat_index <= 1:
+            return cls._resolve_field_payload_value(payload_map, field)
+        aliases = cls._repeat_aliases_for_field(field, repeat_index)
+        for alias in aliases:
+            if alias in payload_map:
+                return alias, payload_map[alias]
+        return aliases[0] if aliases else "", None
+
+    @classmethod
+    def _resolve_repeat_count(cls, section_fields, payload_map, max_repeats):
+        repeat_count = 1
+        field_keys = [str(field.get("field_key") or "").strip() for field in section_fields]
+        field_keys.extend(
+            f"field_{field.get('id')}"
+            for field in section_fields
+            if field.get("id") not in (None, "")
+        )
+        escaped_keys = [re.escape(field_key) for field_key in field_keys if field_key]
+        if escaped_keys:
+            repeat_pattern = re.compile(rf"^(?:{'|'.join(escaped_keys)})__repeat_(\d+)(?:__(?:day|month|year|time))?$")
+            for payload_key in payload_map:
+                matched = repeat_pattern.match(str(payload_key))
+                if not matched:
+                    continue
+                repeat_count = max(repeat_count, int(matched.group(1)))
+        if max_repeats is not None:
+            try:
+                repeat_count = min(repeat_count, max(1, int(max_repeats)))
+            except (TypeError, ValueError):
+                pass
+        return repeat_count
+
+    @staticmethod
+    def _can_add_repeat_instance(current_repeats, max_repeats):
+        if max_repeats is None:
+            return True
+        try:
+            return int(current_repeats) < int(max_repeats)
+        except (TypeError, ValueError):
+            return False
+
+    def _field_for_repeat_instance(self, field, repeat_index, payload_map):
+        if repeat_index <= 1:
+            return field
+
+        repeated_field = {
+            key: value
+            for key, value in field.items()
+            if key
+            not in {
+                "active_query_id",
+                "active_query_is_answered",
+                "query_thread_badge_count",
+                "query_messages",
+            }
+        }
+        base_field_key = str(field.get("field_key") or "").strip()
+        repeated_field_key = self._repeat_field_key(base_field_key, repeat_index)
+        resolved_alias, resolved_value = self._resolve_repeat_payload_value(payload_map, field, repeat_index)
+        selected_values = self._normalize_multi_value(resolved_value)
+        normalized_value = self._normalize_scalar_field_value(resolved_value)
+        display_value = self._display_value_for_control(
+            raw_value=resolved_value,
+            selected_values=selected_values,
+            options_config=field.get("options_config") or {},
+            options=field.get("options") or [],
+        )
+        date_day, date_month, date_year, date_time = self._extract_composite_date_parts(normalized_value)
+        date_day = date_day or self._normalize_scalar_field_value(payload_map.get(f"{resolved_alias}__day"))
+        date_month = date_month or self._normalize_scalar_field_value(payload_map.get(f"{resolved_alias}__month"))
+        date_year = date_year or self._normalize_scalar_field_value(payload_map.get(f"{resolved_alias}__year"))
+        date_time = date_time or self._normalize_scalar_field_value(payload_map.get(f"{resolved_alias}__time"))
+
+        repeated_field.update(
+            {
+                "field_key": repeated_field_key,
+                "repeat_base_field_key": base_field_key,
+                "repeat_instance_index": repeat_index,
+                "value": normalized_value,
+                "display_value": display_value,
+                "is_checked": str(normalized_value).lower() in {"1", "true", "yes", "on"},
+                "selected_values": selected_values,
+                "date_day": date_day,
+                "date_month": date_month,
+                "date_year": date_year,
+                "date_time": date_time,
+            }
+        )
+        return repeated_field
+
+    @staticmethod
     def _extract_composite_date_parts(raw_value):
         normalized = str(raw_value or "").strip()
         if not normalized:
@@ -492,6 +601,8 @@ class SubjectDetailRenderingMixin:
                 or f"general::{section_title}"
             )
             if section_key not in sections_by_key:
+                is_repeatable = bool(section_template.get("is_repeatable"))
+                max_repeats = section_template.get("max_repeats")
                 sections_by_key[section_key] = {
                     "id": section_template.get("id"),
                     "code": section_template.get("code"),
@@ -507,6 +618,9 @@ class SubjectDetailRenderingMixin:
                     "show_section_header": section_layout_config.get(
                         "show_section_header", True
                     ),
+                    "is_repeatable": is_repeatable,
+                    "min_repeats": section_template.get("min_repeats") or 0,
+                    "max_repeats": max_repeats,
                     "fields": [],
                     "columns": 1,
                 }
@@ -610,6 +724,15 @@ class SubjectDetailRenderingMixin:
                     str(field.get("label") or "").lower(),
                 ),
             )
+            repeat_count = (
+                self._resolve_repeat_count(
+                    section["fields"],
+                    payload_map,
+                    section.get("max_repeats"),
+                )
+                if section.get("is_repeatable")
+                else 1
+            )
             field_count = len(section["fields"])
             if field_count <= 1:
                 section["columns"] = 1
@@ -617,19 +740,35 @@ class SubjectDetailRenderingMixin:
                 section["columns"] = 2
             else:
                 section["columns"] = 3
-            if section.get("layout_type") == "table":
-                section["table_layout"] = self._normalize_table_layout_schema(
-                    section.get("layout_schema")
-                )
-                section["fields"] = [
-                    {
-                        **field,
-                        "table_row_cells": self._build_table_row_cells(
-                            field,
-                            section["table_layout"]["columns"],
-                        ),
-                    }
-                    for field in section["fields"]
-                ]
-            payload.append(section)
+
+            for repeat_index in range(1, repeat_count + 1):
+                repeated_section = {
+                    **section,
+                    "fields": [
+                        self._field_for_repeat_instance(field, repeat_index, payload_map)
+                        for field in section["fields"]
+                    ],
+                    "repeat_instance_index": repeat_index,
+                    "current_repeats": repeat_count,
+                    "can_add_repeat": (
+                        bool(section.get("is_repeatable"))
+                        and repeat_index == repeat_count
+                        and self._can_add_repeat_instance(repeat_count, section.get("max_repeats"))
+                    ),
+                }
+                if repeated_section.get("layout_type") == "table":
+                    repeated_section["table_layout"] = self._normalize_table_layout_schema(
+                        repeated_section.get("layout_schema")
+                    )
+                    repeated_section["fields"] = [
+                        {
+                            **field,
+                            "table_row_cells": self._build_table_row_cells(
+                                field,
+                                repeated_section["table_layout"]["columns"],
+                            ),
+                        }
+                        for field in repeated_section["fields"]
+                    ]
+                payload.append(repeated_section)
         return payload

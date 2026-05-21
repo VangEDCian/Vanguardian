@@ -65,6 +65,10 @@ class DataCaptureFactMappingEvaluator:
         source_path = (mapping.source_path or mapping.field_code or "").strip()
         if not source_path:
             return self.MISSING
+        if isinstance(final_data, dict) and dict.get(final_data, "format") == "edc.form_data.v1":
+            canonical_value = self._resolve_canonical_field_value(final_data, source_path)
+            if canonical_value is not self.MISSING:
+                return canonical_value
 
         current_value = final_data
         for segment in source_path.split("."):
@@ -84,6 +88,27 @@ class DataCaptureFactMappingEvaluator:
             return self.MISSING
 
         return current_value
+
+    def _resolve_canonical_field_value(self, final_data: dict, source_path: str):
+        if source_path.startswith("groups."):
+            return self.MISSING
+        groups = dict.get(final_data, "groups")
+        if not isinstance(groups, dict):
+            return self.MISSING
+        for group in groups.values():
+            if not isinstance(group, dict):
+                continue
+            if group.get("kind") == "repeatable":
+                rows = group.get("rows") if isinstance(group.get("rows"), list) else []
+                for row in rows:
+                    items = row.get("items") if isinstance(row, dict) and isinstance(row.get("items"), dict) else {}
+                    if source_path in items:
+                        return items[source_path]
+                continue
+            items = group.get("items") if isinstance(group.get("items"), dict) else {}
+            if source_path in items:
+                return items[source_path]
+        return self.MISSING
 
     def _coerce_expected_value(self, mapping: DataCaptureFactMappingRule):
         return self._coerce_value(mapping.expected_value, mapping.value_type)

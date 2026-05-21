@@ -82,6 +82,42 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
 
         self.assertEqual(result, "F")
 
+    def test_repeatable_section_renders_saved_repeat_instances(self):
+        view = SubjectDetailView()
+
+        sections = view._build_form_render_sections(
+            [
+                {
+                    "id": "11",
+                    "field_key": "AETERM",
+                    "label": "AE Term",
+                    "display_order": 1,
+                    "section_template": {
+                        "id": "7",
+                        "code": "ADVERSE_EVENTS",
+                        "name": "Adverse Events",
+                        "display_order": 1,
+                        "is_repeatable": True,
+                        "max_repeats": 3,
+                    },
+                    "ui_config": {"control_type": "text"},
+                }
+            ],
+            entry_payload_map={
+                "AETERM": "Headache",
+                "AETERM__repeat_2": "Nausea",
+            },
+        )
+
+        self.assertEqual(len(sections), 2)
+        self.assertEqual(sections[0]["repeat_instance_index"], 1)
+        self.assertEqual(sections[0]["fields"][0]["field_key"], "AETERM")
+        self.assertFalse(sections[0]["can_add_repeat"])
+        self.assertEqual(sections[1]["repeat_instance_index"], 2)
+        self.assertEqual(sections[1]["fields"][0]["field_key"], "AETERM__repeat_2")
+        self.assertEqual(sections[1]["fields"][0]["value"], "Nausea")
+        self.assertTrue(sections[1]["can_add_repeat"])
+
 
 class SubjectDetailPageEntryFooterTests(SimpleTestCase):
     def _render_footer(self, **overrides):
@@ -130,6 +166,46 @@ class SubjectDetailPageEntryFooterTests(SimpleTestCase):
 
 
 class SubjectDetailPageEntryMainTests(SimpleTestCase):
+    def test_repeatable_section_add_button_renders_when_below_max_repeats(self):
+        rendered = render_to_string(
+            "subject/includes/subject_detail_page_entry_main.html",
+            {
+                "focused_event": {"id": 1},
+                "focused_form": {"id": 6, "title": "Adverse Events"},
+                "focused_render_entry": {"id": 99},
+                "focused_page_status": "in_progress",
+                "datacapture_save_url": "/api/save/",
+                "datacapture_submit_url": "/api/submit/",
+                "is_viewing_submitted_version": False,
+                "is_page_edit_locked": False,
+                "form_render_sections": [
+                    {
+                        "id": "7",
+                        "title": "Adverse Events",
+                        "layout_type": "grid",
+                        "repeat_instance_index": 1,
+                        "current_repeats": 1,
+                        "max_repeats": 3,
+                        "can_add_repeat": True,
+                        "fields": [
+                            {
+                                "id": 11,
+                                "field_key": "AETERM",
+                                "label": "AE Term",
+                                "control_type": "text",
+                                "value": "",
+                            },
+                        ],
+                    }
+                ],
+            },
+        )
+
+        self.assertIn("data-repeat-section-add", rendered)
+        self.assertIn("Thêm Adverse Events", rendered)
+        self.assertIn('data-section-template-id="7"', rendered)
+        self.assertIn('data-max-repeats="3"', rendered)
+
     def test_page_entry_marks_field_with_open_query_and_renders_current_query_modal(self):
         rendered = render_to_string(
             "subject/includes/subject_detail_page_entry_main.html",

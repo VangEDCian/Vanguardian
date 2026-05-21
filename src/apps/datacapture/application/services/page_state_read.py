@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 
 
@@ -49,4 +50,9 @@ class DataCapturePageStateReadService:
             return {}
         if not isinstance(parsed, dict):
             return {}
-        return {k: v for k, v in parsed.items() if k != "__form_verification__"}
+        doc = normalize_form_data(parsed, strict=False)
+        return {
+            k: v
+            for k, v in flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix").items()
+            if k != "__form_verification__"
+        }

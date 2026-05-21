@@ -4,6 +4,11 @@ from dataclasses import dataclass, replace
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
+from apps.core.form_data_document import (
+    FormDataNormalizationError,
+    flatten_form_data_for_export,
+    normalize_form_data,
+)
 from apps.datacapture.application.commands import (
     DeleteDraftPageCommand,
     SavePageCommand,
@@ -77,7 +82,8 @@ def _load_payload_map(raw_payload: str | None) -> dict:
         return {}
     if not isinstance(payload, dict):
         return {}
-    return payload
+    doc = normalize_form_data(payload, strict=False)
+    return flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
 
 
 def _canonical_field_key(raw_key: str) -> str:
@@ -183,6 +189,47 @@ class DataCaptureSaveSubmitPageService:
             return command
         return replace(command, data=normalized_data)
 
+    def _with_canonical_form_data(self, command, *, entry_version: str | int | None = None):
+        if not hasattr(self.repository, "normalize_form_data_json_for_storage"):
+            return command
+        try:
+            normalized_data = self.repository.normalize_form_data_json_for_storage(
+                crf_template_id=command.crf_template_id,
+                data=command.data,
+                entry_version=entry_version,
+                strict=True,
+            )
+        except FormDataNormalizationError as exc:
+            raise DataCaptureInvalidPayloadUseCaseError(str(exc)) from exc
+        return replace(command, data=normalized_data)
+
+    def _with_canonical_entry_snapshot(self, snapshot):
+        if snapshot is None or not hasattr(self.repository, "normalize_form_data_json_for_storage"):
+            return snapshot
+        try:
+            normalized_data = self.repository.normalize_form_data_json_for_storage(
+                crf_template_id=snapshot.crf_template_id,
+                data=snapshot.data,
+                entry_version=snapshot.entry_version,
+                strict=False,
+            )
+        except FormDataNormalizationError:
+            return snapshot
+        if normalized_data == snapshot.data:
+            return snapshot
+        return replace(snapshot, data=normalized_data)
+
+    def _persist_entry_values(self, *, command, page_state_id: int, entry_id: int) -> None:
+        if not hasattr(self.repository, "persist_entry_values_from_payload"):
+            return
+        self.repository.persist_entry_values_from_payload(
+            page_entry_id=entry_id,
+            page_state_id=page_state_id,
+            crf_template_id=command.crf_template_id,
+            data=command.data,
+            actor_user_id=command.actor_user_id,
+        )
+
     def _resolve_target_page_status_after_validation(self, command: SubmitPageCommand) -> str:
         validation_result = self.field_validation_rules_service.check_field_validation_rules(
             crf_template_id=command.crf_template_id,
@@ -214,6 +261,11 @@ class DataCaptureSaveSubmitPageService:
                 else "manual"
             ),
             target_status=target_page_status,
+        )
+        self._persist_entry_values(
+            command=command,
+            page_state_id=page_state.pk,
+            entry_id=latest.id,
         )
         self._complete_visit_if_all_forms_submitted(
             subject_id=command.subject_id,
@@ -322,11 +374,14 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
         )
-        latest = self.repository.get_current_entry(
-            subject_id=command.subject_id,
-            visit_id=command.visit_id,
-            crf_template_id=command.crf_template_id,
+        latest = self._with_canonical_entry_snapshot(
+            self.repository.get_current_entry(
+                subject_id=command.subject_id,
+                visit_id=command.visit_id,
+                crf_template_id=command.crf_template_id,
+            )
         )
+        command = self._with_canonical_form_data(command, entry_version=latest.entry_version if latest else None)
         try:
             plan = resolve_save_draft_execution_plan(
                 page_state=page_state,
@@ -360,6 +415,11 @@ class DataCaptureSaveSubmitPageService:
                 status=plan.entry_state_change.to_status,
                 actor_user_id=command.actor_user_id,
             )
+            self._persist_entry_values(
+                command=command,
+                page_state_id=page_state.pk,
+                entry_id=entry.pk,
+            )
             self._dispatch_page_entry_state_change(
                 state_change=plan.entry_state_change,
                 entry_id=entry.pk,
@@ -388,6 +448,11 @@ class DataCaptureSaveSubmitPageService:
             )
             snapshot = refreshed or latest
             assert snapshot is not None
+            self._persist_entry_values(
+                command=command,
+                page_state_id=page_state.pk,
+                entry_id=snapshot.id,
+            )
             return SavePageResult(
                 entry_id=snapshot.id,
                 entry_status=snapshot.status,
@@ -407,6 +472,11 @@ class DataCaptureSaveSubmitPageService:
                 data=command.data,
                 status=plan.entry_state_change.to_status,
                 actor_user_id=command.actor_user_id,
+            )
+            self._persist_entry_values(
+                command=command,
+                page_state_id=page_state.pk,
+                entry_id=entry.pk,
             )
             self._dispatch_page_entry_state_change(
                 state_change=plan.entry_state_change,
@@ -440,16 +510,21 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
         )
-        latest = self.repository.get_current_entry(
-            subject_id=command.subject_id,
-            visit_id=command.visit_id,
-            crf_template_id=command.crf_template_id,
+        latest = self._with_canonical_entry_snapshot(
+            self.repository.get_current_entry(
+                subject_id=command.subject_id,
+                visit_id=command.visit_id,
+                crf_template_id=command.crf_template_id,
+            )
         )
+        command = self._with_canonical_form_data(command, entry_version=latest.entry_version if latest else None)
         has_other = self._has_other_submitted_entry_if_latest_is_draft(command, latest)
-        latest_submitted = self.repository.get_latest_submitted_entry(
-            subject_id=command.subject_id,
-            visit_id=command.visit_id,
-            crf_template_id=command.crf_template_id,
+        latest_submitted = self._with_canonical_entry_snapshot(
+            self.repository.get_latest_submitted_entry(
+                subject_id=command.subject_id,
+                visit_id=command.visit_id,
+                crf_template_id=command.crf_template_id,
+            )
         )
         try:
             plan = build_submit_execution_plan(
@@ -517,6 +592,11 @@ class DataCaptureSaveSubmitPageService:
             plan=plan,
             data=command.data,
             actor_user_id=command.actor_user_id,
+        )
+        self._persist_entry_values(
+            command=command,
+            page_state_id=started_page_state.pk,
+            entry_id=entry.pk,
         )
         target_page_status = self._resolve_target_page_status_after_validation(command)
         page_state = self.repository.submit_page_state_with_entry(

@@ -446,6 +446,170 @@
     select2ControlModule.syncSelect2LookupControls?.(fieldScope);
   }
 
+  function baseRepeatFieldKey(rawKey) {
+    return String(rawKey || '').replace(/__repeat_\d+$/, '').trim();
+  }
+
+  function repeatFieldKey(baseKey, repeatIndex) {
+    const normalizedBaseKey = baseRepeatFieldKey(baseKey);
+    if (!normalizedBaseKey) {
+      return '';
+    }
+    if (repeatIndex <= 1) {
+      return normalizedBaseKey;
+    }
+    return `${normalizedBaseKey}__repeat_${repeatIndex}`;
+  }
+
+  function parseRepeatMax(rawValue) {
+    const parsed = Number.parseInt(String(rawValue || '').trim(), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  function cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      return window.CSS.escape(value);
+    }
+    return String(value || '').replace(/["\\]/g, '\\$&');
+  }
+
+  function clearClonedInput(input) {
+    if (input instanceof HTMLInputElement) {
+      if (input.type === 'checkbox' || input.type === 'radio') {
+        input.checked = false;
+        return;
+      }
+      if (input.type !== 'button' && input.type !== 'submit') {
+        input.value = '';
+      }
+      return;
+    }
+    if (input instanceof HTMLSelectElement) {
+      Array.from(input.options).forEach((option) => {
+        option.selected = false;
+      });
+      input.selectedIndex = 0;
+      return;
+    }
+    if (input instanceof HTMLTextAreaElement) {
+      input.value = '';
+    }
+  }
+
+  function rewriteClonedIds(section, repeatIndex) {
+    const idMap = new Map();
+    section.querySelectorAll('[id]').forEach((node) => {
+      const oldId = node.id;
+      const newId = `${oldId}__repeat_${repeatIndex}`;
+      idMap.set(oldId, newId);
+      node.id = newId;
+    });
+    idMap.forEach((newId, oldId) => {
+      section.querySelectorAll(`[list="${cssEscape(oldId)}"]`).forEach((node) => {
+        node.setAttribute('list', newId);
+      });
+      section.querySelectorAll(`[aria-labelledby="${cssEscape(oldId)}"]`).forEach((node) => {
+        node.setAttribute('aria-labelledby', newId);
+      });
+    });
+  }
+
+  function rewriteClonedSectionFields(section, repeatIndex) {
+    section.classList.remove('subject-form-field--has-open-query');
+    section.querySelectorAll('.subject-form-field--has-open-query').forEach((node) => {
+      node.classList.remove('subject-form-field--has-open-query');
+    });
+    section.querySelectorAll('[data-query-thread-modal-trigger], [data-query-thread-badge]').forEach((node) => {
+      node.remove();
+    });
+    rewriteClonedIds(section, repeatIndex);
+    section.querySelectorAll('[data-field-key]').forEach((container) => {
+      const baseKey = baseRepeatFieldKey(
+        container.dataset.repeatBaseFieldKey ||
+        container.dataset.fieldKey ||
+        '',
+      );
+      const repeatedKey = repeatFieldKey(baseKey, repeatIndex);
+      if (!repeatedKey) {
+        return;
+      }
+      container.dataset.repeatBaseFieldKey = baseKey;
+      container.dataset.fieldKey = repeatedKey;
+      container.querySelectorAll('input, textarea, select').forEach((input) => {
+        if (input.hasAttribute('data-field-lookup-label-input')) {
+          input.removeAttribute('name');
+          clearClonedInput(input);
+          return;
+        }
+        if (
+          input.classList.contains('subject-date-picker__input--day') ||
+          input.classList.contains('subject-date-picker__input--month') ||
+          input.classList.contains('subject-date-picker__input--year') ||
+          input.classList.contains('subject-date-picker__input--time')
+        ) {
+          input.removeAttribute('name');
+          clearClonedInput(input);
+          return;
+        }
+        input.name = repeatedKey;
+        clearClonedInput(input);
+      });
+    });
+  }
+
+  function updateRepeatSectionButton(button, currentCount, maxRepeats) {
+    if (!button) {
+      return;
+    }
+    button.dataset.currentRepeats = String(currentCount);
+    if (maxRepeats !== null && currentCount >= maxRepeats) {
+      button.remove();
+    }
+  }
+
+  function bindRepeatSectionButtons() {
+    fieldScope.querySelectorAll('[data-repeat-section-add]').forEach((button) => {
+      if (button.dataset.repeatSectionBound === '1') {
+        return;
+      }
+      button.dataset.repeatSectionBound = '1';
+      button.addEventListener('click', () => {
+        const sourceSection = button.closest('.subject-form-section');
+        if (!sourceSection) {
+          return;
+        }
+        const currentCount = Number.parseInt(button.dataset.currentRepeats || sourceSection.dataset.currentRepeats || '1', 10);
+        const maxRepeats = parseRepeatMax(button.dataset.maxRepeats || sourceSection.dataset.maxRepeats);
+        if (maxRepeats !== null && currentCount >= maxRepeats) {
+          button.remove();
+          return;
+        }
+        const nextRepeatIndex = currentCount + 1;
+        const clonedSection = sourceSection.cloneNode(true);
+        const clonedButton = clonedSection.querySelector('[data-repeat-section-add]');
+        button.remove();
+        if (clonedButton) {
+          clonedButton.removeAttribute('data-repeat-section-bound');
+        }
+
+        clonedSection.dataset.repeatInstanceIndex = String(nextRepeatIndex);
+        clonedSection.dataset.currentRepeats = String(nextRepeatIndex);
+        rewriteClonedSectionFields(clonedSection, nextRepeatIndex);
+        updateRepeatSectionButton(clonedButton, nextRepeatIndex, maxRepeats);
+
+        sourceSection.insertAdjacentElement('afterend', clonedSection);
+        fieldScope
+          .querySelectorAll(`[data-section-template-id="${cssEscape(sourceSection.dataset.sectionTemplateId || '')}"]`)
+          .forEach((section) => {
+            section.dataset.currentRepeats = String(nextRepeatIndex);
+          });
+        ensureEditableInputs();
+        select2ControlModule.initializeSelect2LookupControls?.(clonedSection);
+        bindRepeatSectionButtons();
+      });
+    });
+  }
+
   function applyLockState() {
     if (!isPageLocked(pageStatus)) {
       return false;
@@ -510,6 +674,8 @@
   if (applyLockState()) {
     return;
   }
+
+  bindRepeatSectionButtons();
 
   saveButton.addEventListener('click', async () => {
     const requiresConfirmation = pageStatus === 'submitted';

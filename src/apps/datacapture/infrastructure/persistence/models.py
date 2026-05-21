@@ -162,6 +162,118 @@ class DataCapturePageEntry(models.Model):
         verbose_name_plural = "data capture page entries"
 
 
+class DataCaptureSectionInstance(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    page_entry = models.ForeignKey(
+        DataCapturePageEntry,
+        on_delete=models.DO_NOTHING,
+        db_column="page_entry_id",
+        related_name="section_instances",
+    )
+    page_state = models.ForeignKey(
+        DataCapturePageState,
+        on_delete=models.DO_NOTHING,
+        db_column="page_state_id",
+        related_name="section_instances",
+    )
+    section_template = models.ForeignKey(
+        "crf.CrfSectionTemplate",
+        on_delete=models.DO_NOTHING,
+        db_column="section_template_id",
+        related_name="data_capture_section_instances",
+    )
+
+    repeat_index = models.IntegerField(default=1)
+    instance_key = models.CharField(max_length=64)
+    status = models.CharField(max_length=16, default="active")
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "datacapture_sectioninstance"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["page_entry", "section_template", "repeat_index"],
+                name="dcsi_entry_section_repeat_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["page_state", "section_template", "repeat_index"],
+                name="dcsi_state_section_repeat_idx",
+            ),
+        ]
+        verbose_name = "data capture section instance"
+        verbose_name_plural = "data capture section instances"
+
+
+class DataCaptureFieldEntry(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    page_entry = models.ForeignKey(
+        DataCapturePageEntry,
+        on_delete=models.DO_NOTHING,
+        db_column="page_entry_id",
+        related_name="field_entries",
+    )
+    page_state = models.ForeignKey(
+        DataCapturePageState,
+        on_delete=models.DO_NOTHING,
+        db_column="page_state_id",
+        related_name="field_entries",
+    )
+    section_instance = models.ForeignKey(
+        DataCaptureSectionInstance,
+        on_delete=models.DO_NOTHING,
+        db_column="section_instance_id",
+        related_name="field_entries",
+        null=True,
+        blank=True,
+    )
+    field_template = models.ForeignKey(
+        "crf.CrfFieldTemplate",
+        on_delete=models.DO_NOTHING,
+        db_column="field_template_id",
+        related_name="data_capture_field_entries",
+    )
+
+    value_text = models.TextField(null=True, blank=True)
+    value_json = models.TextField(null=True, blank=True)
+    value_date = models.DateField(null=True, blank=True)
+    value_number = models.DecimalField(max_digits=21, decimal_places=6, null=True, blank=True)
+    value_bool = models.BooleanField(null=True, blank=True)
+
+    status = models.CharField(max_length=16, default="active")
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "datacapture_fieldentry"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["page_entry", "section_instance", "field_template"],
+                name="dcfe_entry_section_field_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["page_state", "field_template"], name="dcfe_state_field_idx"),
+            models.Index(fields=["section_instance"], name="dcfe_section_instance_idx"),
+        ]
+        verbose_name = "data capture field entry"
+        verbose_name_plural = "data capture field entries"
+
+
 class DataCaptureFieldReview(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -303,8 +415,10 @@ class DataCaptureFactMapping(models.Model):
 
 __all__ = [
     "DataCaptureFieldReview",
+    "DataCaptureFieldEntry",
     "DataCaptureFactMapping",
     "DataCapturePageEntry",
     "DataCapturePageState",
     "DataCapturePageStateTransitionLog",
+    "DataCaptureSectionInstance",
 ]

@@ -53,6 +53,27 @@
   /* border-bottom: 2px solid rgb(33, 150, 196); */
 }
 
+.subject-form-section__add-repeat {
+  width: calc(100% - 2rem);
+  margin: 0.75rem 1rem 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed #8ba6b8;
+  border-radius: 6px;
+  background: #f8fbfd;
+  color: #1779a8;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.subject-form-section__add-repeat:hover,
+.subject-form-section__add-repeat:focus-visible {
+  border-color: #1779a8;
+  background: #eef7fb;
+  outline: none;
+}
+
 .subject-form-section__grid--cols-1 {
   grid-template-columns: 1fr;
 }

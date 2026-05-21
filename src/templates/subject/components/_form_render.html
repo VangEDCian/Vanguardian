@@ -13,9 +13,9 @@
     {% if form_render_sections %}
         {% for section in form_render_sections %}
             {% if forloop.first and forloop.last %}
-                {% include "subject/components/_section_render.html" with section=section hide_section_title=True %}
+                {% include "subject/components/_section_render.html" with section=section hide_section_title=True can_add_repeat_sections=can_add_repeat_sections %}
             {% else %}
-                {% include "subject/components/_section_render.html" with section=section hide_section_title=False %}
+                {% include "subject/components/_section_render.html" with section=section hide_section_title=False can_add_repeat_sections=can_add_repeat_sections %}
             {% endif %}
         {% endfor %}
     {% else %}

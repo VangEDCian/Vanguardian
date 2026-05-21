@@ -1,4 +1,9 @@
-<section class="subject-form-section">
+{% load i18n %}
+<section class="subject-form-section"
+         data-section-template-id="{{ section.id|default:'' }}"
+         data-repeat-instance-index="{{ section.repeat_instance_index|default:1 }}"
+         data-current-repeats="{{ section.current_repeats|default:1 }}"
+         data-max-repeats="{{ section.max_repeats|default:'' }}">
     {% if section.layout_type == "table" %}
         {% include "subject/components/_section_table_render.html" with section=section hide_section_title=hide_section_title %}
     {% else %}
@@ -14,5 +19,16 @@
                 {% endif %}
             {% endfor %}
         </div>
+    {% endif %}
+    {% if can_add_repeat_sections and section.can_add_repeat %}
+        <button type="button"
+                class="subject-form-section__add-repeat"
+                data-repeat-section-add
+                data-section-title="{{ section.title|default:''|escape }}"
+                data-section-template-id="{{ section.id|default:'' }}"
+                data-current-repeats="{{ section.current_repeats|default:1 }}"
+                data-max-repeats="{{ section.max_repeats|default:'' }}">
+            {% blocktrans with section_name=section.title %}Thêm {{ section_name }}{% endblocktrans %}
+        </button>
     {% endif %}
 </section>

@@ -1,6 +1,9 @@
 (function () {
-  const fieldContainers = Array.from(document.querySelectorAll('[data-field-key]'));
-  if (!fieldContainers.length) {
+  function getFieldContainers() {
+    return Array.from(document.querySelectorAll('[data-field-key]'));
+  }
+
+  if (!getFieldContainers().length) {
     return;
   }
 
@@ -262,7 +265,7 @@
 
   function buildState() {
     const state = {};
-    fieldContainers.forEach((container) => {
+    getFieldContainers().forEach((container) => {
       const fieldKey = String(container.dataset.fieldKey || '').trim();
       if (!fieldKey) {
         return;
@@ -472,9 +475,9 @@
     }
     isApplying = true;
     try {
-      fieldContainers.forEach((container) => ensureInputNames(container));
+      getFieldContainers().forEach((container) => ensureInputNames(container));
       const state = buildState();
-      fieldContainers.forEach((container) => applyBehavior(container, state));
+      getFieldContainers().forEach((container) => applyBehavior(container, state));
     } finally {
       isApplying = false;
     }

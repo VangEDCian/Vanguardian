@@ -6,6 +6,11 @@ from django.db.models import F, Q
 from django.utils.translation import get_language
 
 from apps.core.choices import DataCapturePageEntryStatusChoices
+from apps.core.form_data_document import (
+    build_field_path,
+    flatten_form_data_for_export,
+    normalize_form_data,
+)
 from apps.crf.models import CrfFieldTemplate
 from apps.datacapture.models import DataCapturePageEntry
 from apps.reconcile.models import (
@@ -356,21 +361,27 @@ class DjangoReconcileDataQueryWriteRepository:
         if entry is None:
             return {}
 
-        field_key = (
+        field = (
             CrfFieldTemplate.objects.filter(pk=field_template_id, deleted=False)
-            .values_list("field_key", flat=True)
+            .select_related("section_template")
+            .only("field_key", "section_template__section_code")
             .first()
         )
+        field_key = str(getattr(field, "field_key", "") or "").strip()
+        section_code = str(getattr(getattr(field, "section_template", None), "section_code", "") or "").strip()
         payload = cls._parse_entry_payload(entry.data)
         value_snapshot, storage_key = cls._entry_field_value_snapshot(
             payload=payload,
-            field_key=str(field_key or "").strip(),
+            field_key=field_key,
             field_template_id=field_template_id,
         )
         return {
             "page_entry_id": entry.pk,
             "data_version": str(entry.entry_version or "").strip() or None,
-            "field_path": cls._jsonpath_for_field_key(storage_key),
+            "field_path": cls._canonical_field_path(
+                section_code=section_code,
+                storage_key=storage_key,
+            ),
             "value_snapshot": value_snapshot,
             "assigned_to_id": entry.submitted_by_id,
         }
@@ -383,7 +394,10 @@ class DjangoReconcileDataQueryWriteRepository:
             parsed = json.loads(str(raw_data or "{}"))
         except (TypeError, json.JSONDecodeError):
             return {}
-        return parsed if isinstance(parsed, dict) else {}
+        if not isinstance(parsed, dict):
+            return {}
+        doc = normalize_form_data(parsed, strict=False)
+        return flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
 
     @classmethod
     def _entry_field_value_snapshot(
@@ -438,6 +452,20 @@ class DjangoReconcileDataQueryWriteRepository:
         if _JSONPATH_IDENTIFIER_PATTERN.match(normalized):
             return f"$.{normalized}"
         return f"$[{json.dumps(normalized, ensure_ascii=False)}]"
+
+    @classmethod
+    def _canonical_field_path(cls, *, section_code: str, storage_key: str) -> str:
+        if not section_code:
+            return cls._jsonpath_for_field_key(storage_key)
+        repeat_match = re.match(r"^(?P<base>.+)__repeat_(?P<repeat_index>\d+)$", str(storage_key or "").strip())
+        if repeat_match:
+            row_no = int(repeat_match.group("repeat_index"))
+            return build_field_path(
+                section_code,
+                repeat_match.group("base"),
+                row_key=f"row_{row_no:03d}",
+            )
+        return build_field_path(section_code, storage_key)
 
 
 __all__ = ["DjangoReconcileDataQueryWriteRepository"]

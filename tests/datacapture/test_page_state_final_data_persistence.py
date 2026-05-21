@@ -34,7 +34,7 @@ class DataCapturePageStateFinalDataPersistenceTests(SimpleTestCase):
             data_version=3,
         )
 
-        self.assertEqual(result, "{}")
+        self.assertEqual(result, repository.EMPTY_PAGE_STATE_FINAL_DATA)
         self.assertEqual(repository.build_calls, [])
 
     def test_final_data_is_built_only_for_finalized_status(self):
@@ -66,7 +66,7 @@ class DataCapturePageStateFinalDataPersistenceTests(SimpleTestCase):
             current_final_data='{"field_1": "old"}',
         )
 
-        self.assertEqual(result, "{}")
+        self.assertEqual(result, repository.EMPTY_PAGE_STATE_FINAL_DATA)
 
     def test_lifecycle_status_update_preserves_finalized_final_data(self):
         repository = _FinalDataRepository()
@@ -97,4 +97,7 @@ class DataCapturePageStateFinalDataPersistenceTests(SimpleTestCase):
             )
 
         page_state_objects.create.assert_called_once()
-        self.assertEqual(page_state_objects.create.call_args.kwargs["final_data"], "{}")
+        self.assertEqual(
+            page_state_objects.create.call_args.kwargs["final_data"],
+            repository.EMPTY_PAGE_STATE_FINAL_DATA,
+        )

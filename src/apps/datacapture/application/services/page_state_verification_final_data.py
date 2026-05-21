@@ -6,6 +6,7 @@ from django.db import OperationalError, ProgrammingError
 from apps.core.choices import (
     DataCaptureFieldReviewTypeChoices,
 )
+from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
 from apps.crf.models import CrfFieldReviewPolicy
 from apps.crf.public import CrfContextAdapter
 from apps.datacapture.application.commands import TriggerPageStateEventTransitionCommand
@@ -48,7 +49,10 @@ class DataCapturePageStateVerificationFinalDataService:
             loaded = json.loads(raw_value)
         except (TypeError, ValueError, json.JSONDecodeError):
             return {}
-        return loaded if isinstance(loaded, dict) else {}
+        if not isinstance(loaded, dict):
+            return {}
+        doc = normalize_form_data(loaded, strict=False)
+        return flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
 
     @staticmethod
     def _normalize_checked_ids(checked_field_template_ids: list[int] | None) -> set[int]:

@@ -33,6 +33,49 @@ class _ReviewQuery:
 
 
 class DataCaptureFieldReviewRepositoryTests(SimpleTestCase):
+    def test_payload_values_by_field_repeat_maps_repeat_suffixes_to_field_template(self):
+        repository = DjangoDataCapturePageRepository()
+        field_model = MagicMock()
+        field_model.objects.filter.return_value = _ReviewQuery(
+            rows=[
+                SimpleNamespace(pk=11, field_key="AETERM"),
+                SimpleNamespace(pk=12, field_key="AESTDTC"),
+            ],
+        )
+
+        with patch(
+            "apps.datacapture.infrastructure.repositories.page_capture.CrfFieldTemplate",
+            field_model,
+        ):
+            result = repository._payload_values_by_field_repeat(
+                crf_template_id=5,
+                payload={
+                    "AETERM": "Headache",
+                    "AETERM__repeat_2": "Nausea",
+                    "AESTDTC__repeat_2__year": "2026",
+                    "AESTDTC__repeat_2__month": "5",
+                    "AESTDTC__repeat_2__day": "21",
+                    "_field_lookup_labels": {"AETERM": "ignored"},
+                },
+            )
+
+        self.assertEqual(result[(11, 1)], "Headache")
+        self.assertEqual(result[(11, 2)], "Nausea")
+        self.assertEqual(result[(12, 2)], "2026-05-21")
+
+    def test_field_entry_values_store_typed_columns(self):
+        repository = DjangoDataCapturePageRepository()
+
+        number_values = repository._field_entry_values(raw_value="12.345", data_type="DECIMAL")
+        date_values = repository._field_entry_values(raw_value="2026-05-21 08:30:00", data_type="DATETIME")
+        bool_values = repository._field_entry_values(raw_value="yes", data_type="BOOLEAN")
+        json_values = repository._field_entry_values(raw_value=["A", "B"], data_type="CODELIST")
+
+        self.assertEqual(str(number_values["value_number"]), "12.345")
+        self.assertEqual(str(date_values["value_date"]), "2026-05-21")
+        self.assertIs(bool_values["value_bool"], True)
+        self.assertEqual(json_values["value_json"], '["A", "B"]')
+
     def test_ensure_field_reviews_replaces_stale_record(self):
         repository = DjangoDataCapturePageRepository()
         stale_review = SimpleNamespace(
