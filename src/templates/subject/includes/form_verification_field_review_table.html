@@ -18,6 +18,10 @@
         <tbody>
             {% for row in form_verification_review.rows %}
                 <tr data-field-template-id="{{ row.field_template_id }}"
+                    data-field-key="{{ row.field_key|default:''|escape }}"
+                    data-field-path="{{ row.field_path|default:''|escape }}"
+                    data-repeat-instance-index="{{ row.repeat_instance_index|default:1 }}"
+                    data-section-code="{{ row.section_code|default:''|escape }}"
                     data-field-verified="{% if row.is_checked %}true{% else %}false{% endif %}"
                     {% if row.is_checked %}hidden{% endif %}>
                     <td class="subject-form-verification-review__col-check">
@@ -32,7 +36,15 @@
                                {% if row.is_checked or row.active_query_id or row.open_query_count or form_verification_fields_locked or not form_verification_show_field_checkboxes %}disabled aria-disabled="true"{% endif %}
                                aria-label="{% trans 'Select field for verification' %}" />
                     </td>
-                    <td>{{ row.brief_description }}</td>
+                    <td>
+                        {% if row.is_repeatable_group_item %}
+                            <div class="subject-form-verification-review__field-context">
+                                <span>{{ row.section_title }}</span>
+                                <span>{% trans "Group Item" %} {{ row.group_item_label }}</span>
+                            </div>
+                        {% endif %}
+                        <span class="subject-form-verification-review__field-label">{{ row.brief_description }}</span>
+                    </td>
                     <td>{% subject_field_review_display_value row LANGUAGE_CODE %}</td>
                     <td data-open-query-count>{{ row.open_query_count }}</td>
                     <td>{{ row.modified_by }}</td>
@@ -71,11 +83,11 @@
                                     <span class="svg-icon"
                                           aria-hidden="true"
                                           style="--icon-url: url('{% static 'images/datacapture/message.svg' %}')"></span>
-                                        <span class="subject-form-verification-review__sr-only">{% trans "Current Query" %}</span>
-                                        {% if row.query_thread_badge_count %}
-                                            <span class="subject-form-verification-review__query-badge"
-                                                  data-query-thread-badge>{{ row.query_thread_badge_count }}</span>
-                                        {% endif %}
+                                    <span class="subject-form-verification-review__sr-only">{% trans "Current Query" %}</span>
+                                    {% if row.query_thread_badge_count %}
+                                        <span class="subject-form-verification-review__query-badge"
+                                              data-query-thread-badge>{{ row.query_thread_badge_count }}</span>
+                                    {% endif %}
                                 </button>
                                 <button type="button"
                                         class="subject-form-verification-review__action-btn subject-form-verification-review__queries-history-btn"

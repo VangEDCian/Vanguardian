@@ -527,6 +527,26 @@
   background-color: #d2d8de;
 }
 
+.subject-form-verification-review__field-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin-bottom: 0.2rem;
+  color: #52616f;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.subject-form-verification-review__field-context span + span::before {
+  content: "/";
+  margin-right: 0.5rem;
+  color: #9aa5b1;
+}
+
+.subject-form-verification-review__field-label {
+  display: inline-block;
+}
+
 .subject-form-verification-review__col-check {
   width: 44px;
   text-align: center;

@@ -188,7 +188,7 @@
       .filter(function (n) {
         return !Number.isNaN(n);
       });
-    submitVerificationRequest({ field_template_ids: checked });
+    submitVerificationRequest({ field_template_ids: Array.from(new Set(checked)) });
   });
 
   if (reopenReasonSubmit instanceof HTMLElement) {

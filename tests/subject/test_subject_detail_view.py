@@ -1,6 +1,7 @@
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 
+from apps.core.form_data_document import REPEAT_COUNTS_EXPORT_META_KEY
 from apps.subject.presentation.web.views import SubjectDetailView
 
 
@@ -118,6 +119,107 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertEqual(sections[1]["fields"][0]["value"], "Nausea")
         self.assertTrue(sections[1]["can_add_repeat"])
 
+    def test_repeatable_section_renders_blank_repeat_instance_from_payload_meta(self):
+        view = SubjectDetailView()
+
+        sections = view._build_form_render_sections(
+            [
+                {
+                    "id": "11",
+                    "field_key": "AETERM",
+                    "label": "AE Term",
+                    "display_order": 1,
+                    "section_template": {
+                        "id": "7",
+                        "code": "ADVERSE_EVENTS",
+                        "name": "Adverse Events",
+                        "display_order": 1,
+                        "is_repeatable": True,
+                        "max_repeats": 3,
+                    },
+                    "ui_config": {"control_type": "text"},
+                }
+            ],
+            entry_payload_map={
+                REPEAT_COUNTS_EXPORT_META_KEY: {"ADVERSE_EVENTS": 2},
+                "AETERM": "Headache",
+            },
+        )
+
+        self.assertEqual(len(sections), 2)
+        self.assertEqual(sections[1]["repeat_instance_index"], 2)
+        self.assertEqual(sections[1]["fields"][0]["field_key"], "AETERM__repeat_2")
+        self.assertEqual(sections[1]["fields"][0]["display_value"], "")
+
+    def test_repeat_table_section_groups_repeat_instances_as_rows(self):
+        view = SubjectDetailView()
+
+        sections = view._build_form_render_sections(
+            [
+                {
+                    "id": "11",
+                    "field_key": "MED_NAME",
+                    "label": "Medication",
+                    "display_order": 1,
+                    "section_template": {
+                        "id": "7",
+                        "code": "MEDICATION_HISTORY",
+                        "name": "Medication History",
+                        "display_order": 1,
+                        "is_repeatable": True,
+                        "max_repeats": 3,
+                        "layout_config": {
+                            "layout_type": "repeat_table",
+                            "custom_layout_schema": {"show_row_number": True},
+                        },
+                    },
+                    "ui_config": {"control_type": "text"},
+                },
+                {
+                    "id": "12",
+                    "field_key": "MED_REASON",
+                    "label": "Reason",
+                    "display_order": 2,
+                    "section_template": {
+                        "id": "7",
+                        "code": "MEDICATION_HISTORY",
+                        "name": "Medication History",
+                        "display_order": 1,
+                        "is_repeatable": True,
+                        "max_repeats": 3,
+                        "layout_config": {
+                            "layout_type": "repeat_table",
+                            "custom_layout_schema": {"show_row_number": True},
+                        },
+                    },
+                    "ui_config": {"control_type": "text"},
+                },
+            ],
+            entry_payload_map={
+                "MED_NAME": "Paracetamol",
+                "MED_REASON": "Pain",
+                "MED_NAME__repeat_2": "Aspirin",
+                "MED_REASON__repeat_2": "Fever",
+            },
+        )
+
+        self.assertEqual(len(sections), 1)
+        self.assertEqual(sections[0]["layout_type"], "repeat_table")
+        self.assertTrue(sections[0]["can_add_repeat"])
+        self.assertEqual(len(sections[0]["repeat_table_rows"]), 2)
+        self.assertEqual(sections[0]["repeat_table_rows"][0]["fields"][0]["field_key"], "MED_NAME")
+        self.assertEqual(
+            sections[0]["repeat_table_rows"][1]["fields"][0]["field_key"],
+            "MED_NAME__repeat_2",
+        )
+        self.assertEqual(sections[0]["repeat_table_rows"][1]["fields"][1]["value"], "Fever")
+
+    def test_date_text_and_datetime_text_control_types_are_supported(self):
+        view = SubjectDetailView()
+
+        self.assertEqual(view._normalize_control_type("DATE_TEXT"), "date_text")
+        self.assertEqual(view._normalize_control_type("DATETIME_TEXT"), "datetime_text")
+
 
 class SubjectDetailPageEntryFooterTests(SimpleTestCase):
     def _render_footer(self, **overrides):
@@ -166,6 +268,128 @@ class SubjectDetailPageEntryFooterTests(SimpleTestCase):
 
 
 class SubjectDetailPageEntryMainTests(SimpleTestCase):
+    def test_date_text_control_renders_locale_mask_and_hidden_value(self):
+        rendered = render_to_string(
+            "subject/components/controls/_date_text_control.html",
+            {
+                "LANGUAGE_CODE": "vi",
+                "field": {
+                    "field_key": "VISIT_DATE",
+                    "label": "Visit Date",
+                    "value": "2026-02-12",
+                    "date_day": "12",
+                    "date_month": "2",
+                    "date_year": "2026",
+                    "is_required": True,
+                },
+            },
+        )
+
+        self.assertIn("data-date-text-composite-input", rendered)
+        self.assertIn('data-date-text-kind="date"', rendered)
+        self.assertIn('data-date-text-locale="vi"', rendered)
+        self.assertIn('placeholder="dd/MM/yyyy"', rendered)
+        self.assertIn('value="2026-02-12"', rendered)
+
+    def test_datetime_text_control_renders_en_locale_mask(self):
+        rendered = render_to_string(
+            "subject/components/controls/_datetime_text_control.html",
+            {
+                "LANGUAGE_CODE": "en",
+                "field": {
+                    "field_key": "VISIT_AT",
+                    "label": "Visit At",
+                    "value": "2026-12-02 09:30:00",
+                    "date_day": "2",
+                    "date_month": "12",
+                    "date_year": "2026",
+                    "date_time": "09:30",
+                    "is_required": False,
+                },
+            },
+        )
+
+        self.assertIn("data-date-text-composite-input", rendered)
+        self.assertIn('data-date-text-kind="datetime"', rendered)
+        self.assertIn('data-date-text-locale="en"', rendered)
+        self.assertIn('placeholder="MM/dd/yyyy HH:mm"', rendered)
+        self.assertIn('value="2026-12-02 09:30:00"', rendered)
+
+    def test_field_render_resolves_date_text_control_template(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "LANGUAGE_CODE": "vi",
+                "field": {
+                    "id": 11,
+                    "field_key": "VISIT_DATE",
+                    "label": "Visit Date",
+                    "control_type": "date_text",
+                    "value": "2026-02-12",
+                    "date_day": "12",
+                    "date_month": "2",
+                    "date_year": "2026",
+                },
+            },
+        )
+
+        self.assertIn("data-date-text-input", rendered)
+        self.assertIn('data-date-text-kind="date"', rendered)
+
+    def test_repeat_table_section_renders_headers_rows_and_add_button(self):
+        rendered = render_to_string(
+            "subject/components/_section_render.html",
+            {
+                "hide_section_title": False,
+                "can_add_repeat_sections": True,
+                "section": {
+                    "id": "7",
+                    "title": "Medication History",
+                    "layout_type": "repeat_table",
+                    "show_section_header": True,
+                    "repeat_instance_index": 1,
+                    "current_repeats": 1,
+                    "max_repeats": 3,
+                    "can_add_repeat": True,
+                    "repeat_table_layout": {
+                        "show_table_header": True,
+                        "show_row_number": True,
+                        "row_number_label": "STT",
+                        "row_number_width": "56px",
+                    },
+                    "fields": [
+                        {
+                            "id": 11,
+                            "field_key": "MED_NAME",
+                            "label": "Medication",
+                            "control_type": "text",
+                            "is_required": False,
+                        }
+                    ],
+                    "repeat_table_rows": [
+                        {
+                            "repeat_instance_index": 1,
+                            "fields": [
+                                {
+                                    "id": 11,
+                                    "field_key": "MED_NAME",
+                                    "label": "Medication",
+                                    "control_type": "text",
+                                    "value": "",
+                                }
+                            ],
+                        }
+                    ],
+                },
+            },
+        )
+
+        self.assertIn("Medication History", rendered)
+        self.assertIn("Medication", rendered)
+        self.assertIn("data-repeat-table-body", rendered)
+        self.assertIn("data-repeat-table-row", rendered)
+        self.assertIn("data-repeat-section-add", rendered)
+
     def test_repeatable_section_add_button_renders_when_below_max_repeats(self):
         rendered = render_to_string(
             "subject/includes/subject_detail_page_entry_main.html",
@@ -258,6 +482,7 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         self.assertIn('data-active-query-id="101"', rendered)
         self.assertIn("images/datacapture/message.svg", rendered)
         self.assertIn("data-query-thread-badge", rendered)
+        self.assertIn('data-query-can-respond="true"', rendered)
         self.assertIn(">2</span>", rendered)
         self.assertIn('data-field-value="72 bpm"', rendered)
         self.assertIn("data-query-message-source", rendered)

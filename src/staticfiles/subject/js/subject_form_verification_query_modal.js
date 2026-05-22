@@ -409,6 +409,7 @@
     activeOpenContext = {
       trigger: trigger,
       fieldTemplateId: String(trigger.dataset.fieldTemplateId || '').trim(),
+      fieldKey: String(trigger.dataset.fieldKey || '').trim(),
     };
     setText(openTitleNode, `${titlePrefix} ${titleField}`.trim());
     setText(openBriefNode, fieldLabel || fieldKey || '-');
@@ -434,7 +435,7 @@
       dataqueryId: String(trigger.dataset.activeQueryId || '').trim(),
       fieldTemplateId: String(trigger.dataset.fieldTemplateId || '').trim(),
       isAnswered: String(trigger.dataset.queryAnswered || '').trim().toLowerCase() === 'true',
-      canRespond: String(trigger.dataset.queryCanRespond || '').trim().toLowerCase() === 'true',
+      canRespond: String(trigger.dataset.queryCanRespond || 'true').trim().toLowerCase() !== 'false',
     };
     setText(titleNode, `${titlePrefix} ${titleField}`.trim());
     setText(briefNode, fieldLabel || fieldKey || '-');
@@ -635,6 +636,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           field_template_id: parseInt(activeOpenContext.fieldTemplateId, 10),
+          field_key: activeOpenContext.fieldKey,
           message_text: messageText,
         }),
       })

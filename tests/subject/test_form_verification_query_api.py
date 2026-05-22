@@ -46,6 +46,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             data=json.dumps(
                 {
                     "field_template_id": 11,
+                    "field_key": "AE_TERM__repeat_2",
                     "message_text": "Open this query",
                 }
             ),
@@ -118,6 +119,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
         open_reconcile_query.assert_called_once_with(
             page_state_id=23,
             field_template_id=11,
+            field_key="AE_TERM__repeat_2",
             message_text="Open this query",
             actor_user_id=7,
         )
@@ -535,7 +537,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             is_resolved=True,
         )
 
-    def test_query_thread_returns_400_when_current_user_cannot_respond_to_query(self):
+    def test_query_thread_allows_reply_and_close_for_any_study_user(self):
         request = RequestFactory().post(
             "/query-thread/",
             data=json.dumps(
@@ -550,6 +552,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             content_type="application/json",
         )
         request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
 
         with (
             patch(
@@ -560,7 +563,13 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
                 "reply_and_close_reconcile_query",
-                side_effect=ValueError("Only the query opener or assignee can respond to this query."),
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "Close this query",
+                    "message_type": "resolution",
+                    "created_at": created_at,
+                    "closed": True,
+                },
             ) as reply_and_close,
         ):
             response = SubjectFormVerificationQueryThreadView().post(
@@ -571,10 +580,17 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
                 crf_template_id=4,
             )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertEqual(payload["error"], ["Only the query opener or assignee can respond to this query."])
-        reply_and_close.assert_called_once()
+        self.assertIs(payload["closed"], True)
+        reply_and_close.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Close this query",
+            actor_user_id=7,
+            is_resolved=True,
+        )
 
     def test_query_thread_cancel_calls_cancel_reconcile_query(self):
         request = RequestFactory().post(

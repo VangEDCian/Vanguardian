@@ -1,6 +1,7 @@
 import re
 
 from django import template
+from django.utils.translation import get_language
 from django.utils.translation import gettext_lazy as _
 
 from apps.crf.models import CrfFieldControlTypeChoices
@@ -18,7 +19,9 @@ _CONTROL_TEMPLATE_MAP = {
     CrfFieldControlTypeChoices.CHECKBOX: "subject/components/controls/_checkbox_control.html",
     CrfFieldControlTypeChoices.MULTI_SELECT: "subject/components/controls/_multi_select_control.html",
     CrfFieldControlTypeChoices.DATE: "subject/components/controls/_date_picker_control.html",
+    CrfFieldControlTypeChoices.DATE_TEXT: "subject/components/controls/_date_text_control.html",
     CrfFieldControlTypeChoices.DATETIME: "subject/components/controls/_datetime_control.html",
+    CrfFieldControlTypeChoices.DATETIME_TEXT: "subject/components/controls/_datetime_text_control.html",
     CrfFieldControlTypeChoices.LABEL_ONLY: "subject/components/controls/_label_only_control.html",
 }
 
@@ -70,9 +73,15 @@ _CONTROL_I18N_MAP = {
             {"value": "12", "label": _("December")},
         ),
     },
+    CrfFieldControlTypeChoices.DATE_TEXT: {
+        "label": _("Date"),
+    },
     CrfFieldControlTypeChoices.DATETIME: {
         "time_label": _("Time"),
         "time_placeholder": _("HH:MM"),
+    },
+    CrfFieldControlTypeChoices.DATETIME_TEXT: {
+        "label": _("DateTime"),
     },
     CrfFieldControlTypeChoices.LABEL_ONLY: {
         "placeholder": _("Display value"),
@@ -92,7 +101,9 @@ _CONTROL_TYPE_ALIAS_MAP = {
     "RADIO_BUTTON_LIST": CrfFieldControlTypeChoices.RADIO,
     "CHECKBOX_LIST": CrfFieldControlTypeChoices.MULTI_SELECT,
     "DATE_PICKER": CrfFieldControlTypeChoices.DATE,
+    "DATE_TEXT": CrfFieldControlTypeChoices.DATE_TEXT,
     "TIME_PICKER": CrfFieldControlTypeChoices.DATETIME,
+    "DATETIME_TEXT": CrfFieldControlTypeChoices.DATETIME_TEXT,
     "LABEL_ONLY": CrfFieldControlTypeChoices.LABEL_ONLY,
     "LABEL_ONLY_FIELD": CrfFieldControlTypeChoices.LABEL_ONLY,
 }
@@ -169,6 +180,26 @@ def subject_date_picker_i18n():
     return subject_control_i18n(CrfFieldControlTypeChoices.DATE)
 
 
+def _language_code_from_context(context):
+    language_code = str(context.get("LANGUAGE_CODE") or get_language() or "").strip().lower()
+    return "vi" if language_code.startswith("vi") else "en"
+
+
+@register.simple_tag(takes_context=True)
+def subject_date_text_control_i18n(context):
+    locale = _language_code_from_context(context)
+    return {
+        **subject_control_i18n(CrfFieldControlTypeChoices.DATE_TEXT),
+        "locale": locale,
+        "placeholder": "dd/MM/yyyy" if locale == "vi" else "MM/dd/yyyy",
+        "pattern": (
+            r"^(?:0[1-9]|[12][0-9]|3[01])/(?:0[1-9]|1[0-2])/\d{4}$"
+            if locale == "vi"
+            else r"^(?:0[1-9]|1[0-2])/(?:0[1-9]|[12][0-9]|3[01])/\d{4}$"
+        ),
+    }
+
+
 @register.simple_tag
 def subject_datetime_control_i18n():
     date_i18n = subject_control_i18n(CrfFieldControlTypeChoices.DATE)
@@ -176,6 +207,23 @@ def subject_datetime_control_i18n():
     return {
         **date_i18n,
         **datetime_i18n,
+    }
+
+
+@register.simple_tag(takes_context=True)
+def subject_datetime_text_control_i18n(context):
+    locale = _language_code_from_context(context)
+    return {
+        **subject_control_i18n(CrfFieldControlTypeChoices.DATETIME_TEXT),
+        "locale": locale,
+        "placeholder": "dd/MM/yyyy HH:mm" if locale == "vi" else "MM/dd/yyyy HH:mm",
+        "pattern": (
+            r"^(?:0[1-9]|[12][0-9]|3[01])/(?:0[1-9]|1[0-2])/\d{4} "
+            r"(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            if locale == "vi"
+            else r"^(?:0[1-9]|1[0-2])/(?:0[1-9]|[12][0-9]|3[01])/\d{4} "
+            r"(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        ),
     }
 
 

@@ -7,6 +7,7 @@ from apps.core.form_data_document import (
     FormTemplateSnapshot,
     SectionTemplateSnapshot,
     build_field_path,
+    extract_repeat_counts_by_section,
     flatten_form_data_for_export,
     get_field_value,
     iter_field_values,
@@ -167,6 +168,25 @@ class FormDataDocumentTests(SimpleTestCase):
         doc = normalize_form_data({"MEDICAL_HISTORY_TERM": "Asthma"}, template_snapshot=_snapshot())
 
         self.assertEqual(flatten_form_data_for_export(doc), {"ENTRIES[1].MEDICAL_HISTORY_TERM": "Asthma"})
+
+    def test_extract_repeat_counts_by_section_skips_empty_repeat_rows(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "ENTRIES": {
+                        "kind": "repeatable",
+                        "rows": [
+                            {"row_key": "row_001", "row_no": 1, "items": {"MEDICAL_HISTORY_TERM": "Asthma"}},
+                            {"row_key": "row_002", "row_no": 2, "items": {}},
+                            {"row_key": "row_003", "row_no": 3, "items": {"MEDICAL_HISTORY_TERM": ""}},
+                        ],
+                    }
+                },
+            }
+        )
+
+        self.assertEqual(extract_repeat_counts_by_section(doc), {"ENTRIES": 1})
 
     def test_build_field_path_uses_row_key_for_repeatable_fields(self):
         self.assertEqual(

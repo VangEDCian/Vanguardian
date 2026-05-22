@@ -5,7 +5,12 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
-from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
+from apps.core.form_data_document import (
+    REPEAT_COUNTS_EXPORT_META_KEY,
+    extract_repeat_counts_by_section,
+    flatten_form_data_for_export,
+    normalize_form_data,
+)
 from apps.datacapture.domain import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.public import (
     ensure_draft_page_state_if_not_exists,
@@ -77,7 +82,13 @@ class SubjectDetailView(
         "date": "date",
         "date_picker": "date",
         "date picker": "date",
+        "date_text": "date_text",
+        "date text": "date_text",
+        "date-text": "date_text",
         "datetime": "datetime",
+        "datetime_text": "datetime_text",
+        "datetime text": "datetime_text",
+        "datetime-text": "datetime_text",
         "time_picker": "datetime",
         "time picker": "datetime",
         "time": "datetime",
@@ -673,4 +684,8 @@ class SubjectDetailView(
         if not isinstance(loaded, dict):
             return {}
         doc = normalize_form_data(loaded, strict=False)
-        return flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
+        payload = flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
+        repeat_counts = extract_repeat_counts_by_section(doc)
+        if repeat_counts:
+            payload[REPEAT_COUNTS_EXPORT_META_KEY] = repeat_counts
+        return payload

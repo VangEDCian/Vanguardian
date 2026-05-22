@@ -1,13 +1,16 @@
 {% load i18n %}
 <section class="subject-form-section"
          data-section-template-id="{{ section.id|default:'' }}"
+         data-section-layout-type="{{ section.layout_type|default:'section' }}"
          data-repeat-instance-index="{{ section.repeat_instance_index|default:1 }}"
          data-current-repeats="{{ section.current_repeats|default:1 }}"
          data-max-repeats="{{ section.max_repeats|default:'' }}">
     {% if section.layout_type == "table" %}
         {% include "subject/components/_section_table_render.html" with section=section hide_section_title=hide_section_title %}
+    {% elif section.layout_type == "repeat_table" %}
+        {% include "subject/components/_section_repeat_table_render.html" with section=section hide_section_title=hide_section_title %}
     {% else %}
-        {% if not hide_section_title %}
+        {% if not hide_section_title and section.show_section_header %}
             <header class="subject-form-section__title">{{ section.title }}</header>
         {% endif %}
         <div class="subject-form-section__grid grid grid-cols-6">

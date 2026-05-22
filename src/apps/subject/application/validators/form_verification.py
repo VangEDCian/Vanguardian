@@ -70,6 +70,7 @@ class SubjectFormVerificationRequestValidator:
             raise SubjectFormVerificationFieldTemplateIdsValueError() from exc
         return {
             "field_template_id": field_template_id,
+            "field_key": str(body.get("field_key") or "").strip(),
             "message_text": str(body.get("message_text") or "").strip(),
         }
 

@@ -127,14 +127,34 @@ class DjangoReconcileDataQueryWriteRepository:
         ReconcileDataQuery.objects.bulk_create(records)
         return len(records)
 
-    @staticmethod
-    def has_open_query_for_page_field(*, page_state_id: int, field_template_id: int) -> bool:
-        return ReconcileDataQuery.objects.filter(
+    @classmethod
+    def has_open_query_for_page_field(
+        cls,
+        *,
+        page_state_id: int,
+        field_template_id: int,
+        field_key: str = "",
+    ) -> bool:
+        entry_context = cls._current_page_entry_query_context(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            storage_key_hint=field_key,
+        )
+        queryset = ReconcileDataQuery.objects.filter(
             page_state_id=page_state_id,
             field_template_id=field_template_id,
             status=ReconcileDataQueryStatusChoices.OPEN,
             deleted=False,
-        ).exists()
+        )
+        field_path = str(entry_context.get("field_path") or "").strip()
+        if field_path:
+            field_paths = [
+                str(path or "").strip()
+                for path in entry_context.get("field_path_candidates", (field_path,))
+                if str(path or "").strip()
+            ]
+            queryset = queryset.filter(field_path__in=field_paths or [field_path])
+        return queryset.exists()
 
     @staticmethod
     def list_latest_open_query_ids_by_page_state_and_field_templates(
@@ -169,10 +189,12 @@ class DjangoReconcileDataQueryWriteRepository:
         question_text: str,
         actor_user_id: int | None,
         now: datetime,
+        field_key: str = "",
     ) -> ReconcileDataQuery:
         entry_context = cls._current_page_entry_query_context(
             page_state_id=page_state_id,
             field_template_id=field_template_id,
+            storage_key_hint=field_key,
         )
         return ReconcileDataQuery.objects.create(
             created_at=now,
@@ -335,6 +357,7 @@ class DjangoReconcileDataQueryWriteRepository:
         *,
         page_state_id: int,
         field_template_id: int | None,
+        storage_key_hint: str = "",
     ) -> dict[str, object]:
         if field_template_id is None:
             return {}
@@ -364,23 +387,34 @@ class DjangoReconcileDataQueryWriteRepository:
         field = (
             CrfFieldTemplate.objects.filter(pk=field_template_id, deleted=False)
             .select_related("section_template")
-            .only("field_key", "section_template__section_code")
+            .only("field_key", "section_template__section_code", "section_template__is_repeatable")
             .first()
         )
         field_key = str(getattr(field, "field_key", "") or "").strip()
         section_code = str(getattr(getattr(field, "section_template", None), "section_code", "") or "").strip()
+        is_repeatable = bool(getattr(getattr(field, "section_template", None), "is_repeatable", False))
+        storage_key_hint = str(storage_key_hint or "").strip()
         payload = cls._parse_entry_payload(entry.data)
         value_snapshot, storage_key = cls._entry_field_value_snapshot(
             payload=payload,
             field_key=field_key,
             field_template_id=field_template_id,
+            storage_key_hint=storage_key_hint,
+        )
+        field_path = cls._canonical_field_path(
+            section_code=section_code,
+            storage_key=storage_key,
+            is_repeatable=is_repeatable,
         )
         return {
             "page_entry_id": entry.pk,
             "data_version": str(entry.entry_version or "").strip() or None,
-            "field_path": cls._canonical_field_path(
+            "field_path": field_path,
+            "field_path_candidates": cls._field_path_candidates(
                 section_code=section_code,
                 storage_key=storage_key,
+                is_repeatable=is_repeatable,
+                field_path=field_path,
             ),
             "value_snapshot": value_snapshot,
             "assigned_to_id": entry.submitted_by_id,
@@ -406,8 +440,13 @@ class DjangoReconcileDataQueryWriteRepository:
         payload: dict[str, object],
         field_key: str,
         field_template_id: int,
+        storage_key_hint: str = "",
     ) -> tuple[str, str]:
-        storage_keys = cls._candidate_storage_keys(field_key=field_key, field_template_id=field_template_id)
+        storage_keys = cls._candidate_storage_keys(
+            field_key=field_key,
+            field_template_id=field_template_id,
+            storage_key_hint=storage_key_hint,
+        )
         for storage_key in storage_keys:
             if storage_key in payload:
                 return cls._format_value_snapshot(payload.get(storage_key)), storage_key
@@ -419,12 +458,25 @@ class DjangoReconcileDataQueryWriteRepository:
             }
             if part_map:
                 return json.dumps(part_map, ensure_ascii=False, sort_keys=True), storage_key
-        fallback_key = field_key or f"field_{field_template_id}"
+        fallback_key = storage_key_hint or field_key or f"field_{field_template_id}"
         return "", fallback_key
 
     @staticmethod
-    def _candidate_storage_keys(*, field_key: str, field_template_id: int) -> list[str]:
-        keys = [key for key in (field_key, f"field_{field_template_id}") if key]
+    def _candidate_storage_keys(
+        *,
+        field_key: str,
+        field_template_id: int,
+        storage_key_hint: str = "",
+    ) -> list[str]:
+        keys = [
+            key
+            for key in (
+                storage_key_hint,
+                field_key,
+                f"field_{field_template_id}",
+            )
+            if key
+        ]
         ordered: list[str] = []
         seen: set[str] = set()
         for key in keys:
@@ -454,7 +506,7 @@ class DjangoReconcileDataQueryWriteRepository:
         return f"$[{json.dumps(normalized, ensure_ascii=False)}]"
 
     @classmethod
-    def _canonical_field_path(cls, *, section_code: str, storage_key: str) -> str:
+    def _canonical_field_path(cls, *, section_code: str, storage_key: str, is_repeatable: bool = False) -> str:
         if not section_code:
             return cls._jsonpath_for_field_key(storage_key)
         repeat_match = re.match(r"^(?P<base>.+)__repeat_(?P<repeat_index>\d+)$", str(storage_key or "").strip())
@@ -465,7 +517,23 @@ class DjangoReconcileDataQueryWriteRepository:
                 repeat_match.group("base"),
                 row_key=f"row_{row_no:03d}",
             )
+        if is_repeatable:
+            return build_field_path(section_code, storage_key, row_key="row_001")
         return build_field_path(section_code, storage_key)
+
+    @classmethod
+    def _field_path_candidates(
+        cls,
+        *,
+        section_code: str,
+        storage_key: str,
+        is_repeatable: bool,
+        field_path: str,
+    ) -> tuple[str, ...]:
+        candidates = [str(field_path or "").strip()]
+        if section_code and is_repeatable and not re.match(r"^.+__repeat_\d+$", str(storage_key or "").strip()):
+            candidates.append(build_field_path(section_code, storage_key))
+        return tuple(key for key in dict.fromkeys(candidates) if key)
 
 
 __all__ = ["DjangoReconcileDataQueryWriteRepository"]

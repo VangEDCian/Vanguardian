@@ -64,3 +64,109 @@
   background: #eef4f7;
   color: #25556f;
 }
+
+.subject-form-repeat-table-section {
+  margin: 1rem;
+}
+
+.subject-form-repeat-table-section__title {
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  background-color: rgb(232, 244, 253);
+  border-bottom: 1px solid rgb(179, 217, 240);
+  color: rgb(21, 101, 192);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.subject-form-repeat-table-section__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.subject-form-repeat-table-section__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.subject-form-repeat-table-section__head {
+  /* padding: 0.5rem 0.5rem;
+  border: 1px solid #d6dee6;
+  background: #f8fafc;
+  color: #1f2933;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle; */
+  padding: 6px 12px;
+  border: 1px solid #d6dee6;
+  background: #f5f9fd;
+  color: #505861;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.subject-form-repeat-table-section__head--index {
+  width: 56px;
+}
+
+.subject-form-repeat-table-section__required {
+  color: #d32f2f;
+}
+
+.subject-form-repeat-table-row__index,
+.subject-form-repeat-table-row__cell,
+.subject-form-repeat-table-row__empty {
+  border: 1px solid #d6dee6;
+}
+
+.subject-form-repeat-table-row__index {
+  padding: 8px 10px;
+  color: #1f2933;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.subject-form-repeat-table-row__cell {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.subject-form-repeat-table-row__input,
+.subject-form-repeat-table-row__textarea {
+  width: calc(100% - 46px);
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.subject-form-repeat-table-row__input {
+  min-height: 32px;
+  padding: 5px 8px;
+}
+
+.subject-form-repeat-table-row__textarea {
+  min-height: 64px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.subject-form-repeat-table-row__choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.subject-form-repeat-table-row__empty,
+.subject-form-repeat-table-row__unsupported {
+  padding: 10px;
+  color: #64748b;
+  font-size: 13px;
+}

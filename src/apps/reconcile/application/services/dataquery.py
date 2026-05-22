@@ -148,6 +148,7 @@ class ReconcileDataQueryWriteService:
         field_template_id: int,
         message_text: str,
         actor_user_id: int | None,
+        field_key: str = "",
     ) -> dict[str, object]:
         normalized_text = str(message_text or "").strip()
         if not normalized_text:
@@ -155,12 +156,14 @@ class ReconcileDataQueryWriteService:
         if self.repository.has_open_query_for_page_field(
             page_state_id=page_state_id,
             field_template_id=field_template_id,
+            field_key=field_key,
         ):
             raise ValueError("An open query already exists for this field.")
         now: datetime = timezone.now()
         dataquery = self.repository.create_manual_open_query(
             page_state_id=page_state_id,
             field_template_id=field_template_id,
+            field_key=field_key,
             question_text=normalized_text,
             actor_user_id=actor_user_id,
             now=now,
@@ -202,11 +205,6 @@ class ReconcileDataQueryWriteService:
             field_template_id=field_template_id,
         ):
             raise ValueError("Query does not belong to the current field.")
-        if not self.repository.user_can_respond_to_query(
-            dataquery_id=dataquery_id,
-            actor_user_id=actor_user_id,
-        ):
-            raise ValueError(_QUERY_RESPONSE_PERMISSION_ERROR)
         now: datetime = timezone.now()
         thread = self.repository.create_query_thread_message(
             dataquery_id=dataquery_id,
@@ -255,11 +253,6 @@ class ReconcileDataQueryWriteService:
             field_template_id=field_template_id,
         ):
             raise ValueError("Query does not belong to the current field.")
-        if not self.repository.user_can_respond_to_query(
-            dataquery_id=dataquery_id,
-            actor_user_id=actor_user_id,
-        ):
-            raise ValueError(_QUERY_RESPONSE_PERMISSION_ERROR)
         now: datetime = timezone.now()
         thread = self.repository.create_query_thread_message(
             dataquery_id=dataquery_id,

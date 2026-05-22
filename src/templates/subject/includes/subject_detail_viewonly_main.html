@@ -57,7 +57,15 @@
                 <tbody>
                     {% for row in form_verification_review.rows %}
                         <tr>
-                            <td>{{ row.brief_description }}</td>
+                            <td>
+                                {% if row.is_repeatable_group_item %}
+                                    <div class="subject-form-verification-review__field-context">
+                                        <span>{{ row.section_title }}</span>
+                                        <span>{% trans "Group Item" %} {{ row.group_item_label }}</span>
+                                    </div>
+                                {% endif %}
+                                <span class="subject-form-verification-review__field-label">{{ row.brief_description }}</span>
+                            </td>
                             <td>{% subject_field_review_display_value row LANGUAGE_CODE %}</td>
                             <td>
                                 {% if row.is_checked %}

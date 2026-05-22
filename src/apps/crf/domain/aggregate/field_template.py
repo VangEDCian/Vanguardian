@@ -54,8 +54,17 @@ class FieldTemplateAggregate:
         "text_input": "entry_box",
         "time": "time_picker",
         "time picker": "time_picker",
+        "date_text": "date_text",
+        "date text": "date_text",
+        "datetime_text": "datetime_text",
+        "datetime text": "datetime_text",
         "radio": "radio_button_list",
         "radio button list": "radio_button_list",
+    }
+
+    ALLOWED_CONTROL_TYPES_BY_DATA_TYPE = {
+        "DATE": {"date_picker", "date_text"},
+        "DATETIME": {"date_picker", "datetime_text"},
     }
 
     @classmethod
@@ -304,7 +313,8 @@ class FieldTemplateAggregate:
         if normalized_value == "select2" and data_type in {"CODELIST", "STRING", "TEXT"}:
             return normalized_value
 
-        if normalized_value != expected_control_type:
+        allowed_control_types = cls.ALLOWED_CONTROL_TYPES_BY_DATA_TYPE.get(data_type, {expected_control_type})
+        if normalized_value not in allowed_control_types:
             raise FormBuilderDomainValidationError(
                 f"control_type must match data_type. Expected {expected_control_type} for {data_type}."
             )

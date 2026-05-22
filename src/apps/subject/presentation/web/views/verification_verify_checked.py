@@ -123,12 +123,9 @@ class SubjectFormVerificationReopenView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationQueryThreadView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
-    raise_exception = True
 
     def post(self, request, *args, **kwargs):
         try:
@@ -231,6 +228,7 @@ class SubjectFormVerificationOpenQueryView(
             result = open_reconcile_query(
                 page_state_id=int(page_state_id),
                 field_template_id=int(normalized["field_template_id"]),
+                field_key=str(normalized.get("field_key") or ""),
                 message_text=str(normalized["message_text"]),
                 actor_user_id=getattr(request.user, "id", None),
             )

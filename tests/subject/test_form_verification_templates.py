@@ -303,6 +303,49 @@ class FormVerificationTemplateTests(SimpleTestCase):
 
         self.assertIn("hidden", history_button)
 
+    def test_field_review_table_renders_repeat_group_item_context(self):
+        rendered = render_to_string(
+            "subject/includes/form_verification_field_review_table.html",
+            {
+                "LANGUAGE_CODE": "en",
+                "form_verification_fields_locked": False,
+                "form_verification_query_actions_locked": False,
+                "form_verification_show_actions_column": True,
+                "form_verification_show_field_checkboxes": True,
+                "form_verification_review": SimpleNamespace(
+                    rows=[
+                        {
+                            "field_template_id": 21,
+                            "field_key": "MED_NAME__repeat_2",
+                            "repeat_instance_index": 2,
+                            "is_repeatable_group_item": True,
+                            "section_code": "MEDS",
+                            "section_title": "Medication History",
+                            "group_item_label": "2",
+                            "is_checked": False,
+                            "brief_description": "Medication",
+                            "display_value": "Paracetamol",
+                            "open_query_count": 0,
+                            "active_query_id": None,
+                            "active_query_is_answered": False,
+                            "active_query_can_respond": False,
+                            "has_verified_query": False,
+                            "closed_query_histories": [],
+                            "query_thread_badge_count": 0,
+                            "query_messages": [],
+                            "modified_by": "User 1",
+                        }
+                    ],
+                ),
+            },
+        )
+
+        self.assertIn('data-field-key="MED_NAME__repeat_2"', rendered)
+        self.assertIn('data-repeat-instance-index="2"', rendered)
+        self.assertIn('data-section-code="MEDS"', rendered)
+        self.assertIn("Medication History", rendered)
+        self.assertIn("Group Item", rendered)
+
     def test_field_review_panel_renders_open_query_and_thread_query_modals(self):
         rendered = render_to_string(
             "subject/includes/form_verification_field_review.html",

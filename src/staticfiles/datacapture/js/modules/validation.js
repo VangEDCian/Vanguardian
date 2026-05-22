@@ -3,6 +3,7 @@
 
   function createValidationModule(deps) {
     const { fieldScope, showNotification, parseNumericValue } = deps;
+    const dateTextControlModule = window.DatacaptureSubjectDetailModules?.controls?.dateText || {};
 
     function validateNumberInput(input) {
       const rawValue = String(input.value ?? '').trim();
@@ -71,6 +72,24 @@
       return { ok: true, message: '', focusEl: null };
     }
 
+    function validateDateTextInputs() {
+      const dateTextContainers = fieldScope.querySelectorAll('[data-field-key]');
+      for (const container of dateTextContainers) {
+        if (!container.querySelector('[data-date-text-input]')) {
+          continue;
+        }
+        const validation = dateTextControlModule.validateDateTextInput?.(container) || {
+          ok: true,
+          message: '',
+          focusEl: null,
+        };
+        if (!validation.ok) {
+          return validation;
+        }
+      }
+      return { ok: true, message: '', focusEl: null };
+    }
+
     function validateBeforePersist() {
       const controls = fieldScope.querySelectorAll('input, textarea, select');
       for (const control of controls) {
@@ -97,6 +116,15 @@
         }
       }
 
+      const dateTextValidation = validateDateTextInputs();
+      if (!dateTextValidation.ok) {
+        if (dateTextValidation.focusEl) {
+          dateTextValidation.focusEl.focus();
+        }
+        showNotification(dateTextValidation.message, 'error');
+        return false;
+      }
+
       const dateValidation = validateDateParts();
       if (!dateValidation.ok) {
         if (dateValidation.focusEl) {
@@ -112,6 +140,7 @@
     return {
       validateBeforePersist,
       validateDateParts,
+      validateDateTextInputs,
       validateNumberInput,
     };
   }

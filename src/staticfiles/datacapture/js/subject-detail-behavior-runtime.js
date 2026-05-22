@@ -215,6 +215,7 @@
         return;
       }
       if (
+        control.hasAttribute('data-date-text-input') ||
         control.classList.contains('subject-date-picker__input--day') ||
         control.classList.contains('subject-date-picker__input--month') ||
         control.classList.contains('subject-date-picker__input--year') ||
@@ -240,6 +241,11 @@
     };
     if (dateParts.day || dateParts.month || dateParts.year || dateParts.time) {
       return dateParts;
+    }
+
+    const dateTextHiddenInput = container.querySelector('input[type="hidden"][data-date-text-composite-input]');
+    if (dateTextHiddenInput) {
+      return dateTextHiddenInput.value || '';
     }
 
     const radios = controls.filter((control) => control instanceof HTMLInputElement && control.type === 'radio');
@@ -322,6 +328,14 @@
       if (timeInput && 'time' in payload) {
         timeInput.value = payload.time ?? '';
       }
+      return true;
+    }
+
+    const dateTextHiddenInput = container.querySelector('input[type="hidden"][data-date-text-composite-input]');
+    if (dateTextHiddenInput) {
+      const nextTextValue = nextValue == null ? '' : String(nextValue);
+      const controlModules = window.DatacaptureSubjectDetailModules?.controls || {};
+      controlModules.dateText?.applyDateTextCompositeValue?.(container, nextTextValue);
       return true;
     }
 

@@ -69,20 +69,21 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(repository.answered_calls[0]["actor_user_id"], 7)
         self.assertIs(repository.answered_calls[0]["now"], repository.created_threads[0]["now"])
 
-    def test_reply_to_query_rejects_non_participant(self):
+    def test_reply_to_query_allows_non_participant(self):
         repository = _ReplyRepositoryStub(can_respond=False)
 
-        with self.assertRaisesMessage(ValueError, "Only the query opener or assignee can respond to this query."):
-            ReconcileDataQueryWriteService(repository=repository).reply_to_query(
-                dataquery_id=101,
-                page_state_id=23,
-                field_template_id=11,
-                message_text="Answered by site",
-                actor_user_id=99,
-            )
+        result = ReconcileDataQueryWriteService(repository=repository).reply_to_query(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Answered by site",
+            actor_user_id=99,
+        )
 
-        self.assertEqual(repository.created_threads, [])
-        self.assertEqual(repository.answered_calls, [])
+        self.assertEqual(result["dataquery_id"], 101)
+        self.assertEqual(repository.created_threads[0]["actor_user_id"], 99)
+        self.assertEqual(repository.answered_calls[0]["actor_user_id"], 99)
+        self.assertFalse(hasattr(repository, "response_actor_check"))
 
     def test_reply_and_close_query_requires_resolved_flag(self):
         repository = _ReplyRepositoryStub()
@@ -184,6 +185,36 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
         self.assertEqual(
             DjangoReconcileDataQueryWriteRepository._jsonpath_for_field_key(storage_key),
             "$.CONTRACEPT_YN",
+        )
+
+    def test_canonical_field_path_uses_repeat_row_context(self):
+        self.assertEqual(
+            DjangoReconcileDataQueryWriteRepository._canonical_field_path(
+                section_code="MEDS",
+                storage_key="MED_NAME",
+                is_repeatable=True,
+            ),
+            "groups.MEDS.rows[row_001].items.MED_NAME",
+        )
+        self.assertEqual(
+            DjangoReconcileDataQueryWriteRepository._canonical_field_path(
+                section_code="MEDS",
+                storage_key="MED_NAME__repeat_2",
+                is_repeatable=True,
+            ),
+            "groups.MEDS.rows[row_002].items.MED_NAME",
+        )
+        self.assertEqual(
+            DjangoReconcileDataQueryWriteRepository._field_path_candidates(
+                section_code="MEDS",
+                storage_key="MED_NAME",
+                is_repeatable=True,
+                field_path="groups.MEDS.rows[row_001].items.MED_NAME",
+            ),
+            (
+                "groups.MEDS.rows[row_001].items.MED_NAME",
+                "groups.MEDS.items.MED_NAME",
+            ),
         )
 
     def test_close_query_sets_closed_by_id_to_actor_user(self):
@@ -353,7 +384,7 @@ class _ReplyRepositoryStub:
 
 class _ReconcileRepositoryWithEntryContext(DjangoReconcileDataQueryWriteRepository):
     @classmethod
-    def _current_page_entry_query_context(cls, *, page_state_id, field_template_id):
+    def _current_page_entry_query_context(cls, *, page_state_id, field_template_id, storage_key_hint=""):
         return {
             "page_entry_id": 301,
             "value_snapshot": "1",

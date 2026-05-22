@@ -35,10 +35,12 @@ def open_reconcile_query(
     field_template_id: int,
     message_text: str,
     actor_user_id: int | None,
+    field_key: str = "",
 ) -> dict[str, object]:
     return ReconcileDataQueryWriteService().open_query(
         page_state_id=page_state_id,
         field_template_id=field_template_id,
+        field_key=field_key,
         message_text=message_text,
         actor_user_id=actor_user_id,
     )

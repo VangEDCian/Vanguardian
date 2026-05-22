@@ -1,0 +1,22 @@
+{% load subject_form_tags subject_field_validators %}
+{% subject_date_text_control_i18n as date_text_i18n %}
+{% subject_date_validator_attrs field as date_text_validator_attrs %}
+<div class="subject-date-text{% if field.classes %} {{ field.classes }}{% endif %}"{% if field.style %} style="{{ field.style }}"{% endif %}>
+    <input type="hidden"
+           data-date-text-composite-input
+           data-date-text-kind="date"
+           value="{{ field.value|default:'' }}">
+    <input class="subject-date-text__input"
+           type="text"
+           inputmode="numeric"
+           data-date-text-input
+           data-date-text-kind="date"
+           data-date-text-locale="{{ date_text_i18n.locale }}"
+           pattern="{{ date_text_i18n.pattern }}"
+           maxlength="10"
+           {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+           {{ date_text_validator_attrs }}
+           placeholder="{{ date_text_i18n.placeholder }}"
+           value="{% if date_text_i18n.locale == "vi" %}{% if field.date_day %}{{ field.date_day }}{% if field.date_month %}/{{ field.date_month }}{% if field.date_year %}/{{ field.date_year }}{% endif %}{% endif %}{% endif %}{% else %}{% if field.date_month %}{{ field.date_month }}{% if field.date_day %}/{{ field.date_day }}{% if field.date_year %}/{{ field.date_year }}{% endif %}{% endif %}{% endif %}{% endif %}"
+           aria-label="{{ field.label|default:field.field_key|default:date_text_i18n.label }}">
+</div>

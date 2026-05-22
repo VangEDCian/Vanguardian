@@ -16,7 +16,9 @@ class CrfFieldControlTypeChoices(models.TextChoices):
     CHECKBOX = "CHECKBOX", _("Checkbox")
     MULTI_SELECT = "MULTI_SELECT", _("Multi Select")
     DATE = "DATE", _("Date")
+    DATE_TEXT = "DATE_TEXT", _("Date Text")
     DATETIME = "DATETIME", _("DateTime")
+    DATETIME_TEXT = "DATETIME_TEXT", _("DateTime Text")
     LABEL_ONLY = "LABEL_ONLY", _("Label Only")
 
 

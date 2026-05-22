@@ -9,6 +9,7 @@
             data-field-key="{{ field.field_key|escape }}"
             data-field-value="{{ field.display_value|default:field.value|default:'—'|escape }}"
             data-query-answered="{% if field.active_query_is_answered %}true{% else %}false{% endif %}"
+            data-query-can-respond="true"
             title="{% trans 'Current Query' %}"
             aria-label="{% trans 'Current Query' %}">
         <span class="svg-icon"

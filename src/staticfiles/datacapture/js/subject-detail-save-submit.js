@@ -12,6 +12,7 @@
   const select2ControlModule = (modules.controls || {}).select2 || {};
   const multiSelectControlModule = (modules.controls || {}).multiSelect || {};
   const datePickerControlModule = (modules.controls || {}).datePicker || {};
+  const dateTextControlModule = (modules.controls || {}).dateText || {};
   const datetimeControlModule = (modules.controls || {}).datetime || {};
 
   const formPanel = document.querySelector('.subject-form-panel');
@@ -67,6 +68,7 @@
             return;
           }
           if (
+            input.hasAttribute('data-date-text-input') ||
             input.classList.contains('subject-date-picker__input--day') ||
             input.classList.contains('subject-date-picker__input--month') ||
             input.classList.contains('subject-date-picker__input--year') ||
@@ -264,6 +266,7 @@
   function collectFormPayloadObject(options = {}) {
     fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
       datePickerControlModule.syncDateCompositeInput?.(container);
+      dateTextControlModule.syncDateTextInput?.(container);
       datetimeControlModule.syncDatetimeCompositeInput?.(container);
     });
     select2ControlModule.syncSelect2LookupControls?.(fieldScope);
@@ -406,6 +409,14 @@
         return;
       }
 
+      if (input.matches('input[type="hidden"][data-date-text-composite-input]')) {
+        const container = input.closest('[data-field-key]');
+        const compositeValue = payloadValue == null ? '' : String(payloadValue);
+        dateTextControlModule.applyDateTextCompositeValue?.(container, compositeValue);
+        dateTextControlModule.syncDateTextInput?.(container);
+        return;
+      }
+
       if (input.type === 'radio') {
         input.checked = payloadValue !== null && String(payloadValue ?? '') === String(input.value ?? '');
         return;
@@ -440,6 +451,7 @@
     });
     fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
       datePickerControlModule.syncDateCompositeInput?.(container);
+      dateTextControlModule.syncDateTextInput?.(container);
       datetimeControlModule.syncDatetimeCompositeInput?.(container);
     });
     select2ControlModule.applyPayloadToSelect2Controls?.(fieldScope, payload);
@@ -542,6 +554,7 @@
           return;
         }
         if (
+          input.hasAttribute('data-date-text-input') ||
           input.classList.contains('subject-date-picker__input--day') ||
           input.classList.contains('subject-date-picker__input--month') ||
           input.classList.contains('subject-date-picker__input--year') ||
@@ -567,6 +580,32 @@
     }
   }
 
+  function appendRepeatTableRow(sourceSection, button, nextRepeatIndex, maxRepeats) {
+    const tableBody = sourceSection.querySelector('[data-repeat-table-body]');
+    if (!tableBody) {
+      return false;
+    }
+    const rows = Array.from(tableBody.querySelectorAll('[data-repeat-table-row]'));
+    const sourceRow = rows[rows.length - 1];
+    if (!sourceRow) {
+      return false;
+    }
+
+    const clonedRow = sourceRow.cloneNode(true);
+    clonedRow.dataset.repeatInstanceIndex = String(nextRepeatIndex);
+    const indexCell = clonedRow.querySelector('.subject-form-repeat-table-row__index');
+    if (indexCell) {
+      indexCell.textContent = String(nextRepeatIndex);
+    }
+    rewriteClonedSectionFields(clonedRow, nextRepeatIndex);
+    tableBody.appendChild(clonedRow);
+
+    sourceSection.dataset.currentRepeats = String(nextRepeatIndex);
+    dateTextControlModule.initializeDateTextControls?.(clonedRow);
+    updateRepeatSectionButton(button, nextRepeatIndex, maxRepeats);
+    return true;
+  }
+
   function bindRepeatSectionButtons() {
     fieldScope.querySelectorAll('[data-repeat-section-add]').forEach((button) => {
       if (button.dataset.repeatSectionBound === '1') {
@@ -585,6 +624,15 @@
           return;
         }
         const nextRepeatIndex = currentCount + 1;
+        if (sourceSection.dataset.sectionLayoutType === 'repeat_table') {
+          if (appendRepeatTableRow(sourceSection, button, nextRepeatIndex, maxRepeats)) {
+            ensureEditableInputs();
+            select2ControlModule.initializeSelect2LookupControls?.(sourceSection);
+            dateTextControlModule.initializeDateTextControls?.(sourceSection);
+            bindRepeatSectionButtons();
+            return;
+          }
+        }
         const clonedSection = sourceSection.cloneNode(true);
         const clonedButton = clonedSection.querySelector('[data-repeat-section-add]');
         button.remove();
@@ -598,6 +646,7 @@
         updateRepeatSectionButton(clonedButton, nextRepeatIndex, maxRepeats);
 
         sourceSection.insertAdjacentElement('afterend', clonedSection);
+        dateTextControlModule.initializeDateTextControls?.(clonedSection);
         fieldScope
           .querySelectorAll(`[data-section-template-id="${cssEscape(sourceSection.dataset.sectionTemplateId || '')}"]`)
           .forEach((section) => {

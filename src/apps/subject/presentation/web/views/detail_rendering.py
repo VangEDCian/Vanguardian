@@ -3,6 +3,8 @@ import re
 
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.form_data_document import REPEAT_COUNTS_EXPORT_META_KEY
+
 
 class SubjectDetailRenderingMixin:
     @classmethod
@@ -22,8 +24,10 @@ class SubjectDetailRenderingMixin:
     @staticmethod
     def _normalize_section_layout_type(raw_layout_type):
         normalized_value = str(raw_layout_type or "").strip().lower()
-        if normalized_value in {"section", "table"}:
+        if normalized_value in {"section", "table", "repeat_table"}:
             return normalized_value
+        if normalized_value in {"repeat_rows", "repeat-row-table", "repeat_row_table"}:
+            return "repeat_table"
         return "section"
 
     @staticmethod
@@ -112,6 +116,40 @@ class SubjectDetailRenderingMixin:
                     "cell_class": "subject-form-table-row__cell--response",
                 },
             ],
+        }
+
+    @classmethod
+    def _default_repeat_table_layout_schema(cls):
+        return {
+            "show_table_header": True,
+            "show_row_number": True,
+            "row_number_label": _("STT"),
+            "row_number_width": "56px",
+        }
+
+    @classmethod
+    def _normalize_repeat_table_layout_schema(cls, raw_schema):
+        default_schema = cls._default_repeat_table_layout_schema()
+        if not isinstance(raw_schema, dict):
+            return default_schema
+
+        return {
+            "show_table_header": cls._normalize_schema_boolean(
+                raw_schema.get("show_table_header"),
+                default=default_schema["show_table_header"],
+            ),
+            "show_row_number": cls._normalize_schema_boolean(
+                raw_schema.get("show_row_number"),
+                default=default_schema["show_row_number"],
+            ),
+            "row_number_label": (
+                str(raw_schema.get("row_number_label") or default_schema["row_number_label"]).strip()
+                or default_schema["row_number_label"]
+            ),
+            "row_number_width": (
+                str(raw_schema.get("row_number_width") or default_schema["row_number_width"]).strip()
+                or default_schema["row_number_width"]
+            ),
         }
 
     @classmethod
@@ -472,8 +510,8 @@ class SubjectDetailRenderingMixin:
         return aliases[0] if aliases else "", None
 
     @classmethod
-    def _resolve_repeat_count(cls, section_fields, payload_map, max_repeats):
-        repeat_count = 1
+    def _resolve_repeat_count(cls, section_fields, payload_map, max_repeats, section_code=None):
+        repeat_count = cls._repeat_count_from_payload_meta(payload_map, section_code)
         field_keys = [str(field.get("field_key") or "").strip() for field in section_fields]
         field_keys.extend(
             f"field_{field.get('id')}"
@@ -494,6 +532,21 @@ class SubjectDetailRenderingMixin:
             except (TypeError, ValueError):
                 pass
         return repeat_count
+
+    @staticmethod
+    def _repeat_count_from_payload_meta(payload_map, section_code):
+        if not isinstance(payload_map, dict):
+            return 1
+        meta = payload_map.get(REPEAT_COUNTS_EXPORT_META_KEY)
+        if not isinstance(meta, dict):
+            return 1
+        normalized_section_code = str(section_code or "").strip()
+        if not normalized_section_code:
+            return 1
+        try:
+            return max(1, int(meta.get(normalized_section_code) or 1))
+        except (TypeError, ValueError):
+            return 1
 
     @staticmethod
     def _can_add_repeat_instance(current_repeats, max_repeats):
@@ -594,6 +647,9 @@ class SubjectDetailRenderingMixin:
             table_layout = self._normalize_table_layout_schema(
                 section_layout_config.get("custom_layout_schema")
             )
+            repeat_table_layout = self._normalize_repeat_table_layout_schema(
+                section_layout_config.get("custom_layout_schema")
+            )
 
             section_key = (
                 section_template.get("id")
@@ -612,6 +668,7 @@ class SubjectDetailRenderingMixin:
                     "layout_type": section_layout_type,
                     "layout_schema": section_layout_config.get("custom_layout_schema") or {},
                     "table_layout": table_layout,
+                    "repeat_table_layout": repeat_table_layout,
                     "layout_css_class": (
                         section_layout_config.get("custom_css_class") or ""
                     ).strip(),
@@ -729,6 +786,7 @@ class SubjectDetailRenderingMixin:
                     section["fields"],
                     payload_map,
                     section.get("max_repeats"),
+                    section_code=section.get("code"),
                 )
                 if section.get("is_repeatable")
                 else 1
@@ -740,6 +798,35 @@ class SubjectDetailRenderingMixin:
                 section["columns"] = 2
             else:
                 section["columns"] = 3
+
+            if section.get("layout_type") == "repeat_table":
+                repeated_rows = []
+                for repeat_index in range(1, repeat_count + 1):
+                    repeated_rows.append(
+                        {
+                            "repeat_instance_index": repeat_index,
+                            "fields": [
+                                self._field_for_repeat_instance(field, repeat_index, payload_map)
+                                for field in section["fields"]
+                            ],
+                        }
+                    )
+                payload.append(
+                    {
+                        **section,
+                        "repeat_table_rows": repeated_rows,
+                        "repeat_instance_index": 1,
+                        "current_repeats": repeat_count,
+                        "can_add_repeat": (
+                            bool(section.get("is_repeatable"))
+                            and self._can_add_repeat_instance(
+                                repeat_count,
+                                section.get("max_repeats"),
+                            )
+                        ),
+                    }
+                )
+                continue
 
             for repeat_index in range(1, repeat_count + 1):
                 repeated_section = {

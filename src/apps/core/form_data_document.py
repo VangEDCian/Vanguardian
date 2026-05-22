@@ -8,6 +8,7 @@ from typing import Any
 
 FORM_DATA_FORMAT = "edc.form_data.v1"
 LEGACY_UNMAPPED_SECTION_CODE = "_LEGACY_UNMAPPED_FIELDS"
+REPEAT_COUNTS_EXPORT_META_KEY = "_repeat_counts_by_section_code"
 
 _DATE_PART_KEY_RE = re.compile(r"^(?P<base>.+)__(?P<part>day|month|year|time)$")
 _REPEAT_KEY_RE = re.compile(r"^(?P<base>.+)__repeat_(?P<repeat_index>\d+)$")
@@ -235,6 +236,47 @@ def flatten_form_data_for_export(doc: dict, *, repeat_strategy: str = "row_suffi
         else:
             out[ref.field_key] = ref.value
     return out
+
+
+def extract_repeat_counts_by_section(doc: dict) -> dict[str, int]:
+    if not isinstance(doc, dict):
+        return {}
+    normalized_doc = normalize_form_data(doc)
+    groups = normalized_doc.get("groups")
+    if not isinstance(groups, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for section_code, group in groups.items():
+        if not isinstance(group, dict) or group.get("kind") != "repeatable":
+            continue
+        rows = group.get("rows") if isinstance(group.get("rows"), list) else []
+        repeat_count = 0
+        for index, row in enumerate(rows, start=1):
+            if not isinstance(row, dict):
+                continue
+            items = row.get("items") if isinstance(row.get("items"), dict) else {}
+            if not any(_has_meaningful_form_value(value) for value in items.values()):
+                continue
+            repeat_count = max(repeat_count, _coerce_int(row.get("row_no")) or index)
+        if repeat_count > 0:
+            counts[str(section_code)] = repeat_count
+    return counts
+
+
+def _has_meaningful_form_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, list):
+        return any(_has_meaningful_form_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(_has_meaningful_form_value(item) for item in value.values())
+    return True
 
 
 def _coerce_dict(raw_data) -> dict:
@@ -487,8 +529,10 @@ __all__ = [
     "FormDataNormalizationError",
     "FormFieldValueRef",
     "FormTemplateSnapshot",
+    "REPEAT_COUNTS_EXPORT_META_KEY",
     "SectionTemplateSnapshot",
     "build_field_path",
+    "extract_repeat_counts_by_section",
     "flatten_form_data_for_export",
     "get_field_value",
     "is_canonical_form_data",

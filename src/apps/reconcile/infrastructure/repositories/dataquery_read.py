@@ -51,6 +51,175 @@ class DjangoReconcileDataQueryReadRepository:
         )
         return {int(field_template_id) for field_template_id in rows}
 
+    @staticmethod
+    def _normalize_field_path(value: object) -> str:
+        return str(value or "").strip()
+
+    def list_verified_query_keys_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[tuple[int, str]]:
+        if not field_template_ids:
+            return set()
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status="verified",
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .values("field_template_id", "field_path")
+            .distinct()
+        )
+        return {
+            (int(row["field_template_id"]), self._normalize_field_path(row["field_path"]))
+            for row in rows
+        }
+
+    def count_open_queries_by_page_state_field_paths(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[tuple[int, str], int]:
+        if not field_template_ids:
+            return {}
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.OPEN,
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .values("field_template_id", "field_path")
+            .annotate(query_count=Count("id"))
+        )
+        return {
+            (int(row["field_template_id"]), self._normalize_field_path(row["field_path"])): int(row["query_count"])
+            for row in rows
+        }
+
+    def list_latest_active_query_contexts_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[tuple[int, str], dict[str, object]]:
+        if not field_template_ids:
+            return {}
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.OPEN,
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .annotate(sort_at=Coalesce("opened_at", "created_at"))
+            .order_by("field_template_id", "field_path", "-sort_at", "-id")
+            .values(
+                "id",
+                "field_template_id",
+                "field_path",
+                "opened_by_id",
+                "assigned_to_id",
+                "answered_at",
+                "answered_by_id",
+            )
+        )
+        out: dict[tuple[int, str], dict[str, object]] = {}
+        for row in rows:
+            key = (int(row["field_template_id"]), self._normalize_field_path(row["field_path"]))
+            out.setdefault(
+                key,
+                {
+                    "active_query_id": int(row["id"]),
+                    "opened_by_id": row["opened_by_id"],
+                    "assigned_to_id": row["assigned_to_id"],
+                    "active_query_is_answered": (
+                        row["answered_at"] is not None or row["answered_by_id"] is not None
+                    ),
+                },
+            )
+        return out
+
+    def list_latest_query_messages_by_dataquery_ids(
+        self,
+        *,
+        dataquery_ids: tuple[int, ...],
+        limit_per_query: int = 10,
+    ) -> dict[int, list[dict[str, object]]]:
+        if not dataquery_ids:
+            return {}
+        rows = (
+            ReconcileQueryThread.objects.filter(
+                dataquery_id__in=dataquery_ids,
+                deleted=False,
+            )
+            .order_by("dataquery_id", "-created_at", "-id")
+            .values(
+                "dataquery_id",
+                "message_text",
+                "message_type",
+                "created_at",
+                "author_id",
+            )
+        )
+        grouped: dict[int, list[dict[str, object]]] = {}
+        for row in rows:
+            dataquery_id = int(row["dataquery_id"])
+            bucket = grouped.setdefault(dataquery_id, [])
+            if len(bucket) >= limit_per_query:
+                continue
+            bucket.append(
+                {
+                    "dataquery_id": dataquery_id,
+                    "text": row["message_text"],
+                    "status": row["message_type"],
+                    "created_at": row["created_at"],
+                    "opened_by_id": row["author_id"],
+                },
+            )
+        return grouped
+
+    def count_query_threads_since_current_user_last_comment_by_dataquery_ids(
+        self,
+        *,
+        dataquery_ids: tuple[int, ...],
+        current_user_id: int | None,
+    ) -> dict[int, int]:
+        if not dataquery_ids or current_user_id is None:
+            return {}
+        rows = (
+            ReconcileQueryThread.objects.filter(
+                dataquery_id__in=dataquery_ids,
+                deleted=False,
+            )
+            .order_by("dataquery_id", "created_at", "id")
+            .values("dataquery_id", "created_at", "author_id", "created_by_id")
+        )
+        latest_current_user_comment_by_query: dict[int, object] = {}
+        buffered_rows = list(rows)
+        for row in buffered_rows:
+            if row["author_id"] == current_user_id or row["created_by_id"] == current_user_id:
+                latest_current_user_comment_by_query[int(row["dataquery_id"])] = row["created_at"]
+
+        counts: dict[int, int] = {}
+        for row in buffered_rows:
+            dataquery_id = int(row["dataquery_id"])
+            last_current_user_comment_at = latest_current_user_comment_by_query.get(dataquery_id)
+            is_current_user_comment = row["author_id"] == current_user_id or row["created_by_id"] == current_user_id
+            if is_current_user_comment:
+                continue
+            if last_current_user_comment_at is not None and row["created_at"] <= last_current_user_comment_at:
+                continue
+            counts[dataquery_id] = counts.get(dataquery_id, 0) + 1
+        return counts
+
     def has_verified_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
         return ReconcileDataQuery.objects.filter(
             page_state_id=page_state_id,
@@ -203,6 +372,59 @@ class DjangoReconcileDataQueryReadRepository:
             dataquery_id = int(row["id"])
             field_template_id = int(row["field_template_id"])
             grouped.setdefault(field_template_id, []).append(
+                {
+                    "dataquery_id": dataquery_id,
+                    "question_text": row["question_text"],
+                    "opened_at": row["opened_at"],
+                    "closed_at": row["closed_at"],
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                    "messages": messages_by_query_id.get(dataquery_id, []),
+                },
+            )
+        return grouped
+
+    def list_closed_query_histories_by_page_state_field_paths(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+        limit_per_query: int = 10,
+    ) -> dict[tuple[int, str], list[dict[str, object]]]:
+        if not field_template_ids:
+            return {}
+        query_rows = list(
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.CLOSED,
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .annotate(sort_at=Coalesce("closed_at", "updated_at", "created_at"))
+            .order_by("field_template_id", "field_path", "-sort_at", "-id")
+            .values(
+                "id",
+                "field_template_id",
+                "field_path",
+                "question_text",
+                "opened_at",
+                "closed_at",
+                "created_at",
+                "updated_at",
+            )
+        )
+        query_ids = tuple(int(row["id"]) for row in query_rows)
+        messages_by_query_id = self.list_latest_query_messages_by_dataquery_ids(
+            dataquery_ids=query_ids,
+            limit_per_query=limit_per_query,
+        )
+
+        grouped: dict[tuple[int, str], list[dict[str, object]]] = {}
+        for row in query_rows:
+            dataquery_id = int(row["id"])
+            key = (int(row["field_template_id"]), self._normalize_field_path(row["field_path"]))
+            grouped.setdefault(key, []).append(
                 {
                     "dataquery_id": dataquery_id,
                     "question_text": row["question_text"],

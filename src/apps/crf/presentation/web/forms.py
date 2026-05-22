@@ -37,9 +37,11 @@ class CrfFieldCreateForm(forms.Form):
         ("dropdown", "Dropdown"),
         ("select2", "Select2"),
         ("date_picker", "Date Picker"),
+        ("date_text", "Date Text"),
         ("entry_box", "Entry Box"),
         ("text_area", "Text Area"),
         ("time_picker", "Time Picker"),
+        ("datetime_text", "DateTime Text"),
     ]
 
     field_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
@@ -194,6 +196,10 @@ class CrfFieldCreateForm(forms.Form):
 
         if control_type == "select2":
             control_type = "select2"
+        elif data_type == "DATE" and control_type == "date_text":
+            control_type = "date_text"
+        elif data_type == "DATETIME" and control_type == "datetime_text":
+            control_type = "datetime_text"
         elif expected_control_type:
             control_type = expected_control_type
         elif not control_type:
