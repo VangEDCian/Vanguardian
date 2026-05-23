@@ -2,6 +2,7 @@ from apps.crf.models import (
     CrfFieldDefinition,
     CrfFieldTemplate,
     CrfFieldUiConfig,
+    CrfSectionLayoutConfig,
     CrfSectionTemplate,
     CrfTemplate,
 )
@@ -112,9 +113,31 @@ class DjangoCrfTemplateRepository:
             crf_template_id=crf_template_id,
         ).first()
 
+    def get_section_template_by_id(self, *, section_template_id):
+        return (
+            CrfSectionTemplate.objects.filter(
+                pk=section_template_id,
+                deleted=False,
+            )
+            .select_related("crf_template")
+            .first()
+        )
+
     def build_section_template(self, **values):
         return CrfSectionTemplate(**values)
 
     def save_section_template(self, section_template):
         section_template.save()
         return section_template
+
+    def get_section_layout_config(self, *, section_template_id):
+        return CrfSectionLayoutConfig.objects.filter(
+            section_template_id=section_template_id,
+        ).first()
+
+    def build_section_layout_config(self, **values):
+        return CrfSectionLayoutConfig(**values)
+
+    def save_section_layout_config(self, layout_config):
+        layout_config.save()
+        return layout_config

@@ -285,7 +285,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
     def test_verify_checked_returns_400_when_current_user_last_updated_submitted_entry(self):
         request = RequestFactory().post(
             "/verify-checked/",
-            data=json.dumps({"field_template_ids": [11]}),
+            data=json.dumps({"field_template_ids": [11], "reason_text": "Revert verification"}),
             content_type="application/json",
         )
         request.user = SimpleNamespace(id=7)
@@ -313,6 +313,48 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
         payload = json.loads(response.content)
         self.assertEqual(payload["error"], ["Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."])
         merge_checked.assert_not_called()
+
+    def test_verify_checked_returns_unverified_field_template_ids(self):
+        request = RequestFactory().post(
+            "/verify-checked/",
+            data=json.dumps({"field_template_ids": [11], "reason_text": "Revert verification"}),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "merge_form_verification_checked_fields_into_page_state_final_data",
+                return_value=(False, "under_review", ["field_review_not_ready:12"], [12]),
+            ) as merge_checked,
+        ):
+            response = SubjectFormVerificationVerifyCheckedView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["field_template_ids"], [11])
+        self.assertEqual(payload["unverified_field_template_ids"], [12])
+        self.assertEqual(payload["page_status"], "under_review")
+        merge_checked.assert_called_once_with(
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
+            checked_field_template_ids=[11],
+            unverify_reason_text="Revert verification",
+            actor_user_id=7,
+        )
 
     def test_post_returns_400_when_field_is_verified(self):
         request = RequestFactory().post(

@@ -25,7 +25,18 @@ class SubjectFormVerificationRequestValidator:
     @classmethod
     def parse_checked_field_template_ids(cls, raw_body: bytes | str) -> list[int]:
         body = cls._parse_json_body(raw_body)
-        raw_ids = body.get("field_template_ids")
+        return cls._normalize_field_template_ids(body.get("field_template_ids"))
+
+    @classmethod
+    def parse_verify_checked_payload(cls, raw_body: bytes | str) -> dict[str, object]:
+        body = cls._parse_json_body(raw_body)
+        return {
+            "field_template_ids": cls._normalize_field_template_ids(body.get("field_template_ids")),
+            "reason_text": str(body.get("reason_text") or "").strip(),
+        }
+
+    @staticmethod
+    def _normalize_field_template_ids(raw_ids) -> list[int]:
         if raw_ids is None:
             return []
         if not isinstance(raw_ids, list):

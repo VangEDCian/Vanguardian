@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.crf.application.commands.upsert_crf_template import UpsertCrfTemplateCommand
+from apps.crf.application.commands.upsert_section_layout_config import UpsertSectionLayoutConfigCommand
 from apps.crf.application.commands.upsert_section_template import UpsertSectionTemplateCommand
 from apps.crf.domain.exceptions import StudyScopeViolationError
 from apps.crf.infrastructure.repositories import DjangoCrfTemplateRepository
@@ -117,6 +118,55 @@ class CrfTemplateCommandService:
         self._set_translated_value(section_template, "instruction_text", "en", command.en_instruction_text)
         self.repository.save_section_template(section_template)
         return section_template
+
+    @transaction.atomic
+    def upsert_section_layout_config(self, command: UpsertSectionLayoutConfigCommand, *, now=None):
+        selected_study_id = self._normalize_selected_study_id(command.selected_study_id)
+        section_template = self.repository.get_section_template_by_id(
+            section_template_id=command.section_template_id,
+        )
+        if section_template is None:
+            raise StudyScopeViolationError("Section template is not found in the selected study scope.")
+        if int(section_template.crf_template.study_id) != selected_study_id:
+            raise StudyScopeViolationError("Section layout config command cannot modify another study.")
+
+        timestamp = now or timezone.now()
+        defaults = {
+            "deleted": False,
+            "layout_type": command.layout_type,
+            "column_count": command.column_count,
+            "label_position": command.label_position,
+            "density": command.density,
+            "section_style": command.section_style,
+            "is_collapsible": command.is_collapsible,
+            "is_expanded_by_default": command.is_expanded_by_default,
+            "show_section_header": command.show_section_header,
+            "show_border": command.show_border,
+            "show_background": command.show_background,
+            "custom_css_class": command.custom_css_class,
+            "custom_layout_schema": command.custom_layout_schema,
+            "updated_at": timestamp,
+            "updated_by_id": command.actor_user_id,
+        }
+
+        layout_config = self.repository.get_section_layout_config(
+            section_template_id=command.section_template_id,
+        )
+        if layout_config is None:
+            layout_config = self.repository.build_section_layout_config(
+                section_template_id=command.section_template_id,
+                created_at=timestamp,
+                created_by_id=command.actor_user_id,
+                **defaults,
+            )
+            import_outcome = "created"
+        else:
+            for field_name, value in defaults.items():
+                setattr(layout_config, field_name, value)
+            import_outcome = "updated"
+
+        self.repository.save_section_layout_config(layout_config)
+        return import_outcome
 
     @staticmethod
     def _set_translated_value(instance, field_name, language_code, value):

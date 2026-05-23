@@ -10,10 +10,17 @@
                    value="{{ option.value }}"
                    {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
                    {% if option.value == field.value %}checked{% endif %} />
-            <span class="subject-form-radio-option-label"
-                  data-radio-option-label>{{ option.label }}</span>
+            <span class="subject-form-radio-option-label" data-radio-option-label>{{ option.label }}</span>
         </label>
     {% empty %}
         <span>{{ radio_control_i18n.empty_option }}</span>
     {% endfor %}
+    {% if field.options %}
+        <button type="button"
+                class="subject-form-radio-clear"
+                data-radio-clear
+                {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}>
+            {{ radio_control_i18n.clear_option }}
+        </button>
+    {% endif %}
 </div>

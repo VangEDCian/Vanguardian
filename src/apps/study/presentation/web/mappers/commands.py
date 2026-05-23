@@ -5,6 +5,7 @@ from apps.study.application import (
     DeleteRandomizationSchemeCommand,
     DeleteSiteCommand,
     DeleteStudyCommand,
+    ImportStudyCrfSectionLayoutConfigsTemplateCommand,
     ImportStudyCrfTemplateFieldsTemplateCommand,
     ImportStudyCrfTemplatesTemplateCommand,
     ImportStudyEventDefinitionsTemplateCommand,
@@ -23,6 +24,12 @@ def to_import_study_crf_templates_template_command(**kwargs) -> ImportStudyCrfTe
 
 def to_import_study_crf_template_fields_template_command(**kwargs) -> ImportStudyCrfTemplateFieldsTemplateCommand:
     return ImportStudyCrfTemplateFieldsTemplateCommand(**kwargs)
+
+
+def to_import_study_crf_section_layout_configs_template_command(
+    **kwargs,
+) -> ImportStudyCrfSectionLayoutConfigsTemplateCommand:
+    return ImportStudyCrfSectionLayoutConfigsTemplateCommand(**kwargs)
 
 
 def to_import_study_event_definitions_template_command(**kwargs) -> ImportStudyEventDefinitionsTemplateCommand:
@@ -79,6 +86,7 @@ def to_delete_study_command(**kwargs) -> DeleteStudyCommand:
 
 __all__ = [
     "to_import_study_crf_template_fields_template_command",
+    "to_import_study_crf_section_layout_configs_template_command",
     "to_import_study_crf_templates_template_command",
     "to_import_study_event_definitions_template_command",
     "to_import_study_event_form_bindings_template_command",

@@ -7,6 +7,7 @@ from apps.datacapture.application import (
     SubmitPageCommand,
     TriggerPageStateEventTransitionCommand,
 )
+from apps.datacapture.application.services.fact_snapshot import DataCaptureFactSnapshotService
 from apps.datacapture.application.services.page_entry_read import DataCapturePageEntryReadService
 from apps.datacapture.application.services.page_state_read import DataCapturePageStateReadService
 from apps.datacapture.application.services.page_state_write import DataCapturePageStateWriteService
@@ -24,6 +25,10 @@ def trigger_event_transition_for_page_state(
         trigger_source=trigger_source,
     )
     return DataCapturePageStateEventTransitionService().execute(command)
+
+
+def read_fact_snapshot_for_page_state(*, page_state_id: int):
+    return DataCaptureFactSnapshotService().read_for_page_state(page_state_id=page_state_id)
 
 
 def save_page_for_subject_visit_crf(
@@ -134,8 +139,9 @@ def merge_form_verification_checked_fields_into_page_state_final_data(
     visit_id: int,
     crf_template_id: int,
     checked_field_template_ids: list[int],
+    unverify_reason_text: str | None = None,
     actor_user_id: int | None = None,
-) -> tuple[bool, str, list[str]]:
+) -> tuple[bool, str, list[str], list[int]]:
     from apps.datacapture.application.services.page_state_verification_final_data import (
         DataCapturePageStateVerificationFinalDataService,
     )
@@ -145,6 +151,7 @@ def merge_form_verification_checked_fields_into_page_state_final_data(
         visit_id=visit_id,
         crf_template_id=crf_template_id,
         checked_field_template_ids=checked_field_template_ids,
+        unverify_reason_text=unverify_reason_text,
         actor_user_id=actor_user_id,
     )
 
@@ -252,6 +259,7 @@ __all__ = [
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
     "is_field_verified_for_page_state",
     "merge_form_verification_checked_fields_into_page_state_final_data",
+    "read_fact_snapshot_for_page_state",
     "reopen_verified_form_verification_page_state",
     "save_page_for_subject_visit_crf",
     "submit_page_for_subject_visit_crf",

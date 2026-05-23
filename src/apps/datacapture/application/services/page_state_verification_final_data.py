@@ -3,9 +3,7 @@ from typing import Any
 
 from django.db import OperationalError, ProgrammingError
 
-from apps.core.choices import (
-    DataCaptureFieldReviewTypeChoices,
-)
+from apps.core.choices import DataCaptureFieldReviewStatusChoices, DataCaptureFieldReviewTypeChoices
 from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
 from apps.crf.models import CrfFieldReviewPolicy
 from apps.crf.public import CrfContextAdapter
@@ -120,8 +118,9 @@ class DataCapturePageStateVerificationFinalDataService:
         visit_id: int,
         crf_template_id: int,
         checked_field_template_ids: list[int],
+        unverify_reason_text: str | None = None,
         actor_user_id: int | None = None,
-    ) -> tuple[bool, str, list[str]]:
+    ) -> tuple[bool, str, list[str], list[int]]:
         snapshot = self._get_reviewable_page_state_or_raise(
             subject_id=subject_id,
             visit_id=visit_id,
@@ -165,6 +164,30 @@ class DataCapturePageStateVerificationFinalDataService:
         )
         entry_payload = self._load_json_dict(latest_entry.data if latest_entry is not None else "{}")
         blockers: list[str] = []
+        all_field_template_ids_set = set(field_template_ids)
+        verified_field_template_ids = self.repository.list_verified_field_template_ids(
+            page_state_id=snapshot.id,
+            data_version=snapshot.data_version,
+            review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        )
+        unverified_field_template_ids = sorted(
+            int(field_template_id)
+            for field_template_id in (verified_field_template_ids - checked_set)
+            if int(field_template_id) in all_field_template_ids_set
+        )
+        normalized_unverify_reason_text = (unverify_reason_text or "").strip()
+        if unverified_field_template_ids and not normalized_unverify_reason_text:
+            raise DataCaptureValidationError("Reason for revert verification is required.")
+        for field_template_id in unverified_field_template_ids:
+            self.repository.unverify_field_review(
+                page_state_id=snapshot.id,
+                field_template_id=field_template_id,
+                status=DataCaptureFieldReviewStatusChoices.STALE,
+                data_version=snapshot.data_version,
+                reason_text=normalized_unverify_reason_text,
+                actor_user_id=actor_user_id,
+                review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+            )
         field_row_by_id = {}
         for field_row in field_rows:
             try:
@@ -208,7 +231,7 @@ class DataCapturePageStateVerificationFinalDataService:
             blockers.append("active_blocking_query")
 
         if blockers:
-            return False, DataCapturePageState.UNDER_REVIEW, blockers
+            return False, DataCapturePageState.UNDER_REVIEW, blockers, unverified_field_template_ids
 
         page_status = self.repository.verify_page_state_if_ready(
             page_state_id=snapshot.id,
@@ -221,7 +244,7 @@ class DataCapturePageStateVerificationFinalDataService:
             actor_user_id=actor_user_id,
             page_status=page_status,
         )
-        return True, page_status, []
+        return True, page_status, [], unverified_field_template_ids
 
     def is_field_verified_for_page_state(
         self,

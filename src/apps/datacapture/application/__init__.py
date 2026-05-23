@@ -23,6 +23,8 @@ from apps.datacapture.application.exceptions import (
 )
 from apps.datacapture.application.services import (
     DataCaptureEventTransitionTriggerResult,
+    DataCaptureFactSnapshot,
+    DataCaptureFactSnapshotService,
     DataCapturePageStateEventTransitionService,
     DataCaptureSaveSubmitPageService,
     DeleteDraftPageResult,
@@ -32,6 +34,8 @@ from apps.datacapture.application.services import (
 
 __all__ = [
     "DataCaptureEventTransitionTriggerResult",
+    "DataCaptureFactSnapshot",
+    "DataCaptureFactSnapshotService",
     "DataCaptureChangeReasonRequiredError",
     "DeleteDraftPageCommand",
     "DeleteDraftPageResult",

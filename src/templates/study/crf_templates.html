@@ -23,8 +23,14 @@
             <button type="button"
                     class="entity-table__footer-button entity-table__footer-button--secondary"
                     data-modal-open="modal-import-crf-template-fields">{% trans "Import Template Fields" %}</button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    data-modal-open="modal-import-crf-section-layout-configs">
+                {% trans "Import Section Layout Config" %}
+            </button>
         </div>
     </section>
     {% include "study/components/_crf_template_import_modal.html" %}
     {% include "study/components/_crf_template_field_import_modal.html" %}
+    {% include "study/components/_crf_section_layout_config_import_modal.html" %}
 {% endblock %}

@@ -7,19 +7,21 @@
       return;
     }
 
-    var activeForm = sidebar.querySelector(".subject-detail-sidebar__child.is-active");
-    if (!activeForm) {
+    var activeItem =
+      sidebar.querySelector(".subject-detail-sidebar__child.is-active") ||
+      sidebar.querySelector(".subject-detail-sidebar__group.is-active");
+    if (!activeItem) {
       return;
     }
 
     var sidebarRect = sidebar.getBoundingClientRect();
-    var activeFormRect = activeForm.getBoundingClientRect();
+    var activeItemRect = activeItem.getBoundingClientRect();
     var targetScrollTop =
       sidebar.scrollTop +
-      activeFormRect.top -
+      activeItemRect.top -
       sidebarRect.top -
       sidebar.clientHeight / 2 +
-      activeFormRect.height / 2;
+      activeItemRect.height / 2;
 
     sidebar.scrollTo({
       top: Math.max(targetScrollTop, 0),

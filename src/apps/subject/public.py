@@ -4,6 +4,12 @@ from apps.subject.application import (
     SubjectEventTransitionService,
     TriggerSubjectEventTransitionCommand,
 )
+from apps.subject.application.services.eligibility_workflow import (
+    SubjectEligibilityWorkflowService,
+    SubjectEnrollmentTransitionResult,
+    SubjectEventScopeSnapshot,
+    SubjectScopeSnapshot,
+)
 from apps.subject.models import Subject, SubjectEventInstance, SubjectEventInstanceFile
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
@@ -111,6 +117,39 @@ def mark_subject_event_instance_in_progress(
     )
 
 
+class SubjectEligibilityWorkflowAdapter:
+    def __init__(self, workflow_service=None):
+        self.workflow_service = workflow_service or SubjectEligibilityWorkflowService()
+
+    def get_subject_scope(self, *, study_id: int, site_id: int, subject_id: int) -> SubjectScopeSnapshot:
+        return self.workflow_service.get_subject_scope(
+            study_id=study_id,
+            site_id=site_id,
+            subject_id=subject_id,
+        )
+
+    def get_event_scope(self, *, event_instance_id: int) -> SubjectEventScopeSnapshot | None:
+        return self.workflow_service.get_event_scope(event_instance_id=event_instance_id)
+
+    def mark_eligible_from_assessment(self, **kwargs) -> SubjectEnrollmentTransitionResult:
+        return self.workflow_service.mark_eligible_from_assessment(**kwargs)
+
+    def mark_screen_failure_from_assessment(self, **kwargs) -> SubjectEnrollmentTransitionResult:
+        return self.workflow_service.mark_screen_failure_from_assessment(**kwargs)
+
+    def mark_screened_after_retract(self, **kwargs) -> SubjectEnrollmentTransitionResult:
+        return self.workflow_service.mark_screened_after_retract(**kwargs)
+
+    def enroll_subject(self, **kwargs) -> SubjectEnrollmentTransitionResult:
+        return self.workflow_service.enroll_subject(**kwargs)
+
+    def is_subject_randomized(self, *, study_id: int, subject_id: int) -> bool:
+        return self.workflow_service.is_subject_randomized(study_id=study_id, subject_id=subject_id)
+
+    def is_subject_enrolled(self, *, study_id: int, subject_id: int) -> bool:
+        return self.workflow_service.is_subject_enrolled(study_id=study_id, subject_id=subject_id)
+
+
 __all__ = [
     "Subject",
     "SubjectAbstractVerifyStudy",
@@ -118,6 +157,10 @@ __all__ = [
     "SubjectEventInstanceFile",
     "SubjectEventInstanceNotFoundError",
     "SubjectEventLifecycleAdapter",
+    "SubjectEligibilityWorkflowAdapter",
+    "SubjectEnrollmentTransitionResult",
+    "SubjectEventScopeSnapshot",
+    "SubjectScopeSnapshot",
     "complete_subject_event_instance",
     "mark_subject_event_instance_in_progress",
     "trigger_subject_event_transition",

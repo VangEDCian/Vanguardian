@@ -11,6 +11,8 @@ from apps.study.infrastructure.persistence.models import (
     Site,
     SiteMembership,
     Study,
+    SubjectEligibilityAssessment,
+    SubjectEligibilityFailure,
 )
 
 __all__ = [
@@ -21,6 +23,8 @@ __all__ = [
     "EventGateConditionResult",
     "EventGateEvaluation",
     "EventTransitionRule",
+    "SubjectEligibilityAssessment",
+    "SubjectEligibilityFailure",
     "RandomizationScheme",
     "RandomizationArm",
     "RandomizationSlot",

@@ -17,6 +17,11 @@
   const reopenReasonInput = document.querySelector('[data-form-verification-reopen-reason-input]');
   const reopenReasonSubmit = document.querySelector('[data-form-verification-reopen-reason-submit]');
   const reopenReasonCancel = document.querySelector('[data-form-verification-reopen-reason-cancel]');
+  const revertReasonModal = document.querySelector('[data-form-verification-revert-reason-modal]');
+  const revertReasonFields = document.querySelector('[data-form-verification-revert-reason-fields]');
+  const revertReasonSubmit = document.querySelector('[data-form-verification-revert-reason-submit]');
+  const revertReasonCancel = document.querySelector('[data-form-verification-revert-reason-cancel]');
+  let pendingRevertPayload = null;
   const notificationDurationMs = 2600;
   const notificationHost = document.createElement('div');
   notificationHost.className = 'subject-detail-screen__notifications';
@@ -95,6 +100,82 @@
     }
   }
 
+  function fieldLabelForCheckbox(checkbox) {
+    const row = checkbox.closest('tr[data-field-template-id]');
+    if (!(row instanceof HTMLElement)) {
+      return String(checkbox.value || '').trim();
+    }
+    const label = row.querySelector('.subject-form-verification-review__field-label');
+    if (label instanceof HTMLElement) {
+      const text = String(label.textContent || '').trim();
+      if (text) {
+        return text;
+      }
+    }
+    return String(row.dataset.fieldKey || checkbox.value || '').trim();
+  }
+
+  function formatDateOfEntry(date) {
+    const pad = function (value) {
+      return String(value).padStart(2, '0');
+    };
+    return [
+      pad(date.getDate()),
+      pad(date.getMonth() + 1),
+      date.getFullYear(),
+    ].join('-') + ' ' + [pad(date.getHours()), pad(date.getMinutes())].join(':');
+  }
+
+  function openRevertReasonModal(fields) {
+    if (
+      !(revertReasonModal instanceof HTMLElement) ||
+      !(revertReasonFields instanceof HTMLElement)
+    ) {
+      showNotification('Revert verification reason form not found.', 'error');
+      return false;
+    }
+    revertReasonFields.innerHTML = '';
+    const entryDateLabel = formatDateOfEntry(new Date());
+    fields.forEach(function (field) {
+      const row = document.createElement('tr');
+      const dateCell = document.createElement('td');
+      const fieldCell = document.createElement('td');
+      const reasonCell = document.createElement('td');
+      const reasonInput = document.createElement('input');
+
+      dateCell.textContent = entryDateLabel;
+      fieldCell.textContent = field.label || String(field.id || '');
+      reasonInput.type = 'text';
+      reasonInput.required = true;
+      reasonInput.className = 'subject-detail-screen__reason-input';
+      reasonInput.dataset.fieldTemplateId = String(field.id || '');
+      reasonInput.dataset.fieldLabel = field.label || String(field.id || '');
+      reasonInput.setAttribute('data-form-verification-revert-reason-input', '');
+      reasonCell.appendChild(reasonInput);
+
+      row.appendChild(dateCell);
+      row.appendChild(fieldCell);
+      row.appendChild(reasonCell);
+      revertReasonFields.appendChild(row);
+    });
+    revertReasonModal.hidden = false;
+    const firstInput = revertReasonFields.querySelector('[data-form-verification-revert-reason-input]');
+    if (firstInput instanceof HTMLInputElement) {
+      firstInput.focus();
+    }
+    return true;
+  }
+
+  function closeRevertReasonModal() {
+    if (revertReasonModal instanceof HTMLElement) {
+      revertReasonModal.hidden = true;
+    }
+    if (revertReasonFields instanceof HTMLElement) {
+      revertReasonFields.innerHTML = '';
+    }
+    pendingRevertPayload = null;
+  }
+
   function submitVerificationRequest(payload) {
     const root = document.querySelector('.subject-form-verification-review');
     if (!isReopenAction && !root) {
@@ -150,14 +231,32 @@
           root.querySelectorAll('input[name="verify_field"]:checked:not(:disabled)'),
         );
         verifiedCheckedEnabled.forEach(function (el) {
-          el.disabled = true;
-          el.setAttribute('aria-disabled', 'true');
           el.dataset.fieldVerified = 'true';
           el.setAttribute('data-field-verified', 'true');
           const row = el.closest('tr[data-field-template-id]');
           if (row instanceof HTMLElement) {
             row.dataset.fieldVerified = 'true';
             row.setAttribute('data-field-verified', 'true');
+          }
+        });
+        const unverifiedIds = Array.isArray(result.data.unverified_field_template_ids)
+          ? result.data.unverified_field_template_ids
+          : Array.isArray(payload.unverified_field_template_ids)
+            ? payload.unverified_field_template_ids
+            : [];
+        unverifiedIds.forEach(function (fieldTemplateId) {
+          const selector = `input[name="verify_field"][value="${String(fieldTemplateId)}"]`;
+          const el = root.querySelector(selector);
+          if (!(el instanceof HTMLInputElement)) {
+            return;
+          }
+          el.checked = false;
+          el.dataset.fieldVerified = 'false';
+          el.setAttribute('data-field-verified', 'false');
+          const row = el.closest('tr[data-field-template-id]');
+          if (row instanceof HTMLElement) {
+            row.dataset.fieldVerified = 'false';
+            row.setAttribute('data-field-verified', 'false');
           }
         });
         root.dispatchEvent(new CustomEvent('verification:items-updated'));
@@ -181,14 +280,50 @@
       showNotification('Review panel not found.', 'error');
       return;
     }
-    const checked = Array.from(root.querySelectorAll('input[name="verify_field"]:checked:not(:disabled)'))
+    const enabledCheckboxes = Array.from(root.querySelectorAll('input[name="verify_field"]:not(:disabled)'));
+    const checked = enabledCheckboxes
+      .filter(function (el) {
+        return el.checked;
+      })
       .map(function (el) {
         return parseInt(String(el.value || '').trim(), 10);
       })
       .filter(function (n) {
         return !Number.isNaN(n);
       });
-    submitVerificationRequest({ field_template_ids: Array.from(new Set(checked)) });
+    const uncheckedVerified = enabledCheckboxes
+      .filter(function (el) {
+        return !el.checked && String(el.dataset.fieldVerified || '').trim().toLowerCase() === 'true';
+      })
+      .map(function (el) {
+        return parseInt(String(el.value || '').trim(), 10);
+      })
+      .filter(function (n) {
+        return !Number.isNaN(n);
+      });
+    const payload = {
+      field_template_ids: Array.from(new Set(checked)),
+      unverified_field_template_ids: Array.from(new Set(uncheckedVerified)),
+    };
+    if (payload.unverified_field_template_ids.length > 0) {
+      const fields = enabledCheckboxes
+        .filter(function (el) {
+          const fieldTemplateId = parseInt(String(el.value || '').trim(), 10);
+          return payload.unverified_field_template_ids.indexOf(fieldTemplateId) !== -1;
+        })
+        .map(function (el) {
+          return {
+            id: parseInt(String(el.value || '').trim(), 10),
+            label: fieldLabelForCheckbox(el),
+          };
+        });
+      pendingRevertPayload = payload;
+      if (!openRevertReasonModal(fields)) {
+        pendingRevertPayload = null;
+      }
+      return;
+    }
+    submitVerificationRequest(payload);
   });
 
   if (reopenReasonSubmit instanceof HTMLElement) {
@@ -208,5 +343,57 @@
 
   if (reopenReasonCancel instanceof HTMLElement) {
     reopenReasonCancel.addEventListener('click', closeReopenReasonModal);
+  }
+
+  if (revertReasonSubmit instanceof HTMLElement) {
+    revertReasonSubmit.addEventListener('click', function () {
+      if (!pendingRevertPayload) {
+        closeRevertReasonModal();
+        return;
+      }
+      const reasonInputs =
+        revertReasonFields instanceof HTMLElement
+          ? Array.from(revertReasonFields.querySelectorAll('[data-form-verification-revert-reason-input]'))
+          : [];
+      if (reasonInputs.length === 0) {
+        showNotification('Revert verification reason form not found.', 'error');
+        return;
+      }
+      const reasonRows = reasonInputs.map(function (input) {
+        return {
+          fieldLabel: String(input.dataset.fieldLabel || '').trim(),
+          input: input,
+          reason: input instanceof HTMLInputElement ? String(input.value || '').trim() : '',
+        };
+      });
+      const missingReasonRow = reasonRows.find(function (row) {
+        return !row.reason;
+      });
+      if (missingReasonRow) {
+        showNotification('Reason for revert verification is required.', 'error');
+        if (missingReasonRow.input instanceof HTMLInputElement) {
+          missingReasonRow.input.focus();
+        }
+        return;
+      }
+      const reasonText =
+        reasonRows.length === 1
+          ? reasonRows[0].reason
+          : reasonRows
+              .map(function (row) {
+                return `${row.fieldLabel || 'Field'}: ${row.reason}`;
+              })
+              .join('\n');
+      const payload = {
+        ...pendingRevertPayload,
+        reason_text: reasonText,
+      };
+      closeRevertReasonModal();
+      submitVerificationRequest(payload);
+    });
+  }
+
+  if (revertReasonCancel instanceof HTMLElement) {
+    revertReasonCancel.addEventListener('click', closeRevertReasonModal);
   }
 })();

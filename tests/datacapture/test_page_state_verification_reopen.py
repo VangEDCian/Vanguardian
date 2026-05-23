@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
+from apps.core.choices import DataCaptureFieldReviewStatusChoices
 from apps.datacapture.application.exceptions import (
     DataCapturePageReopenReasonRequiredError,
     DataCapturePageVerifyStateError,
@@ -46,6 +47,8 @@ class _CorrectionRequiredVerificationRepository:
         self.start_page_review_called = False
         self.verify_page_state_if_ready_called = False
         self.all_visit_forms_verified = False
+        self.verified_field_template_ids = set()
+        self.unverified_reviews = []
 
     def get_page_state(self, **kwargs):
         return DataCapturePageStateSnapshot(
@@ -88,7 +91,19 @@ class _CorrectionRequiredVerificationRepository:
     def verify_field_review(self, **kwargs):
         return None
 
+    def list_verified_field_template_ids(self, **kwargs):
+        return set(self.verified_field_template_ids)
+
+    def unverify_field_review(self, **kwargs):
+        self.unverified_reviews.append(kwargs)
+        return True
+
     def find_page_verification_field_review_blockers(self, **kwargs):
+        if self.unverified_reviews:
+            return [
+                f"field_review_not_ready:{review['field_template_id']}"
+                for review in self.unverified_reviews
+            ]
         return []
 
     def verify_page_state_if_ready(self, **kwargs):
@@ -190,7 +205,7 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
             "CrfContextAdapter.list_template_fields_with_ui_config",
             return_value=[{"id": 1, "field_key": "field_1"}],
         ):
-            all_verified, page_status, blockers = service.merge_checked_field_template_ids(
+            all_verified, page_status, blockers, unverified_ids = service.merge_checked_field_template_ids(
                 subject_id=41,
                 visit_id=51,
                 crf_template_id=31,
@@ -201,6 +216,7 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
         self.assertIs(all_verified, True)
         self.assertEqual(page_status, DataCapturePageState.VERIFIED)
         self.assertEqual(blockers, [])
+        self.assertEqual(unverified_ids, [])
         self.assertIs(repository.start_page_review_called, True)
         self.assertIs(repository.verify_page_state_if_ready_called, True)
 
@@ -245,6 +261,68 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
             event_transition_service.commands[0].trigger_source,
             "datacapture_page_state_verified",
         )
+
+    def test_unchecked_verified_field_becomes_stale_with_reason_text(self):
+        repository = _CorrectionRequiredVerificationRepository()
+        repository.verified_field_template_ids = {1}
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_NoBlockingQueries(),
+        )
+        service._required_field_template_ids = lambda **kwargs: (1,)
+
+        with patch(
+            "apps.datacapture.application.services.page_state_verification_final_data."
+            "CrfContextAdapter.list_template_fields_with_ui_config",
+            return_value=[{"id": 1, "field_key": "field_1"}],
+        ):
+            all_verified, page_status, blockers, unverified_ids = service.merge_checked_field_template_ids(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                checked_field_template_ids=[],
+                unverify_reason_text="Revert verification",
+                actor_user_id=1,
+            )
+
+        self.assertIs(all_verified, False)
+        self.assertEqual(page_status, DataCapturePageState.UNDER_REVIEW)
+        self.assertEqual(unverified_ids, [1])
+        self.assertEqual(blockers, ["field_review_not_ready:1"])
+        self.assertEqual(
+            repository.unverified_reviews[0]["status"],
+            DataCaptureFieldReviewStatusChoices.STALE,
+        )
+        self.assertEqual(repository.unverified_reviews[0]["reason_text"], "Revert verification")
+
+    def test_unchecked_verified_field_requires_reason_text(self):
+        repository = _CorrectionRequiredVerificationRepository()
+        repository.verified_field_template_ids = {1}
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_NoBlockingQueries(),
+        )
+        service._required_field_template_ids = lambda **kwargs: (1,)
+
+        with patch(
+            "apps.datacapture.application.services.page_state_verification_final_data."
+            "CrfContextAdapter.list_template_fields_with_ui_config",
+            return_value=[{"id": 1, "field_key": "field_1"}],
+        ):
+            with self.assertRaisesMessage(
+                DataCaptureValidationError,
+                "Reason for revert verification is required.",
+            ):
+                service.merge_checked_field_template_ids(
+                    subject_id=41,
+                    visit_id=51,
+                    crf_template_id=31,
+                    checked_field_template_ids=[],
+                    unverify_reason_text=" ",
+                    actor_user_id=1,
+                )
+
+        self.assertEqual(repository.unverified_reviews, [])
 
     def test_verify_rejects_page_states_outside_reviewable_statuses(self):
         for status in (

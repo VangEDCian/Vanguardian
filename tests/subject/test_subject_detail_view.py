@@ -268,6 +268,50 @@ class SubjectDetailPageEntryFooterTests(SimpleTestCase):
 
 
 class SubjectDetailPageEntryMainTests(SimpleTestCase):
+    def test_radio_control_renders_clear_button_after_options(self):
+        rendered = render_to_string(
+            "subject/components/controls/_radio_control.html",
+            {
+                "choice_list_class": "subject-form-field-card__choice-list",
+                "field": {
+                    "field_key": "SEX",
+                    "value": "F",
+                    "options": [
+                        {"value": "M", "label": "Male"},
+                        {"value": "F", "label": "Female"},
+                    ],
+                },
+                "is_page_edit_locked": False,
+            },
+        )
+
+        self.assertIn('data-radio-clear', rendered)
+        self.assertIn('type="button"', rendered)
+        self.assertIn("Clear", rendered)
+        self.assertLess(rendered.index("Female"), rendered.index("data-radio-clear"))
+        self.assertNotIn('data-radio-clear disabled', rendered)
+
+    def test_radio_control_clear_button_is_disabled_when_page_is_locked(self):
+        rendered = render_to_string(
+            "subject/components/controls/_radio_control.html",
+            {
+                "choice_list_class": "subject-form-field-card__choice-list",
+                "field": {
+                    "field_key": "SEX",
+                    "value": "F",
+                    "options": [
+                        {"value": "M", "label": "Male"},
+                        {"value": "F", "label": "Female"},
+                    ],
+                },
+                "is_page_edit_locked": True,
+            },
+        )
+
+        self.assertIn("data-radio-clear", rendered)
+        self.assertIn("disabled", rendered)
+        self.assertIn('aria-disabled="true"', rendered)
+
     def test_date_text_control_renders_locale_mask_and_hidden_value(self):
         rendered = render_to_string(
             "subject/components/controls/_date_text_control.html",
@@ -493,6 +537,67 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
 
         self.assertIn("subject/js/subject_detail_sidebar_scroll.js", rendered)
         self.assertIn('class="subject-detail-sidebar__child is-active"', rendered)
+
+    def test_subject_detail_marks_repeating_event_group_active_for_sidebar_scroll(self):
+        rendered = render_to_string(
+            "subject/subject_detail.html",
+            {
+                "focused_forms": [{"id": 6, "title": "Vitals", "focus_url": "/subjects/1/?event=2&form=6"}],
+                "event_navigation": [
+                    {
+                        "id": "2",
+                        "event_definition_id": "20",
+                        "name": "Unscheduled Visit",
+                        "status": "open",
+                        "focus_url": "/subjects/1/?event=2",
+                        "is_repeating": True,
+                        "forms": [
+                            {
+                                "id": 6,
+                                "title": "Vitals",
+                                "focus_url": "/subjects/1/?event=2&form=6",
+                            }
+                        ],
+                        "repeat_event_instances": [],
+                    }
+                ],
+                "focused_event": {"id": "2", "event_definition_id": "20"},
+                "focused_form": {"id": 6, "title": "Vitals"},
+                "focused_render_entry": {"id": 99},
+                "focused_page_status": "in_progress",
+                "datacapture_save_url": "/api/save/",
+                "datacapture_submit_url": "/api/submit/",
+                "is_form_verification_mode": False,
+                "is_subject_detail_viewonly_mode": False,
+                "is_viewing_submitted_version": False,
+                "is_page_edit_locked": False,
+                "form_render_sections": [],
+                "current_data_values": {},
+                "previous_data_values": None,
+                "previous_submitted_entry_values": {},
+                "reason_required_field_keys": [],
+                "page_entry_has_open_queries": False,
+                "subject_display_id": "SUBJ-001",
+                "subject_obj": {"site": {"code": "SITE-01"}, "screening_code": "SCR-01"},
+                "study_header_label": "Study A",
+                "back_url": "/subjects/",
+                "auth_user": {"is_superuser": False, "display_name": "Demo User", "username": "demo", "email": ""},
+                "shared_study_selected_id": 1,
+                "shared_study_select_default": "Study A",
+                "shared_study_select_options": [],
+                "shared_study_cookies_key": "study",
+                "shared_site_select_default": "Site 01",
+                "shared_site_select_options": [],
+                "shared_site_cookies_key": "site",
+                "shared_language_select_options": [],
+                "layout_nav_key": "",
+                "layout_show_breadcrumb_trail": False,
+                "layout_detail_meta_items": [],
+            },
+        )
+
+        self.assertIn("subject/js/subject_detail_sidebar_scroll.js", rendered)
+        self.assertIn('class="subject-detail-sidebar__group is-active"', rendered)
 
     def test_page_entry_marks_field_with_open_query_and_renders_current_query_modal(self):
         rendered = render_to_string(

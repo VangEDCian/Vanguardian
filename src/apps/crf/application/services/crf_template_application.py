@@ -1,5 +1,6 @@
 from apps.crf.application.commands import (
     UpsertCrfTemplateCommand,
+    UpsertSectionLayoutConfigCommand,
     UpsertSectionTemplateCommand,
 )
 from apps.crf.application.services.crf_template_command import CrfTemplateCommandService
@@ -126,6 +127,47 @@ class CrfTemplateApplicationService:
     def list_template_fields_with_ui_config(self, *, template_id):
         return self.query_service.list_template_fields_with_ui_config(
             template_id=template_id,
+        )
+
+    def upsert_section_layout_config(
+        self,
+        *,
+        selected_study_id,
+        section_template_id,
+        layout_type,
+        column_count,
+        label_position,
+        density,
+        section_style,
+        is_collapsible,
+        is_expanded_by_default,
+        show_section_header,
+        show_border,
+        show_background,
+        custom_css_class,
+        custom_layout_schema,
+        actor_user_id,
+        now=None,
+    ):
+        return self.command_service.upsert_section_layout_config(
+            UpsertSectionLayoutConfigCommand(
+                selected_study_id=selected_study_id,
+                section_template_id=section_template_id,
+                layout_type=layout_type,
+                column_count=column_count,
+                label_position=label_position,
+                density=density,
+                section_style=section_style,
+                is_collapsible=is_collapsible,
+                is_expanded_by_default=is_expanded_by_default,
+                show_section_header=show_section_header,
+                show_border=show_border,
+                show_background=show_background,
+                custom_css_class=custom_css_class,
+                custom_layout_schema=custom_layout_schema,
+                actor_user_id=actor_user_id,
+            ),
+            now=now,
         )
 
 

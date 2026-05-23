@@ -82,3 +82,30 @@ class RandomizationSlotStatusChoice(models.TextChoices):
     AVAILABLE = "available", _("Available")
     ASSIGNED = "assigned", _("Assigned")
     VOID = "void", _("Void")
+
+
+class EligibilityAssessmentTypeChoices(models.TextChoices):
+    PRESCREENING = "PRESCREENING", _("Prescreening")
+    SCREENING = "SCREENING", _("Screening")
+    RESCREENING = "RESCREENING", _("Rescreening")
+
+
+class EligibilityResultChoices(models.TextChoices):
+    PENDING = "PENDING", _("Pending")
+    ELIGIBLE = "ELIGIBLE", _("Eligible")
+    NOT_ELIGIBLE = "NOT_ELIGIBLE", _("Not eligible")
+    NOT_ASSESSED = "NOT_ASSESSED", _("Not assessed")
+
+
+class EligibilityAssessmentStatusChoices(models.TextChoices):
+    DRAFT = "DRAFT", _("Draft")
+    FINAL = "FINAL", _("Final")
+    STALE = "STALE", _("Stale")
+    RETRACTED = "RETRACTED", _("Retracted")
+    SUPERSEDED = "SUPERSEDED", _("Superseded")
+
+
+class EligibilityCriterionTypeChoices(models.TextChoices):
+    INCLUSION = "INCLUSION", _("Inclusion")
+    EXCLUSION = "EXCLUSION", _("Exclusion")
+    OTHER = "OTHER", _("Other")

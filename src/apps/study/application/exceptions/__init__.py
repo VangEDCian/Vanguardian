@@ -14,6 +14,13 @@ from apps.study.application.exceptions.imports import (
     RandomizationImportValidationError,
     StudyImportTemplateError,
 )
+from apps.study.application.exceptions.eligibility import (
+    EligibilityAssessmentError,
+    EligibilityAssessmentNotFoundError,
+    EligibilityAssessmentPermissionError,
+    EligibilityAssessmentRetractBlockedError,
+    EligibilityEnrollmentGateError,
+)
 from apps.study.application.exceptions.randomization import (
     RandomizationArmNotFoundError,
     RandomizationDeleteBlockedError,
@@ -39,6 +46,11 @@ __all__ = [
     "EventDefinitionImportDependencyError",
     "EventDefinitionImportFormatError",
     "EventDefinitionImportTemplateError",
+    "EligibilityAssessmentError",
+    "EligibilityAssessmentNotFoundError",
+    "EligibilityAssessmentPermissionError",
+    "EligibilityAssessmentRetractBlockedError",
+    "EligibilityEnrollmentGateError",
     "EventFormBindingImportDependencyError",
     "EventFormBindingImportFormatError",
     "EventFormBindingImportTemplateError",

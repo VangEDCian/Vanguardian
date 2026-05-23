@@ -44,6 +44,7 @@ _CONTROL_I18N_MAP = {
     },
     CrfFieldControlTypeChoices.RADIO: {
         "empty_option": _("No options"),
+        "clear_option": _("Clear"),
     },
     CrfFieldControlTypeChoices.CHECKBOX: {
         "default_label": _("Checked"),

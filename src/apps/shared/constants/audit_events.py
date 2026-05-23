@@ -39,6 +39,14 @@ class AuditEventActionEnum(enum.Enum):
     STUDY_RANDOMIZATION_ARM_INSERTED_BY_IMPORT = "study.randomization_arm.inserted_by_import"
     STUDY_RANDOMIZATION_ARM_UPDATED_BY_IMPORT = "study.randomization_arm.updated_by_import"
     STUDY_RANDOMIZATION_ARM_DELETED = "study.randomization_arm.deleted"
+    ELIGIBILITY_ASSESSMENT_DRAFTED = "study.subject_eligibility_assessment.drafted"
+    ELIGIBILITY_ASSESSMENT_FINALIZED = "study.subject_eligibility_assessment.finalized"
+    ELIGIBILITY_ASSESSMENT_SUPERSEDED = "study.subject_eligibility_assessment.superseded"
+    ELIGIBILITY_ASSESSMENT_RETRACTED = "study.subject_eligibility_assessment.retracted"
+    ELIGIBILITY_ASSESSMENT_STALE = "study.subject_eligibility_assessment.stale"
+    SUBJECT_STATUS_CHANGED_FROM_ELIGIBILITY = "study.subject_status.changed_from_eligibility"
+    ENROLL_SUBJECT = "study.subject.enroll"
+    ENROLL_SUBJECT_GATE_EVALUATED = "study.subject.enroll_gate_evaluated"
 
 
 class AuditEventObjectTypeEnum(enum.Enum):
@@ -47,3 +55,6 @@ class AuditEventObjectTypeEnum(enum.Enum):
 
     STUDY_RANDOMIZATION_SCHEME = "study.randomization_scheme"
     STUDY_RANDOMIZATION_ARM = "study.randomization_arm"
+    SUBJECT_ELIGIBILITY_ASSESSMENT = "study_subject_eligibility_assessment"
+    SUBJECT_ENROLLMENT = "study_subject_enrollment"
+    EVENT_GATE_EVALUATION = "study_event_gate_evaluation"

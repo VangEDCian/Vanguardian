@@ -49,8 +49,48 @@
     });
   }
 
+  function dispatchRadioClearEvents(radio) {
+    radio.dispatchEvent(new Event('input', { bubbles: true }));
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function clearRadioGroup(button) {
+    if (!button || button.disabled) {
+      return;
+    }
+    const container = button.closest('[data-submitted-diff-control="radio"]');
+    if (!container) {
+      return;
+    }
+    const checkedRadios = Array.from(container.querySelectorAll('input[type="radio"]:checked'));
+    checkedRadios.forEach((radio) => {
+      radio.checked = false;
+      dispatchRadioClearEvents(radio);
+    });
+  }
+
+  function initializeRadioClearControls(root) {
+    const scope = root || document;
+    if (scope.dataset?.radioClearInitialized === '1') {
+      return;
+    }
+    if (scope.dataset) {
+      scope.dataset.radioClearInitialized = '1';
+    }
+    scope.addEventListener('click', (event) => {
+      const button = event.target?.closest?.('[data-radio-clear]');
+      if (!button || !scope.contains(button)) {
+        return;
+      }
+      clearRadioGroup(button);
+    });
+  }
+
+  initializeRadioClearControls(document);
+
   window.DatacaptureSubjectDetailModules.controls = window.DatacaptureSubjectDetailModules.controls || {};
   window.DatacaptureSubjectDetailModules.controls.radio = {
     applySubmittedDiffRadioMarkers,
+    initializeRadioClearControls,
   };
 })();

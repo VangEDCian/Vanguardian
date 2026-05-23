@@ -58,7 +58,7 @@ class SubjectFormVerificationVerifyCheckedView(
 
     def post(self, request, *args, **kwargs):
         try:
-            normalized = SubjectFormVerificationRequestValidator.parse_checked_field_template_ids(
+            normalized = SubjectFormVerificationRequestValidator.parse_verify_checked_payload(
                 request.body
             )
             if _current_user_matches_submitted_entry_editor(
@@ -68,11 +68,17 @@ class SubjectFormVerificationVerifyCheckedView(
                 crf_template_id=int(kwargs["crf_template_id"]),
             ):
                 return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
-            all_verified, page_status, blocking_reasons = merge_form_verification_checked_fields_into_page_state_final_data(
+            (
+                all_verified,
+                page_status,
+                blocking_reasons,
+                unverified_field_template_ids,
+            ) = merge_form_verification_checked_fields_into_page_state_final_data(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
-                checked_field_template_ids=normalized,
+                checked_field_template_ids=normalized["field_template_ids"],
+                unverify_reason_text=normalized["reason_text"],
                 actor_user_id=getattr(request.user, "id", None),
             )
         except (SubjectValidationError, DataCaptureValidationError) as exc:
@@ -80,10 +86,11 @@ class SubjectFormVerificationVerifyCheckedView(
         return JsonResponse(
             {
                 "ok": True,
-                "field_template_ids": normalized,
+                "field_template_ids": normalized["field_template_ids"],
                 "all_verified": all_verified,
                 "page_status": page_status,
                 "blocking_reasons": blocking_reasons,
+                "unverified_field_template_ids": unverified_field_template_ids,
             }
         )
 

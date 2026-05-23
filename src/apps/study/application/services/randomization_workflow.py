@@ -2,7 +2,11 @@ from dataclasses import dataclass
 
 from django.db import DatabaseError, transaction
 
-from apps.study.infrastructure.repositories import DjangoRandomizationRepository
+from apps.core.choices import EligibilityAssessmentStatusChoices, EligibilityResultChoices
+from apps.study.infrastructure.repositories import (
+    DjangoEligibilityAssessmentRepository,
+    DjangoRandomizationRepository,
+)
 
 
 class RandomizationSlotAssignmentError(RuntimeError):
@@ -22,10 +26,12 @@ class RandomizationSlotAssignment:
 
 class StudyRandomizationSlotAssignmentService:
     repository_class = DjangoRandomizationRepository
+    eligibility_repository_class = DjangoEligibilityAssessmentRepository
     max_attempts = 10
 
-    def __init__(self, repository=None):
+    def __init__(self, repository=None, eligibility_repository=None):
         self.repository = repository or self.repository_class()
+        self.eligibility_repository = eligibility_repository or self.eligibility_repository_class()
 
     def assign_random_available_slot(
         self,
@@ -35,6 +41,15 @@ class StudyRandomizationSlotAssignmentService:
         event_instance_id: int,
         actor_user_id: int | None = None,
     ) -> RandomizationSlotAssignment | None:
+        if self.repository.active_scheme_requires_screening_pass(study_id=study_id):
+            assessment = self.eligibility_repository.get_current_assessment(
+                study_id=study_id,
+                subject_id=subject_id,
+                assessment_type="SCREENING",
+            )
+            if not self._is_final_eligible_assessment(assessment):
+                return None
+
         excluded_slot_ids: set[int] = set()
         for _attempt in range(self.max_attempts):
             now = self.repository.now()
@@ -68,6 +83,15 @@ class StudyRandomizationSlotAssignmentService:
             )
 
         raise RandomizationSlotAssignmentError("Unable to assign an available randomization slot after retries.")
+
+    @staticmethod
+    def _is_final_eligible_assessment(assessment) -> bool:
+        return bool(
+            assessment
+            and assessment.is_current
+            and assessment.assessment_status == EligibilityAssessmentStatusChoices.FINAL
+            and assessment.result == EligibilityResultChoices.ELIGIBLE
+        )
 
 
 __all__ = [

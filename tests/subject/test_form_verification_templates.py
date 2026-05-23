@@ -140,6 +140,24 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn('data-field-verified="true"', row)
         self.assertIn("hidden", row)
 
+    def test_field_review_checkbox_stays_enabled_when_verified_field_is_reviewable(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            active_query_id=None,
+            query_thread_badge_count=0,
+            is_checked=True,
+        )
+
+        checkbox_start = rendered.index('name="verify_field"')
+        input_start = rendered.rfind("<input", 0, checkbox_start)
+        input_end = rendered.index(">", checkbox_start)
+        checkbox = rendered[input_start : input_end + 1]
+
+        self.assertIn("checked", checkbox)
+        self.assertNotIn("disabled", checkbox)
+        self.assertNotIn('aria-disabled="true"', checkbox)
+
     def test_field_review_action_button_is_hidden_when_field_has_verified_query(self):
         rendered = self._render_field_review_table(
             show_checkboxes=True,
@@ -398,6 +416,63 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("data-query-history-modal-list", rendered)
         self.assertIn("data-query-history-modal-messages", rendered)
         self.assertIn("data-query-history-modal-close", rendered)
+
+    def test_subject_detail_renders_revert_verification_reason_modal(self):
+        rendered = render_to_string(
+            "subject/subject_detail.html",
+            {
+                "focused_forms": [{"id": 6, "title": "Vitals", "focus_url": "/subjects/1/?mode=verification&event=1&form=6"}],
+                "event_navigation": [],
+                "focused_event": {"id": 1},
+                "focused_form": {"id": 6, "title": "Vitals"},
+                "is_form_verification_mode": True,
+                "is_subject_detail_viewonly_mode": False,
+                "form_verification_review": SimpleNamespace(
+                    header={
+                        "event_name": "Visit 1",
+                        "event_start_date": "05/18/2026",
+                        "form_name": "Vitals",
+                        "form_status": "submitted",
+                        "form_version": "1",
+                        "last_modified": "05/18/2026",
+                    },
+                    rows=[],
+                ),
+                "form_verification_verify_checked_url": "/api/verify-checked/",
+                "form_verification_reopen_url": "",
+                "form_verification_open_query_url": "",
+                "form_verification_query_thread_url": "",
+                "form_verification_fields_locked": False,
+                "form_verification_query_actions_locked": False,
+                "form_verification_show_actions_column": True,
+                "form_verification_show_field_checkboxes": True,
+                "form_verification_show_actions": True,
+                "page_entry_has_open_queries": False,
+                "subject_display_id": "SUBJ-001",
+                "subject_obj": {"site": {"code": "SITE-01"}, "screening_code": "SCR-01"},
+                "study_header_label": "Study A",
+                "back_url": "/subjects/",
+                "auth_user": {"is_superuser": False, "display_name": "Demo User", "username": "demo", "email": ""},
+                "shared_study_selected_id": 1,
+                "shared_study_select_default": "Study A",
+                "shared_study_select_options": [],
+                "shared_study_cookies_key": "study",
+                "shared_site_select_default": "Site 01",
+                "shared_site_select_options": [],
+                "shared_site_cookies_key": "site",
+                "shared_language_select_options": [],
+                "layout_nav_key": "",
+                "layout_show_breadcrumb_trail": False,
+                "layout_detail_meta_items": [],
+            },
+        )
+
+        self.assertIn("Reason for Revert Verification", rendered)
+        self.assertIn("data-form-verification-revert-reason-modal", rendered)
+        self.assertIn("data-form-verification-revert-reason-fields", rendered)
+        self.assertIn("Date of Verify", rendered)
+        self.assertIn("Field", rendered)
+        self.assertIn("Reason", rendered)
 
     @staticmethod
     def _action_button_markup(rendered: str, marker: str) -> str:

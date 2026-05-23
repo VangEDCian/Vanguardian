@@ -1551,6 +1551,42 @@ class DjangoDataCapturePageRepository:
             update_fields["reviewed_by_id"] = actor_user_id
         DataCaptureFieldReview.objects.filter(pk=review.pk).update(**update_fields)
 
+    def unverify_field_review(
+        self,
+        *,
+        page_state_id: int,
+        field_template_id: int,
+        status: str,
+        data_version: int,
+        reason_text: str | None = None,
+        actor_user_id: int | None = None,
+        review_type: str = DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+    ) -> bool:
+        now = self._now()
+        review = (
+            DataCaptureFieldReview.objects.filter(
+                page_state_id=page_state_id,
+                field_template_id=field_template_id,
+                review_type=review_type,
+                deleted=False,
+                status=DataCaptureFieldReviewStatusChoices.VERIFIED,
+            )
+            .order_by("-updated_at", "-id")
+            .first()
+        )
+        if review is None:
+            return False
+        DataCaptureFieldReview.objects.filter(pk=review.pk).update(
+            updated_at=now,
+            updated_by_id=actor_user_id,
+            status=status,
+            data_version=data_version,
+            reason_text=reason_text,
+            verified_at=None,
+            verified_by_id=None,
+        )
+        return True
+
     def map_valid_field_review_status_by_field_template_id(
         self,
         *,

@@ -5,6 +5,10 @@ from apps.core.choices.datacapture import (
     DataCapturePageStateStatusChoices,
 )
 from apps.core.choices.study import (
+    EligibilityAssessmentStatusChoices,
+    EligibilityAssessmentTypeChoices,
+    EligibilityCriterionTypeChoices,
+    EligibilityResultChoices,
     EventDefinitionCategoryChoices,
     EventExecutionModeChoices,
     EventDefinitionTimingModeChoices,
@@ -21,6 +25,10 @@ __all__ = [
     "DataCapturePageStateStatusChoices",
     "DataCaptureFieldReviewStatusChoices",
     "DataCaptureFieldReviewTypeChoices",
+    "EligibilityAssessmentStatusChoices",
+    "EligibilityAssessmentTypeChoices",
+    "EligibilityCriterionTypeChoices",
+    "EligibilityResultChoices",
     "EventDefinitionCategoryChoices",
     "EventExecutionModeChoices",
     "EventDefinitionTimingModeChoices",

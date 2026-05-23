@@ -6,7 +6,7 @@ from django.utils.datastructures import MultiValueDict
 
 from apps.study.application import CrfTemplateImportFormatError, ImportStudyCrfTemplateFieldsTemplateResult
 from apps.study.application.commands.import_crf_template_fields_template import CrfTemplateFieldImportIssue
-from apps.study.presentation.web.forms import CrfTemplateFieldsImportTemplateForm
+from apps.study.presentation.web.forms import CrfSectionLayoutConfigImportTemplateForm, CrfTemplateFieldsImportTemplateForm
 from apps.study.presentation.web.views.crf_templates import StudyCrfTemplateFieldImportTemplateView
 
 
@@ -45,6 +45,25 @@ class CrfTemplateFieldsImportTemplateFormTests(SimpleTestCase):
         )
 
         form = CrfTemplateFieldsImportTemplateForm(data={}, files=files)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("import_file", form.errors)
+
+
+class CrfSectionLayoutConfigImportTemplateFormTests(SimpleTestCase):
+    def test_import_file_accepts_workbook(self):
+        files = {"import_file": SimpleUploadedFile("section_layout_configs.xlsx", b"file")}
+
+        form = CrfSectionLayoutConfigImportTemplateForm(data={}, files=files)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["import_file"].name, "section_layout_configs.xlsx")
+        self.assertIn("id_section_layout_config_import_file", str(form["import_file"]))
+
+    def test_import_file_rejects_invalid_extension(self):
+        files = {"import_file": SimpleUploadedFile("section_layout_configs.csv", b"file")}
+
+        form = CrfSectionLayoutConfigImportTemplateForm(data={}, files=files)
 
         self.assertFalse(form.is_valid())
         self.assertIn("import_file", form.errors)

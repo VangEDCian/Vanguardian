@@ -60,6 +60,14 @@ class DjangoRandomizationRepository:
             status=RandomizationSlotStatusChoice.ASSIGNED,
         ).exists()
 
+    def active_scheme_requires_screening_pass(self, *, study_id):
+        return RandomizationScheme.objects.filter(
+            study_id=study_id,
+            deleted=False,
+            status=RandomizationSchemeStatusChoice.ACTIVE,
+            requires_screening_pass=True,
+        ).exists()
+
     def soft_delete_slots_for_scheme(self, *, scheme_id, updated_at):
         return RandomizationSlot.objects.filter(
             scheme_id=scheme_id,

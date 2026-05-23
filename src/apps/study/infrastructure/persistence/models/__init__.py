@@ -7,6 +7,7 @@ from .events import (
     EventGateEvaluation,
     EventTransitionRule,
 )
+from .eligibility import SubjectEligibilityAssessment, SubjectEligibilityFailure
 from .randomization import (
     RandomizationScheme,
     RandomizationArm,
@@ -22,6 +23,8 @@ __all__ = [
     "EventGateConditionResult",
     "EventGateEvaluation",
     "EventTransitionRule",
+    "SubjectEligibilityAssessment",
+    "SubjectEligibilityFailure",
     "RandomizationScheme",
     "RandomizationArm",
     "RandomizationSlot",

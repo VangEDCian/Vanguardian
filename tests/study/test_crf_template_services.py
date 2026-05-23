@@ -6,6 +6,7 @@ from django.test import SimpleTestCase
 from openpyxl import load_workbook
 
 from apps.study.application.services import (
+    ImportStudyCrfSectionLayoutConfigsTemplateService,
     ImportStudyCrfTemplateFieldsTemplateService,
     ImportStudyCrfTemplatesTemplateService,
     StudyCrfTemplateDirectoryQueryService,
@@ -197,3 +198,88 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         self.assertEqual(payload["field_key"], "AETERM")
         self.assertEqual(payload["label_vi"], "Bien co bat loi")
         self.assertEqual(payload["label_en"], "Adverse Event Term")
+
+
+class ImportStudyCrfSectionLayoutConfigsTemplateServiceTests(SimpleTestCase):
+    def setUp(self):
+        self.service = ImportStudyCrfSectionLayoutConfigsTemplateService()
+
+    def test_static_section_layout_config_template_contains_required_sheet_and_headers(self):
+        workbook = load_workbook(
+            Path(__file__).resolve().parents[2]
+            / "src/staticfiles/study/templates/crf_section_layout_configs_import_template.xlsx",
+            read_only=True,
+        )
+
+        self.assertEqual(workbook.sheetnames, ["Section Layout Configs"])
+        self.assertEqual(
+            list(next(workbook["Section Layout Configs"].iter_rows(values_only=True))),
+            list(self.service.expected_columns["Section Layout Configs"]),
+        )
+
+    @patch.object(
+        ImportStudyCrfSectionLayoutConfigsTemplateService,
+        "_load_rows_from_workbook",
+        return_value={
+            "Section Layout Configs": [
+                (
+                    2,
+                    {
+                        "form_name": "AE",
+                        "section_name": "General",
+                        "layout_type": "repeat_table",
+                        "column_count": "2",
+                        "label_position": "top",
+                        "density": "compact",
+                        "section_style": "plain",
+                        "is_collapsible": "yes",
+                        "is_expanded_by_default": "no",
+                        "show_section_header": "true",
+                        "show_border": "false",
+                        "show_background": "true",
+                        "custom_css_class": "ae-layout",
+                        "custom_layout_schema": '{"columns": [{"field": "AETERM"}]}',
+                    },
+                )
+            ],
+        },
+    )
+    def test_execute_imports_section_layout_config_through_crf_adapter(self, mock_load_rows):
+        form_template = SimpleNamespace(pk=17)
+        section_template = SimpleNamespace(pk=23)
+        mock_adapter = MagicMock()
+        mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
+        mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
+        mock_adapter.upsert_section_layout_config.return_value = "created"
+        service = ImportStudyCrfSectionLayoutConfigsTemplateService(crf_context_adapter=mock_adapter)
+
+        result = service.execute(
+            command=SimpleNamespace(
+                actor_user_id=7,
+                selected_study_id=3,
+                study_id=3,
+                file_name="crf_section_layout_configs_import_template.xlsx",
+                file_content=b"xlsx",
+            )
+        )
+
+        self.assertEqual(result.total_rows, 1)
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.updated_count, 0)
+        self.assertEqual(result.skipped_count, 0)
+        mock_adapter.resolve_import_template_by_name_or_code.assert_called_once_with(
+            study_id=3,
+            form_name="AE",
+        )
+        mock_adapter.resolve_import_section_by_name_or_code.assert_called_once_with(
+            crf_template_id=17,
+            section_name="General",
+        )
+        mock_adapter.upsert_section_layout_config.assert_called_once()
+        payload = mock_adapter.upsert_section_layout_config.call_args.kwargs
+        self.assertEqual(payload["section_template_id"], 23)
+        self.assertEqual(payload["layout_type"], "repeat_table")
+        self.assertEqual(payload["column_count"], 2)
+        self.assertIs(payload["is_collapsible"], True)
+        self.assertIs(payload["is_expanded_by_default"], False)
+        self.assertEqual(payload["custom_layout_schema"], {"columns": [{"field": "AETERM"}]})

@@ -5,6 +5,7 @@ from apps.subject.infrastructure.persistence.models import (
     SubjectEventInstanceFile,
     SubjectEventInstanceTransitionLog,
     SubjectRandomization,
+    SubjectStatusHistory,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "SubjectEventInstanceFile",
     "SubjectEventInstanceTransitionLog",
     "SubjectRandomization",
+    "SubjectStatusHistory",
 ]

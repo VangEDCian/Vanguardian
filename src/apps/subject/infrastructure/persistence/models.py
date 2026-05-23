@@ -121,6 +121,35 @@ class SubjectEnrollment(models.Model):
         verbose_name_plural = "subject enrollments"
 
 
+class SubjectStatusHistory(models.Model):
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="status_history",
+    )
+    from_status = models.CharField(max_length=32, null=True, blank=True)
+    to_status = models.CharField(max_length=32)
+    transition_at = models.DateTimeField()
+    reason_code = models.CharField(max_length=64, null=True, blank=True)
+    reason_text = models.TextField(null=True, blank=True)
+    source = models.CharField(max_length=16, default="system")
+    changed_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_status_history"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["subject", "transition_at"],
+                name="subj_status_hist_time_idx",
+            )
+        ]
+        verbose_name = "subject status history"
+        verbose_name_plural = "subject status histories"
+
+
 class SubjectRandomization(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()

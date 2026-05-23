@@ -127,7 +127,7 @@
                                     class="entity-table__footer-button entity-table__footer-button--primary"
                                     data-form-verification-verify-all
                                     data-post-url="{{ form_verification_verify_checked_url|escape }}">
-                                {% trans "Verify All Checked" %}
+                                {% trans "Submit" %}
                             </button>
                         {% endif %}
                     </div>
@@ -206,6 +206,41 @@
                            data-form-verification-loading-message>{% trans "Processing verification..." %}</p>
                     </div>
                 </div>
+                {% if form_verification_verify_checked_url %}
+                    <div class="subject-detail-screen__reason-modal-backdrop"
+                         hidden
+                         data-form-verification-revert-reason-modal>
+                        <div class="subject-detail-screen__reason-modal"
+                             role="dialog"
+                             aria-modal="true"
+                             aria-labelledby="form-verification-revert-reason-title">
+                            <header class="subject-detail-screen__reason-modal-header">
+                                <h3 id="form-verification-revert-reason-title">{% trans "Reason for Revert Verification" %}</h3>
+                            </header>
+                            <div class="subject-detail-screen__reason-modal-body">
+                                <table class="subject-detail-screen__reason-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Date of Verify" %}</th>
+                                            <th>{% trans "Field" %}</th>
+                                            <th>{% trans "Reason" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-form-verification-revert-reason-fields>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <footer class="subject-detail-screen__reason-modal-footer">
+                                <button type="button"
+                                        class="entity-table__footer-button entity-table__footer-button--primary"
+                                        data-form-verification-revert-reason-submit>{% trans "Submit" %}</button>
+                                <button type="button"
+                                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                                        data-form-verification-revert-reason-cancel>{% trans "Cancel" %}</button>
+                            </footer>
+                        </div>
+                    </div>
+                {% endif %}
                 {% if form_verification_reopen_url %}
                     <div class="subject-detail-screen__reason-modal-backdrop"
                          hidden

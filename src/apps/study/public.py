@@ -1,3 +1,9 @@
+from apps.study.application.commands import (
+    EnrollSubjectCommand,
+    FinalizeEligibilityAssessmentCommand,
+    MarkEligibilityStaleOnSourceDataChangeCommand,
+    RetractEligibilityAssessmentCommand,
+)
 from apps.study.application.services.randomization_workflow import (
     RandomizationSlotAssignment,
     StudyRandomizationSlotAssignmentService,
@@ -19,7 +25,39 @@ def assign_randomization_slot_for_subject(
     )
 
 
+def finalize_subject_eligibility_assessment(command: FinalizeEligibilityAssessmentCommand):
+    from apps.study.application.services.eligibility_assessment import EligibilityAssessmentService
+
+    return EligibilityAssessmentService().finalize(command)
+
+
+def retract_subject_eligibility_assessment(command: RetractEligibilityAssessmentCommand):
+    from apps.study.application.services.eligibility_assessment import EligibilityAssessmentService
+
+    return EligibilityAssessmentService().retract(command)
+
+
+def mark_subject_eligibility_stale_on_source_data_change(command: MarkEligibilityStaleOnSourceDataChangeCommand):
+    from apps.study.application.services.eligibility_assessment import EligibilityAssessmentService
+
+    return EligibilityAssessmentService().mark_stale_on_source_data_change(command)
+
+
+def enroll_subject_after_eligibility_gate(command: EnrollSubjectCommand):
+    from apps.study.application.services.eligibility_assessment import EligibilityAssessmentService
+
+    return EligibilityAssessmentService().enroll_subject(command)
+
+
 __all__ = [
     "RandomizationSlotAssignment",
+    "EnrollSubjectCommand",
+    "FinalizeEligibilityAssessmentCommand",
+    "MarkEligibilityStaleOnSourceDataChangeCommand",
+    "RetractEligibilityAssessmentCommand",
     "assign_randomization_slot_for_subject",
+    "enroll_subject_after_eligibility_gate",
+    "finalize_subject_eligibility_assessment",
+    "mark_subject_eligibility_stale_on_source_data_change",
+    "retract_subject_eligibility_assessment",
 ]

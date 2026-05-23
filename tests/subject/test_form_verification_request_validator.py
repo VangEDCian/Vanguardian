@@ -21,6 +21,14 @@ class SubjectFormVerificationRequestValidatorTests(SimpleTestCase):
 
         self.assertEqual(result, [1, 2])
 
+    def test_parse_verify_checked_payload_normalizes_ids_and_reason(self):
+        result = SubjectFormVerificationRequestValidator.parse_verify_checked_payload(
+            b'{"field_template_ids": ["1", 2], "reason_text": "  Revert verification  "}',
+        )
+
+        self.assertEqual(result["field_template_ids"], [1, 2])
+        self.assertEqual(result["reason_text"], "Revert verification")
+
     def test_parse_checked_field_template_ids_rejects_invalid_json(self):
         with self.assertRaises(SubjectFormVerificationInvalidJsonError):
             SubjectFormVerificationRequestValidator.parse_checked_field_template_ids("{")
