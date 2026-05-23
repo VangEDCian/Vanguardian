@@ -24,6 +24,7 @@
         <link rel="stylesheet"
               href="{% static 'shared/css/components/request_feedback.css' %}">
         <link rel="stylesheet" href="{% static 'shared/css/layout.css' %}">
+        <link rel="stylesheet" href="{% static 'identity/css/session_guard.css' %}">
         {% block extra_css %}{% endblock %}
     </head>
     <body class="min-h-screen bg-slate-100 text-slate-800 font-sans antialiased">
@@ -191,9 +192,14 @@
                 {% endblock %}
             </main>
         </div>
+        <div data-session-guard-status-url="{% url 'identity:api_session_status' %}"
+             data-session-guard-login-url="{% url 'identity:login' %}"
+             data-session-guard-interval="15000"></div>
+        {% include "shared/components/_session_guard_modal.html" %}
         <script src="{% static 'shared/js/layout.js' %}"></script>
         <script src="{% static 'shared/js/components/modal.js' %}"></script>
         <script src="{% static 'shared/js/request_feedback.js' %}"></script>
+        <script src="{% static 'identity/js/session_guard.js' %}"></script>
         {% block extra_js %}{% endblock %}
     </body>
 </html>

@@ -3,6 +3,7 @@ from typing import Any, cast
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.views import LoginView, PasswordResetConfirmView, PasswordResetView
 from django.db.models import F
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
@@ -11,6 +12,11 @@ from django.views.generic import TemplateView
 from apps.audit.public import build_audit_request_context
 from apps.identity.application import IdentityLoginAuditService, IdentityUserAuditService
 from apps.identity.infrastructure.auth.constants import PASSWORD_RESET_BYPASS_SESSION_KEY
+from apps.identity.infrastructure.auth.session_state import (
+    activate_single_active_session,
+    clear_single_active_session,
+    is_single_active_session_valid,
+)
 from apps.identity.models import User
 from apps.identity.presentation.web.forms import (
     IdentityUserChangePasswordForm,
@@ -46,6 +52,7 @@ class IdentityLoginView(LoginView):
                 actor_user_id=getattr(authenticated_user, "pk", None),
             ),
         )
+        activate_single_active_session(authenticated_user, self.request.session)
 
         # check must be User Object ** has attempt_login and method save
         if (
@@ -94,6 +101,7 @@ class IdentityLogoutView(View):
     def get(self, request, *args, **kwargs):
         if hasattr(request, "session"):
             request.session.pop(PASSWORD_RESET_BYPASS_SESSION_KEY, None)
+        clear_single_active_session(request.user, getattr(request, "session", None))
         logout(request)
         return redirect("identity:login")
 
@@ -103,6 +111,27 @@ class IdentityLogoutView(View):
             request.session.pop(PASSWORD_RESET_BYPASS_SESSION_KEY, None)
         CookiesService.reset_cookies(response=response)
         return response
+
+
+class IdentitySessionStatusView(View):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {
+                    "authenticated": False,
+                    "session_valid": False,
+                    "login_url": reverse("identity:login"),
+                },
+                status=401,
+            )
+
+        return JsonResponse(
+            {
+                "authenticated": True,
+                "session_valid": is_single_active_session_valid(request),
+                "login_url": reverse("identity:login"),
+            }
+        )
 
 
 class IdentityForgotPasswordView(PasswordResetView):

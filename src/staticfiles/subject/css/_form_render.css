@@ -74,6 +74,31 @@
   outline: none;
 }
 
+.subject-form-section__delete-repeat {
+  width: calc(100% - 2rem);
+  margin: 0.75rem 1rem 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed #d36f6f;
+  border-radius: 6px;
+  background: #fff8f8;
+  color: #c62828;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.subject-form-section__delete-repeat:hover,
+.subject-form-section__delete-repeat:focus-visible {
+  border-color: #b91c1c;
+  background: #fff1f1;
+  outline: none;
+}
+
+.subject-form-section--repeat-deleted > :not(.subject-form-section__add-repeat) {
+  display: none !important;
+}
+
 .subject-form-section__grid--cols-1 {
   grid-template-columns: 1fr;
 }

@@ -7,6 +7,7 @@ from apps.identity.presentation.web.views.auth import (
     IdentityLoginView,
     IdentityLogoutView,
     IdentityResetPasswordConfirmView,
+    IdentitySessionStatusView,
     IdentityUserFirstLoginView,
 )
 from apps.identity.presentation.web.views.users import (
@@ -26,6 +27,7 @@ __all__ = [
     "IdentityLoginView",
     "IdentityLogoutView",
     "IdentityResetPasswordConfirmView",
+    "IdentitySessionStatusView",
     "IdentityStudyOptionsApiView",
     "IdentityStudySiteOptionsApiView",
     "IdentityUserCreateView",

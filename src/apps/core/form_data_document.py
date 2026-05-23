@@ -263,6 +263,41 @@ def extract_repeat_counts_by_section(doc: dict) -> dict[str, int]:
     return counts
 
 
+def prune_empty_form_data_groups(doc: dict) -> dict:
+    normalized_doc = normalize_form_data(doc)
+    groups = normalized_doc.get("groups")
+    if not isinstance(groups, dict):
+        normalized_doc["groups"] = {}
+        return normalized_doc
+
+    for section_code, group in list(groups.items()):
+        if not isinstance(group, dict):
+            groups.pop(section_code, None)
+            continue
+        if group.get("kind") == "repeatable":
+            rows = group.get("rows") if isinstance(group.get("rows"), list) else []
+            non_empty_rows = [
+                row
+                for row in rows
+                if isinstance(row, dict)
+                and any(
+                    _has_meaningful_form_value(value)
+                    for value in (row.get("items") if isinstance(row.get("items"), dict) else {}).values()
+                )
+            ]
+            if non_empty_rows:
+                group["rows"] = non_empty_rows
+                continue
+            groups.pop(section_code, None)
+            continue
+
+        items = group.get("items") if isinstance(group.get("items"), dict) else {}
+        if any(_has_meaningful_form_value(value) for value in items.values()):
+            continue
+        groups.pop(section_code, None)
+    return normalized_doc
+
+
 def _has_meaningful_form_value(value: Any) -> bool:
     if value is None:
         return False
@@ -538,5 +573,6 @@ __all__ = [
     "is_canonical_form_data",
     "iter_field_values",
     "normalize_form_data",
+    "prune_empty_form_data_groups",
     "set_field_value",
 ]

@@ -20,6 +20,7 @@ from apps.core.form_data_document import (
     is_canonical_form_data,
     iter_field_values,
     normalize_form_data,
+    prune_empty_form_data_groups,
 )
 from apps.crf.models import CrfFieldLookup, CrfFieldTemplate, CrfFieldValidationRule, CrfSectionTemplate, CrfTemplate
 from apps.datacapture.infrastructure.models.capture import (
@@ -57,6 +58,17 @@ class DjangoDataCapturePageRepository:
             seen.add(key)
         return normalized
 
+    @classmethod
+    def _field_alias_base_key(cls, raw_key: str) -> str:
+        key = str(raw_key or "").strip()
+        date_part_match = cls.DATE_PART_KEY_RE.match(key)
+        if date_part_match:
+            key = date_part_match.group("base")
+        repeat_match = cls.REPEAT_KEY_RE.match(key)
+        if repeat_match:
+            key = repeat_match.group("base")
+        return key
+
     def _map_changed_field_keys_by_template_id(
         self,
         *,
@@ -66,7 +78,9 @@ class DjangoDataCapturePageRepository:
         normalized_keys = self._normalize_field_key_list(changed_field_keys)
         if not normalized_keys:
             return {}
-        changed_key_set = set(normalized_keys)
+        changed_keys_by_base: dict[str, list[str]] = {}
+        for key in normalized_keys:
+            changed_keys_by_base.setdefault(self._field_alias_base_key(key), []).append(key)
         matched_keys_by_template_id: dict[int, list[str]] = {}
         fields = CrfFieldTemplate.objects.filter(
             crf_template_id=crf_template_id,
@@ -76,12 +90,12 @@ class DjangoDataCapturePageRepository:
             field_template_id = int(field.id)
             field_key = str(field.field_key or "").strip()
             aliases = [alias for alias in (field_key, f"field_{field_template_id}") if alias]
-            matched_aliases = [alias for alias in aliases if alias in changed_key_set]
-            if not matched_aliases:
+            matched_keys: list[str] = []
+            for alias in aliases:
+                matched_keys.extend(changed_keys_by_base.get(alias, []))
+            if not matched_keys:
                 continue
-            matched_keys_by_template_id[field_template_id] = [
-                key for key in normalized_keys if key in set(matched_aliases)
-            ]
+            matched_keys_by_template_id[field_template_id] = matched_keys
         return matched_keys_by_template_id
 
     def list_form_field_validation_rules(self, *, crf_template_id: int) -> dict[str, tuple[str, ...]]:
@@ -201,6 +215,7 @@ class DjangoDataCapturePageRepository:
             entry_version=entry_version,
             strict=strict,
         )
+        doc = prune_empty_form_data_groups(doc)
         return json.dumps(doc, ensure_ascii=False, sort_keys=True)
 
     def flatten_form_data_json_for_read(self, *, data: str, crf_template_id: int | None = None) -> dict:

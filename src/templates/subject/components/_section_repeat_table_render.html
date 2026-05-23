@@ -1,4 +1,4 @@
-{% load i18n subject_form_tags %}
+{% load i18n static subject_form_tags %}
 <div class="subject-form-repeat-table-section{% if section.code_class %} subject-form-repeat-table-section--{{ section.code_class }}{% endif %}{% if section.layout_css_class %} {{ section.layout_css_class }}{% endif %}">
     {% if not hide_section_title and section.show_section_header %}
         <header class="subject-form-repeat-table-section__title">{{ section.title }}</header>
@@ -12,6 +12,9 @@
                 {% for field in section.fields %}
                     <col />
                 {% endfor %}
+                {% if can_add_repeat_sections %}
+                    <col class="subject-form-repeat-table-section__actions-col" />
+                {% endif %}
             </colgroup>
             {% if section.repeat_table_layout.show_table_header %}
                 <thead>
@@ -29,6 +32,11 @@
                                 {% endif %}
                             </th>
                         {% endfor %}
+                        {% if can_add_repeat_sections %}
+                            <th class="subject-form-repeat-table-section__head subject-form-repeat-table-section__head--actions">
+                                {% comment %} <span class="sr-only">{% trans "Actions" %}</span> {% endcomment %}
+                            </th>
+                        {% endif %}
                     </tr>
                 </thead>
             {% endif %}
@@ -66,10 +74,25 @@
                                 {% endif %}
                             </td>
                         {% endfor %}
+                        {% if can_add_repeat_sections %}
+                            <td class="subject-form-repeat-table-row__actions">
+                                <button type="button"
+                                        class="subject-form-repeat-table-row__delete"
+                                        data-repeat-table-row-delete
+                                        title="{% trans 'Delete row' %}"
+                                        aria-label="{% trans 'Delete row' %}">
+                                    <img src="{% static 'images/datacapture/delete.svg' %}"
+                                         alt=""
+                                         width="18"
+                                         height="18"
+                                         aria-hidden="true">
+                                </button>
+                            </td>
+                        {% endif %}
                     </tr>
                 {% empty %}
                     <tr>
-                        <td {% if section.repeat_table_layout.show_row_number %}colspan="{{ section.fields|length|add:1 }}"{% else %}colspan="{{ section.fields|length }}"{% endif %}
+                        <td {% if can_add_repeat_sections %}{% if section.repeat_table_layout.show_row_number %}colspan="{{ section.fields|length|add:2 }}"{% else %}colspan="{{ section.fields|length|add:1 }}"{% endif %}{% else %}{% if section.repeat_table_layout.show_row_number %}colspan="{{ section.fields|length|add:1 }}"{% else %}colspan="{{ section.fields|length }}"{% endif %}{% endif %}
                             class="subject-form-repeat-table-row__empty">
                             {% trans "No fields configured." %}
                         </td>

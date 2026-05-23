@@ -68,9 +68,10 @@ class IdentityLoginViewTests(SimpleTestCase):
         with patch(
             "django.contrib.auth.views.LoginView.form_valid",
             return_value=HttpResponseRedirect("/dashboard/"),
-        ):
+        ), patch("apps.identity.presentation.web.views.auth.activate_single_active_session") as activate_single_active_session:
             response = view.form_valid(form)
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "/dashboard/")
         user.save.assert_not_called()
+        activate_single_active_session.assert_called_once_with(user, request.session)

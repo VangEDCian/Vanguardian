@@ -1,13 +1,67 @@
+from django.contrib.auth import logout
 from django.db import DatabaseError
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 
 from apps.identity.infrastructure.auth.constants import PASSWORD_RESET_BYPASS_SESSION_KEY
+from apps.identity.infrastructure.auth.session_state import is_single_active_session_valid
 from apps.identity.infrastructure.persistence.models import (
     StudyMembership,
     StudySiteMembership,
 )
+from apps.shared.application.services.cookies import CookiesService
+
+
+class SingleActiveSessionMiddleware:
+    EXCLUDED_PATH_PREFIXES = (
+        reverse("identity:login"),
+        reverse("identity:logout"),
+        reverse("set_language"),
+        "/i18n/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if self._should_skip(request) or is_single_active_session_valid(request):
+            return self.get_response(request)
+
+        logout(request)
+        if self._expects_json(request):
+            response = JsonResponse(
+                {
+                    "authenticated": False,
+                    "session_valid": False,
+                    "reason": "signed_in_elsewhere",
+                    "login_url": reverse("identity:login"),
+                },
+                status=409,
+            )
+        else:
+            response = render(
+                request,
+                "identity/session_invalidated.html",
+                {
+                    "login_url": reverse("identity:login"),
+                },
+                status=401,
+            )
+        CookiesService.reset_cookies(response=response)
+        return response
+
+    def _should_skip(self, request):
+        if not getattr(request.user, "is_authenticated", False):
+            return True
+        return request.path_info.startswith(self.EXCLUDED_PATH_PREFIXES)
+
+    def _expects_json(self, request):
+        return (
+            request.path_info.startswith("/api/")
+            or request.headers.get("x-requested-with") == "XMLHttpRequest"
+            or "application/json" in request.headers.get("accept", "")
+        )
 
 
 class MembershipAccessMiddleware:

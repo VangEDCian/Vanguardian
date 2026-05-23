@@ -264,6 +264,9 @@
         <script src="{% static 'datacapture/js/subject-detail-save-submit.js' %}"></script>
         <script src="{% static 'datacapture/js/subject-detail-behavior-runtime.js' %}"></script>
     {% endif %}
+    {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode %}
+        <script src="{% static 'subject/js/subject_detail_sidebar_scroll.js' %}"></script>
+    {% endif %}
     {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode and page_entry_has_open_queries %}
         <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
     {% endif %}

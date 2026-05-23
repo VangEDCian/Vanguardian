@@ -199,6 +199,35 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
 
         self.assertIs(repository.list_changed_verified_field_keys_called, True)
 
+    def test_submit_accepts_change_reason_for_verified_repeat_field(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            changed_verified_field_keys=["field_1__repeat_2"],
+        )
+        service = _service(repository)
+        service.page_entry_state_events = SimpleNamespace(dispatch=lambda *args, **kwargs: None)
+
+        result = _submit_without_transaction(
+            service,
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "old", "field_1__repeat_2": "new"}',
+                change_reasons=(
+                    SimpleNamespace(
+                        field_key="field_1__repeat_2",
+                        field_label="Field 1",
+                        reason="Removed stale repeat row",
+                    ),
+                ),
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(result.entry_id, 22)
+        self.assertIs(repository.list_changed_verified_field_keys_called, True)
+
     def test_submit_does_not_require_change_reason_when_changed_field_is_not_verified(self):
         repository = _SubmitReasonRepository(page_status=DataCapturePageStateStatusChoices.SUBMITTED)
 

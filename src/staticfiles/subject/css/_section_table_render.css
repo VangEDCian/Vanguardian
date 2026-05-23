@@ -92,6 +92,10 @@
   background: #ffffff;
 }
 
+.subject-form-repeat-table-section__actions-col {
+  width: 44px;
+}
+
 .subject-form-repeat-table-section__head {
   /* padding: 0.5rem 0.5rem;
   border: 1px solid #d6dee6;
@@ -114,12 +118,18 @@
   width: 56px;
 }
 
+.subject-form-repeat-table-section__head--actions {
+  width: 44px;
+  text-align: center;
+}
+
 .subject-form-repeat-table-section__required {
   color: #d32f2f;
 }
 
 .subject-form-repeat-table-row__index,
 .subject-form-repeat-table-row__cell,
+.subject-form-repeat-table-row__actions,
 .subject-form-repeat-table-row__empty {
   border: 1px solid #d6dee6;
 }
@@ -138,13 +148,52 @@
   vertical-align: middle;
 }
 
+.subject-form-repeat-table-row__actions {
+  padding: 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.subject-form-repeat-table-row__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.subject-form-repeat-table-row__delete:hover,
+.subject-form-repeat-table-row__delete:focus-visible {
+  border-color: #fecaca;
+  background: #fef2f2;
+  outline: none;
+}
+
+.subject-form-repeat-table-row__delete img {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.subject-form-repeat-table-row__cell>*{
+  font-size: 14px;
+}
+
+.subject-form-repeat-table-row__cell .subject-date-text__input,
 .subject-form-repeat-table-row__input,
 .subject-form-repeat-table-row__textarea {
   width: calc(100% - 46px);
   min-width: 0;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  font-size: 13px;
+  border: none;
+}
+
+.subject-form-repeat-table-row__input:focus-visible,
+.subject-form-repeat-table-row__textarea:focus-visible {
+  outline: none;
 }
 
 .subject-form-repeat-table-row__input {

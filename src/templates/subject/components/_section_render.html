@@ -23,6 +23,13 @@
             {% endfor %}
         </div>
     {% endif %}
+    {% if can_add_repeat_sections and section.is_repeatable and section.layout_type != "repeat_table" %}
+        <button type="button"
+                class="subject-form-section__delete-repeat"
+                data-repeat-section-delete>
+            {% trans "Delete Item" %}
+        </button>
+    {% endif %}
     {% if can_add_repeat_sections and section.can_add_repeat %}
         <button type="button"
                 class="subject-form-section__add-repeat"

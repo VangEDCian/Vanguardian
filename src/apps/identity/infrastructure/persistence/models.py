@@ -9,6 +9,8 @@ class User(AbstractUser):
     display_name = models.CharField(max_length=255, blank=True, default="")
     phone_number = models.CharField(max_length=32, blank=True, null=True, unique=True)
     attempt_login  = models.SmallIntegerField(default=0)
+    active_session_key = models.CharField(max_length=40, blank=True, default="")
+    active_session_started_at = models.DateTimeField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
         self.email = self._normalize_optional_identifier(self.email)
@@ -31,6 +33,7 @@ class User(AbstractUser):
             models.Index(fields=["username"], name="identity_user_username_idx"),
             models.Index(fields=["email"], name="identity_user_email_idx"),
             models.Index(fields=["phone_number"], name="identity_user_phone_idx"),
+            models.Index(fields=["active_session_key"], name="identity_user_session_idx"),
         ]
         verbose_name = "user"
         verbose_name_plural = "users"

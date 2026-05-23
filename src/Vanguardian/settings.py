@@ -90,6 +90,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.identity.infrastructure.auth.middleware.SingleActiveSessionMiddleware",
     "apps.identity.infrastructure.auth.middleware.CheckFirstLoginMiddleware",
     "apps.identity.infrastructure.auth.middleware.MembershipAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

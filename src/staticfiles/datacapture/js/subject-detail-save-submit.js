@@ -49,6 +49,8 @@
   document.body.appendChild(notificationHost);
 
   let pageStatus = formRoot ? normalizePageStatus(formRoot.dataset.pageStatus) : '';
+  const repeatTableTemplateRows = new WeakMap();
+  const repeatSectionTemplates = new Map();
 
   function ensureEditableInputs() {
     fieldScope.querySelectorAll('[data-field-key]').forEach((container) => {
@@ -462,6 +464,15 @@
     return String(rawKey || '').replace(/__repeat_\d+$/, '').trim();
   }
 
+  function reasonRequiredLookupKeys(rawKey) {
+    const normalized = String(rawKey || '').trim();
+    const withoutDatePart = datePartSuffixes.reduce((value, suffix) => (
+      value.endsWith(suffix) ? value.slice(0, -suffix.length) : value
+    ), normalized);
+    const withoutRepeat = baseRepeatFieldKey(withoutDatePart);
+    return new Set([normalized, withoutDatePart, withoutRepeat, canonicalFieldKey(withoutRepeat)].filter((key) => key));
+  }
+
   function repeatFieldKey(baseKey, repeatIndex) {
     const normalizedBaseKey = baseRepeatFieldKey(baseKey);
     if (!normalizedBaseKey) {
@@ -534,6 +545,12 @@
     section.querySelectorAll('[data-query-thread-modal-trigger], [data-query-thread-badge]').forEach((node) => {
       node.remove();
     });
+    section.querySelectorAll('[data-repeat-table-row-delete]').forEach((node) => {
+      node.removeAttribute('data-repeat-table-delete-bound');
+    });
+    section.querySelectorAll('[data-repeat-section-delete]').forEach((node) => {
+      node.removeAttribute('data-repeat-section-delete-bound');
+    });
     rewriteClonedIds(section, repeatIndex);
     section.querySelectorAll('[data-field-key]').forEach((container) => {
       const baseKey = baseRepeatFieldKey(
@@ -576,8 +593,79 @@
     }
     button.dataset.currentRepeats = String(currentCount);
     if (maxRepeats !== null && currentCount >= maxRepeats) {
-      button.remove();
+      button.hidden = true;
+      button.disabled = true;
+      return;
     }
+    button.hidden = false;
+    button.disabled = false;
+  }
+
+  function repeatTableRows(sourceSection) {
+    const tableBody = sourceSection.querySelector('[data-repeat-table-body]');
+    if (!tableBody) {
+      return [];
+    }
+    return Array.from(tableBody.querySelectorAll('[data-repeat-table-row]'));
+  }
+
+  function repeatTableVisibleRowCount(sourceSection) {
+    return repeatTableRows(sourceSection).length;
+  }
+
+  function repeatTableMaxRepeatIndex(sourceSection) {
+    return repeatTableRows(sourceSection).reduce((maxValue, row) => {
+      const repeatIndex = Number.parseInt(row.dataset.repeatInstanceIndex || '0', 10);
+      if (!Number.isFinite(repeatIndex)) {
+        return maxValue;
+      }
+      return Math.max(maxValue, repeatIndex);
+    }, 0);
+  }
+
+  function initializeRepeatTableState(sourceSection) {
+    if (!sourceSection || sourceSection.dataset.sectionLayoutType !== 'repeat_table') {
+      return;
+    }
+    const rows = repeatTableRows(sourceSection);
+    if (rows.length && !repeatTableTemplateRows.has(sourceSection)) {
+      repeatTableTemplateRows.set(sourceSection, rows[0].cloneNode(true));
+    }
+    const highestRenderedIndex = repeatTableMaxRepeatIndex(sourceSection);
+    const configuredCurrentRepeats = Number.parseInt(sourceSection.dataset.currentRepeats || '0', 10);
+    const lastRepeatIndex = Math.max(
+      highestRenderedIndex,
+      Number.isFinite(configuredCurrentRepeats) ? configuredCurrentRepeats : 0,
+    );
+    if (!sourceSection.dataset.nextRepeatIndex) {
+      sourceSection.dataset.nextRepeatIndex = String(lastRepeatIndex + 1);
+    }
+    sourceSection.dataset.currentRepeats = String(rows.length);
+    const button = sourceSection.querySelector('[data-repeat-section-add]');
+    updateRepeatSectionButton(button, rows.length, parseRepeatMax(sourceSection.dataset.maxRepeats));
+  }
+
+  function initializeRepeatTableStates() {
+    fieldScope
+      .querySelectorAll('[data-section-layout-type="repeat_table"]')
+      .forEach((section) => initializeRepeatTableState(section));
+  }
+
+  function nextRepeatTableIndex(sourceSection) {
+    const cachedNextIndex = Number.parseInt(sourceSection.dataset.nextRepeatIndex || '0', 10);
+    if (Number.isFinite(cachedNextIndex) && cachedNextIndex > 0) {
+      return cachedNextIndex;
+    }
+    return Math.max(repeatTableMaxRepeatIndex(sourceSection), 0) + 1;
+  }
+
+  function renumberRepeatTableDisplayRows(sourceSection) {
+    repeatTableRows(sourceSection).forEach((row, index) => {
+      const indexCell = row.querySelector('.subject-form-repeat-table-row__index');
+      if (indexCell) {
+        indexCell.textContent = String(index + 1);
+      }
+    });
   }
 
   function appendRepeatTableRow(sourceSection, button, nextRepeatIndex, maxRepeats) {
@@ -586,7 +674,7 @@
       return false;
     }
     const rows = Array.from(tableBody.querySelectorAll('[data-repeat-table-row]'));
-    const sourceRow = rows[rows.length - 1];
+    const sourceRow = rows[rows.length - 1] || repeatTableTemplateRows.get(sourceSection);
     if (!sourceRow) {
       return false;
     }
@@ -595,15 +683,203 @@
     clonedRow.dataset.repeatInstanceIndex = String(nextRepeatIndex);
     const indexCell = clonedRow.querySelector('.subject-form-repeat-table-row__index');
     if (indexCell) {
-      indexCell.textContent = String(nextRepeatIndex);
+      indexCell.textContent = String(rows.length + 1);
     }
     rewriteClonedSectionFields(clonedRow, nextRepeatIndex);
     tableBody.appendChild(clonedRow);
 
-    sourceSection.dataset.currentRepeats = String(nextRepeatIndex);
+    sourceSection.dataset.currentRepeats = String(rows.length + 1);
+    sourceSection.dataset.nextRepeatIndex = String(nextRepeatIndex + 1);
     dateTextControlModule.initializeDateTextControls?.(clonedRow);
-    updateRepeatSectionButton(button, nextRepeatIndex, maxRepeats);
+    updateRepeatSectionButton(button, rows.length + 1, maxRepeats);
     return true;
+  }
+
+  function bindRepeatTableRowDeleteButtons() {
+    fieldScope.querySelectorAll('[data-repeat-table-row-delete]').forEach((button) => {
+      if (button.dataset.repeatTableDeleteBound === '1') {
+        return;
+      }
+      button.dataset.repeatTableDeleteBound = '1';
+      button.addEventListener('click', () => {
+        const row = button.closest('[data-repeat-table-row]');
+        const sourceSection = button.closest('[data-section-layout-type="repeat_table"]');
+        if (!row || !sourceSection) {
+          return;
+        }
+        if (!repeatTableTemplateRows.has(sourceSection)) {
+          repeatTableTemplateRows.set(sourceSection, row.cloneNode(true));
+        }
+        row.remove();
+        const visibleRowCount = repeatTableVisibleRowCount(sourceSection);
+        sourceSection.dataset.currentRepeats = String(visibleRowCount);
+        renumberRepeatTableDisplayRows(sourceSection);
+        updateRepeatSectionButton(
+          sourceSection.querySelector('[data-repeat-section-add]'),
+          visibleRowCount,
+          parseRepeatMax(sourceSection.dataset.maxRepeats),
+        );
+      });
+    });
+  }
+
+  function standardRepeatSectionId(section) {
+    return String(section?.dataset?.sectionTemplateId || '').trim();
+  }
+
+  function standardRepeatSections(templateId, options = {}) {
+    if (!templateId) {
+      return [];
+    }
+    const includeDeleted = Boolean(options.includeDeleted);
+    return Array.from(
+      fieldScope.querySelectorAll(
+        `.subject-form-section[data-section-template-id="${cssEscape(templateId)}"]`,
+      ),
+    ).filter((section) => (
+      section.dataset.sectionLayoutType !== 'repeat_table' &&
+      (includeDeleted || section.dataset.repeatDeleted !== '1')
+    ));
+  }
+
+  function storeRepeatSectionTemplate(section) {
+    const templateId = standardRepeatSectionId(section);
+    if (!templateId || repeatSectionTemplates.has(templateId)) {
+      return;
+    }
+    const template = section.cloneNode(true);
+    template.classList.remove('subject-form-section--repeat-deleted');
+    template.removeAttribute('data-repeat-deleted');
+    template.querySelectorAll('[data-repeat-section-bound], [data-repeat-section-delete-bound]').forEach((node) => {
+      node.removeAttribute('data-repeat-section-bound');
+      node.removeAttribute('data-repeat-section-delete-bound');
+    });
+    repeatSectionTemplates.set(templateId, template);
+  }
+
+  function standardRepeatSectionMaxIndex(templateId) {
+    return standardRepeatSections(templateId, { includeDeleted: true }).reduce((maxValue, section) => {
+      const repeatIndex = Number.parseInt(section.dataset.repeatInstanceIndex || '0', 10);
+      if (!Number.isFinite(repeatIndex)) {
+        return maxValue;
+      }
+      return Math.max(maxValue, repeatIndex);
+    }, 0);
+  }
+
+  function standardRepeatSectionNextIndex(section) {
+    const templateId = standardRepeatSectionId(section);
+    const cachedNextIndex = Number.parseInt(section.dataset.nextRepeatIndex || '0', 10);
+    if (Number.isFinite(cachedNextIndex) && cachedNextIndex > 0) {
+      return cachedNextIndex;
+    }
+    return standardRepeatSectionMaxIndex(templateId) + 1;
+  }
+
+  function syncStandardRepeatSectionState(templateId, nextRepeatIndex = null) {
+    const sections = standardRepeatSections(templateId, { includeDeleted: true });
+    const visibleCount = standardRepeatSections(templateId).length;
+    const resolvedNextRepeatIndex = nextRepeatIndex || standardRepeatSectionMaxIndex(templateId) + 1;
+    sections.forEach((section) => {
+      section.dataset.currentRepeats = String(visibleCount);
+      section.dataset.nextRepeatIndex = String(resolvedNextRepeatIndex);
+      const button = section.querySelector('[data-repeat-section-add]');
+      updateRepeatSectionButton(button, visibleCount, parseRepeatMax(section.dataset.maxRepeats));
+    });
+  }
+
+  function initializeStandardRepeatSectionStates() {
+    const templateIds = new Set();
+    fieldScope.querySelectorAll('.subject-form-section[data-section-template-id]').forEach((section) => {
+      if (section.dataset.sectionLayoutType === 'repeat_table') {
+        return;
+      }
+      if (!section.querySelector('[data-repeat-section-delete]')) {
+        return;
+      }
+      storeRepeatSectionTemplate(section);
+      const templateId = standardRepeatSectionId(section);
+      if (templateId) {
+        templateIds.add(templateId);
+      }
+    });
+    templateIds.forEach((templateId) => syncStandardRepeatSectionState(templateId));
+  }
+
+  function disableRepeatSectionForPayload(section) {
+    section.dataset.repeatDeleted = '1';
+    section.classList.add('subject-form-section--repeat-deleted');
+    section.querySelectorAll('input, textarea, select').forEach((input) => {
+      clearClonedInput(input);
+      input.disabled = true;
+      input.dataset.datacaptureDisabledReason = 'deleted-repeat-section';
+    });
+  }
+
+  function restoreRepeatSectionFromTemplate(placeholder, nextRepeatIndex, maxRepeats) {
+    const templateId = standardRepeatSectionId(placeholder);
+    const template = repeatSectionTemplates.get(templateId);
+    if (!template) {
+      return false;
+    }
+    const restoredSection = template.cloneNode(true);
+    restoredSection.classList.remove('subject-form-section--repeat-deleted');
+    restoredSection.removeAttribute('data-repeat-deleted');
+    restoredSection.dataset.repeatInstanceIndex = String(nextRepeatIndex);
+    restoredSection.dataset.currentRepeats = '1';
+    restoredSection.dataset.nextRepeatIndex = String(nextRepeatIndex + 1);
+    rewriteClonedSectionFields(restoredSection, nextRepeatIndex);
+    const restoredButton = restoredSection.querySelector('[data-repeat-section-add]');
+    updateRepeatSectionButton(restoredButton, 1, maxRepeats);
+    placeholder.insertAdjacentElement('beforebegin', restoredSection);
+    placeholder.remove();
+    dateTextControlModule.initializeDateTextControls?.(restoredSection);
+    ensureEditableInputs();
+    select2ControlModule.initializeSelect2LookupControls?.(restoredSection);
+    syncStandardRepeatSectionState(templateId, nextRepeatIndex + 1);
+    bindRepeatSectionDeleteButtons();
+    bindRepeatSectionButtons();
+    return true;
+  }
+
+  function bindRepeatSectionDeleteButtons() {
+    fieldScope.querySelectorAll('[data-repeat-section-delete]').forEach((button) => {
+      if (button.dataset.repeatSectionDeleteBound === '1') {
+        return;
+      }
+      button.dataset.repeatSectionDeleteBound = '1';
+      button.addEventListener('click', () => {
+        const section = button.closest('.subject-form-section');
+        if (!section || section.dataset.sectionLayoutType === 'repeat_table') {
+          return;
+        }
+        const templateId = standardRepeatSectionId(section);
+        storeRepeatSectionTemplate(section);
+        const visibleSections = standardRepeatSections(templateId);
+        const addButton = section.querySelector('[data-repeat-section-add]');
+        if (visibleSections.length <= 1) {
+          disableRepeatSectionForPayload(section);
+          if (addButton) {
+            addButton.removeAttribute('data-repeat-section-bound');
+          }
+          syncStandardRepeatSectionState(templateId);
+          bindRepeatSectionButtons();
+          return;
+        }
+
+        if (addButton) {
+          const remainingSections = visibleSections.filter((node) => node !== section);
+          const lastRemainingSection = remainingSections[remainingSections.length - 1];
+          if (lastRemainingSection) {
+            addButton.removeAttribute('data-repeat-section-bound');
+            lastRemainingSection.appendChild(addButton);
+          }
+        }
+        section.remove();
+        syncStandardRepeatSectionState(templateId);
+        bindRepeatSectionButtons();
+      });
+    });
   }
 
   function bindRepeatSectionButtons() {
@@ -620,18 +896,35 @@
         const currentCount = Number.parseInt(button.dataset.currentRepeats || sourceSection.dataset.currentRepeats || '1', 10);
         const maxRepeats = parseRepeatMax(button.dataset.maxRepeats || sourceSection.dataset.maxRepeats);
         if (maxRepeats !== null && currentCount >= maxRepeats) {
-          button.remove();
+          updateRepeatSectionButton(button, currentCount, maxRepeats);
           return;
         }
-        const nextRepeatIndex = currentCount + 1;
         if (sourceSection.dataset.sectionLayoutType === 'repeat_table') {
+          const visibleRowCount = repeatTableVisibleRowCount(sourceSection);
+          if (maxRepeats !== null && visibleRowCount >= maxRepeats) {
+            updateRepeatSectionButton(button, visibleRowCount, maxRepeats);
+            return;
+          }
+          const nextRepeatIndex = nextRepeatTableIndex(sourceSection);
           if (appendRepeatTableRow(sourceSection, button, nextRepeatIndex, maxRepeats)) {
             ensureEditableInputs();
             select2ControlModule.initializeSelect2LookupControls?.(sourceSection);
             dateTextControlModule.initializeDateTextControls?.(sourceSection);
+            bindRepeatTableRowDeleteButtons();
             bindRepeatSectionButtons();
             return;
           }
+        }
+        const templateId = standardRepeatSectionId(sourceSection);
+        const visibleSectionCount = standardRepeatSections(templateId).length;
+        if (maxRepeats !== null && visibleSectionCount >= maxRepeats) {
+          updateRepeatSectionButton(button, visibleSectionCount, maxRepeats);
+          return;
+        }
+        const nextRepeatIndex = standardRepeatSectionNextIndex(sourceSection);
+        if (sourceSection.dataset.repeatDeleted === '1') {
+          restoreRepeatSectionFromTemplate(sourceSection, nextRepeatIndex, maxRepeats);
+          return;
         }
         const clonedSection = sourceSection.cloneNode(true);
         const clonedButton = clonedSection.querySelector('[data-repeat-section-add]');
@@ -641,19 +934,17 @@
         }
 
         clonedSection.dataset.repeatInstanceIndex = String(nextRepeatIndex);
-        clonedSection.dataset.currentRepeats = String(nextRepeatIndex);
+        clonedSection.dataset.currentRepeats = String(visibleSectionCount + 1);
+        clonedSection.dataset.nextRepeatIndex = String(nextRepeatIndex + 1);
         rewriteClonedSectionFields(clonedSection, nextRepeatIndex);
-        updateRepeatSectionButton(clonedButton, nextRepeatIndex, maxRepeats);
+        updateRepeatSectionButton(clonedButton, visibleSectionCount + 1, maxRepeats);
 
         sourceSection.insertAdjacentElement('afterend', clonedSection);
         dateTextControlModule.initializeDateTextControls?.(clonedSection);
-        fieldScope
-          .querySelectorAll(`[data-section-template-id="${cssEscape(sourceSection.dataset.sectionTemplateId || '')}"]`)
-          .forEach((section) => {
-            section.dataset.currentRepeats = String(nextRepeatIndex);
-          });
+        syncStandardRepeatSectionState(templateId, nextRepeatIndex + 1);
         ensureEditableInputs();
         select2ControlModule.initializeSelect2LookupControls?.(clonedSection);
+        bindRepeatSectionDeleteButtons();
         bindRepeatSectionButtons();
       });
     });
@@ -724,6 +1015,10 @@
     return;
   }
 
+  initializeRepeatTableStates();
+  initializeStandardRepeatSectionStates();
+  bindRepeatTableRowDeleteButtons();
+  bindRepeatSectionDeleteButtons();
   bindRepeatSectionButtons();
 
   saveButton.addEventListener('click', async () => {
@@ -786,7 +1081,9 @@
     if (previousSubmittedPayload && reasonRequiredFieldKeySet.size > 0) {
       const changedFieldKeys = resolveChangedFieldKeys(previousSubmittedPayload, payloadObject);
       const reasonRequiredChangedFieldKeys = changedFieldKeys.filter((fieldKey) =>
-        reasonRequiredFieldKeySet.has(canonicalFieldKey(fieldKey)),
+        Array.from(reasonRequiredLookupKeys(fieldKey)).some((lookupKey) =>
+          reasonRequiredFieldKeySet.has(lookupKey),
+        ),
       );
       if (reasonRequiredChangedFieldKeys.length > 0) {
         const fieldLabelMap = resolveFieldLabelMap(fieldScope);

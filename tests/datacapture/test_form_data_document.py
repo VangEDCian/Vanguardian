@@ -1,3 +1,5 @@
+import json
+
 from django.test import SimpleTestCase
 
 from apps.core.form_data_document import (
@@ -12,8 +14,10 @@ from apps.core.form_data_document import (
     get_field_value,
     iter_field_values,
     normalize_form_data,
+    prune_empty_form_data_groups,
     set_field_value,
 )
+from apps.datacapture.infrastructure.repositories.page_capture import DjangoDataCapturePageRepository
 
 
 def _snapshot():
@@ -43,6 +47,11 @@ def _snapshot():
             ),
         ],
     )
+
+
+class _StorageRepository(DjangoDataCapturePageRepository):
+    def get_form_template_snapshot(self, *, crf_template_id: int):
+        return _snapshot()
 
 
 class FormDataDocumentTests(SimpleTestCase):
@@ -187,6 +196,94 @@ class FormDataDocumentTests(SimpleTestCase):
         )
 
         self.assertEqual(extract_repeat_counts_by_section(doc), {"ENTRIES": 1})
+
+    def test_prune_empty_form_data_groups_removes_single_group_without_entered_values(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "PRESENCE": {
+                        "kind": "single",
+                        "items": {
+                            "HAS_ANY_MEDICAL_HISTORY": "",
+                            "COMMENTS": None,
+                            "CHECKED": [],
+                        },
+                    },
+                    "ENTRIES": {
+                        "kind": "repeatable",
+                        "rows": [
+                            {"row_key": "row_001", "row_no": 1, "items": {"MEDICAL_HISTORY_TERM": "Asthma"}},
+                        ],
+                    },
+                },
+            }
+        )
+
+        pruned = prune_empty_form_data_groups(doc)
+
+        self.assertNotIn("PRESENCE", pruned["groups"])
+        self.assertIn("ENTRIES", pruned["groups"])
+
+    def test_prune_empty_form_data_groups_removes_empty_repeat_rows_and_group(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "ENTRIES": {
+                        "kind": "repeatable",
+                        "rows": [
+                            {"row_key": "row_001", "row_no": 1, "items": {"MEDICAL_HISTORY_TERM": ""}},
+                            {"row_key": "row_002", "row_no": 2, "items": {"MEDICAL_HISTORY_TERM": None}},
+                        ],
+                    }
+                },
+            }
+        )
+
+        pruned = prune_empty_form_data_groups(doc)
+
+        self.assertNotIn("ENTRIES", pruned["groups"])
+
+    def test_prune_empty_form_data_groups_keeps_false_and_zero_values(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "PRESENCE": {
+                        "kind": "single",
+                        "items": {
+                            "HAS_ANY_MEDICAL_HISTORY": False,
+                            "COUNT": 0,
+                        },
+                    }
+                },
+            }
+        )
+
+        pruned = prune_empty_form_data_groups(doc)
+
+        self.assertIn("PRESENCE", pruned["groups"])
+
+    def test_storage_normalization_prunes_empty_groups_before_persisting_pageentry_data(self):
+        repository = _StorageRepository()
+        stored = repository.normalize_form_data_json_for_storage(
+            crf_template_id=1,
+            data=json.dumps(
+                {
+                    "format": FORM_DATA_FORMAT,
+                    "groups": {
+                        "PRESENCE": {
+                            "kind": "single",
+                            "items": {"HAS_ANY_MEDICAL_HISTORY": ""},
+                        }
+                    },
+                }
+            ),
+            strict=True,
+        )
+
+        self.assertEqual(json.loads(stored)["groups"], {})
 
     def test_build_field_path_uses_row_key_for_repeatable_fields(self):
         self.assertEqual(

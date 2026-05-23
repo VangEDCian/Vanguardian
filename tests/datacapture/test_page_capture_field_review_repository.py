@@ -63,6 +63,32 @@ class DataCaptureFieldReviewRepositoryTests(SimpleTestCase):
         self.assertEqual(result[(11, 2)], "Nausea")
         self.assertEqual(result[(12, 2)], "2026-05-21")
 
+    def test_changed_field_mapping_keeps_repeat_and_date_keys_for_verified_reason_checks(self):
+        repository = DjangoDataCapturePageRepository()
+        field_model = MagicMock()
+        field_model.objects.filter.return_value = _ReviewQuery(
+            rows=[
+                SimpleNamespace(id=11, field_key="AETERM"),
+                SimpleNamespace(id=12, field_key="AESTDTC"),
+            ],
+        )
+
+        with patch(
+            "apps.datacapture.infrastructure.repositories.page_capture.CrfFieldTemplate",
+            field_model,
+        ):
+            result = repository._map_changed_field_keys_by_template_id(
+                crf_template_id=5,
+                changed_field_keys=[
+                    "AETERM__repeat_2",
+                    "AESTDTC__repeat_3__day",
+                    "field_11__repeat_4",
+                ],
+            )
+
+        self.assertEqual(result[11], ["AETERM__repeat_2", "field_11__repeat_4"])
+        self.assertEqual(result[12], ["AESTDTC__repeat_3__day"])
+
     def test_field_entry_values_store_typed_columns(self):
         repository = DjangoDataCapturePageRepository()
 
