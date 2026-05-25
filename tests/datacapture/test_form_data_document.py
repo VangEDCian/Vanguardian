@@ -49,9 +49,33 @@ def _snapshot():
     )
 
 
+def _indexed_key_snapshot():
+    return FormTemplateSnapshot(
+        form_code="ELIGIBILITY",
+        form_version="1.0",
+        sections=[
+            SectionTemplateSnapshot(
+                section_code="INCLUSION",
+                is_repeatable=False,
+                fields=[
+                    FieldTemplateSnapshot(
+                        field_key="INCL_01",
+                        section_code="INCLUSION",
+                    )
+                ],
+            )
+        ],
+    )
+
+
 class _StorageRepository(DjangoDataCapturePageRepository):
     def get_form_template_snapshot(self, *, crf_template_id: int):
         return _snapshot()
+
+
+class _IndexedKeyStorageRepository(DjangoDataCapturePageRepository):
+    def get_form_template_snapshot(self, *, crf_template_id: int):
+        return _indexed_key_snapshot()
 
 
 class FormDataDocumentTests(SimpleTestCase):
@@ -124,6 +148,20 @@ class FormDataDocumentTests(SimpleTestCase):
             normalize_form_data({"UNKNOWN_FIELD": "x"}, template_snapshot=_snapshot(), strict=True)
 
         self.assertEqual(ctx.exception.unmapped_fields, ("UNKNOWN_FIELD",))
+
+    def test_legacy_indexed_field_key_from_template_does_not_persist_conversion_warning(self):
+        repository = _IndexedKeyStorageRepository()
+
+        with self.assertNoLogs("apps.core.form_data_document", level="WARNING"):
+            stored = repository.normalize_form_data_json_for_storage(
+                crf_template_id=1,
+                data=json.dumps({"INCL_01": "1"}),
+                strict=True,
+            )
+
+        stored_doc = json.loads(stored)
+        self.assertNotIn("_meta", stored_doc)
+        self.assertEqual(stored_doc["groups"]["INCLUSION"]["items"], {"INCL_01": "1"})
 
     def test_get_field_value_reads_single_group(self):
         doc = normalize_form_data({"HAS_ANY_MEDICAL_HISTORY": True}, template_snapshot=_snapshot())
@@ -284,6 +322,33 @@ class FormDataDocumentTests(SimpleTestCase):
         )
 
         self.assertEqual(json.loads(stored)["groups"], {})
+
+    def test_storage_normalization_strips_legacy_conversion_warnings_from_canonical_data(self):
+        repository = _StorageRepository()
+        stored = repository.normalize_form_data_json_for_storage(
+            crf_template_id=1,
+            data=json.dumps(
+                {
+                    "_meta": {
+                        "legacy_conversion_warnings": [
+                            "suspicious indexed legacy key detected at INCL_01",
+                        ]
+                    },
+                    "format": FORM_DATA_FORMAT,
+                    "groups": {
+                        "PRESENCE": {
+                            "kind": "single",
+                            "items": {"HAS_ANY_MEDICAL_HISTORY": "1"},
+                        }
+                    },
+                }
+            ),
+            strict=True,
+        )
+
+        stored_doc = json.loads(stored)
+        self.assertNotIn("_meta", stored_doc)
+        self.assertEqual(stored_doc["groups"]["PRESENCE"]["items"], {"HAS_ANY_MEDICAL_HISTORY": "1"})
 
     def test_build_field_path_uses_row_key_for_repeatable_fields(self):
         self.assertEqual(

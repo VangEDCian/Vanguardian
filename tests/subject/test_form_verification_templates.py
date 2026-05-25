@@ -376,6 +376,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
                 "form_verification_show_actions": True,
                 "form_verification_open_query_url": "/open-query/",
                 "form_verification_query_thread_url": "/query-thread/",
+                "focused_render_entry": SimpleNamespace(id=101),
                 "form_verification_review": SimpleNamespace(
                     header={
                         "event_name": "Visit 1",
@@ -390,6 +391,9 @@ class FormVerificationTemplateTests(SimpleTestCase):
             },
         )
 
+        self.assertIn('data-review-page-entry-id="101"', rendered)
+        self.assertIn('data-review-entry-version="1"', rendered)
+        self.assertIn('data-review-page-status="submitted"', rendered)
         self.assertIn("data-open-query-modal", rendered)
         self.assertIn('data-open-query-url="/open-query/"', rendered)
         self.assertIn("data-open-query-modal-comment-input", rendered)

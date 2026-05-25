@@ -1,5 +1,6 @@
 {% load i18n static %}
 {% url 'subject:subject_detail' study_id=record.study_id subject_id=record.pk as subject_detail_base_url %}
+{% url 'subject:subject_resync_stage' study_id=record.study_id subject_id=record.pk as subject_resync_stage_url %}
 <div class="crf-template-actions" data-dropdown>
     <button type="button"
             class="crf-template-actions__trigger"
@@ -29,6 +30,24 @@
                     data-dropdown-option
                     title="{% trans 'You do not have permission or no submitted data is available for this subject.' %}">
                 {% trans "Verify Form" %}
+            </button>
+        {% endif %}
+        {% if perms.subject.update_subject %}
+            <form method="post"
+                  action="{{ subject_resync_stage_url }}"
+                  class="crf-template-actions__form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="crf-template-actions__item" data-dropdown-option>{% trans "Resync Stage" %}</button>
+            </form>
+        {% else %}
+            <button type="button"
+                    class="crf-template-actions__item"
+                    disabled
+                    aria-disabled="true"
+                    data-dropdown-option
+                    title="{% trans 'You do not have permission to resync stage for this subject.' %}">
+                {% trans "Resync Stage" %}
             </button>
         {% endif %}
     </div>

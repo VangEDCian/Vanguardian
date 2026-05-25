@@ -24,8 +24,17 @@ from apps.study.infrastructure.repositories import DjangoStudyEventRepository
 class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin, EventDefinitionWorkbookMixin):
     repository_class = DjangoStudyEventRepository
 
-    def __init__(self, repository=None):
+    def __init__(self, repository=None, subject_event_lifecycle_adapter=None):
         self.repository = repository or self.repository_class()
+        self._subject_event_lifecycle_adapter = subject_event_lifecycle_adapter
+
+    @property
+    def subject_event_lifecycle_adapter(self):
+        if self._subject_event_lifecycle_adapter is None:
+            from apps.subject.public import SubjectEventLifecycleAdapter
+
+            self._subject_event_lifecycle_adapter = SubjectEventLifecycleAdapter()
+        return self._subject_event_lifecycle_adapter
 
     expected_columns = (
         "Study Version",
@@ -129,6 +138,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "subject-period": EventTransitionConditionScopeChoices.SUBJECT_PERIOD,
         "randomization": EventTransitionConditionScopeChoices.RANDOMIZATION,
         "eligibility": EventTransitionConditionScopeChoices.ELIGIBILITY,
+        "not eligible": EventTransitionConditionScopeChoices.NOT_ELIGIBLE,
     }
     condition_definition_scope_aliases = {
         "subject": StudyConditionDefinitionScopeChoices.SUBJECT,
@@ -142,7 +152,11 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "period": StudyConditionDefinitionScopeChoices.PERIOD,
         "randomization": StudyConditionDefinitionScopeChoices.RANDOMIZATION,
         "eligibility": StudyConditionDefinitionScopeChoices.ELIGIBILITY,
+        "not eligible": StudyConditionDefinitionScopeChoices.ELIGIBILITY,
         "page": StudyConditionDefinitionScopeChoices.PAGE,
+    }
+    condition_code_defaults_by_condition_scope = {
+        EventTransitionConditionScopeChoices.NOT_ELIGIBLE: "not_eligible",
     }
     true_values = {"true", "1", "yes", "y"}
     false_values = {"", "false", "0", "no", "n"}
@@ -156,6 +170,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         created_count = 0
         updated_count = 0
         issues = []
+        touched_study_versions = set()
 
         for row_number, row_data in workbook_rows:
             try:
@@ -180,6 +195,18 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 created_count += 1
             else:
                 updated_count += 1
+            touched_study_versions.add(
+                self._resolve_study_version(
+                    study_id=command.study_id,
+                    raw_study_version=row_data.get("study_version"),
+                )
+            )
+
+        warnings = self._resync_subject_event_instances(
+            study_id=command.study_id,
+            study_versions=touched_study_versions,
+            actor_user_id=command.actor_user_id,
+        )
 
         return ImportStudyEventDefinitionsTemplateResult(
             total_rows=len(workbook_rows),
@@ -187,8 +214,27 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             updated_count=updated_count,
             skipped_count=len(issues),
             issues=tuple(issues),
-            warnings=(),
+            warnings=tuple(warnings),
         )
+
+    def _resync_subject_event_instances(self, *, study_id, study_versions, actor_user_id) -> list[str]:
+        warnings = []
+        for study_version in sorted(str(item or "").strip() for item in study_versions):
+            if not study_version:
+                continue
+            try:
+                self.subject_event_lifecycle_adapter.resync_event_instances(
+                    study_id=study_id,
+                    study_version=study_version,
+                    actor_user_id=actor_user_id,
+                    include_all_subjects=False,
+                    trigger_source="study_eventdefinition_import",
+                )
+            except Exception as exc:  # pragma: no cover - defensive warning path
+                warnings.append(
+                    f"Event instances for study version {study_version!r} were not resynced: {exc}"
+                )
+        return warnings
 
     def _import_row(self, *, study_id, row_data, row_number, actor_user_id):
         study_version_input = self._as_text(row_data.get("study_version"))
@@ -251,6 +297,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 allow_blank=True,
             ) or EventTransitionConditionScopeChoices.SUBJECT_EVENT
             condition_code = self._nullable_text(row_data.get("condition_code"))
+            condition_code = condition_code or self.condition_code_defaults_by_condition_scope.get(condition_scope)
             condition_expression = self._nullable_text(row_data.get("condition_expression"))
             condition_definition_scope = self._condition_definition_scope_from_transition_scope(condition_scope)
             if condition_expression and not condition_code:

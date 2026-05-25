@@ -46,25 +46,43 @@ class DjangoSubjectCommandRepository:
             updated_by_id=actor_user_id,
         )
 
-    def list_enabled_event_definitions(self, *, study_id):
-        return list(
+    def resolve_active_study_version(self, *, study_id):
+        return (
             EventDefinition.objects.filter(
                 study_id=study_id,
                 deleted=False,
                 is_enabled=True,
             )
+            .order_by("-updated_at", "-id")
+            .values_list("study_version", flat=True)
+            .first()
+        )
+
+    def list_enabled_event_definitions(self, *, study_id, study_version=None):
+        queryset = EventDefinition.objects.filter(
+            study_id=study_id,
+            deleted=False,
+            is_enabled=True,
+        )
+        if study_version:
+            queryset = queryset.filter(study_version=study_version)
+        return list(
+            queryset
             .only("id", "study_version", "code", "name", "event_type", "sequence_no")
             .order_by("sequence_no", "id")
         )
 
-    def list_enabled_transition_rules(self, *, study_id, event_definition_ids):
+    def list_enabled_transition_rules(self, *, study_id, event_definition_ids, study_version=None):
+        queryset = EventTransitionRule.objects.filter(
+            study_id=study_id,
+            deleted=False,
+            is_enabled=True,
+            to_event_definition_id__in=event_definition_ids,
+        )
+        if study_version:
+            queryset = queryset.filter(study_version=study_version)
         return list(
-            EventTransitionRule.objects.filter(
-                study_id=study_id,
-                deleted=False,
-                is_enabled=True,
-                to_event_definition_id__in=event_definition_ids,
-            )
+            queryset
             .select_related("condition_definition")
             .only(
                 "to_event_definition_id",

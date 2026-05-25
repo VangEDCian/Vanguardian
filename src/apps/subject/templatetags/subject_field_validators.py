@@ -66,3 +66,13 @@ def subject_date_validator_attrs(field):
         "data-field-label": field.get("label") or field.get("field_key") or "",
     }
     return _build_html_attrs(attrs)
+
+
+@register.simple_tag
+def subject_time_validator_attrs(field):
+    attrs = {
+        "data-validator-type": "time",
+        "required": bool(field.get("is_required")),
+        "data-field-label": field.get("label") or field.get("field_key") or "",
+    }
+    return _build_html_attrs(attrs)

@@ -205,6 +205,13 @@
     return Array.from(container.querySelectorAll('input, textarea, select'));
   }
 
+  function syncCompositeControlValue(container) {
+    const controlModules = window.DatacaptureSubjectDetailModules?.controls || {};
+    controlModules.datePicker?.syncDateCompositeInput?.(container);
+    controlModules.dateText?.syncDateTextInput?.(container);
+    controlModules.datetime?.syncDatetimeCompositeInput?.(container);
+  }
+
   function ensureInputNames(container) {
     const fieldKey = String(container.dataset.fieldKey || '').trim();
     if (!fieldKey) {
@@ -228,6 +235,8 @@
   }
 
   function readContainerValue(container) {
+    syncCompositeControlValue(container);
+
     const controls = getFieldControls(container);
     if (!controls.length) {
       return '';
@@ -239,7 +248,13 @@
       year: container.querySelector('.subject-date-picker__input--year')?.value || '',
       time: container.querySelector('.subject-date-picker__input--time')?.value || '',
     };
-    if (dateParts.day || dateParts.month || dateParts.year || dateParts.time) {
+    const hasDateCompositeControl = Boolean(
+      container.querySelector('input[type="hidden"][data-date-composite-input]') ||
+      dateParts.day ||
+      dateParts.month ||
+      dateParts.year,
+    );
+    if (hasDateCompositeControl && (dateParts.day || dateParts.month || dateParts.year || dateParts.time)) {
       return dateParts;
     }
 
@@ -314,7 +329,13 @@
     const monthInput = container.querySelector('.subject-date-picker__input--month');
     const yearInput = container.querySelector('.subject-date-picker__input--year');
     const timeInput = container.querySelector('.subject-date-picker__input--time');
-    if (dayInput || monthInput || yearInput || timeInput) {
+    const hasDateCompositeControl = Boolean(
+      container.querySelector('input[type="hidden"][data-date-composite-input]') ||
+      dayInput ||
+      monthInput ||
+      yearInput,
+    );
+    if (hasDateCompositeControl && (dayInput || monthInput || yearInput || timeInput)) {
       const payload = nextValue && typeof nextValue === 'object' ? nextValue : {};
       if (dayInput && 'day' in payload) {
         dayInput.value = payload.day ?? '';
@@ -489,7 +510,10 @@
     }
     isApplying = true;
     try {
-      getFieldContainers().forEach((container) => ensureInputNames(container));
+      getFieldContainers().forEach((container) => {
+        ensureInputNames(container);
+        syncCompositeControlValue(container);
+      });
       const state = buildState();
       getFieldContainers().forEach((container) => applyBehavior(container, state));
     } finally {

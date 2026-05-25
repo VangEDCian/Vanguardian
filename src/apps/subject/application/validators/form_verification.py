@@ -33,6 +33,9 @@ class SubjectFormVerificationRequestValidator:
         return {
             "field_template_ids": cls._normalize_field_template_ids(body.get("field_template_ids")),
             "reason_text": str(body.get("reason_text") or "").strip(),
+            "review_page_entry_id": str(body.get("review_page_entry_id") or "").strip(),
+            "review_entry_version": str(body.get("review_entry_version") or "").strip(),
+            "review_page_status": str(body.get("review_page_status") or "").strip(),
         }
 
     @staticmethod

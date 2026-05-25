@@ -28,6 +28,7 @@ from apps.subject.application import (
 from apps.subject.public import SubjectAbstractVerifyStudy
 
 SELF_REVIEW_ERROR = "Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."
+STALE_REVIEW_ERROR = "Dữ liệu đã bị thao tác, vui lòng reload lại trang để tiếp tục"
 
 
 def _same_user(left, right) -> bool:
@@ -37,13 +38,57 @@ def _same_user(left, right) -> bool:
         return False
 
 
-def _current_user_matches_submitted_entry_editor(*, request, subject_id: int, visit_id: int, crf_template_id: int) -> bool:
+def _current_user_matches_submitted_entry_editor(
+    *,
+    request,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+) -> bool:
     submitted_entry = get_latest_submitted_page_entry_for_subject_visit_crf(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
     )
     return _same_user(getattr(request.user, "id", None), getattr(submitted_entry, "updated_by_id", None))
+
+
+def _review_context_matches_current_submitted_entry(
+    *,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+    review_page_entry_id: str,
+    review_entry_version: str,
+) -> bool:
+    current_page_status = get_page_state_status_for_subject_visit_crf(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+    normalized_current_status = (current_page_status or "").strip().lower()
+    if not DataCapturePageState.can_start_or_continue_review(normalized_current_status):
+        return False
+
+    submitted_entry = get_latest_submitted_page_entry_for_subject_visit_crf(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+    if submitted_entry is None:
+        return False
+    try:
+        normalized_review_page_entry_id = int(str(review_page_entry_id or "").strip())
+    except (TypeError, ValueError):
+        normalized_review_page_entry_id = None
+    if normalized_review_page_entry_id is not None:
+        return int(getattr(submitted_entry, "id", 0) or 0) == normalized_review_page_entry_id
+    normalized_review_entry_version = str(review_entry_version or "").strip()
+    if not normalized_review_entry_version or normalized_review_entry_version == "—":
+        return False
+    return str(getattr(submitted_entry, "entry_version", "") or "").strip() == str(
+        normalized_review_entry_version
+    ).strip()
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -61,11 +106,22 @@ class SubjectFormVerificationVerifyCheckedView(
             normalized = SubjectFormVerificationRequestValidator.parse_verify_checked_payload(
                 request.body
             )
+            subject_id = int(kwargs["subject_id"])
+            visit_id = int(kwargs["visit_id"])
+            crf_template_id = int(kwargs["crf_template_id"])
+            if not _review_context_matches_current_submitted_entry(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                review_page_entry_id=str(normalized["review_page_entry_id"]),
+                review_entry_version=str(normalized["review_entry_version"]),
+            ):
+                return JsonResponse({"error": [STALE_REVIEW_ERROR]}, status=400)
             if _current_user_matches_submitted_entry_editor(
                 request=request,
-                subject_id=int(kwargs["subject_id"]),
-                visit_id=int(kwargs["visit_id"]),
-                crf_template_id=int(kwargs["crf_template_id"]),
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
             ):
                 return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
             (
@@ -74,9 +130,9 @@ class SubjectFormVerificationVerifyCheckedView(
                 blocking_reasons,
                 unverified_field_template_ids,
             ) = merge_form_verification_checked_fields_into_page_state_final_data(
-                subject_id=int(kwargs["subject_id"]),
-                visit_id=int(kwargs["visit_id"]),
-                crf_template_id=int(kwargs["crf_template_id"]),
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
                 checked_field_template_ids=normalized["field_template_ids"],
                 unverify_reason_text=normalized["reason_text"],
                 actor_user_id=getattr(request.user, "id", None),

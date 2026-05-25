@@ -285,12 +285,30 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
     def test_verify_checked_returns_400_when_current_user_last_updated_submitted_entry(self):
         request = RequestFactory().post(
             "/verify-checked/",
-            data=json.dumps({"field_template_ids": [11], "reason_text": "Revert verification"}),
+            data=json.dumps(
+                {
+                    "field_template_ids": [11],
+                    "reason_text": "Revert verification",
+                    "review_page_entry_id": "101",
+                    "review_entry_version": "1",
+                    "review_page_status": "submitted",
+                }
+            ),
             content_type="application/json",
         )
         request.user = SimpleNamespace(id=7)
 
         with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_latest_submitted_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(id=101, entry_version="1"),
+            ),
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
                 "_current_user_matches_submitted_entry_editor",
@@ -317,12 +335,30 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
     def test_verify_checked_returns_unverified_field_template_ids(self):
         request = RequestFactory().post(
             "/verify-checked/",
-            data=json.dumps({"field_template_ids": [11], "reason_text": "Revert verification"}),
+            data=json.dumps(
+                {
+                    "field_template_ids": [11],
+                    "reason_text": "Revert verification",
+                    "review_page_entry_id": "101",
+                    "review_entry_version": "1",
+                    "review_page_status": "submitted",
+                }
+            ),
             content_type="application/json",
         )
         request.user = SimpleNamespace(id=7)
 
         with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ) as get_page_state_status,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_latest_submitted_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(id=101, entry_version="1"),
+            ) as get_latest_submitted,
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
                 "_current_user_matches_submitted_entry_editor",
@@ -347,6 +383,8 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
         self.assertEqual(payload["field_template_ids"], [11])
         self.assertEqual(payload["unverified_field_template_ids"], [12])
         self.assertEqual(payload["page_status"], "under_review")
+        get_page_state_status.assert_called_once_with(subject_id=2, visit_id=3, crf_template_id=4)
+        get_latest_submitted.assert_called_once_with(subject_id=2, visit_id=3, crf_template_id=4)
         merge_checked.assert_called_once_with(
             subject_id=2,
             visit_id=3,
@@ -355,6 +393,191 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             unverify_reason_text="Revert verification",
             actor_user_id=7,
         )
+
+    def test_verify_checked_returns_400_when_review_entry_version_is_stale(self):
+        request = RequestFactory().post(
+            "/verify-checked/",
+            data=json.dumps(
+                {
+                    "field_template_ids": [11],
+                    "review_page_entry_id": "101",
+                    "review_entry_version": "1",
+                    "review_page_status": "submitted",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_latest_submitted_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(id=102, entry_version="2"),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "merge_form_verification_checked_fields_into_page_state_final_data",
+            ) as merge_checked,
+        ):
+            response = SubjectFormVerificationVerifyCheckedView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["error"], ["Dữ liệu đã bị thao tác, vui lòng reload lại trang để tiếp tục"])
+        merge_checked.assert_not_called()
+
+    def test_verify_checked_returns_400_when_review_page_status_is_stale(self):
+        request = RequestFactory().post(
+            "/verify-checked/",
+            data=json.dumps(
+                {
+                    "field_template_ids": [11],
+                    "review_page_entry_id": "101",
+                    "review_entry_version": "1",
+                    "review_page_status": "submitted",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="verified",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_latest_submitted_page_entry_for_subject_visit_crf",
+            ) as get_latest_submitted,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "merge_form_verification_checked_fields_into_page_state_final_data",
+            ) as merge_checked,
+        ):
+            response = SubjectFormVerificationVerifyCheckedView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["error"], ["Dữ liệu đã bị thao tác, vui lòng reload lại trang để tiếp tục"])
+        get_latest_submitted.assert_not_called()
+        merge_checked.assert_not_called()
+
+    def test_verify_checked_allows_page_status_to_move_from_submitted_to_under_review(self):
+        request = RequestFactory().post(
+            "/verify-checked/",
+            data=json.dumps(
+                {
+                    "field_template_ids": [11],
+                    "review_page_entry_id": "101",
+                    "review_entry_version": "1",
+                    "review_page_status": "submitted",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="under_review",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_latest_submitted_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(id=101, entry_version="1"),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "merge_form_verification_checked_fields_into_page_state_final_data",
+                return_value=(False, "under_review", [], []),
+            ) as merge_checked,
+        ):
+            response = SubjectFormVerificationVerifyCheckedView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["page_status"], "under_review")
+        merge_checked.assert_called_once()
+
+    def test_verify_checked_falls_back_to_entry_version_when_review_entry_id_is_missing(self):
+        request = RequestFactory().post(
+            "/verify-checked/",
+            data=json.dumps(
+                {
+                    "field_template_ids": [11],
+                    "review_entry_version": "1",
+                    "review_page_status": "submitted",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_latest_submitted_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(id=101, entry_version="1"),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "merge_form_verification_checked_fields_into_page_state_final_data",
+                return_value=(False, "under_review", [], []),
+            ) as merge_checked,
+        ):
+            response = SubjectFormVerificationVerifyCheckedView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        merge_checked.assert_called_once()
 
     def test_post_returns_400_when_field_is_verified(self):
         request = RequestFactory().post(

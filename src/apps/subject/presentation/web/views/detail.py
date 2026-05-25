@@ -89,9 +89,9 @@ class SubjectDetailView(
         "datetime_text": "datetime_text",
         "datetime text": "datetime_text",
         "datetime-text": "datetime_text",
-        "time_picker": "datetime",
-        "time picker": "datetime",
-        "time": "datetime",
+        "time_picker": "time",
+        "time picker": "time",
+        "time": "time",
         "label_only": "label_only",
         "label only": "label_only",
     }

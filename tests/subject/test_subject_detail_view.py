@@ -219,6 +219,54 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
 
         self.assertEqual(view._normalize_control_type("DATE_TEXT"), "date_text")
         self.assertEqual(view._normalize_control_type("DATETIME_TEXT"), "datetime_text")
+        self.assertEqual(view._normalize_control_type("TIME"), "time")
+        self.assertEqual(view._normalize_control_type("time_picker"), "time")
+
+    def test_field_render_resolves_time_control_template(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "field": {
+                    "id": 12,
+                    "field_key": "VISIT_TIME",
+                    "label": "Visit Time",
+                    "control_type": "TIME",
+                    "value": "08:30:00",
+                    "is_required": True,
+                },
+            },
+        )
+
+        self.assertIn('class="subject-date-picker"', rendered)
+        self.assertIn('class="subject-date-picker__part"', rendered)
+        self.assertIn('class="subject-date-picker__input subject-date-picker__input--time"', rendered)
+        self.assertIn(">Time</span>", rendered)
+        self.assertIn('type="text"', rendered)
+        self.assertIn('name="VISIT_TIME"', rendered)
+        self.assertIn('inputmode="numeric"', rendered)
+        self.assertIn('pattern="^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"', rendered)
+        self.assertIn('data-submitted-diff-control="time"', rendered)
+        self.assertIn("data-standalone-time-input", rendered)
+        self.assertIn('value="08:30"', rendered)
+        self.assertNotIn("\n       readonly", rendered)
+
+    def test_time_control_does_not_render_invalid_html_time_value(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "field": {
+                    "id": 12,
+                    "field_key": "VISIT_TIME",
+                    "label": "Visit Time",
+                    "control_type": "TIME",
+                    "value": "3232-",
+                    "is_required": False,
+                },
+            },
+        )
+
+        self.assertIn('type="text"', rendered)
+        self.assertIn('value=""', rendered)
 
 
 class SubjectDetailPageEntryFooterTests(SimpleTestCase):

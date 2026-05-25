@@ -80,12 +80,19 @@ class CreateSubjectService:
         actor_user_id: int,
         now,
     ) -> None:
-        event_definitions = self.repository.list_enabled_event_definitions(study_id=subject.study_id)
+        study_version = self.repository.resolve_active_study_version(study_id=subject.study_id)
+        if not study_version:
+            return
+        event_definitions = self.repository.list_enabled_event_definitions(
+            study_id=subject.study_id,
+            study_version=study_version,
+        )
         if not event_definitions:
             return
 
         transition_rules = self.repository.list_enabled_transition_rules(
             study_id=subject.study_id,
+            study_version=study_version,
             event_definition_ids=[event_definition.pk for event_definition in event_definitions],
         )
         planned_date_by_event_definition = self._build_planned_date_by_event_definition(

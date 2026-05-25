@@ -182,6 +182,12 @@
       showNotification('Review panel not found.', 'error');
       return;
     }
+    const requestPayload = { ...payload };
+    if (!isReopenAction && root instanceof HTMLElement) {
+      requestPayload.review_page_entry_id = String(root.dataset.reviewPageEntryId || '').trim();
+      requestPayload.review_entry_version = String(root.dataset.reviewEntryVersion || '').trim();
+      requestPayload.review_page_status = String(root.dataset.reviewPageStatus || '').trim();
+    }
 
     button.disabled = true;
     showLoading(defaultLoadingMessage);
@@ -190,7 +196,7 @@
       .fetch(postUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestPayload),
       })
       .then(function (response) {
         return response.text().then(function (text) {
@@ -226,6 +232,9 @@
             window.location.reload();
           }, 250);
           return;
+        }
+        if (root instanceof HTMLElement) {
+          root.dataset.reviewPageStatus = String(result.data.page_status || root.dataset.reviewPageStatus || '');
         }
         const verifiedCheckedEnabled = Array.from(
           root.querySelectorAll('input[name="verify_field"]:checked:not(:disabled)'),

@@ -9,6 +9,7 @@ from typing import Any
 FORM_DATA_FORMAT = "edc.form_data.v1"
 LEGACY_UNMAPPED_SECTION_CODE = "_LEGACY_UNMAPPED_FIELDS"
 REPEAT_COUNTS_EXPORT_META_KEY = "_repeat_counts_by_section_code"
+LEGACY_CONVERSION_WARNINGS_META_KEY = "legacy_conversion_warnings"
 
 _DATE_PART_KEY_RE = re.compile(r"^(?P<base>.+)__(?P<part>day|month|year|time)$")
 _REPEAT_KEY_RE = re.compile(r"^(?P<base>.+)__repeat_(?P<repeat_index>\d+)$")
@@ -344,6 +345,7 @@ def _empty_document(
         doc["form_code"] = str(form_code or (template_snapshot.form_code if template_snapshot else "") or "")
         doc["form_version"] = str(form_version or (template_snapshot.form_version if template_snapshot else "") or "")
         doc["entry_version"] = str(entry_version or "")
+    _strip_legacy_conversion_warnings(doc)
     return doc
 
 
@@ -400,6 +402,7 @@ def _normalize_canonical_document(
         else:
             group["items"] = group.get("items") if isinstance(group.get("items"), dict) else {}
             group.pop("rows", None)
+    _strip_legacy_conversion_warnings(doc)
     return doc
 
 
@@ -431,7 +434,7 @@ def _legacy_flat_to_canonical(
 
     field_by_key = template_snapshot.field_by_key()
     section_by_code = template_snapshot.section_by_code()
-    values, warnings = _expand_legacy_flat_values(raw_data)
+    values, warnings = _expand_legacy_flat_values(raw_data, known_field_keys=set(field_by_key))
     unmapped_fields: list[str] = []
     for raw_key, raw_value in values.items():
         if str(raw_key).startswith("_"):
@@ -473,21 +476,26 @@ def _legacy_flat_to_canonical(
             "items": {key: raw_data.get(key) for key in unmapped if key in raw_data},
         }
     if warnings:
-        doc.setdefault("_meta", {})["legacy_conversion_warnings"] = tuple(sorted(set(warnings)))
+        logger.warning("Legacy form data conversion warnings: %s", ", ".join(sorted(set(warnings))))
     return doc
 
 
-def _expand_legacy_flat_values(raw_data: dict) -> tuple[dict[str, Any], list[str]]:
+def _expand_legacy_flat_values(
+    raw_data: dict,
+    *,
+    known_field_keys: set[str] | None = None,
+) -> tuple[dict[str, Any], list[str]]:
     values: dict[str, Any] = {}
     date_parts: dict[str, dict[str, str]] = {}
     warnings: list[str] = []
+    known_fields = known_field_keys or set()
     for raw_key, raw_value in raw_data.items():
         key = str(raw_key or "").strip()
         if not key:
             continue
         if isinstance(raw_value, list) and raw_value and all(isinstance(item, dict) for item in raw_value):
             warnings.append(f"list-object legacy value detected at {key}")
-        if _SUSPICIOUS_INDEXED_KEY_RE.match(key) and not _REPEAT_KEY_RE.match(key):
+        if _SUSPICIOUS_INDEXED_KEY_RE.match(key) and not _REPEAT_KEY_RE.match(key) and key not in known_fields:
             warnings.append(f"suspicious indexed legacy key detected at {key}")
         date_match = _DATE_PART_KEY_RE.match(key)
         if date_match:
@@ -508,6 +516,15 @@ def _expand_legacy_flat_values(raw_data: dict) -> tuple[dict[str, Any], list[str
             for part, value in parts.items():
                 values[f"{base_key}__{part}"] = value
     return values, warnings
+
+
+def _strip_legacy_conversion_warnings(doc: dict) -> None:
+    meta = doc.get("_meta")
+    if not isinstance(meta, dict):
+        return
+    meta.pop(LEGACY_CONVERSION_WARNINGS_META_KEY, None)
+    if not meta:
+        doc.pop("_meta", None)
 
 
 def _split_repeat_key(raw_key: str) -> tuple[str, int | None]:

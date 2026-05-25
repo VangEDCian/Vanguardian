@@ -4,6 +4,8 @@ __all__ = [
     "AddRepeatingSubjectEventInstanceService",
     "CreateSubjectService",
     "SubjectEventCompletionService",
+    "SubjectEventInstanceResyncResult",
+    "SubjectEventInstanceResyncService",
     "SubjectEventTransitionService",
     "SubjectWorkflowActionService",
 ]
@@ -12,6 +14,8 @@ _MODULE_BY_NAME = {
     "AddRepeatingSubjectEventInstanceService": "apps.subject.application.services.add_repeating_event_instance",
     "CreateSubjectService": "apps.subject.application.services.create_subject",
     "SubjectEventCompletionService": "apps.subject.application.services.event_completion",
+    "SubjectEventInstanceResyncResult": "apps.subject.application.services.event_instance_resync",
+    "SubjectEventInstanceResyncService": "apps.subject.application.services.event_instance_resync",
     "SubjectEventTransitionService": "apps.subject.application.services.event_lifecycle",
     "SubjectWorkflowActionService": "apps.subject.application.services.workflow_action",
 }

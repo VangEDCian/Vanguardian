@@ -1,5 +1,8 @@
 {% load i18n subject_form_tags %}
-<div class="subject-form-verification-review">
+<div class="subject-form-verification-review"
+     data-review-page-entry-id="{{ focused_render_entry.id|default:'' }}"
+     data-review-entry-version="{{ form_verification_review.header.form_version|default:''|escape }}"
+     data-review-page-status="{{ form_verification_review.header.form_status|default:''|escape }}">
     {% with h=form_verification_review.header %}
         <header class="subject-form-verification-review__header" aria-label="{% trans 'Form verification metadata' %}">
             <dl class="subject-form-verification-review__meta">

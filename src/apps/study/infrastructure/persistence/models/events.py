@@ -265,6 +265,14 @@ class EventGateEvaluation(models.Model):
         related_name="gate_evaluations",
     )
     event_instance_id = models.BigIntegerField(null=True, blank=True)
+    transition_rule = models.ForeignKey(
+        EventTransitionRule,
+        on_delete=models.DO_NOTHING,
+        db_column="transition_rule_id",
+        related_name="gate_evaluations",
+        null=True,
+        blank=True,
+    )
 
     gate_code = models.CharField(max_length=64)
     gate_type = models.CharField(max_length=32, choices=GateType.choices)
@@ -304,6 +312,10 @@ class EventGateEvaluation(models.Model):
             models.Index(
                 fields=["gate_code", "rule_code"],
                 name="std_evtgate_code_rule_ix",
+            ),
+            models.Index(
+                fields=["transition_rule", "result", "evaluated_at"],
+                name="std_evtgate_rule_res_eval_ix",
             ),
         ]
         verbose_name = "study event gate evaluation"

@@ -41,6 +41,7 @@ class EventTransitionConditionScopeChoices(models.TextChoices):
     SUBJECT_PERIOD = "subject_period", _("Subject period")
     RANDOMIZATION = "randomization", _("Randomization")
     ELIGIBILITY = "eligibility", _("Eligibility")
+    NOT_ELIGIBLE = "not_eligible", _("Not eligible")
 
 
 class StudyConditionDefinitionScopeChoices(models.TextChoices):

@@ -16,6 +16,9 @@ from apps.study.application.commands.eligibility import (
     MarkEligibilityStaleOnSourceDataChangeCommand,
     RetractEligibilityAssessmentCommand,
 )
+from apps.study.application.commands.event_gate_evaluation import (
+    RecordEventGateEvaluationCommand,
+)
 from apps.study.application.commands.exceptions import (
     StudyCodeAlreadyExistsError,
     StudyDateRangeError,
@@ -102,6 +105,7 @@ __all__ = [
     "RandomizationArmNotFoundError",
     "RandomizationDeleteBlockedError",
     "RandomizationImportValidationError",
+    "RecordEventGateEvaluationCommand",
     "RandomizationSchemeNotFoundError",
     "RetractEligibilityAssessmentCommand",
     "SiteMembershipAlreadyExistsError",

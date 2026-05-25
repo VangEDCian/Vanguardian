@@ -16,6 +16,7 @@ from apps.subject.presentation.web.views.listing import SubjectListView
 from apps.subject.presentation.web.views.repeating_event_instance import (
     SubjectAddRepeatingEventInstanceView,
 )
+from apps.subject.presentation.web.views.resync_stage import SubjectResyncStageView
 
 __all__ = [
     "SubjectAddRepeatingEventInstanceView",
@@ -26,6 +27,7 @@ __all__ = [
     "SubjectEventInstanceFilePreviewView",
     "SubjectDetailView",
     "SubjectListView",
+    "SubjectResyncStageView",
 ]
 
 

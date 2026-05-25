@@ -15,6 +15,7 @@ from apps.core.choices import (
     StudyConditionDefinitionScopeChoices,
     StudyConditionDefinitionStatusChoices,
 )
+from apps.study.application.commands import ImportStudyEventDefinitionsTemplateCommand
 from apps.study.application.services import ImportStudyEventDefinitionsTemplateService
 
 
@@ -33,6 +34,44 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
         headers = list(next(worksheet.iter_rows(values_only=True)))
 
         self.assertEqual(headers, list(self.service.expected_columns))
+
+    def test_execute_resyncs_subject_event_instances_for_touched_versions(self):
+        subject_event_lifecycle_adapter = MagicMock()
+        service = ImportStudyEventDefinitionsTemplateService(
+            repository=self.repository,
+            subject_event_lifecycle_adapter=subject_event_lifecycle_adapter,
+        )
+
+        with (
+            patch.object(
+                service,
+                "_load_rows_from_workbook",
+                return_value=[
+                    (2, {"study_version": "v1.0", "study_code": "NNG31", "code": "SCREENING"}),
+                    (3, {"study_version": "v1.0", "study_code": "NNG31", "code": "VISIT2"}),
+                ],
+            ),
+            patch.object(service, "_import_row", side_effect=["updated", "created"]),
+            patch.object(service, "_resolve_study_version", return_value="v1.0"),
+        ):
+            result = service.execute(
+                ImportStudyEventDefinitionsTemplateCommand(
+                    actor_user_id=99,
+                    study_id=3,
+                    file_name="events.xlsx",
+                    file_content=b"content",
+                )
+            )
+
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.updated_count, 1)
+        subject_event_lifecycle_adapter.resync_event_instances.assert_called_once_with(
+            study_id=3,
+            study_version="v1.0",
+            actor_user_id=99,
+            include_all_subjects=False,
+            trigger_source="study_eventdefinition_import",
+        )
 
     @patch("apps.study.application.services.import_event_definitions_template.transaction.atomic")
     @patch.object(ImportStudyEventDefinitionsTemplateService, "_sync_condition_definition")
@@ -135,6 +174,88 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             auto_create=True,
             requires_previous_completion=False,
             allow_skip=True,
+            actor_user_id=99,
+            now=ANY,
+        )
+
+    @patch("apps.study.application.services.import_event_definitions_template.transaction.atomic")
+    @patch.object(ImportStudyEventDefinitionsTemplateService, "_sync_condition_definition")
+    @patch.object(ImportStudyEventDefinitionsTemplateService, "_sync_transition_rule")
+    @patch.object(ImportStudyEventDefinitionsTemplateService, "_resolve_study_version", return_value="v1.0")
+    def test_import_row_accepts_not_eligible_condition_scope_shortcut(
+        self,
+        mock_resolve_study_version,
+        mock_sync_transition_rule,
+        mock_sync_condition_definition,
+        mock_atomic,
+    ):
+        mock_atomic.return_value = nullcontext()
+        created_event_definition = MagicMock(name="created_event_definition")
+        self.service.repository.get_event_definition_for_import.return_value = None
+        self.service.repository.create_event_definition.return_value = created_event_definition
+        mock_sync_condition_definition.return_value = None
+
+        outcome = self.service._import_row(
+            study_id=3,
+            row_data={
+                "study_version": "v1.0",
+                "code": "SCREEN_FAILURE",
+                "name": "Screen Failure",
+                "description": "",
+                "event_type": "operational",
+                "timing_mode": "conditional",
+                "event_category": "screening",
+                "execution_mode": "workflow action",
+                "sequence_no": "25",
+                "phase_code": "",
+                "repeated": "no",
+                "max_repeats": "",
+                "required": "no",
+                "precondition": "ELIGIBILITY_ASSESSMENT",
+                "transition_type": "conditional",
+                "condition_scope": "not_eligible",
+                "condition_code": "",
+                "condition_expression": "",
+                "offset_days": "",
+                "window_before_days": "",
+                "window_after_days": "",
+                "auto_open": "yes",
+                "auto_create": "yes",
+                "requires_previous_completion": "yes",
+                "allow_skip": "no",
+            },
+            row_number=4,
+            actor_user_id=99,
+        )
+
+        self.assertEqual(outcome, "created")
+        mock_resolve_study_version.assert_called_once_with(study_id=3, raw_study_version="v1.0")
+        mock_sync_condition_definition.assert_called_once_with(
+            study_id=3,
+            study_version="v1.0",
+            condition_code="not_eligible",
+            condition_scope=StudyConditionDefinitionScopeChoices.ELIGIBILITY,
+            condition_expression=None,
+            actor_user_id=99,
+            now=ANY,
+        )
+        mock_sync_transition_rule.assert_called_once_with(
+            event_definition=created_event_definition,
+            study_id=3,
+            study_version="v1.0",
+            sequence_no=25,
+            precondition_code="ELIGIBILITY_ASSESSMENT",
+            transition_type=EventTransitionTypeChoices.CONDITIONAL,
+            condition_scope=EventTransitionConditionScopeChoices.NOT_ELIGIBLE,
+            condition_code="not_eligible",
+            condition_definition=None,
+            offset_days=None,
+            window_before_days=None,
+            window_after_days=None,
+            auto_open=True,
+            auto_create=True,
+            requires_previous_completion=True,
+            allow_skip=False,
             actor_user_id=99,
             now=ANY,
         )

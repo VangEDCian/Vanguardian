@@ -15,6 +15,8 @@ from apps.subject.application.services import (
     AddRepeatingSubjectEventInstanceService,
     CreateSubjectService,
     SubjectEventCompletionService,
+    SubjectEventInstanceResyncResult,
+    SubjectEventInstanceResyncService,
     SubjectEventTransitionService,
     SubjectWorkflowActionService,
 )
@@ -30,6 +32,8 @@ __all__ = [
     "SubjectFormVerificationInvalidJsonError",
     "SubjectEventInstanceNotFoundError",
     "SubjectEventCompletionService",
+    "SubjectEventInstanceResyncResult",
+    "SubjectEventInstanceResyncService",
     "SubjectEventTransitionService",
     "SubjectWorkflowActionService",
     "SubjectFormVerificationRequestValidator",

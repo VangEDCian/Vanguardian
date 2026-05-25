@@ -1,6 +1,7 @@
 from apps.subject.application import (
     SubjectEventCompletionService,
     SubjectEventInstanceNotFoundError,
+    SubjectEventInstanceResyncService,
     SubjectEventTransitionService,
     TriggerSubjectEventTransitionCommand,
 )
@@ -15,9 +16,10 @@ from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 
 class SubjectEventLifecycleAdapter:
-    def __init__(self, transition_service=None, completion_service=None):
+    def __init__(self, transition_service=None, completion_service=None, resync_service=None):
         self.transition_service = transition_service or SubjectEventTransitionService()
         self.completion_service = completion_service or SubjectEventCompletionService()
+        self.resync_service = resync_service or SubjectEventInstanceResyncService()
 
     def trigger_event_transition(
         self,
@@ -66,6 +68,40 @@ class SubjectEventLifecycleAdapter:
         return self.completion_service.mark_event_instance_in_progress(
             event_instance_id=event_instance_id,
             actor_user_id=actor_user_id,
+        )
+
+    def resync_event_instances(
+        self,
+        *,
+        study_id: int,
+        study_version: str,
+        actor_user_id: int | None = None,
+        include_all_subjects: bool = False,
+        subject_ids=None,
+        trigger_source: str = "study_eventdefinition_resync",
+    ):
+        return self.resync_service.resync_study_version(
+            study_id=study_id,
+            study_version=study_version,
+            actor_user_id=actor_user_id,
+            include_all_subjects=include_all_subjects,
+            subject_ids=subject_ids,
+            trigger_source=trigger_source,
+        )
+
+    def resync_subject_active_study_version(
+        self,
+        *,
+        study_id: int,
+        subject_id: int,
+        actor_user_id: int | None = None,
+        trigger_source: str = "subject_list_resync_stage",
+    ):
+        return self.resync_service.resync_subject_active_study_version(
+            study_id=study_id,
+            subject_id=subject_id,
+            actor_user_id=actor_user_id,
+            trigger_source=trigger_source,
         )
 
 
@@ -117,6 +153,40 @@ def mark_subject_event_instance_in_progress(
     )
 
 
+def resync_subject_event_instances(
+    *,
+    study_id: int,
+    study_version: str,
+    actor_user_id: int | None = None,
+    include_all_subjects: bool = False,
+    subject_ids=None,
+    trigger_source: str = "study_eventdefinition_resync",
+):
+    return SubjectEventLifecycleAdapter().resync_event_instances(
+        study_id=study_id,
+        study_version=study_version,
+        actor_user_id=actor_user_id,
+        include_all_subjects=include_all_subjects,
+        subject_ids=subject_ids,
+        trigger_source=trigger_source,
+    )
+
+
+def resync_subject_active_study_version(
+    *,
+    study_id: int,
+    subject_id: int,
+    actor_user_id: int | None = None,
+    trigger_source: str = "subject_list_resync_stage",
+):
+    return SubjectEventLifecycleAdapter().resync_subject_active_study_version(
+        study_id=study_id,
+        subject_id=subject_id,
+        actor_user_id=actor_user_id,
+        trigger_source=trigger_source,
+    )
+
+
 class SubjectEligibilityWorkflowAdapter:
     def __init__(self, workflow_service=None):
         self.workflow_service = workflow_service or SubjectEligibilityWorkflowService()
@@ -163,6 +233,8 @@ __all__ = [
     "SubjectScopeSnapshot",
     "complete_subject_event_instance",
     "mark_subject_event_instance_in_progress",
+    "resync_subject_active_study_version",
+    "resync_subject_event_instances",
     "trigger_subject_event_transition",
     "verify_subject_event_instance",
 ]

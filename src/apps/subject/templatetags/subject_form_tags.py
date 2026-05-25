@@ -22,6 +22,7 @@ _CONTROL_TEMPLATE_MAP = {
     CrfFieldControlTypeChoices.DATE_TEXT: "subject/components/controls/_date_text_control.html",
     CrfFieldControlTypeChoices.DATETIME: "subject/components/controls/_datetime_control.html",
     CrfFieldControlTypeChoices.DATETIME_TEXT: "subject/components/controls/_datetime_text_control.html",
+    "TIME": "subject/components/controls/_time_control.html",
     CrfFieldControlTypeChoices.LABEL_ONLY: "subject/components/controls/_label_only_control.html",
 }
 
@@ -84,6 +85,11 @@ _CONTROL_I18N_MAP = {
     CrfFieldControlTypeChoices.DATETIME_TEXT: {
         "label": _("DateTime"),
     },
+    "TIME": {
+        "time_label": _("Time"),
+        "time_placeholder": _("HH:MM"),
+        "placeholder": _("HH:MM"),
+    },
     CrfFieldControlTypeChoices.LABEL_ONLY: {
         "placeholder": _("Display value"),
     },
@@ -103,7 +109,8 @@ _CONTROL_TYPE_ALIAS_MAP = {
     "CHECKBOX_LIST": CrfFieldControlTypeChoices.MULTI_SELECT,
     "DATE_PICKER": CrfFieldControlTypeChoices.DATE,
     "DATE_TEXT": CrfFieldControlTypeChoices.DATE_TEXT,
-    "TIME_PICKER": CrfFieldControlTypeChoices.DATETIME,
+    "TIME": "TIME",
+    "TIME_PICKER": "TIME",
     "DATETIME_TEXT": CrfFieldControlTypeChoices.DATETIME_TEXT,
     "LABEL_ONLY": CrfFieldControlTypeChoices.LABEL_ONLY,
     "LABEL_ONLY_FIELD": CrfFieldControlTypeChoices.LABEL_ONLY,
@@ -226,6 +233,44 @@ def subject_datetime_text_control_i18n(context):
             r"(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
         ),
     }
+
+
+@register.simple_tag
+def subject_time_control_i18n():
+    return subject_control_i18n("TIME")
+
+
+def _normalize_time_input_value(raw_value):
+    if isinstance(raw_value, dict):
+        raw_value = raw_value.get("__time") or raw_value.get("time") or ""
+    text = str(raw_value or "").strip()
+    if not text:
+        return ""
+
+    match = re.search(
+        r"(?:^|[T\s])(?P<hour>\d{1,2}):(?P<minute>\d{1,2})"
+        r"(?::(?P<second>\d{1,2})(?:\.\d{1,3})?)?(?:$|[+\-Z\s])",
+        text,
+    )
+    if not match:
+        return ""
+    try:
+        hour = int(match.group("hour"))
+        minute = int(match.group("minute"))
+        second_text = match.group("second")
+        second = int(second_text) if second_text is not None else 0
+    except (TypeError, ValueError):
+        return ""
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59 or second < 0 or second > 59:
+        return ""
+    return f"{hour:02d}:{minute:02d}"
+
+
+@register.simple_tag
+def subject_time_input_value(field):
+    if not isinstance(field, dict):
+        return ""
+    return _normalize_time_input_value(field.get("value"))
 
 
 @register.simple_tag

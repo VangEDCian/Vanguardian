@@ -2,6 +2,7 @@ from apps.study.application.commands import (
     EnrollSubjectCommand,
     FinalizeEligibilityAssessmentCommand,
     MarkEligibilityStaleOnSourceDataChangeCommand,
+    RecordEventGateEvaluationCommand,
     RetractEligibilityAssessmentCommand,
 )
 from apps.study.application.services.randomization_workflow import (
@@ -49,15 +50,23 @@ def enroll_subject_after_eligibility_gate(command: EnrollSubjectCommand):
     return EligibilityAssessmentService().enroll_subject(command)
 
 
+def record_event_gate_evaluation(command: RecordEventGateEvaluationCommand):
+    from apps.study.application.services.event_gate_evaluation import EventGateEvaluationRecorder
+
+    return EventGateEvaluationRecorder().record(command)
+
+
 __all__ = [
     "RandomizationSlotAssignment",
     "EnrollSubjectCommand",
     "FinalizeEligibilityAssessmentCommand",
     "MarkEligibilityStaleOnSourceDataChangeCommand",
+    "RecordEventGateEvaluationCommand",
     "RetractEligibilityAssessmentCommand",
     "assign_randomization_slot_for_subject",
     "enroll_subject_after_eligibility_gate",
     "finalize_subject_eligibility_assessment",
     "mark_subject_eligibility_stale_on_source_data_change",
+    "record_event_gate_evaluation",
     "retract_subject_eligibility_assessment",
 ]

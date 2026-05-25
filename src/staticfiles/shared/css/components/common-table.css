@@ -428,6 +428,10 @@
   cursor: pointer;
 }
 
+.crf-template-actions__form {
+  margin: 0;
+}
+
 .crf-template-actions__item:hover:not(:disabled) {
   background: #eef8fc;
   color: #0d6f97;
