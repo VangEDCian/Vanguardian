@@ -27,9 +27,17 @@ class SubjectEventInstanceResyncResult:
         return self.created_count > 0 or self.updated_count > 0 or self.downstream_transition_count > 0
 
 
+class DataCaptureEventFactProvider:
+    def evaluate_for_event_instance(self, *, event_instance_id: int):
+        from apps.datacapture.public import evaluate_facts_for_event_instance
+
+        return evaluate_facts_for_event_instance(event_instance_id=event_instance_id)
+
+
 class SubjectEventInstanceResyncService:
     repository_class = DjangoSubjectEventInstanceResyncRepository
     transition_service_class = SubjectEventTransitionService
+    event_fact_provider_class = DataCaptureEventFactProvider
     resyncable_statuses = frozenset(
         {
             SubjectEventInstance.NOT_READY,
@@ -37,9 +45,10 @@ class SubjectEventInstanceResyncService:
         }
     )
 
-    def __init__(self, repository=None, transition_service=None):
+    def __init__(self, repository=None, transition_service=None, event_fact_provider=None):
         self.repository = repository or self.repository_class()
         self.transition_service = transition_service or self.transition_service_class()
+        self.event_fact_provider = event_fact_provider or self.event_fact_provider_class()
 
     def resync_study_version(
         self,
@@ -231,16 +240,24 @@ class SubjectEventInstanceResyncService:
     ) -> int:
         downstream_transition_count = 0
         for event_instance_id in event_instance_ids:
+            facts = self._evaluate_transition_facts(event_instance_id=event_instance_id)
             result = self.transition_service.execute(
                 TriggerSubjectEventTransitionCommand(
                     source_event_instance_id=event_instance_id,
-                    facts={},
+                    facts=facts,
                     actor_user_id=actor_user_id,
                     trigger_source=trigger_source,
                 )
             )
             downstream_transition_count += len(result.applied_events)
         return downstream_transition_count
+
+    def _evaluate_transition_facts(self, *, event_instance_id: int) -> dict:
+        evaluation = self.event_fact_provider.evaluate_for_event_instance(
+            event_instance_id=event_instance_id,
+        )
+        facts = getattr(evaluation, "facts", None)
+        return facts if isinstance(facts, dict) else {}
 
     def _resolve_desired_status_by_event_definition(
         self,

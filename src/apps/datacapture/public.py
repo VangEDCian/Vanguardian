@@ -31,6 +31,16 @@ def read_fact_snapshot_for_page_state(*, page_state_id: int):
     return DataCaptureFactSnapshotService().read_for_page_state(page_state_id=page_state_id)
 
 
+def evaluate_facts_for_event_instance(*, event_instance_id: int):
+    from apps.datacapture.application.services.fact_evaluation import (
+        DataCaptureFactEvaluationService,
+    )
+
+    return DataCaptureFactEvaluationService().evaluate_for_event_instance(
+        event_instance_id=event_instance_id,
+    )
+
+
 def save_page_for_subject_visit_crf(
     *, subject_id: int, visit_id: int, crf_template_id: int, data: str, actor_user_id: int | None = None
 ):
@@ -250,6 +260,7 @@ __all__ = [
     "DataCapturePageStateNotFoundError",
     "delete_latest_draft_page_entry_for_subject_visit_crf",
     "ensure_draft_page_state_if_not_exists",
+    "evaluate_facts_for_event_instance",
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",
     "get_page_state_final_data_for_subject_visit_crf",

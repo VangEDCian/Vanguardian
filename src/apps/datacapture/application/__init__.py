@@ -22,7 +22,10 @@ from apps.datacapture.application.exceptions import (
     DataCaptureValidationError,
 )
 from apps.datacapture.application.services import (
+    DataCaptureEventFactEvaluation,
     DataCaptureEventTransitionTriggerResult,
+    DataCaptureFactEvaluation,
+    DataCaptureFactEvaluationService,
     DataCaptureFactSnapshot,
     DataCaptureFactSnapshotService,
     DataCapturePageStateEventTransitionService,
@@ -34,6 +37,9 @@ from apps.datacapture.application.services import (
 
 __all__ = [
     "DataCaptureEventTransitionTriggerResult",
+    "DataCaptureEventFactEvaluation",
+    "DataCaptureFactEvaluation",
+    "DataCaptureFactEvaluationService",
     "DataCaptureFactSnapshot",
     "DataCaptureFactSnapshotService",
     "DataCaptureChangeReasonRequiredError",

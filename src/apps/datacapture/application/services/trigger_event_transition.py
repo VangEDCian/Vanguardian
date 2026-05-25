@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 
 from apps.datacapture.application.commands import (
-    DataCapturePageStateNotFoundError,
     TriggerPageStateEventTransitionCommand,
 )
-from apps.datacapture.domain import DataCaptureFactMappingEvaluator, DataCapturePageState
-from apps.datacapture.infrastructure.repositories import DjangoDataCaptureFactMappingRepository
+from apps.datacapture.application.services.fact_evaluation import DataCaptureFactEvaluationService
+from apps.datacapture.domain import DataCapturePageState
 from apps.subject.public import SubjectEventLifecycleAdapter
 
 
@@ -23,18 +22,20 @@ class DataCaptureEventTransitionTriggerResult:
 
 
 class DataCapturePageStateEventTransitionService:
-    repository_class = DjangoDataCaptureFactMappingRepository
-    fact_mapping_evaluator_class = DataCaptureFactMappingEvaluator
+    fact_evaluation_service_class = DataCaptureFactEvaluationService
     subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter
 
     def __init__(
         self,
         repository=None,
         fact_mapping_evaluator=None,
+        fact_evaluation_service=None,
         subject_event_lifecycle_adapter=None,
     ):
-        self.repository = repository or self.repository_class()
-        self.fact_mapping_evaluator = fact_mapping_evaluator or self.fact_mapping_evaluator_class()
+        self.fact_evaluation_service = fact_evaluation_service or self.fact_evaluation_service_class(
+            repository=repository,
+            fact_mapping_evaluator=fact_mapping_evaluator,
+        )
         self.subject_event_lifecycle_adapter = (
             subject_event_lifecycle_adapter or self.subject_event_lifecycle_adapter_class()
         )
@@ -43,11 +44,7 @@ class DataCapturePageStateEventTransitionService:
         self,
         command: TriggerPageStateEventTransitionCommand,
     ) -> DataCaptureEventTransitionTriggerResult:
-        page_state = self.repository.get_page_state_for_event_transition(
-            page_state_id=command.page_state_id,
-        )
-        if page_state is None:
-            raise DataCapturePageStateNotFoundError(command.page_state_id)
+        page_state = self.fact_evaluation_service.get_page_state_or_raise(page_state_id=command.page_state_id)
 
         if not DataCapturePageState.is_event_transition_stable(page_state.status):
             return DataCaptureEventTransitionTriggerResult(
@@ -57,28 +54,17 @@ class DataCapturePageStateEventTransitionService:
                 skipped_reason="page_state_not_stable",
             )
 
-        mappings = self.repository.list_enabled_fact_mappings(
-            study_id=page_state.study_id,
-            study_version=page_state.study_version,
-            crf_template_id=page_state.crf_template_id,
-            event_definition_id=page_state.event_definition_id,
-        )
-        fact_source = self.repository.get_fact_source_for_event_transition(page_state_id=page_state.id)
-        facts = self.fact_mapping_evaluator.build_facts(
-            final_data=page_state.final_data,
-            mappings=mappings,
-            fact_source=fact_source,
-        )
+        evaluation = self.fact_evaluation_service.evaluate(page_state=page_state)
         transition_result = self.subject_event_lifecycle_adapter.trigger_event_transition(
             source_event_instance_id=page_state.visit_id,
-            facts=facts or {},
+            facts=evaluation.facts,
             actor_user_id=command.actor_user_id,
             trigger_source=command.trigger_source,
         )
         return DataCaptureEventTransitionTriggerResult(
             page_state_id=page_state.id,
             status=page_state.status,
-            facts=facts or {},
+            facts=evaluation.facts,
             transition_result=transition_result,
         )
 

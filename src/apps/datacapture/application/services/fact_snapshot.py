@@ -2,9 +2,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 
-from apps.datacapture.application.commands import DataCapturePageStateNotFoundError
-from apps.datacapture.domain import DataCaptureFactMappingEvaluator
-from apps.datacapture.infrastructure.repositories import DjangoDataCaptureFactMappingRepository
+from apps.datacapture.application.services.fact_evaluation import DataCaptureFactEvaluationService
 
 
 @dataclass(frozen=True)
@@ -25,30 +23,18 @@ class DataCaptureFactSnapshot:
 
 
 class DataCaptureFactSnapshotService:
-    repository_class = DjangoDataCaptureFactMappingRepository
-    fact_mapping_evaluator_class = DataCaptureFactMappingEvaluator
+    fact_evaluation_service_class = DataCaptureFactEvaluationService
 
-    def __init__(self, repository=None, fact_mapping_evaluator=None):
-        self.repository = repository or self.repository_class()
-        self.fact_mapping_evaluator = fact_mapping_evaluator or self.fact_mapping_evaluator_class()
+    def __init__(self, repository=None, fact_mapping_evaluator=None, fact_evaluation_service=None):
+        self.fact_evaluation_service = fact_evaluation_service or self.fact_evaluation_service_class(
+            repository=repository,
+            fact_mapping_evaluator=fact_mapping_evaluator,
+        )
 
     def read_for_page_state(self, *, page_state_id: int) -> DataCaptureFactSnapshot:
-        page_state = self.repository.get_page_state_for_event_transition(page_state_id=page_state_id)
-        if page_state is None:
-            raise DataCapturePageStateNotFoundError(page_state_id)
-
-        mappings = self.repository.list_enabled_fact_mappings(
-            study_id=page_state.study_id,
-            study_version=page_state.study_version,
-            crf_template_id=page_state.crf_template_id,
-            event_definition_id=page_state.event_definition_id,
-        )
-        fact_source = self.repository.get_fact_source_for_event_transition(page_state_id=page_state.id)
-        facts = self.fact_mapping_evaluator.build_facts(
-            final_data=page_state.final_data,
-            mappings=mappings,
-            fact_source=fact_source,
-        ) or {}
+        evaluation = self.fact_evaluation_service.evaluate_for_page_state(page_state_id=page_state_id)
+        page_state = evaluation.page_state
+        facts = dict(evaluation.facts)
         facts.setdefault("screening.page.status", page_state.status)
 
         return DataCaptureFactSnapshot(
@@ -63,9 +49,7 @@ class DataCaptureFactSnapshotService:
             page_status=page_state.status,
             facts=facts,
             source_data_version=page_state.data_version,
-            source_data_hash=self._hash_final_data(
-                fact_source.to_jsonpath_context() if fact_source is not None else page_state.final_data
-            ),
+            source_data_hash=self._hash_final_data(evaluation.source_data_for_hash),
             blocking_queries_open=None,
         )
 

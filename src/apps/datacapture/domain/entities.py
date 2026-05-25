@@ -103,6 +103,16 @@ class DataCaptureFactSource:
 
 
 @dataclass(frozen=True)
+class DataCaptureEventFactContext:
+    event_instance_id: int
+    study_id: int
+    study_version: str
+    event_definition_id: int
+    crf_template_ids: tuple[int, ...]
+    fact_source: DataCaptureFactSource
+
+
+@dataclass(frozen=True)
 class PageEntryStateChangedEvent:
     entry_id: int
     page_state_id: int | None
@@ -164,6 +174,7 @@ class SubmitExecutionPlan:
 
 __all__ = [
     "DataCaptureFactForm",
+    "DataCaptureEventFactContext",
     "DataCaptureFactMappingRule",
     "DataCaptureFactSource",
     "DataCapturePageEntrySnapshot",

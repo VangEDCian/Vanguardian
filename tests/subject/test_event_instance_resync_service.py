@@ -205,6 +205,7 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
             },
         )
         transition_service = _SubjectEventTransitionServiceStub(applied_event_count=1)
+        event_fact_provider = _EventFactProviderStub(facts_by_event_instance_id={10: {"eligible": True}})
 
         with patch(
             "apps.subject.application.services.event_instance_resync.transaction.atomic",
@@ -213,6 +214,7 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
             result = SubjectEventInstanceResyncService(
                 repository=repository,
                 transition_service=transition_service,
+                event_fact_provider=event_fact_provider,
             ).resync_study_version(
                 study_id=1,
                 study_version="v1.0",
@@ -225,8 +227,10 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
         self.assertEqual(len(transition_service.commands), 1)
         command = transition_service.commands[0]
         self.assertEqual(command.source_event_instance_id, 10)
+        self.assertEqual(command.facts, {"eligible": True})
         self.assertEqual(command.actor_user_id, 99)
         self.assertEqual(command.trigger_source, "subject_list_resync_stage")
+        self.assertEqual(event_fact_provider.event_instance_ids, [10])
 
 
 class _SubjectEventInstanceResyncRepositoryStub:
@@ -339,6 +343,16 @@ class _SubjectEventTransitionServiceStub:
     def execute(self, command):
         self.commands.append(command)
         return SimpleNamespace(applied_events=tuple(object() for _ in range(self.applied_event_count)))
+
+
+class _EventFactProviderStub:
+    def __init__(self, *, facts_by_event_instance_id=None):
+        self.facts_by_event_instance_id = facts_by_event_instance_id or {}
+        self.event_instance_ids = []
+
+    def evaluate_for_event_instance(self, *, event_instance_id):
+        self.event_instance_ids.append(event_instance_id)
+        return SimpleNamespace(facts=self.facts_by_event_instance_id.get(event_instance_id, {}))
 
 
 def _event_definition(*, pk, code, name=None, study_version="v1.0"):
