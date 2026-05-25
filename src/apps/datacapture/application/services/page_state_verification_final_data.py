@@ -18,7 +18,7 @@ from apps.subject.public import SubjectEventLifecycleAdapter
 
 
 class DataCapturePageStateVerificationFinalDataService:
-    """Verify field reviews and page state without mutating clinical ``final_data``."""
+    """Verify field reviews and persist stable page-state ``final_data``."""
 
     validator_class = DataCapturePageStateVerificationValidator
     subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter

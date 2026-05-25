@@ -79,6 +79,8 @@ class _ChangedResyncService:
             created_count=2,
             updated_count=1,
             skipped_terminal_count=0,
+            lifecycle_trigger_count=1,
+            downstream_transition_count=1,
             reason="completed",
             has_changes=True,
         )
@@ -93,6 +95,8 @@ class _NoActiveVersionResyncService:
             created_count=0,
             updated_count=0,
             skipped_terminal_count=0,
+            lifecycle_trigger_count=0,
+            downstream_transition_count=0,
             reason="active_study_version_not_found",
             has_changes=False,
         )

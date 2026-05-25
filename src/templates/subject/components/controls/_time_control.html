@@ -8,6 +8,7 @@
         <input class="subject-date-picker__input subject-date-picker__input--time"
                type="text"
                name="{{ field.field_key }}"
+               tabindex="{% subject_control_tabindex field 0 %}"
                inputmode="numeric"
                pattern="^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
                maxlength="5"

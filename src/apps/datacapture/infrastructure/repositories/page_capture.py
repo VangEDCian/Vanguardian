@@ -42,6 +42,13 @@ from apps.subject.models import SubjectEventInstance
 
 class DjangoDataCapturePageRepository:
     EMPTY_PAGE_STATE_FINAL_DATA = json.dumps(normalize_form_data(None), ensure_ascii=False, sort_keys=True)
+    FINAL_DATA_STATUSES = frozenset(
+        {
+            DataCapturePageStateStatusChoices.VERIFIED,
+            DataCapturePageStateStatusChoices.LOCKED,
+            DataCapturePageStateStatusChoices.FINALIZED,
+        }
+    )
     LOOKUP_LABELS_PAYLOAD_KEY = "_field_lookup_labels"
     REPEAT_KEY_RE = re.compile(r"^(?P<base>.+)__repeat_(?P<repeat_index>\d+)$")
     DATE_PART_KEY_RE = re.compile(r"^(?P<base>.+)__(?P<part>day|month|year|time)$")
@@ -1017,6 +1024,8 @@ class DjangoDataCapturePageRepository:
                 final_data=self._page_state_final_data_for_lifecycle_status(
                     status=status,
                     current_final_data=existing.final_data,
+                    page_state_id=existing.pk,
+                    data_version=existing.data_version,
                 ),
                 updated_by_id=actor_user_id,
             )
@@ -1042,6 +1051,13 @@ class DjangoDataCapturePageRepository:
             created_by_id=actor_user_id,
             updated_by_id=actor_user_id,
         )
+        if status in self.FINAL_DATA_STATUSES:
+            page_state.final_data = self._page_state_final_data_for_status(
+                status=status,
+                page_state_id=page_state.pk,
+                data_version=page_state.data_version,
+            )
+            DataCapturePageState.objects.filter(pk=page_state.pk).update(final_data=page_state.final_data)
         self._record_page_state_transition(
             page_state=page_state,
             from_status=None,
@@ -1268,6 +1284,8 @@ class DjangoDataCapturePageRepository:
             final_data=self._page_state_final_data_for_lifecycle_status(
                 status=target_status,
                 current_final_data=page_state.final_data,
+                page_state_id=page_state.pk,
+                data_version=page_state.data_version,
             ),
             submitted_at=now,
             submitted_by_id=actor_user_id,
@@ -1700,7 +1718,11 @@ class DjangoDataCapturePageRepository:
             updated_at=now,
             updated_by_id=actor_user_id,
             status=DataCapturePageStateStatusChoices.VERIFIED,
-            final_data=self.EMPTY_PAGE_STATE_FINAL_DATA,
+            final_data=self._page_state_final_data_for_status(
+                status=DataCapturePageStateStatusChoices.VERIFIED,
+                page_state_id=page_state.pk,
+                data_version=page_state.data_version,
+            ),
             verified_at=now,
             verified_by_id=actor_user_id,
             verified_data_version=page_state.data_version,
@@ -1787,7 +1809,7 @@ class DjangoDataCapturePageRepository:
         status: str,
         actor_user_id: int | None = None,
     ) -> None:
-        """Persist finalized ``final_data`` only when status is ``FINALIZED``."""
+        """Persist stable ``final_data`` when status is verified, locked, or finalized."""
         now = self._now()
         page_state = DataCapturePageState.objects.filter(
             subject_id=subject_id,
@@ -1818,6 +1840,24 @@ class DjangoDataCapturePageRepository:
                 if status == DataCapturePageStateStatusChoices.FINALIZED
                 else page_state.finalized_data_version
             ),
+            locked_at=(now if status == DataCapturePageStateStatusChoices.LOCKED else page_state.locked_at),
+            locked_by_id=(
+                actor_user_id if status == DataCapturePageStateStatusChoices.LOCKED else page_state.locked_by_id
+            ),
+            locked_data_version=(
+                page_state.data_version
+                if status == DataCapturePageStateStatusChoices.LOCKED
+                else page_state.locked_data_version
+            ),
+            verified_at=(now if status == DataCapturePageStateStatusChoices.VERIFIED else page_state.verified_at),
+            verified_by_id=(
+                actor_user_id if status == DataCapturePageStateStatusChoices.VERIFIED else page_state.verified_by_id
+            ),
+            verified_data_version=(
+                page_state.data_version
+                if status == DataCapturePageStateStatusChoices.VERIFIED
+                else page_state.verified_data_version
+            ),
         )
         if rows_updated == 0:
             raise LookupError("Could not persist verification: page state update affected 0 rows.")
@@ -1835,8 +1875,16 @@ class DjangoDataCapturePageRepository:
         *,
         status: str,
         current_final_data: str | None,
+        page_state_id: int | None = None,
+        data_version: int | None = None,
     ) -> str:
-        if status == DataCapturePageStateStatusChoices.FINALIZED:
+        if status in self.FINAL_DATA_STATUSES:
+            if page_state_id is not None and data_version is not None:
+                return self._page_state_final_data_for_status(
+                    status=status,
+                    page_state_id=page_state_id,
+                    data_version=data_version,
+                )
             return current_final_data or self.EMPTY_PAGE_STATE_FINAL_DATA
         return self.EMPTY_PAGE_STATE_FINAL_DATA
 
@@ -1847,9 +1895,10 @@ class DjangoDataCapturePageRepository:
         page_state_id: int,
         data_version: int,
     ) -> str:
-        if status != DataCapturePageStateStatusChoices.FINALIZED:
+        if status not in self.FINAL_DATA_STATUSES:
             return self.EMPTY_PAGE_STATE_FINAL_DATA
         return self._build_page_state_final_data_from_field_reviews(
+            status=status,
             page_state_id=page_state_id,
             data_version=data_version,
             review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
@@ -1858,6 +1907,7 @@ class DjangoDataCapturePageRepository:
     def _build_page_state_final_data_from_field_reviews(
         self,
         *,
+        status: str,
         page_state_id: int,
         data_version: int,
         review_type: str,
@@ -1910,7 +1960,31 @@ class DjangoDataCapturePageRepository:
             entry_version=entry_version,
             strict=False,
         )
+        doc["page_state"] = {
+            "id": int(page_state_id),
+            "status": self._status_value(status),
+            "data_version": int(data_version),
+            "current_entry_id": int(page_state.current_entry_id) if page_state and page_state.current_entry_id else None,
+            "crf_template_id": crf_template_id or None,
+        }
+        doc["fields"] = {
+            str(field_key): {"value": value}
+            for field_key, value in payload.items()
+            if not str(field_key).startswith("_")
+        }
+        doc["verification"] = {
+            "required_eligibility_fields_verified": True,
+            "required_fields_verified": True,
+        }
+        doc["query_summary"] = {
+            "blocking_eligibility_query_count": 0,
+            "blocking_query_count": 0,
+        }
         return json.dumps(doc, ensure_ascii=False, sort_keys=True)
+
+    @staticmethod
+    def _status_value(status: str) -> str:
+        return str(getattr(status, "value", status))
 
     def _record_page_state_transition(
         self,

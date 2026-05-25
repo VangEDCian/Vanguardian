@@ -341,7 +341,7 @@
                                         </div>
                                         <input type="text"
                                                class="old-textbox crf-input-group__control"
-                                               placeholder="domain + variable + role"
+                                               placeholder="{% trans 'domain + variable + role' %}"
                                                data-sdtm-composite>
                                     </div>
                                     <div hidden>
@@ -394,7 +394,7 @@
                                                         <input id="ui-config-key"
                                                                type="text"
                                                                class="crf-ui-config-modal-control crf-input-group__control"
-                                                               placeholder="placeholder"
+                                                               placeholder="{% trans 'placeholder' %}"
                                                                data-ui-config-key>
                                                     </div>
                                                 </div>
@@ -406,7 +406,7 @@
                                                         <input id="ui-config-value"
                                                                type="text"
                                                                class="crf-ui-config-modal-control crf-input-group__control"
-                                                               placeholder="Enter value"
+                                                               placeholder="{% trans 'Enter value' %}"
                                                                data-ui-config-value>
                                                     </div>
                                                 </div>
@@ -531,7 +531,7 @@
     <div class="crf-sdtm-modal" role="dialog" aria-modal="true" aria-labelledby="sdtm-modal-title">
         <div class="crf-sdtm-modal__header">
             <h2 class="crf-sdtm-modal__title" id="sdtm-modal-title">{% trans "Quản lý SDTM" %}</h2>
-            <button type="button" class="crf-sdtm-modal__close" data-sdtm-close aria-label="Đóng">
+            <button type="button" class="crf-sdtm-modal__close" data-sdtm-close aria-label="{% trans 'Close' %}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18"></path>
                     <path d="m6 6 12 12"></path>
@@ -544,19 +544,19 @@
                     <div class="crf-sdtm-modal__label">{% trans "Domain" %}:</div>
                     <input type="text"
                            class="crf-sdtm-modal__field"
-                           placeholder="Nhập domain"
+                           placeholder="{% trans 'Enter domain' %}"
                            data-sdtm-domain>
 
                     <div class="crf-sdtm-modal__label">{% trans "Variable" %}:</div>
                     <input type="text"
                            class="crf-sdtm-modal__field"
-                           placeholder="Nhập variable"
+                           placeholder="{% trans 'Enter variable' %}"
                            data-sdtm-variable>
 
                     <div class="crf-sdtm-modal__label">{% trans "Role" %}:</div>
                     <input type="text"
                            class="crf-sdtm-modal__field"
-                           placeholder="Nhập role"
+                           placeholder="{% trans 'Enter role' %}"
                            data-sdtm-role>
                 </div>
             </div>
@@ -575,7 +575,7 @@
                 <h2 class="crf-sdtm-modal__title" id="ui-config-kv-modal-title" data-ui-config-modal-title>{% trans "Quản lý Style" %}</h2>
                 <div class="crf-sdtm-modal__subtitle" data-ui-config-modal-target-label></div>
             </div>
-            <button type="button" class="crf-sdtm-modal__close" data-ui-config-modal-close aria-label="Đóng">
+            <button type="button" class="crf-sdtm-modal__close" data-ui-config-modal-close aria-label="{% trans 'Close' %}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18"></path>
                     <path d="m6 6 12 12"></path>

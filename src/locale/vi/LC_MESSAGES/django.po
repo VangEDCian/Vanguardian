@@ -707,3 +707,41 @@ msgstr "Nhập trường từ template"
 
 msgid "Required worksheet: Template Fields."
 msgstr "Worksheet bắt buộc: Template Fields."
+
+#. ==============================
+#. Module: Shared Components
+#. Templates: templates/shared/components/_common_date.html, _common_datetime.html, _common_time.html
+#. ==============================
+msgid "Open calendar"
+msgstr "Mở lịch"
+
+msgid "Open time picker"
+msgstr "Mở bộ chọn thời gian"
+
+#. ==============================
+#. Module: CRF Builder
+#. Templates: templates/crf/field_form.html, templates/crf/components/_form_builder_fields_panel.html
+#. ==============================
+msgid "VS + VSORRES + result"
+msgstr "VS + VSORRES + kết quả"
+
+msgid "domain + variable + role"
+msgstr "domain + biến + vai trò"
+
+msgid "placeholder"
+msgstr "văn bản gợi ý"
+
+msgid "Enter value"
+msgstr "Nhập giá trị"
+
+msgid "Close"
+msgstr "Đóng"
+
+msgid "Enter domain"
+msgstr "Nhập domain"
+
+msgid "Enter variable"
+msgstr "Nhập biến"
+
+msgid "Enter role"
+msgstr "Nhập vai trò"

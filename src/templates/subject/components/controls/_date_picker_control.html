@@ -5,11 +5,13 @@
     <input type="hidden"
            data-date-composite-input
            data-date-composite-type="date"
+           tabindex="{% subject_control_tabindex field 0 %}"
            value="{{ field.value|default:'' }}">
     <div class="subject-date-picker__part">
         <span class="subject-date-picker__label">{{ date_picker_i18n.day_label }}</span>
         <input class="subject-date-picker__input subject-date-picker__input--day"
                type="text"
+               tabindex="{% subject_control_tabindex field 1 %}"
                inputmode="numeric"
                pattern="^(?:[1-9]|[12][0-9]|3[01])$"
                maxlength="2"
@@ -22,6 +24,7 @@
     <div class="subject-date-picker__part">
         <span class="subject-date-picker__label">{{ date_picker_i18n.month_label }}</span>
         <select class="subject-date-picker__input subject-date-picker__input--month"
+                tabindex="{% subject_control_tabindex field 2 %}"
                 {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
                 {{ date_validator_attrs }}>
             <option value="">{{ date_picker_i18n.month_empty_option }}</option>
@@ -34,6 +37,7 @@
         <span class="subject-date-picker__label">{{ date_picker_i18n.year_label }}</span>
         <input class="subject-date-picker__input subject-date-picker__input--year"
                type="text"
+               tabindex="{% subject_control_tabindex field 3 %}"
                inputmode="numeric"
                pattern="^\d{4}$"
                maxlength="4"

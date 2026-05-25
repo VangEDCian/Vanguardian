@@ -1,4 +1,4 @@
-{% load i18n static subject_field_display %}
+{% load i18n static subject_field_display subject_form_tags %}
 <div class="subject-form-verification-review__table-wrap">
     <table class="entity-table subject-form-verification-review__table subject-form-verification-review__table--styled">
         <thead>
@@ -29,6 +29,7 @@
                                name="verify_field"
                                value="{{ row.field_template_id }}"
                                class="subject-form-verification-review__checkbox"
+                               tabindex="{% subject_control_tabindex row 0 %}"
                                data-field-template-id="{{ row.field_template_id }}"
                                data-field-verified="{% if row.is_checked %}true{% else %}false{% endif %}"
                                data-blocked-by-open-query="{% if row.active_query_id or row.open_query_count %}true{% else %}false{% endif %}"

@@ -3,6 +3,8 @@ from datetime import timedelta
 
 from django.db import transaction
 
+from apps.subject.application.commands import TriggerSubjectEventTransitionCommand
+from apps.subject.application.services.event_lifecycle import SubjectEventTransitionService
 from apps.subject.domain import SubjectEventInstance
 from apps.subject.infrastructure.repositories import DjangoSubjectEventInstanceResyncRepository
 
@@ -16,15 +18,18 @@ class SubjectEventInstanceResyncResult:
     created_count: int = 0
     updated_count: int = 0
     skipped_terminal_count: int = 0
+    lifecycle_trigger_count: int = 0
+    downstream_transition_count: int = 0
     reason: str = ""
 
     @property
     def has_changes(self) -> bool:
-        return self.created_count > 0 or self.updated_count > 0
+        return self.created_count > 0 or self.updated_count > 0 or self.downstream_transition_count > 0
 
 
 class SubjectEventInstanceResyncService:
     repository_class = DjangoSubjectEventInstanceResyncRepository
+    transition_service_class = SubjectEventTransitionService
     resyncable_statuses = frozenset(
         {
             SubjectEventInstance.NOT_READY,
@@ -32,8 +37,9 @@ class SubjectEventInstanceResyncService:
         }
     )
 
-    def __init__(self, repository=None):
+    def __init__(self, repository=None, transition_service=None):
         self.repository = repository or self.repository_class()
+        self.transition_service = transition_service or self.transition_service_class()
 
     def resync_study_version(
         self,
@@ -132,6 +138,7 @@ class SubjectEventInstanceResyncService:
         created_count = 0
         updated_count = 0
         skipped_terminal_count = 0
+        transition_ready_event_instance_ids = []
 
         for subject_id in subject_ids:
             existing_events = self.repository.list_event_instances_for_subject_version_for_update(
@@ -188,6 +195,20 @@ class SubjectEventInstanceResyncService:
                 if updated:
                     updated_count += 1
 
+            transition_ready_event_instance_ids.extend(
+                self.repository.list_transition_ready_event_instance_ids(
+                    study_id=study_id,
+                    subject_id=subject_id,
+                    study_version=study_version,
+                )
+            )
+
+        downstream_transition_count = self._trigger_downstream_transitions(
+            event_instance_ids=transition_ready_event_instance_ids,
+            actor_user_id=actor_user_id,
+            trigger_source=trigger_source,
+        )
+
         return SubjectEventInstanceResyncResult(
             study_id=study_id,
             study_version=study_version,
@@ -196,8 +217,30 @@ class SubjectEventInstanceResyncService:
             created_count=created_count,
             updated_count=updated_count,
             skipped_terminal_count=skipped_terminal_count,
+            lifecycle_trigger_count=len(transition_ready_event_instance_ids),
+            downstream_transition_count=downstream_transition_count,
             reason="completed",
         )
+
+    def _trigger_downstream_transitions(
+        self,
+        *,
+        event_instance_ids: list[int],
+        actor_user_id: int | None,
+        trigger_source: str,
+    ) -> int:
+        downstream_transition_count = 0
+        for event_instance_id in event_instance_ids:
+            result = self.transition_service.execute(
+                TriggerSubjectEventTransitionCommand(
+                    source_event_instance_id=event_instance_id,
+                    facts={},
+                    actor_user_id=actor_user_id,
+                    trigger_source=trigger_source,
+                )
+            )
+            downstream_transition_count += len(result.applied_events)
+        return downstream_transition_count
 
     def _resolve_desired_status_by_event_definition(
         self,

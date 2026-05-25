@@ -184,6 +184,50 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
         self.assertEqual(result.created_count, 1)
         self.assertEqual([event.subject_id for event in repository.created_events], [20])
 
+    def test_resync_triggers_downstream_transitions_for_transition_ready_events(self):
+        repository = _SubjectEventInstanceResyncRepositoryStub(
+            now=datetime(2026, 5, 25, 9, 0, tzinfo=timezone.utc),
+            event_definitions=[
+                _event_definition(pk=100, code="SCREENING"),
+                _event_definition(pk=101, code="VISIT2"),
+            ],
+            transition_rules=[],
+            subject_ids=[20],
+            transition_ready_event_instance_ids_by_subject={20: [10]},
+            existing_events_by_subject={
+                20: {
+                    100: _event_instance(
+                        pk=10,
+                        event_definition_id=100,
+                        status=SubjectEventInstance.COMPLETED,
+                    ),
+                }
+            },
+        )
+        transition_service = _SubjectEventTransitionServiceStub(applied_event_count=1)
+
+        with patch(
+            "apps.subject.application.services.event_instance_resync.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                transition_service=transition_service,
+            ).resync_study_version(
+                study_id=1,
+                study_version="v1.0",
+                actor_user_id=99,
+                trigger_source="subject_list_resync_stage",
+            )
+
+        self.assertEqual(result.lifecycle_trigger_count, 1)
+        self.assertEqual(result.downstream_transition_count, 1)
+        self.assertEqual(len(transition_service.commands), 1)
+        command = transition_service.commands[0]
+        self.assertEqual(command.source_event_instance_id, 10)
+        self.assertEqual(command.actor_user_id, 99)
+        self.assertEqual(command.trigger_source, "subject_list_resync_stage")
+
 
 class _SubjectEventInstanceResyncRepositoryStub:
     def __init__(
@@ -196,6 +240,7 @@ class _SubjectEventInstanceResyncRepositoryStub:
         existing_events_by_subject,
         all_subject_ids=None,
         active_study_version="v1.0",
+        transition_ready_event_instance_ids_by_subject=None,
     ):
         self._now = now
         self.event_definitions = event_definitions
@@ -204,6 +249,7 @@ class _SubjectEventInstanceResyncRepositoryStub:
         self.all_subject_ids = all_subject_ids or subject_ids
         self.active_study_version = active_study_version
         self.existing_events_by_subject = existing_events_by_subject
+        self.transition_ready_event_instance_ids_by_subject = transition_ready_event_instance_ids_by_subject or {}
         self.created_events = []
         self.updated_events = []
 
@@ -236,6 +282,9 @@ class _SubjectEventInstanceResyncRepositoryStub:
         event_definition_ids,
     ):
         return self.existing_events_by_subject.get(subject_id, {})
+
+    def list_transition_ready_event_instance_ids(self, *, study_id, subject_id, study_version):
+        return self.transition_ready_event_instance_ids_by_subject.get(subject_id, [])
 
     def create_event_instance(
         self,
@@ -280,6 +329,16 @@ class _SubjectEventInstanceResyncRepositoryStub:
             }
         )
         return event_instance.event_name_snapshot != event_definition.name or allow_status_change
+
+
+class _SubjectEventTransitionServiceStub:
+    def __init__(self, *, applied_event_count=0):
+        self.applied_event_count = applied_event_count
+        self.commands = []
+
+    def execute(self, command):
+        self.commands.append(command)
+        return SimpleNamespace(applied_events=tuple(object() for _ in range(self.applied_event_count)))
 
 
 def _event_definition(*, pk, code, name=None, study_version="v1.0"):

@@ -62,6 +62,15 @@
                 fileInput.value = "";
                 return;
             }
+            const unsavedGuard = window.DatacaptureUnsavedChangesGuard;
+            if (
+                unsavedGuard &&
+                typeof unsavedGuard.confirmDiscardUnsavedChanges === "function" &&
+                !unsavedGuard.confirmDiscardUnsavedChanges()
+            ) {
+                fileInput.value = "";
+                return;
+            }
             form.submit();
         });
 

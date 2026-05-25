@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 {% include "shared/components/_common_flatpickr_assets.html" %}
 <div class="common-flatpickr">
     <input type="text"
@@ -19,7 +20,7 @@
             class="common-flatpickr__trigger"
             data-flatpickr-open
             {% if picker_id %}data-flatpickr-target="{{ picker_id }}"{% endif %}
-            aria-label="Open time picker"
+            aria-label="{% trans 'Open time picker' %}"
             {% if picker_disabled %}disabled{% endif %}>
         <span class="svg-icon common-flatpickr__icon"
               aria-hidden="true"

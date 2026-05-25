@@ -21,6 +21,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
         active_query_can_respond: bool = True,
         query_actions_locked: bool = False,
         show_actions_column: bool = True,
+        display_order: int = 2,
     ) -> str:
         return render_to_string(
             "subject/includes/form_verification_field_review_table.html",
@@ -36,6 +37,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
                         {
                             "field_template_id": 11,
                             "field_key": "field_11",
+                            "display_order": display_order,
                             "is_checked": is_checked,
                             "brief_description": "Field 1",
                             "display_value": "Value 1",
@@ -66,6 +68,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
         rendered = self._render_field_review_table(show_checkboxes=False)
 
         self.assertIn('name="verify_field"', rendered)
+        self.assertIn('tabindex="40"', rendered)
         self.assertIn("subject-form-verification-review__col-check", rendered)
         self.assertIn("disabled", rendered)
         self.assertIn('aria-disabled="true"', rendered)

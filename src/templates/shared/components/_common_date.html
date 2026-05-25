@@ -1,5 +1,6 @@
 {% load shared_layout %}
 {% load static %}
+{% load i18n %}
 {% shared_locale_format "DATE_FORMAT" as resolved_picker_date_format %}
 {% include "shared/components/_common_flatpickr_assets.html" %}
 <div class="common-flatpickr">
@@ -22,7 +23,7 @@
             class="common-flatpickr__trigger"
             data-flatpickr-open
             {% if picker_id %}data-flatpickr-target="{{ picker_id }}"{% endif %}
-            aria-label="Open calendar"
+            aria-label="{% trans 'Open calendar' %}"
             {% if picker_disabled %}disabled{% endif %}>
         <span class="svg-icon common-flatpickr__icon"
               aria-hidden="true"

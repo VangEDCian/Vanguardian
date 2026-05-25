@@ -43,9 +43,11 @@ class DataCaptureFactSnapshotService:
             crf_template_id=page_state.crf_template_id,
             event_definition_id=page_state.event_definition_id,
         )
+        fact_source = self.repository.get_fact_source_for_event_transition(page_state_id=page_state.id)
         facts = self.fact_mapping_evaluator.build_facts(
             final_data=page_state.final_data,
             mappings=mappings,
+            fact_source=fact_source,
         ) or {}
         facts.setdefault("screening.page.status", page_state.status)
 
@@ -61,7 +63,9 @@ class DataCaptureFactSnapshotService:
             page_status=page_state.status,
             facts=facts,
             source_data_version=page_state.data_version,
-            source_data_hash=self._hash_final_data(page_state.final_data),
+            source_data_hash=self._hash_final_data(
+                fact_source.to_jsonpath_context() if fact_source is not None else page_state.final_data
+            ),
             blocking_queries_open=None,
         )
 

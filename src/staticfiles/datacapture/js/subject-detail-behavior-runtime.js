@@ -194,6 +194,7 @@
         'scope',
         `return (function () { with (scope) { return (${normalized}); } })();`,
       );
+      console.log(scope);
       const value = runner(scope);
       return value == null ? fallback : value;
     } catch (error) {

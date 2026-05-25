@@ -63,9 +63,11 @@ class DataCapturePageStateEventTransitionService:
             crf_template_id=page_state.crf_template_id,
             event_definition_id=page_state.event_definition_id,
         )
+        fact_source = self.repository.get_fact_source_for_event_transition(page_state_id=page_state.id)
         facts = self.fact_mapping_evaluator.build_facts(
             final_data=page_state.final_data,
             mappings=mappings,
+            fact_source=fact_source,
         )
         transition_result = self.subject_event_lifecycle_adapter.trigger_event_transition(
             source_event_instance_id=page_state.visit_id,

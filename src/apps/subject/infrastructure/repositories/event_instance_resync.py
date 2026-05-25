@@ -117,6 +117,31 @@ class DjangoSubjectEventInstanceResyncRepository:
         )
         return {event_instance.event_definition_id: event_instance for event_instance in event_instances}
 
+    def list_transition_ready_event_instance_ids(
+        self,
+        *,
+        study_id: int,
+        subject_id: int,
+        study_version: str,
+    ) -> list[int]:
+        return list(
+            SubjectEventInstance.objects.filter(
+                study_id=study_id,
+                subject_id=subject_id,
+                study_version=study_version,
+                repeat_index=1,
+                deleted=False,
+                status__in=[
+                    EventInstanceStatusChoices.COMPLETED,
+                    EventInstanceStatusChoices.VERIFIED,
+                    EventInstanceStatusChoices.LOCKED,
+                    EventInstanceStatusChoices.FINALIZED,
+                ],
+            )
+            .order_by("id")
+            .values_list("id", flat=True)
+        )
+
     def create_event_instance(
         self,
         *,

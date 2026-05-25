@@ -5,9 +5,11 @@
     <input type="hidden"
            data-date-text-composite-input
            data-date-text-kind="datetime"
+           tabindex="{% subject_control_tabindex field 0 %}"
            value="{{ field.value|default:'' }}">
     <input class="subject-date-text__input"
            type="text"
+           tabindex="{% subject_control_tabindex field 1 %}"
            inputmode="numeric"
            data-date-text-input
            data-date-text-kind="datetime"

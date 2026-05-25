@@ -144,6 +144,18 @@ def subject_control_i18n(control_type):
 
 
 @register.simple_tag
+def subject_control_tabindex(field, offset=0):
+    if not isinstance(field, dict):
+        return 0
+    try:
+        display_order = int(field.get("display_order") or 0)
+        offset_value = int(offset or 0)
+    except (TypeError, ValueError):
+        return 0
+    return (display_order * 20) + offset_value
+
+
+@register.simple_tag
 def subject_text_control_i18n():
     return subject_control_i18n(CrfFieldControlTypeChoices.TEXT)
 

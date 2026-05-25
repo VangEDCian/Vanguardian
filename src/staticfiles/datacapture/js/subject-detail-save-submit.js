@@ -130,6 +130,9 @@
   const confirmationMessage =
     formRoot.dataset.confirmationMessage ||
     'This page was already submitted. Saving will create a correction version. Continue?';
+  const unsavedChangesMessage =
+    formRoot.dataset.unsavedChangesMessage ||
+    'You have unsaved changes. Are you sure you want to leave this page?';
   const deleteDraftConfirmationMessage =
     formRoot.dataset.deleteDraftConfirmationMessage ||
     'Delete current draft version? This action marks it as canceled.';
@@ -319,6 +322,110 @@
 
   function collectFormPayload() {
     return JSON.stringify(collectFormPayloadObject({ includeLookupMetadata: true }));
+  }
+
+  function stablePayloadString(value) {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => stablePayloadString(item)).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+      return `{${Object.keys(value)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${stablePayloadString(value[key])}`)
+        .join(',')}}`;
+    }
+    return JSON.stringify(value ?? null);
+  }
+
+  function collectDirtyPayloadObject() {
+    return collectFormPayloadObject();
+  }
+
+  let allowNavigationWithoutPrompt = false;
+  let dirtyBaselinePayloadString = stablePayloadString({});
+
+  function currentDirtyPayloadString() {
+    return stablePayloadString(collectDirtyPayloadObject());
+  }
+
+  function hasUnsavedChanges() {
+    return currentDirtyPayloadString() !== dirtyBaselinePayloadString;
+  }
+
+  function markCurrentPayloadClean() {
+    dirtyBaselinePayloadString = currentDirtyPayloadString();
+  }
+
+  function allowNextNavigation() {
+    allowNavigationWithoutPrompt = true;
+  }
+
+  function confirmDiscardUnsavedChanges() {
+    if (allowNavigationWithoutPrompt || !hasUnsavedChanges()) {
+      return true;
+    }
+    if (!window.confirm(unsavedChangesMessage)) {
+      return false;
+    }
+    allowNextNavigation();
+    return true;
+  }
+
+  function isGuardedNavigationLink(link) {
+    if (!link || !link.href) {
+      return false;
+    }
+    if (link.target && link.target.toLowerCase() !== '_self') {
+      return false;
+    }
+    if (link.hasAttribute('download')) {
+      return false;
+    }
+    if (link.hasAttribute('data-eventinstance-file-preview-link')) {
+      return false;
+    }
+    const href = link.getAttribute('href') || '';
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) {
+      return false;
+    }
+    return true;
+  }
+
+  function bindUnsavedChangesGuard() {
+    window.DatacaptureUnsavedChangesGuard = {
+      hasUnsavedChanges,
+      confirmDiscardUnsavedChanges,
+      allowNextNavigation,
+      markCurrentPayloadClean,
+    };
+
+    window.addEventListener('beforeunload', (event) => {
+      if (allowNavigationWithoutPrompt || !hasUnsavedChanges()) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = '';
+    });
+
+    document.addEventListener('click', (event) => {
+      const link = event.target?.closest?.('a[href]');
+      if (!isGuardedNavigationLink(link)) {
+        return;
+      }
+      if (confirmDiscardUnsavedChanges()) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+
+    document.addEventListener('submit', (event) => {
+      if (confirmDiscardUnsavedChanges()) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
   }
 
   function resetInputs() {
@@ -1020,6 +1127,8 @@
   bindRepeatTableRowDeleteButtons();
   bindRepeatSectionDeleteButtons();
   bindRepeatSectionButtons();
+  markCurrentPayloadClean();
+  bindUnsavedChangesGuard();
 
   saveButton.addEventListener('click', async () => {
     const requiresConfirmation = pageStatus === 'submitted';
@@ -1037,8 +1146,10 @@
       const result = await network.postJson(saveUrl, collectFormPayload());
       pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
       formRoot.dataset.pageStatus = pageStatus;
+      markCurrentPayloadClean();
       showNotification('Saved successfully.', 'success');
       if (shouldReloadWithLatestEntry(result)) {
+        allowNextNavigation();
         window.setTimeout(() => {
           window.location.reload();
         }, 120);
@@ -1065,6 +1176,7 @@
     } else {
       resetInputs();
     }
+    markCurrentPayloadClean();
     refreshRadioDiffMarkers();
     showNotification('Reset done.', 'success');
   });
@@ -1110,6 +1222,7 @@
       const result = await network.postJson(submitUrl, submitPayload);
       pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
       formRoot.dataset.pageStatus = pageStatus;
+      allowNextNavigation();
       showNotification('Submitted successfully.', 'success');
       window.setTimeout(() => {
         window.location.reload();
@@ -1140,6 +1253,7 @@
         const result = await network.postJson(deleteDraftUrl, '{}');
         pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
         formRoot.dataset.pageStatus = pageStatus;
+        allowNextNavigation();
         showNotification('Draft deleted successfully.', 'success');
         window.setTimeout(() => {
           window.location.reload();

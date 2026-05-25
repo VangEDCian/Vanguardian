@@ -8,6 +8,7 @@
              data-current-entry-id="{{ focused_render_entry.id|default:'' }}"
              data-page-status="{{ focused_page_status|default:''|escape }}"
              data-confirmation-message="{{ datacapture_save_confirm_message|default:''|escape }}"
+             data-unsaved-changes-message="{% trans 'You have unsaved changes. Are you sure you want to leave this page?' %}"
              data-delete-draft-confirmation-message="{{ datacapture_delete_draft_confirm_message|default:''|escape }}">
             {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections can_add_repeat_sections=True %}
         </div>

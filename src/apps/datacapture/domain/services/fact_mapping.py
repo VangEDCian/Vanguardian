@@ -2,7 +2,9 @@ import json
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from apps.datacapture.domain.entities import DataCaptureFactMappingRule
+from jsonpath_ng.ext import parse as parse_jsonpath
+
+from apps.datacapture.domain.entities import DataCaptureFactMappingRule, DataCaptureFactSource
 
 
 class DataCaptureFactMappingEvaluator:
@@ -11,19 +13,23 @@ class DataCaptureFactMappingEvaluator:
     def build_facts(
         self,
         *,
-        final_data: str | dict | list | None,
         mappings: list[DataCaptureFactMappingRule],
+        final_data: str | dict | list | None = None,
+        fact_source: DataCaptureFactSource | None = None,
     ) -> dict[str, bool] | None:
         if not mappings:
             return None
 
-        parsed_final_data = self._parse_final_data(final_data)
+        parsed_final_data, current_form_data = self._resolve_source_context(
+            final_data=final_data,
+            fact_source=fact_source,
+        )
         if parsed_final_data is self.MISSING:
             return None
 
         facts: dict[str, bool] = {}
         for mapping in mappings:
-            raw_value = self._resolve_value(parsed_final_data, mapping)
+            raw_value = self._resolve_value(parsed_final_data, mapping, current_form_data=current_form_data)
             facts[mapping.fact_key] = self._evaluate_mapping(raw_value, mapping)
 
         return facts or None
@@ -61,33 +67,58 @@ class DataCaptureFactMappingEvaluator:
 
         return operator_handlers.get(operator, lambda: False)()
 
-    def _resolve_value(self, final_data: Any, mapping: DataCaptureFactMappingRule):
+    def _resolve_value(
+        self,
+        final_data: Any,
+        mapping: DataCaptureFactMappingRule,
+        *,
+        current_form_data: dict[str, Any] | None = None,
+    ):
         source_path = (mapping.source_path or mapping.field_code or "").strip()
         if not source_path:
             return self.MISSING
-        if isinstance(final_data, dict) and dict.get(final_data, "format") == "edc.form_data.v1":
-            canonical_value = self._resolve_canonical_field_value(final_data, source_path)
+        canonical_data = current_form_data if current_form_data is not None else final_data
+        if isinstance(canonical_data, dict) and dict.get(canonical_data, "format") == "edc.form_data.v1":
+            canonical_value = self._resolve_canonical_field_value(canonical_data, source_path)
             if canonical_value is not self.MISSING:
                 return canonical_value
 
-        current_value = final_data
-        for segment in source_path.split("."):
-            if segment == "":
-                continue
-            if isinstance(current_value, dict):
-                if segment not in current_value:
-                    return self.MISSING
-                current_value = current_value[segment]
-                continue
-            if isinstance(current_value, list):
-                try:
-                    current_value = current_value[int(segment)]
-                except (IndexError, TypeError, ValueError):
-                    return self.MISSING
-                continue
-            return self.MISSING
+        jsonpath = self._normalize_source_path_to_jsonpath(source_path=source_path, final_data=final_data)
+        return self._resolve_jsonpath_value(final_data=final_data, jsonpath=jsonpath)
 
-        return current_value
+    def _resolve_source_context(
+        self,
+        *,
+        final_data: str | dict | list | None,
+        fact_source: DataCaptureFactSource | None,
+    ):
+        if fact_source is not None:
+            return fact_source.to_jsonpath_context(), fact_source.current_form_data()
+        parsed_final_data = self._parse_final_data(final_data)
+        return parsed_final_data, parsed_final_data if isinstance(parsed_final_data, dict) else None
+
+    def _resolve_jsonpath_value(self, *, final_data: Any, jsonpath: str):
+        try:
+            matches = parse_jsonpath(jsonpath).find(final_data)
+        except Exception:
+            return self.MISSING
+        if not matches:
+            return self.MISSING
+        if len(matches) == 1:
+            return matches[0].value
+        return [match.value for match in matches]
+
+    @classmethod
+    def _normalize_source_path_to_jsonpath(cls, *, source_path: str, final_data: Any) -> str:
+        if source_path.startswith("$"):
+            return source_path
+        if isinstance(final_data, dict) and source_path in final_data:
+            return "$" + cls._jsonpath_key(source_path)
+        return "$." + source_path
+
+    @staticmethod
+    def _jsonpath_key(key: str) -> str:
+        return "[" + json.dumps(str(key), ensure_ascii=True) + "]"
 
     def _resolve_canonical_field_value(self, final_data: dict, source_path: str):
         if source_path.startswith("groups."):

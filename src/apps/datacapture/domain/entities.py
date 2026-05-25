@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,60 @@ class DataCaptureFactMappingRule:
     value_type: str
     default_value: str | None = None
     field_code: str | None = None
+
+
+@dataclass(frozen=True)
+class DataCaptureFactForm:
+    data: dict[str, Any] = field(default_factory=dict)
+    status: str = ""
+    open_queries: int = 0
+
+    @classmethod
+    def from_raw(
+        cls,
+        *,
+        data: str | dict[str, Any] | None,
+        status: str,
+        open_queries: int = 0,
+    ) -> "DataCaptureFactForm":
+        parsed_data: dict[str, Any]
+        if isinstance(data, dict):
+            parsed_data = data
+        elif data in (None, ""):
+            parsed_data = {}
+        else:
+            try:
+                loaded_data = json.loads(str(data))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                loaded_data = {}
+            parsed_data = loaded_data if isinstance(loaded_data, dict) else {}
+        return cls(
+            data=parsed_data,
+            status=str(status or ""),
+            open_queries=max(int(open_queries or 0), 0),
+        )
+
+    def to_jsonpath_value(self) -> dict[str, Any]:
+        return {
+            "data": self.data,
+            "status": self.status,
+            "open_queries": self.open_queries,
+        }
+
+
+@dataclass(frozen=True)
+class DataCaptureFactSource:
+    forms: dict[str, DataCaptureFactForm]
+    current_form_code: str | None = None
+
+    def to_jsonpath_context(self) -> dict[str, Any]:
+        return {form_code: form.to_jsonpath_value() for form_code, form in self.forms.items()}
+
+    def current_form_data(self) -> dict[str, Any] | None:
+        if not self.current_form_code:
+            return None
+        form = self.forms.get(self.current_form_code)
+        return form.data if form is not None else None
 
 
 @dataclass(frozen=True)
@@ -108,7 +163,9 @@ class SubmitExecutionPlan:
 
 
 __all__ = [
+    "DataCaptureFactForm",
     "DataCaptureFactMappingRule",
+    "DataCaptureFactSource",
     "DataCapturePageEntrySnapshot",
     "DataCapturePageStateSnapshot",
     "PageEntryChangeStateResult",

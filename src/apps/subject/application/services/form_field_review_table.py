@@ -338,6 +338,7 @@ class FormFieldReviewTableService:
             "section_code": section_code,
             "group_item_label": self._group_item_label(repeat_index),
             "brief_description": brief,
+            "display_order": self._sort_int(field_row.get("display_order"), default=0),
             "data_type": str(field_row.get("data_type") or "").strip(),
             "unit": str(field_row.get("unit") or "").strip(),
             "precision": field_row.get("precision"),

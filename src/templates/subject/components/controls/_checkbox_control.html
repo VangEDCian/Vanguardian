@@ -8,6 +8,7 @@
             <input type="checkbox"
                    name="{{ field.field_key }}"
                    value="{{ option.value }}"
+                   tabindex="{% subject_control_tabindex field forloop.counter0 %}"
                    disabled
                    {% if option.value in field.selected_values %}checked{% elif field.is_checked and forloop.first %}checked{% endif %} />
             {{ option.label|default:field.label }}
@@ -16,6 +17,7 @@
         <label>
             <input type="checkbox"
                    name="{{ field.field_key }}"
+                   tabindex="{% subject_control_tabindex field 0 %}"
                    disabled
                    {% if field.is_checked %}checked{% endif %} />
             {{ field.label|default:checkbox_control_i18n.default_label }}

@@ -1,5 +1,7 @@
 from apps.datacapture.domain.entities import (
+    DataCaptureFactForm,
     DataCaptureFactMappingRule,
+    DataCaptureFactSource,
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
     PageEntryChangeStateResult,
@@ -23,7 +25,9 @@ from apps.datacapture.domain.status import (
 
 __all__ = [
     "DataCaptureFieldReview",
+    "DataCaptureFactForm",
     "DataCaptureFactMappingEvaluator",
+    "DataCaptureFactSource",
     "DataCapturePageEntry",
     "PageEntryChangeState",
     "PageEntryChangeStateResult",

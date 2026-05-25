@@ -1,10 +1,13 @@
-from django.db.models import Q
+from django.db.models import Count, Q
 
-from apps.datacapture.infrastructure.models.capture import (
+from apps.datacapture.domain import (
+    DataCaptureFactForm,
     DataCaptureFactMappingRule,
+    DataCaptureFactSource,
     DataCapturePageStateSnapshot,
 )
 from apps.datacapture.models import DataCaptureFactMapping, DataCapturePageState
+from apps.reconcile.models import ReconcileDataQuery, ReconcileDataQueryStatusChoices
 
 
 class DjangoDataCaptureFactMappingRepository:
@@ -47,6 +50,45 @@ class DjangoDataCaptureFactMappingRepository:
             study_id=visit.study_id,
             study_version=visit.study_version,
             event_definition_id=visit.event_definition_id,
+        )
+
+    def get_fact_source_for_event_transition(
+        self,
+        *,
+        page_state_id: int,
+    ) -> DataCaptureFactSource | None:
+        current_page_state = (
+            DataCapturePageState.objects.select_related("crf_template")
+            .filter(pk=page_state_id, deleted=False)
+            .only("id", "subject_id", "visit_id", "crf_template_id", "crf_template__code")
+            .first()
+        )
+        if current_page_state is None:
+            return None
+
+        page_states = list(
+            DataCapturePageState.objects.select_related("crf_template")
+            .filter(
+                subject_id=current_page_state.subject_id,
+                visit_id=current_page_state.visit_id,
+                deleted=False,
+            )
+            .only(
+                "id",
+                "status",
+                "final_data",
+                "crf_template_id",
+                "crf_template__code",
+            )
+            .order_by("crf_template__code", "id")
+        )
+        open_query_counts = self._count_open_queries_by_page_state_ids(
+            page_state_ids=[page_state.pk for page_state in page_states],
+        )
+        return self._build_fact_source_from_page_states(
+            page_states=page_states,
+            current_page_state_id=current_page_state.pk,
+            open_query_counts_by_page_state_id=open_query_counts,
         )
 
     def list_enabled_fact_mappings(
@@ -93,6 +135,43 @@ class DjangoDataCaptureFactMappingRepository:
             value_type=mapping.value_type,
             default_value=mapping.default_value,
         )
+
+    @staticmethod
+    def _count_open_queries_by_page_state_ids(*, page_state_ids: list[int]) -> dict[int, int]:
+        if not page_state_ids:
+            return {}
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id__in=page_state_ids,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.OPEN,
+            )
+            .values("page_state_id")
+            .annotate(open_query_count=Count("id"))
+        )
+        return {int(row["page_state_id"]): int(row["open_query_count"]) for row in rows}
+
+    @staticmethod
+    def _build_fact_source_from_page_states(
+        *,
+        page_states: list,
+        current_page_state_id: int,
+        open_query_counts_by_page_state_id: dict[int, int],
+    ) -> DataCaptureFactSource:
+        forms: dict[str, DataCaptureFactForm] = {}
+        current_form_code: str | None = None
+        for page_state in page_states:
+            form_code = str(getattr(getattr(page_state, "crf_template", None), "code", "") or "").strip()
+            if not form_code:
+                form_code = f"CRF_{int(page_state.crf_template_id)}"
+            forms[form_code] = DataCaptureFactForm.from_raw(
+                data=page_state.final_data,
+                status=page_state.status,
+                open_queries=open_query_counts_by_page_state_id.get(int(page_state.pk), 0),
+            )
+            if int(page_state.pk) == int(current_page_state_id):
+                current_form_code = form_code
+        return DataCaptureFactSource(forms=forms, current_form_code=current_form_code)
 
 
 __all__ = ["DjangoDataCaptureFactMappingRepository"]

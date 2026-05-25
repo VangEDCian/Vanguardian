@@ -1,6 +1,8 @@
 {% load subject_form_tags %}
 {% subject_textarea_control_i18n as textarea_control_i18n %}
+{% subject_control_tabindex field 0 as control_tabindex %}
 <textarea class="{{ textarea_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
+          tabindex="{{ control_tabindex }}"
           data-submitted-diff-textarea
           data-submitted-diff-control="textarea"
           {% if field.style %}style="{{ field.style }}"{% endif %}
