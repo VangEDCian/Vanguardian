@@ -49,6 +49,12 @@ from apps.study.application.commands.import_event_form_bindings_template import 
     ImportStudyEventFormBindingsTemplateCommand,
     ImportStudyEventFormBindingsTemplateResult,
 )
+from apps.study.application.commands.import_fact_mappings_template import (
+    FactMappingImportDependencyError,
+    FactMappingImportFormatError,
+    ImportStudyFactMappingsTemplateCommand,
+    ImportStudyFactMappingsTemplateResult,
+)
 from apps.study.application.commands.import_randomization import (
     CommitRandomizationImportCommand,
     CommitRandomizationImportResult,
@@ -87,6 +93,8 @@ __all__ = [
     "EventDefinitionImportFormatError",
     "EventFormBindingImportDependencyError",
     "EventFormBindingImportFormatError",
+    "FactMappingImportDependencyError",
+    "FactMappingImportFormatError",
     "ImportStudyCrfTemplatesTemplateCommand",
     "ImportStudyCrfTemplatesTemplateResult",
     "ImportStudyCrfTemplateFieldsTemplateCommand",
@@ -97,6 +105,8 @@ __all__ = [
     "ImportStudyEventDefinitionsTemplateResult",
     "ImportStudyEventFormBindingsTemplateCommand",
     "ImportStudyEventFormBindingsTemplateResult",
+    "ImportStudyFactMappingsTemplateCommand",
+    "ImportStudyFactMappingsTemplateResult",
     "CommitRandomizationImportCommand",
     "CommitRandomizationImportResult",
     "PreviewRandomizationImportCommand",

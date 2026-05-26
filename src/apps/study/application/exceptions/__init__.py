@@ -1,3 +1,10 @@
+from apps.study.application.exceptions.eligibility import (
+    EligibilityAssessmentError,
+    EligibilityAssessmentNotFoundError,
+    EligibilityAssessmentPermissionError,
+    EligibilityAssessmentRetractBlockedError,
+    EligibilityEnrollmentGateError,
+)
 from apps.study.application.exceptions.imports import (
     CrfTemplateImportDependencyError,
     CrfTemplateImportFormatError,
@@ -8,18 +15,14 @@ from apps.study.application.exceptions.imports import (
     EventFormBindingImportDependencyError,
     EventFormBindingImportFormatError,
     EventFormBindingImportTemplateError,
+    FactMappingImportDependencyError,
+    FactMappingImportFormatError,
+    FactMappingImportTemplateError,
     RandomizationImportDependencyError,
     RandomizationImportFormatError,
     RandomizationImportUseCaseError,
     RandomizationImportValidationError,
     StudyImportTemplateError,
-)
-from apps.study.application.exceptions.eligibility import (
-    EligibilityAssessmentError,
-    EligibilityAssessmentNotFoundError,
-    EligibilityAssessmentPermissionError,
-    EligibilityAssessmentRetractBlockedError,
-    EligibilityEnrollmentGateError,
 )
 from apps.study.application.exceptions.randomization import (
     RandomizationArmNotFoundError,
@@ -54,6 +57,9 @@ __all__ = [
     "EventFormBindingImportDependencyError",
     "EventFormBindingImportFormatError",
     "EventFormBindingImportTemplateError",
+    "FactMappingImportDependencyError",
+    "FactMappingImportFormatError",
+    "FactMappingImportTemplateError",
     "RandomizationArmNotFoundError",
     "RandomizationDeleteBlockedError",
     "RandomizationImportDependencyError",

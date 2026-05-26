@@ -66,6 +66,47 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
         self.assertIn(reverse("subject:subject_resync_stage", kwargs={"study_id": 1, "subject_id": 20}), rendered)
         self.assertIn('method="post"', rendered)
 
+    def test_actions_cell_renders_trigger_workflow_when_subject_has_open_workflow_action(self):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": SimpleNamespace(subject=SimpleNamespace(update_subject=True)),
+                "record": SimpleNamespace(pk=20, study_id=1),
+                "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={20: 60},
+                ),
+            },
+        )
+
+        self.assertIn("Trigger Workflow", rendered)
+        self.assertIn(
+            reverse(
+                "subject:subject_eventinstance_trigger_workflow",
+                kwargs={"study_id": 1, "subject_id": 20, "event_instance_id": 60},
+            ),
+            rendered,
+        )
+
+    def test_actions_cell_hides_trigger_workflow_without_open_workflow_action(self):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": SimpleNamespace(subject=SimpleNamespace(update_subject=True)),
+                "record": SimpleNamespace(pk=20, study_id=1),
+                "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={},
+                ),
+            },
+        )
+
+        self.assertNotIn("Trigger Workflow", rendered)
+
 
 class _ChangedResyncService:
     calls = []

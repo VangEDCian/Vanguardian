@@ -6,6 +6,8 @@ __all__ = [
     "DataCaptureEventFactEvaluation",
     "DataCaptureFactEvaluation",
     "DataCaptureFactEvaluationService",
+    "DataCaptureFactMappingConfigService",
+    "DataCaptureFactMappingUpsertResult",
     "DataCaptureFactSnapshot",
     "DataCaptureFactSnapshotService",
     "DataCapturePageStateEventTransitionService",
@@ -27,6 +29,8 @@ _MODULE_BY_NAME = {
     "DataCaptureEventFactEvaluation": "apps.datacapture.application.services.fact_evaluation",
     "DataCaptureFactEvaluation": "apps.datacapture.application.services.fact_evaluation",
     "DataCaptureFactEvaluationService": "apps.datacapture.application.services.fact_evaluation",
+    "DataCaptureFactMappingConfigService": "apps.datacapture.application.services.fact_mapping_config",
+    "DataCaptureFactMappingUpsertResult": "apps.datacapture.application.services.fact_mapping_config",
     "DataCaptureFactSnapshot": "apps.datacapture.application.services.fact_snapshot",
     "DataCaptureFactSnapshotService": "apps.datacapture.application.services.fact_snapshot",
     "DataCapturePageStateEventTransitionService": (

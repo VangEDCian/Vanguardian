@@ -226,7 +226,7 @@ class _WorkflowActionServiceStub:
     def __init__(self):
         self.open_event_ids = []
 
-    def execute_for_open_event(self, *, event_instance_id, actor_user_id):
+    def execute_for_open_event(self, *, event_instance_id, actor_user_id, source_event_instance_id=None):
         self.open_event_ids.append(event_instance_id)
 
 

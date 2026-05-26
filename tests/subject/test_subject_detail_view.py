@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 
@@ -282,6 +284,8 @@ class SubjectDetailPageEntryFooterTests(SimpleTestCase):
             "is_focused_render_draft_version": False,
             "datacapture_save_url": "/datacapture/save/",
             "can_show_datacapture_entry_actions": True,
+            "workflow_action_trigger_url": "",
+            "request": SimpleNamespace(get_full_path="/studies/1/subjects/20/?event=29"),
         }
         context.update(overrides)
         return render_to_string("subject/includes/subject_detail_page_entry_footer.html", context)
@@ -313,6 +317,15 @@ class SubjectDetailPageEntryFooterTests(SimpleTestCase):
         self.assertNotIn(">Save<", rendered)
         self.assertNotIn(">Reset<", rendered)
         self.assertNotIn(">Submit for Review<", rendered)
+
+    def test_trigger_workflow_action_is_not_rendered_in_detail_footer(self):
+        rendered = self._render_footer(
+            workflow_action_trigger_url="/studies/1/subjects/20/events/60/trigger-workflow/",
+            can_show_datacapture_entry_actions=False,
+        )
+
+        self.assertNotIn("Trigger Workflow", rendered)
+        self.assertNotIn("/studies/1/subjects/20/events/60/trigger-workflow/", rendered)
 
 
 class SubjectDetailPageEntryMainTests(SimpleTestCase):

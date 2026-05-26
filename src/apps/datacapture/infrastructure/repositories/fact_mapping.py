@@ -12,6 +12,34 @@ from apps.reconcile.models import ReconcileDataQuery, ReconcileDataQueryStatusCh
 
 
 class DjangoDataCaptureFactMappingRepository:
+    def get_fact_mapping_for_import(
+        self,
+        *,
+        study_id: int,
+        study_version: str,
+        event_definition_id: int,
+        crf_template_id: int,
+        fact_key: str,
+    ):
+        return (
+            DataCaptureFactMapping.objects.filter(
+                study_id=study_id,
+                study_version=study_version,
+                event_definition_id=event_definition_id,
+                crf_template_id=crf_template_id,
+                fact_key=fact_key,
+            )
+            .order_by("deleted", "id")
+            .first()
+        )
+
+    def create_fact_mapping(self, **values):
+        return DataCaptureFactMapping.objects.create(**values)
+
+    def save_fact_mapping(self, fact_mapping, *, update_fields):
+        fact_mapping.save(update_fields=update_fields)
+        return fact_mapping
+
     def get_page_state_for_event_transition(
         self,
         *,

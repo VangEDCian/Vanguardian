@@ -14,8 +14,11 @@ from apps.study.application import (
     EventDefinitionImportFormatError,
     EventFormBindingImportDependencyError,
     EventFormBindingImportFormatError,
+    FactMappingImportDependencyError,
+    FactMappingImportFormatError,
     ImportStudyEventDefinitionsTemplateService,
     ImportStudyEventFormBindingsTemplateService,
+    ImportStudyFactMappingsTemplateService,
     StudyDirectoryQueryService,
     StudyEventDefinitionDirectoryQueryService,
     StudyNotFoundError,
@@ -25,10 +28,12 @@ from apps.study.presentation.web.forms import (
     EventDefinitionImportTemplateForm,
     EventDefinitionsToolbarForm,
     EventFormBindingImportTemplateForm,
+    FactMappingImportTemplateForm,
 )
 from apps.study.presentation.web.mappers.commands import (
     to_import_study_event_definitions_template_command,
     to_import_study_event_form_bindings_template_command,
+    to_import_study_fact_mappings_template_command,
 )
 from apps.study.presentation.web.tables import EventDefinitionListTable
 from apps.study.presentation.web.views.helpers import _user_has_study_access
@@ -38,6 +43,7 @@ __all__ = [
     "StudyEventDefinitionCreateView",
     "StudyEventDefinitionImportTemplateView",
     "StudyEventFormBindingImportTemplateView",
+    "StudyFactMappingImportTemplateView",
 ]
 
 
@@ -59,8 +65,10 @@ class StudyEventDefinitionListView(
     study_event_definition_directory_query_service_class = StudyEventDefinitionDirectoryQueryService
     import_event_definitions_template_service_class = ImportStudyEventDefinitionsTemplateService
     import_event_form_bindings_template_service_class = ImportStudyEventFormBindingsTemplateService
+    import_fact_mappings_template_service_class = ImportStudyFactMappingsTemplateService
     expected_import_columns = ImportStudyEventDefinitionsTemplateService.expected_columns
     expected_binding_import_columns = ImportStudyEventFormBindingsTemplateService.expected_columns
+    expected_fact_mapping_import_columns = ImportStudyFactMappingsTemplateService.expected_columns
     _detail_view_model = None
     _study = None
 
@@ -75,6 +83,9 @@ class StudyEventDefinitionListView(
 
     def get_import_event_form_bindings_template_service(self):
         return self.import_event_form_bindings_template_service_class()
+
+    def get_import_fact_mappings_template_service(self):
+        return self.import_fact_mappings_template_service_class()
 
     def dispatch(self, request, *args, **kwargs):
         self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
@@ -167,10 +178,13 @@ class StudyEventDefinitionListView(
         context.update(diagram_context)
         context.setdefault("import_form", EventDefinitionImportTemplateForm())
         context.setdefault("binding_import_form", EventFormBindingImportTemplateForm())
+        context.setdefault("fact_mapping_import_form", FactMappingImportTemplateForm())
         context["expected_import_columns"] = self.expected_import_columns
         context["expected_binding_import_columns"] = self.expected_binding_import_columns
+        context["expected_fact_mapping_import_columns"] = self.expected_fact_mapping_import_columns
         context["import_result"] = kwargs.get("import_result")
         context["binding_import_result"] = kwargs.get("binding_import_result")
+        context["fact_mapping_import_result"] = kwargs.get("fact_mapping_import_result")
         context["import_modal_open"] = kwargs.get(
             "import_modal_open",
             self.request.GET.get("open_import_modal") == "1",
@@ -178,6 +192,10 @@ class StudyEventDefinitionListView(
         context["binding_import_modal_open"] = kwargs.get(
             "binding_import_modal_open",
             self.request.GET.get("open_binding_import_modal") == "1",
+        )
+        context["fact_mapping_import_modal_open"] = kwargs.get(
+            "fact_mapping_import_modal_open",
+            self.request.GET.get("open_fact_mapping_import_modal") == "1",
         )
         return context
 
@@ -325,6 +343,62 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
                     binding_import_form=EventFormBindingImportTemplateForm(),
                     binding_import_result=binding_import_result,
                     binding_import_modal_open=True,
+                )
+            )
+
+        return redirect(
+            reverse("study:study_event_definitions", kwargs={"study_id": self._study.pk})
+        )
+
+
+class StudyFactMappingImportTemplateView(StudyEventDefinitionListView):
+    permission_required = "study.create_study_eventdefinition"
+    raise_exception = True
+
+    def get(self, request, *args, **kwargs):
+        return redirect(
+            reverse("study:study_event_definitions", kwargs={"study_id": self._study.pk})
+            + "?open_fact_mapping_import_modal=1"
+        )
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.has_perm("study.create_study_eventdefinition"):
+            raise PermissionDenied
+
+        fact_mapping_import_form = FactMappingImportTemplateForm(request.POST, request.FILES)
+        if not fact_mapping_import_form.is_valid():
+            return self.render_to_response(
+                self.get_context_data(
+                    fact_mapping_import_form=fact_mapping_import_form,
+                    fact_mapping_import_modal_open=True,
+                )
+            )
+
+        uploaded_file = fact_mapping_import_form.cleaned_data["import_file"]
+        command = to_import_study_fact_mappings_template_command(
+            actor_user_id=request.user.pk,
+            selected_study_id=self._study.pk,
+            study_id=self._study.pk,
+            file_name=uploaded_file.name,
+            file_content=uploaded_file.read(),
+        )
+        try:
+            fact_mapping_import_result = self.get_import_fact_mappings_template_service().execute(command)
+        except (FactMappingImportDependencyError, FactMappingImportFormatError) as exc:
+            fact_mapping_import_form.add_error(None, str(exc))
+            return self.render_to_response(
+                self.get_context_data(
+                    fact_mapping_import_form=fact_mapping_import_form,
+                    fact_mapping_import_modal_open=True,
+                )
+            )
+
+        if fact_mapping_import_result.skipped_count > 0 or fact_mapping_import_result.warnings:
+            return self.render_to_response(
+                self.get_context_data(
+                    fact_mapping_import_form=FactMappingImportTemplateForm(),
+                    fact_mapping_import_result=fact_mapping_import_result,
+                    fact_mapping_import_modal_open=True,
                 )
             )
 

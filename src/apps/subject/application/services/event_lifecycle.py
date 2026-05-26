@@ -169,6 +169,7 @@ class SubjectEventTransitionService:
                 self.workflow_action_service.execute_for_open_event(
                     event_instance_id=target_event.id,
                     actor_user_id=command.actor_user_id,
+                    source_event_instance_id=source_event.id,
                 )
 
             result = SubjectEventTransitionResult(

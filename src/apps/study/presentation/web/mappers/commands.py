@@ -10,6 +10,7 @@ from apps.study.application import (
     ImportStudyCrfTemplatesTemplateCommand,
     ImportStudyEventDefinitionsTemplateCommand,
     ImportStudyEventFormBindingsTemplateCommand,
+    ImportStudyFactMappingsTemplateCommand,
     PreviewRandomizationImportCommand,
     ToggleStudyStatusCommand,
     UpdateSiteCommand,
@@ -38,6 +39,10 @@ def to_import_study_event_definitions_template_command(**kwargs) -> ImportStudyE
 
 def to_import_study_event_form_bindings_template_command(**kwargs) -> ImportStudyEventFormBindingsTemplateCommand:
     return ImportStudyEventFormBindingsTemplateCommand(**kwargs)
+
+
+def to_import_study_fact_mappings_template_command(**kwargs) -> ImportStudyFactMappingsTemplateCommand:
+    return ImportStudyFactMappingsTemplateCommand(**kwargs)
 
 
 def to_preview_randomization_import_command(**kwargs) -> PreviewRandomizationImportCommand:
@@ -90,6 +95,7 @@ __all__ = [
     "to_import_study_crf_templates_template_command",
     "to_import_study_event_definitions_template_command",
     "to_import_study_event_form_bindings_template_command",
+    "to_import_study_fact_mappings_template_command",
     "to_preview_randomization_import_command",
     "to_commit_randomization_import_command",
     "to_delete_randomization_scheme_command",

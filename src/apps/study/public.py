@@ -5,6 +5,7 @@ from apps.study.application.commands import (
     RecordEventGateEvaluationCommand,
     RetractEligibilityAssessmentCommand,
 )
+from apps.study.application.exceptions import EligibilityEnrollmentGateError
 from apps.study.application.services.randomization_workflow import (
     RandomizationSlotAssignment,
     StudyRandomizationSlotAssignmentService,
@@ -59,6 +60,7 @@ def record_event_gate_evaluation(command: RecordEventGateEvaluationCommand):
 __all__ = [
     "RandomizationSlotAssignment",
     "EnrollSubjectCommand",
+    "EligibilityEnrollmentGateError",
     "FinalizeEligibilityAssessmentCommand",
     "MarkEligibilityStaleOnSourceDataChangeCommand",
     "RecordEventGateEvaluationCommand",

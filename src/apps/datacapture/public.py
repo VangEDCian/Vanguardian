@@ -13,6 +13,18 @@ from apps.datacapture.application.services.page_state_read import DataCapturePag
 from apps.datacapture.application.services.page_state_write import DataCapturePageStateWriteService
 
 
+class DataCaptureFactMappingConfigAdapter:
+    def __init__(self, fact_mapping_config_service=None):
+        from apps.datacapture.application import DataCaptureFactMappingConfigService
+
+        self.fact_mapping_config_service = (
+            fact_mapping_config_service or DataCaptureFactMappingConfigService()
+        )
+
+    def upsert_fact_mapping(self, **kwargs):
+        return self.fact_mapping_config_service.upsert_fact_mapping(**kwargs)
+
+
 def trigger_event_transition_for_page_state(
     *,
     page_state_id: int,
@@ -104,6 +116,12 @@ def get_page_state_id_for_subject_visit_crf(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+    )
+
+
+def get_latest_stable_page_state_id_for_event_instance(*, event_instance_id: int) -> int | None:
+    return DataCapturePageStateReadService().get_latest_stable_page_state_id_for_event_instance(
+        event_instance_id=event_instance_id,
     )
 
 
@@ -263,6 +281,7 @@ __all__ = [
     "evaluate_facts_for_event_instance",
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",
+    "get_latest_stable_page_state_id_for_event_instance",
     "get_page_state_final_data_for_subject_visit_crf",
     "get_page_state_id_for_subject_visit_crf",
     "get_page_state_status_for_subject_visit_crf",

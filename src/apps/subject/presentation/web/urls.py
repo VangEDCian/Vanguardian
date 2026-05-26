@@ -9,6 +9,7 @@ from apps.subject.presentation.web.views import (
     SubjectEventInstanceFilePreviewView,
     SubjectListView,
     SubjectResyncStageView,
+    SubjectTriggerWorkflowView,
 )
 from apps.subject.presentation.web.views.verification_verify_checked import (
     SubjectFormVerificationOpenQueryView,
@@ -59,6 +60,11 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/<int:subject_id>/event-definitions/<int:event_definition_id>/add-another/",
         SubjectAddRepeatingEventInstanceView.as_view(),
         name="subject_eventinstance_add_another",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/trigger-workflow/",
+        SubjectTriggerWorkflowView.as_view(),
+        name="subject_eventinstance_trigger_workflow",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/",

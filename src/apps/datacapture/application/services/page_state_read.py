@@ -30,6 +30,11 @@ class DataCapturePageStateReadService:
             return None
         return int(page_state.id)
 
+    def get_latest_stable_page_state_id_for_event_instance(self, *, event_instance_id: int) -> int | None:
+        return self.repository.get_latest_stable_page_state_id_for_event_instance(
+            event_instance_id=event_instance_id,
+        )
+
     def get_page_state_final_data_map(
         self,
         *,

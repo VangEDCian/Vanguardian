@@ -12,6 +12,7 @@ from apps.subject.application.services.subject_list_verify_form_visibility impor
     VERIFY_FORM_PERMISSION,
     SubjectListVerifyFormVisibilityService,
 )
+from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
 from apps.subject.presentation.web.forms import SubjectsToolbarForm
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
 from apps.subject.presentation.web.tables import SubjectListTable
@@ -35,6 +36,7 @@ class SubjectListView(
     table_class = SubjectListTable
     filterset_class = SubjectsToolbarForm
     paginate_by = 25
+    workflow_action_service_class = SubjectWorkflowActionService
 
     @staticmethod
     def _get_resolved_study_id(request):
@@ -60,9 +62,17 @@ class SubjectListView(
             has_verify_form_permission=self.request.user.has_perm(VERIFY_FORM_PERMISSION),
             subject_ids=subject_ids,
         )
+        workflow_action_event_map = {}
+        if self.request.user.has_perm("subject.update_subject"):
+            workflow_service = self.workflow_action_service_class()
+            workflow_action_event_map = workflow_service.map_triggerable_event_instance_id_by_subject_id(
+                study_id=self.get_study_id(),
+                subject_ids=subject_ids,
+            )
         table = table_class(
             table_data,
             verify_show_by_subject_id=verify_map,
+            workflow_action_event_id_by_subject_id=workflow_action_event_map,
             **kwargs,
         )
         return RequestConfig(self.request, paginate=self.get_table_pagination(table)).configure(table)

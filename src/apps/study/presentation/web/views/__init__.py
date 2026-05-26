@@ -9,6 +9,7 @@ from apps.study.presentation.web.views.eventdefinitions import (
     StudyEventDefinitionImportTemplateView,
     StudyEventDefinitionListView,
     StudyEventFormBindingImportTemplateView,
+    StudyFactMappingImportTemplateView,
 )
 from apps.study.presentation.web.views.randomization import (
     StudyRandomizationArmImportCommitView,
@@ -56,6 +57,7 @@ __all__ = [
     "StudyEventDefinitionImportTemplateView",
     "StudyEventDefinitionListView",
     "StudyEventFormBindingImportTemplateView",
+    "StudyFactMappingImportTemplateView",
     "StudyListView",
     "StudyRandomizationArmDeleteView",
     "StudyRandomizationArmImportCommitView",

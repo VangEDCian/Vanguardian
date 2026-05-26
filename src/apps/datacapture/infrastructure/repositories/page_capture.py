@@ -953,6 +953,18 @@ class DjangoDataCapturePageRepository:
     def get_page_state_by_scope(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         return self.get_page_state(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
 
+    def get_latest_stable_page_state_id_for_event_instance(self, *, event_instance_id: int) -> int | None:
+        return (
+            DataCapturePageState.objects.filter(
+                visit_id=event_instance_id,
+                deleted=False,
+                status__in=self.FINAL_DATA_STATUSES,
+            )
+            .order_by("-updated_at", "-id")
+            .values_list("id", flat=True)
+            .first()
+        )
+
     def get_current_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         return self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
 

@@ -7,10 +7,30 @@ from apps.study.infrastructure.persistence.models import EventDefinition
 __all__ = [
     "EventDefinitionImportTemplateForm",
     "EventDefinitionsToolbarForm",
+    "FactMappingImportTemplateForm",
 ]
 
 
 class EventDefinitionImportTemplateForm(forms.Form):
+    import_file = forms.FileField(
+        label=_("Import File"),
+        allow_empty_file=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": ".xlsx,.xls",
+            }
+        ),
+    )
+
+    def clean_import_file(self):
+        uploaded_file = self.cleaned_data["import_file"]
+        file_name = (uploaded_file.name or "").strip().lower()
+        if not file_name.endswith((".xlsx", ".xls")):
+            raise forms.ValidationError(_("Only .xlsx and .xls files are supported."))
+        return uploaded_file
+
+
+class FactMappingImportTemplateForm(forms.Form):
     import_file = forms.FileField(
         label=_("Import File"),
         allow_empty_file=False,

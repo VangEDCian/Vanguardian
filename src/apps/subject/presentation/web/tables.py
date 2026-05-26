@@ -55,6 +55,9 @@ class SubjectListTable(tables.Table):
 
     def __init__(self, *args, **kwargs):
         self._verify_show_by_subject_id = kwargs.pop("verify_show_by_subject_id", None) or {}
+        self.workflow_action_event_id_by_subject_id = (
+            kwargs.pop("workflow_action_event_id_by_subject_id", None) or {}
+        )
         # For template: {% if record.pk in table.verify_eligible_subject_ids %} (no custom filter).
         self.verify_eligible_subject_ids = frozenset(
             sid for sid, ok in self._verify_show_by_subject_id.items() if ok

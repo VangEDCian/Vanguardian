@@ -4,7 +4,7 @@ from django.utils.formats import date_format
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 
-from apps.core.choices.study import EventInstanceStatusChoices
+from apps.core.choices.study import EventExecutionModeChoices, EventInstanceStatusChoices
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.public import CrfContextAdapter
 from apps.study.models import EventFormBinding
@@ -19,6 +19,7 @@ class SubjectDetailNavigationMixin:
             SubjectEventInstance.objects.filter(
                 subject_id=self.object.pk,
                 deleted=False,
+                event_definition__execution_mode=EventExecutionModeChoices.FORM_ENTRY,
             )
             .exclude(status=EventInstanceStatusChoices.NOT_READY)
             .select_related("event_definition")

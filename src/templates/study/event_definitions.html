@@ -37,11 +37,17 @@
                         data-modal-open="modal-import-eventformbindings">
                     {% trans "Binding Form By Template" %}
                 </button>
+                <button type="button"
+                        class="entity-table__footer-button entity-table__footer-button--secondary"
+                        data-modal-open="modal-import-factmappings">
+                    {% trans "Import Fact Mapping" %}
+                </button>
             {% endif %}
         </div>
     </section>
     {% if perms.study.create_study_eventdefinition %}
         {% include "study/components/_event_definition_import_modal.html" %}
         {% include "study/components/_event_form_binding_import_modal.html" %}
+        {% include "study/components/_fact_mapping_import_modal.html" %}
     {% endif %}
 {% endblock %}

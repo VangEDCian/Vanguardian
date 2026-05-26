@@ -1,6 +1,10 @@
-{% load i18n static %}
+{% load i18n static subject_list_tags %}
 {% url 'subject:subject_detail' study_id=record.study_id subject_id=record.pk as subject_detail_base_url %}
 {% url 'subject:subject_resync_stage' study_id=record.study_id subject_id=record.pk as subject_resync_stage_url %}
+{% subject_workflow_action_event_id table record.pk as workflow_action_event_id %}
+{% if workflow_action_event_id %}
+    {% url 'subject:subject_eventinstance_trigger_workflow' study_id=record.study_id subject_id=record.pk event_instance_id=workflow_action_event_id as subject_trigger_workflow_url %}
+{% endif %}
 <div class="crf-template-actions" data-dropdown>
     <button type="button"
             class="crf-template-actions__trigger"
@@ -31,6 +35,15 @@
                     title="{% trans 'You do not have permission or no submitted data is available for this subject.' %}">
                 {% trans "Verify Form" %}
             </button>
+        {% endif %}
+        {% if perms.subject.update_subject and subject_trigger_workflow_url %}
+            <form method="post"
+                  action="{{ subject_trigger_workflow_url }}"
+                  class="crf-template-actions__form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="crf-template-actions__item" data-dropdown-option>{% trans "Trigger Workflow" %}</button>
+            </form>
         {% endif %}
         {% if perms.subject.update_subject %}
             <form method="post"

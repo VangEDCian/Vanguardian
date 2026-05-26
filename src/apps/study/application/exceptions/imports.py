@@ -43,6 +43,18 @@ class EventFormBindingImportFormatError(EventFormBindingImportTemplateError):
     """Raised when the uploaded workbook shape is invalid."""
 
 
+class FactMappingImportTemplateError(StudyImportTemplateError):
+    """Base error raised for fact mapping template import failures."""
+
+
+class FactMappingImportDependencyError(FactMappingImportTemplateError):
+    """Raised when the Excel parser dependency is missing."""
+
+
+class FactMappingImportFormatError(FactMappingImportTemplateError):
+    """Raised when the uploaded workbook shape is invalid."""
+
+
 class RandomizationImportUseCaseError(ApplicationValidationError):
     """Base exception for randomization import application use cases."""
 
@@ -76,6 +88,9 @@ __all__ = [
     "EventFormBindingImportDependencyError",
     "EventFormBindingImportFormatError",
     "EventFormBindingImportTemplateError",
+    "FactMappingImportDependencyError",
+    "FactMappingImportFormatError",
+    "FactMappingImportTemplateError",
     "RandomizationImportDependencyError",
     "RandomizationImportFormatError",
     "RandomizationImportUseCaseError",
