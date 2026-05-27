@@ -13,11 +13,13 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
     def test_open_operational_randomization_workflow_assigns_slot_and_creates_subject_result(self):
         repository = _WorkflowRepositoryStub()
         assigner = _RandomizationSlotAssignerStub()
+        transition_service = _TransitionServiceStub()
 
         with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
             result = SubjectWorkflowActionService(
                 repository=repository,
                 randomization_slot_assigner=assigner,
+                transition_service=transition_service,
             ).execute_for_open_event(
                 event_instance_id=30,
                 actor_user_id=99,
@@ -38,6 +40,11 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         )
         self.assertEqual(repository.created_randomizations[0]["subject_id"], 20)
         self.assertEqual(repository.created_randomizations[0]["assignment"].sequence_no, 42)
+        self.assertEqual(repository.completed_events[0]["event_instance_id"], 30)
+        self.assertEqual(repository.completed_events[0]["reason"], "randomization_assigned")
+        self.assertEqual(transition_service.commands[0].source_event_instance_id, 30)
+        self.assertTrue(transition_service.commands[0].facts["randomization.assigned"])
+        self.assertEqual(transition_service.commands[0].facts["randomization.latest.sequence_no"], 42)
 
     def test_non_workflow_action_event_is_ignored(self):
         repository = _WorkflowRepositoryStub(
@@ -74,19 +81,26 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
     def test_existing_subject_randomization_is_idempotent(self):
         repository = _WorkflowRepositoryStub(has_randomization=True)
         assigner = _RandomizationSlotAssignerStub()
+        transition_service = _TransitionServiceStub()
 
         with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
             result = SubjectWorkflowActionService(
                 repository=repository,
                 randomization_slot_assigner=assigner,
+                transition_service=transition_service,
             ).execute_for_open_event(
                 event_instance_id=30,
                 actor_user_id=99,
             )
 
-        self.assertFalse(result.executed)
+        self.assertTrue(result.executed)
         self.assertEqual(result.reason, "subject_already_randomized")
         self.assertEqual(assigner.calls, [])
+        self.assertEqual(repository.created_randomizations, [])
+        self.assertEqual(repository.completed_events[0]["event_instance_id"], 30)
+        self.assertEqual(repository.completed_events[0]["reason"], "subject_already_randomized")
+        self.assertEqual(transition_service.commands[0].source_event_instance_id, 30)
+        self.assertTrue(transition_service.commands[0].facts["randomization.assigned"])
 
     def test_maps_triggerable_workflow_events_by_subject_id(self):
         repository = _WorkflowRepositoryStub(triggerable_event_map={20: 60})

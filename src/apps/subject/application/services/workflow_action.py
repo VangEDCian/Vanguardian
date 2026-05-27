@@ -120,8 +120,15 @@ class SubjectWorkflowActionService:
             if (event.event_category or "").strip().lower() != _EVENT_CATEGORY_RANDOMIZATION:
                 return SubjectWorkflowActionResult(event_instance_id=event_instance_id, reason="unsupported_workflow_action")
             if self.repository.has_subject_randomization(subject_id=event.subject_id):
+                completed = self._complete_randomization_workflow_event(
+                    event=event,
+                    assignment=None,
+                    actor_user_id=actor_user_id,
+                    reason="subject_already_randomized",
+                )
                 return SubjectWorkflowActionResult(
                     event_instance_id=event_instance_id,
+                    executed=completed,
                     action=_EVENT_CATEGORY_RANDOMIZATION,
                     reason="subject_already_randomized",
                 )
@@ -147,12 +154,40 @@ class SubjectWorkflowActionService:
                 actor_user_id=actor_user_id,
                 now=self.repository.now(),
             )
+            self._complete_randomization_workflow_event(
+                event=event,
+                assignment=assignment,
+                actor_user_id=actor_user_id,
+                reason="randomization_assigned",
+            )
             return SubjectWorkflowActionResult(
                 event_instance_id=event_instance_id,
                 executed=True,
                 action=_EVENT_CATEGORY_RANDOMIZATION,
                 reason="randomization_assigned",
             )
+
+    def _complete_randomization_workflow_event(
+        self,
+        *,
+        event,
+        assignment,
+        actor_user_id: int | None,
+        reason: str,
+    ) -> bool:
+        completed = self.repository.complete_workflow_event_instance(
+            event_instance_id=event.event_instance_id,
+            actor_user_id=actor_user_id,
+            now=self.repository.now(),
+            reason=reason,
+        )
+        if completed:
+            self._trigger_downstream_transition(
+                event_instance_id=event.event_instance_id,
+                facts=self._randomization_facts(assignment),
+                actor_user_id=actor_user_id,
+            )
+        return completed
 
     def _execute_eligibility_assessment_workflow(
         self,
@@ -307,6 +342,25 @@ class SubjectWorkflowActionService:
             "eligible": is_final_eligible,
             "not_eligible": is_final_not_eligible,
         }
+
+    @staticmethod
+    def _randomization_facts(assignment) -> dict:
+        facts = {
+            "randomization.assigned": True,
+            "randomization.status.randomized": True,
+        }
+        if assignment is not None:
+            facts.update(
+                {
+                    "randomization.latest.slot_id": getattr(assignment, "slot_id", None),
+                    "randomization.latest.scheme_id": getattr(assignment, "scheme_id", None),
+                    "randomization.latest.scheme_code": getattr(assignment, "scheme_code", None),
+                    "randomization.latest.arm_id": getattr(assignment, "arm_id", None),
+                    "randomization.latest.arm_code": getattr(assignment, "arm_code", None),
+                    "randomization.latest.sequence_no": getattr(assignment, "sequence_no", None),
+                }
+            )
+        return facts
 
 
 __all__ = [
