@@ -540,6 +540,134 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         self.assertIn('data-section-template-id="7"', rendered)
         self.assertIn('data-max-repeats="3"', rendered)
 
+    def test_section_render_sorts_fields_by_display_order(self):
+        rendered = render_to_string(
+            "subject/components/_section_render.html",
+            {
+                "hide_section_title": False,
+                "section": {
+                    "id": "7",
+                    "title": "Vitals",
+                    "layout_type": "grid",
+                    "show_section_header": True,
+                    "fields": [
+                        {
+                            "id": 12,
+                            "field_key": "SECOND",
+                            "label": "Second",
+                            "display_order": 2,
+                            "control_type": "text",
+                        },
+                        {
+                            "id": 11,
+                            "field_key": "FIRST",
+                            "label": "First",
+                            "display_order": 1,
+                            "control_type": "text",
+                        },
+                    ],
+                },
+            },
+        )
+
+        self.assertLess(rendered.index('data-field-key="FIRST"'), rendered.index('data-field-key="SECOND"'))
+
+    def test_table_section_render_sorts_fields_by_display_order(self):
+        rendered = render_to_string(
+            "subject/components/_section_table_render.html",
+            {
+                "hide_section_title": False,
+                "section": {
+                    "id": "7",
+                    "title": "Eligibility",
+                    "show_section_header": True,
+                    "table_layout": {
+                        "response_direction": "horizontal",
+                        "show_table_header": False,
+                        "columns": [{"label": "Question"}, {"label": "Response"}],
+                    },
+                    "fields": [
+                        {
+                            "id": 12,
+                            "field_key": "SECOND",
+                            "label": "Second",
+                            "display_order": 2,
+                            "control_type": "text",
+                            "table_row_cells": [{"kind": "text", "text": "Second"}],
+                        },
+                        {
+                            "id": 11,
+                            "field_key": "FIRST",
+                            "label": "First",
+                            "display_order": 1,
+                            "control_type": "text",
+                            "table_row_cells": [{"kind": "text", "text": "First"}],
+                        },
+                    ],
+                },
+            },
+        )
+
+        self.assertLess(rendered.index('data-field-key="FIRST"'), rendered.index('data-field-key="SECOND"'))
+
+    def test_repeat_table_render_sorts_headers_and_row_fields_by_display_order(self):
+        rendered = render_to_string(
+            "subject/components/_section_repeat_table_render.html",
+            {
+                "can_add_repeat_sections": False,
+                "hide_section_title": False,
+                "section": {
+                    "id": "7",
+                    "title": "Medication History",
+                    "show_section_header": True,
+                    "repeat_table_layout": {
+                        "show_table_header": True,
+                        "show_row_number": False,
+                    },
+                    "fields": [
+                        {
+                            "id": 12,
+                            "field_key": "SECOND",
+                            "label": "Second",
+                            "display_order": 2,
+                            "control_type": "text",
+                        },
+                        {
+                            "id": 11,
+                            "field_key": "FIRST",
+                            "label": "First",
+                            "display_order": 1,
+                            "control_type": "text",
+                        },
+                    ],
+                    "repeat_table_rows": [
+                        {
+                            "repeat_instance_index": 1,
+                            "fields": [
+                                {
+                                    "id": 12,
+                                    "field_key": "SECOND",
+                                    "label": "Second",
+                                    "display_order": 2,
+                                    "control_type": "text",
+                                },
+                                {
+                                    "id": 11,
+                                    "field_key": "FIRST",
+                                    "label": "First",
+                                    "display_order": 1,
+                                    "control_type": "text",
+                                },
+                            ],
+                        }
+                    ],
+                },
+            },
+        )
+
+        self.assertLess(rendered.index("First"), rendered.index("Second"))
+        self.assertLess(rendered.index('data-field-key="FIRST"'), rendered.index('data-field-key="SECOND"'))
+
     def test_subject_detail_loads_sidebar_scroll_script_for_page_entry_form(self):
         rendered = render_to_string(
             "subject/subject_detail.html",

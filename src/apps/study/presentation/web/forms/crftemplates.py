@@ -9,6 +9,7 @@ __all__ = [
     "CrfSectionLayoutConfigImportTemplateForm",
     "CrfTemplateFieldsImportTemplateForm",
     "CrfTemplateImportTemplateForm",
+    "CrfValidationRuleImportTemplateForm",
     "CrfTemplatesToolbarForm",
 ]
 
@@ -75,6 +76,19 @@ class CrfSectionLayoutConfigImportTemplateForm(CrfTemplateImportTemplateForm):
             attrs={
                 "accept": ".xlsx,.xls",
                 "id": "id_section_layout_config_import_file",
+            }
+        ),
+    )
+
+
+class CrfValidationRuleImportTemplateForm(CrfTemplateImportTemplateForm):
+    import_file = forms.FileField(
+        label=_("Import File"),
+        allow_empty_file=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": ".xlsx,.xls",
+                "id": "id_validation_rule_import_file",
             }
         ),
     )

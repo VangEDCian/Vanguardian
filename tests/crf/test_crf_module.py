@@ -11,6 +11,7 @@ from apps.crf.application.form_builder_orchestration import (
 from apps.crf.application.services import CrfTemplateCommandService
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.application.services.field_template_import import CrfFieldTemplateImportService
+from apps.crf.application.services.validation_rule_import import CrfValidationRuleImportService
 from apps.crf.domain.aggregate import FieldTemplateAggregate
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError
 from apps.crf.infrastructure.repositories.form_builder import DjangoOrmFormBuilderRepository
@@ -178,10 +179,10 @@ class FieldTemplateAggregateTests(SimpleTestCase):
                 },
                 validation_rules=[
                     {
-                        "rule_type": "custom",
+                        "rule_type": "CUSTOM_EXPRESSION",
                         "expression": "$val != ''",
                         "severity": "error",
-                        "mode": "blocking",
+                        "mode": "HARD",
                         "messages": {"en": "Required", "vi": "Bat buoc"},
                     }
                 ],
@@ -250,10 +251,10 @@ class FormBuilderOrchestrationServiceTests(SimpleTestCase):
             },
             validation_rules=[
                 {
-                    "rule_type": "custom",
+                    "rule_type": "CUSTOM_EXPRESSION",
                     "expression": "$val != ''",
                     "severity": "error",
-                    "mode": "blocking",
+                    "mode": "HARD",
                     "messages": {"en": "Required"},
                 }
             ],
@@ -305,10 +306,10 @@ class DjangoOrmFormBuilderRepositoryTests(SimpleTestCase):
         repository = DjangoOrmFormBuilderRepository()
         snapshots = [
             {
-                "rule_type": "custom",
+                "rule_type": "CUSTOM_EXPRESSION",
                 "expression": "$val != ''",
                 "severity": "error",
-                "mode": "blocking",
+                "mode": "HARD",
                 "translations": [
                     {"language_code": "en", "message": "Required"},
                     {"language_code": "vi", "message": "Bat buoc"},
@@ -318,12 +319,18 @@ class DjangoOrmFormBuilderRepositoryTests(SimpleTestCase):
 
         rules = repository._replace_validation_rules(
             field_template_id=12,
+            crf_template_id=17,
+            study_id=3,
             snapshots=snapshots,
             actor_user_id=5,
             now="2026-04-24T12:00:00",
         )
 
         existing_rule.delete.assert_called_once()
+        mock_rule_cls.assert_called_once()
+        rule_kwargs = mock_rule_cls.call_args.kwargs
+        self.assertEqual(rule_kwargs["study_id"], 3)
+        self.assertEqual(rule_kwargs["crf_template_id"], 17)
         created_rule.set_current_language.assert_any_call("en", initialize=True)
         created_rule.set_current_language.assert_any_call("vi", initialize=True)
         self.assertEqual(created_rule.message, "Bat buoc")
@@ -331,6 +338,25 @@ class DjangoOrmFormBuilderRepositoryTests(SimpleTestCase):
 
 
 class CrfFieldTemplateImportServiceTests(SimpleTestCase):
+    def test_reset_template_fields_for_import_delegates_to_repository(self):
+        repository = MagicMock()
+        repository.reset_template_fields_for_import.return_value = 3
+        service = CrfFieldTemplateImportService(repository=repository)
+
+        result = CrfFieldTemplateImportService.reset_template_fields_for_import.__wrapped__(
+            service,
+            crf_template_id=17,
+            actor_user_id=9,
+            now="2026-05-26T10:00:00",
+        )
+
+        self.assertEqual(result, 3)
+        repository.reset_template_fields_for_import.assert_called_once_with(
+            crf_template_id=17,
+            actor_user_id=9,
+            now="2026-05-26T10:00:00",
+        )
+
     def test_upsert_template_field_writes_master_and_translation_snapshots(self):
         repository = MagicMock()
         repository.get_field_template_for_import.return_value = None
@@ -415,6 +441,45 @@ class CrfFieldTemplateImportServiceTests(SimpleTestCase):
                 "options": "Co|Khong",
             },
         )
+
+
+class CrfValidationRuleImportServiceTests(SimpleTestCase):
+    def test_upsert_validation_rule_sets_scope_and_translations(self):
+        repository = MagicMock()
+        repository.find_validation_rule_for_import.return_value = None
+        validation_rule = MagicMock(pk=61)
+        repository.build_validation_rule.return_value = validation_rule
+        service = CrfValidationRuleImportService(repository=repository)
+
+        action, result_rule = CrfValidationRuleImportService.upsert_validation_rule.__wrapped__(
+            service,
+            study_id=3,
+            crf_template_id=17,
+            field_template_id=23,
+            rule_type="REQUIRED",
+            expression="$val != ''",
+            severity="error",
+            mode="HARD",
+            vi_message="Bat buoc",
+            en_message="Required",
+            actor_user_id=9,
+            now="2026-05-27T10:00:00",
+        )
+
+        self.assertEqual(action, "created")
+        self.assertEqual(result_rule, validation_rule)
+        repository.build_validation_rule.assert_called_once_with(
+            field_template_id=23,
+            created_at="2026-05-27T10:00:00",
+            created_by_id=9,
+        )
+        self.assertEqual(validation_rule.study_id, 3)
+        self.assertEqual(validation_rule.crf_template_id, 17)
+        self.assertEqual(validation_rule.rule_type, "REQUIRED")
+        validation_rule.set_current_language.assert_any_call("en", initialize=True)
+        validation_rule.set_current_language.assert_any_call("vi", initialize=True)
+        self.assertEqual(validation_rule.message, "Bat buoc")
+        self.assertEqual(repository.save_validation_rule.call_count, 3)
 
 
 class CrfFormBuilderViewValidationTests(SimpleTestCase):

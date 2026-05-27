@@ -73,6 +73,8 @@ class FormFieldReviewTableService:
         query_thread_badge_counts: dict[int, int] = {}
         query_messages_by_field: dict[int, list[dict[str, Any]]] = {}
         closed_query_histories_by_field: dict[int, list[dict[str, Any]]] = {}
+        validation_issues_by_field: dict[int, list[dict[str, Any]]] = {}
+        validation_issue_histories_by_field: dict[int, list[dict[str, Any]]] = {}
         counts_by_field_path: dict[tuple[int, str], int] = {}
         active_query_contexts_by_field_path: dict[tuple[int, str], dict[str, Any]] = {}
         verified_query_keys_by_field_path: set[tuple[int, str]] = set()
@@ -127,6 +129,18 @@ class FormFieldReviewTableService:
                     page_state_id=page_state_id,
                     field_template_ids=tuple(field_template_ids),
                     limit_per_query=10,
+                )
+            )
+            validation_issues_by_field = (
+                self._reconcile_read_service.list_open_validation_issues_by_page_state_and_field_templates(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
+                )
+            )
+            validation_issue_histories_by_field = (
+                self._reconcile_read_service.list_validation_issue_histories_by_page_state_and_field_templates(
+                    page_state_id=page_state_id,
+                    field_template_ids=tuple(field_template_ids),
                 )
             )
             counts_by_field_path = self._reconcile_read_service.count_open_queries_by_page_state_field_paths(
@@ -199,6 +213,8 @@ class FormFieldReviewTableService:
                         query_thread_badge_counts=query_thread_badge_counts,
                         query_messages_by_field=query_messages_by_field,
                         closed_query_histories_by_field=closed_query_histories_by_field,
+                        validation_issues_by_field=validation_issues_by_field,
+                        validation_issue_histories_by_field=validation_issue_histories_by_field,
                         counts_by_field_path=counts_by_field_path,
                         active_query_contexts_by_field_path=active_query_contexts_by_field_path,
                         verified_query_keys_by_field_path=verified_query_keys_by_field_path,
@@ -244,6 +260,8 @@ class FormFieldReviewTableService:
         query_thread_badge_counts: dict[int, int],
         query_messages_by_field: dict[int, list[dict[str, Any]]],
         closed_query_histories_by_field: dict[int, list[dict[str, Any]]],
+        validation_issues_by_field: dict[int, list[dict[str, Any]]],
+        validation_issue_histories_by_field: dict[int, list[dict[str, Any]]],
         counts_by_field_path: dict[tuple[int, str], int],
         active_query_contexts_by_field_path: dict[tuple[int, str], dict[str, Any]],
         verified_query_keys_by_field_path: set[tuple[int, str]],
@@ -327,6 +345,16 @@ class FormFieldReviewTableService:
             if query_key is not None
             else (False if is_repeatable_group_item else field_template_id in verified_query_field_template_ids)
         )
+        validation_issues = validation_issues_by_field.get(field_template_id, [])
+        validation_issue_count = len(validation_issues)
+        closed_query_histories = self._format_closed_query_histories(
+            closed_query_histories_by_field_path.get(query_key, [])
+            if query_key is not None
+            else ([] if is_repeatable_group_item else closed_query_histories_by_field.get(field_template_id, [])),
+        )
+        closed_query_histories.extend(
+            self._format_validation_issue_histories(validation_issue_histories_by_field.get(field_template_id, []))
+        )
         return {
             "field_template_id": field_template_id,
             "field_key": display_field_key,
@@ -345,6 +373,8 @@ class FormFieldReviewTableService:
             "raw_value": raw_value,
             "display_value": display_value,
             "open_query_count": int(open_query_count),
+            "validation_issue_count": int(validation_issue_count),
+            "validation_issues": validation_issues,
             "active_query_id": active_query_id,
             "active_query_can_respond": self._user_can_respond_to_query(
                 current_user_id=current_user_id,
@@ -370,11 +400,7 @@ class FormFieldReviewTableService:
                 if active_query_id_int is not None
                 else ([] if is_repeatable_group_item else query_messages_by_field.get(field_template_id, [])),
             ),
-            "closed_query_histories": self._format_closed_query_histories(
-                closed_query_histories_by_field_path.get(query_key, [])
-                if query_key is not None
-                else ([] if is_repeatable_group_item else closed_query_histories_by_field.get(field_template_id, [])),
-            ),
+            "closed_query_histories": closed_query_histories,
             "modified_by": modified_by_display,
             "is_checked": is_checked,
         }
@@ -771,6 +797,7 @@ class FormFieldReviewTableService:
                     "dataquery_id": message.get("dataquery_id"),
                     "text": str(message.get("text") or "").strip(),
                     "status": str(message.get("status") or "").strip(),
+                    "tone": str(message.get("tone") or "").strip(),
                     "opened_by": opened_by,
                     "opened_at": cls._format_datetime(timestamp),
                 },
@@ -791,6 +818,59 @@ class FormFieldReviewTableService:
                     "opened_at": cls._format_datetime(history.get("opened_at")),
                     "closed_at": cls._format_datetime(closed_at),
                     "messages": cls._format_query_messages(history.get("messages", [])),
+                },
+            )
+        return out
+
+    @classmethod
+    def _format_validation_issue_histories(cls, issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for issue in issues:
+            issue_id = issue.get("id")
+            status = str(issue.get("status") or "").strip()
+            created_at = issue.get("created_at")
+            acknowledged_at = issue.get("acknowledged_at")
+            resolved_at = issue.get("resolved_at")
+            response_at = acknowledged_at or resolved_at
+            messages = [
+                {
+                    "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
+                    "text": str(issue.get("message") or "").strip(),
+                    "status": status,
+                    "created_at": created_at,
+                    "opened_by_id": None,
+                }
+            ]
+            answer_text = str(issue.get("acknowledgement_comment") or "").strip()
+            if answer_text and (acknowledged_at is not None or resolved_at is not None):
+                messages.append(
+                    {
+                        "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
+                        "text": answer_text,
+                        "status": "resolved",
+                        "created_at": response_at,
+                        "opened_by_id": issue.get("acknowledged_by"),
+                    }
+                )
+            elif status in {"OPEN", "ACKNOWLEDGEMENT_REQUIRED"}:
+                messages.append(
+                    {
+                        "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
+                        "text": "đang chờ trả lời",
+                        "status": "warning",
+                        "tone": "warning",
+                        "created_at": None,
+                        "opened_by_id": None,
+                    }
+                )
+            out.append(
+                {
+                    "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
+                    "label": f"Validation Issue #{issue_id}" if issue_id else "Validation Issue",
+                    "question_text": str(issue.get("message") or "").strip(),
+                    "opened_at": cls._format_datetime(created_at),
+                    "closed_at": cls._format_datetime(response_at),
+                    "messages": cls._format_query_messages(messages),
                 },
             )
         return out

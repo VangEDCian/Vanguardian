@@ -23,6 +23,9 @@ class _NoBlockingQueries:
     def has_open_query_for_page_field(self, **kwargs):
         return False
 
+    def has_open_validation_issue_for_page_field(self, **kwargs):
+        return False
+
     def has_active_blocking_query_for_page_field(self, **kwargs):
         return False
 
@@ -34,10 +37,18 @@ class _BlockingFieldQueries:
     def has_open_query_for_page_field(self, **kwargs):
         return True
 
+    def has_open_validation_issue_for_page_field(self, **kwargs):
+        return False
+
     def has_active_blocking_query_for_page_field(self, **kwargs):
         return True
 
     def has_active_blocking_query_for_page(self, **kwargs):
+        return True
+
+
+class _BlockingValidationIssues(_NoBlockingQueries):
+    def has_open_validation_issue_for_page_field(self, **kwargs):
         return True
 
 
@@ -323,6 +334,27 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                 )
 
         self.assertEqual(repository.unverified_reviews, [])
+
+    def test_verify_rejects_field_with_open_validation_issue(self):
+        repository = _CorrectionRequiredVerificationRepository()
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_BlockingValidationIssues(),
+        )
+
+        with self.assertRaisesMessage(
+            DataCaptureValidationError,
+            "yêu cầu xử lý Validation Issues trước khi verify",
+        ):
+            service.merge_checked_field_template_ids(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                checked_field_template_ids=[1],
+                actor_user_id=1,
+            )
+
+        self.assertIs(repository.start_page_review_called, False)
 
     def test_verify_rejects_page_states_outside_reviewable_statuses(self):
         for status in (

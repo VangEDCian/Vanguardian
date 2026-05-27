@@ -1,9 +1,7 @@
-from django.contrib.auth.decorators import permission_required
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import DetailView, ListView
@@ -12,6 +10,7 @@ from django_tables2 import SingleTableMixin
 
 from apps.audit.public import build_audit_request_context
 from apps.shared.context_processors import StudyDropdownHandler
+from apps.shared.navigation import get_default_authenticated_url, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application.commands.site_data import (
     SiteCodeAlreadyExistsError,
@@ -75,6 +74,15 @@ class SiteListView(
             .filter(study_id=self.get_study_id(), deleted=False)
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["can_create_site"] = user_can_access_permission(
+            self.request.user,
+            "site.create_site",
+            study_id=self.get_study_id(),
+        )
+        return context
+
     @staticmethod
     def _get_resolved_study_id(request):
         return StudyDropdownHandler(request=request).build().selected_id
@@ -86,7 +94,7 @@ class SiteListView(
             if path_study_id == resolved_study_id:
                 return super().get(request, *args, **kwargs)
             return redirect(reverse("study:site_list", kwargs={'study_id': resolved_study_id}))
-        return redirect(reverse('dashboard:main'))
+        return redirect(get_default_authenticated_url(request))
 
 
 class SiteInvestigatorContextMixin:
@@ -137,6 +145,8 @@ class SiteDetailView(
     DetailView,
     SiteAbstractVerifyStudy,
 ):
+    permission_required = "site.view_site_detail"
+    raise_exception = True
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("SITES")
     template_name = "study/site_detail.html"
@@ -209,8 +219,16 @@ class SiteDetailView(
             "study:site_delete",
             kwargs={"site_id": self.object.pk, 'study_id': self.get_study_id()},
         )
-        context["can_update_site"] = self.request.user.has_perm("site.update_site")
-        context["can_delete_site"] = self.request.user.has_perm("site.delete_site")
+        context["can_update_site"] = user_can_access_permission(
+            self.request.user,
+            "site.update_site",
+            study_id=self.get_study_id(),
+        )
+        context["can_delete_site"] = user_can_access_permission(
+            self.request.user,
+            "site.delete_site",
+            study_id=self.get_study_id(),
+        )
         return context
 
     def get_object(self, *args, **kwargs):
@@ -219,13 +237,11 @@ class SiteDetailView(
             return instance
         raise Http404
 
-    @method_decorator(permission_required('site.view_site_detail', raise_exception=True))
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @method_decorator(permission_required('site.view_site_detail', raise_exception=True))
     def post(self, request, *args, **kwargs):
-        if not request.user.has_perm("site.update_site"):
+        if not user_can_access_permission(request.user, "site.update_site", study_id=self.get_study_id()):
             raise PermissionDenied
 
         site = self.get_object()
@@ -273,6 +289,8 @@ class SiteDetailView(
 
 
 class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, SiteAbstractVerifyStudy):
+    permission_required = "site.create_site"
+    raise_exception = True
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("NEW SITE")
     template_name = "study/site_create.html"
@@ -328,11 +346,9 @@ class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, Sit
         )
         return context
 
-    @method_decorator(permission_required('site.create_site', raise_exception=True))
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @method_decorator(permission_required('site.create_site', raise_exception=True))
     def post(self, request, *args, **kwargs):
         selected_study_id = self._get_selected_study_id()
         if selected_study_id is None:
@@ -377,13 +393,14 @@ class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, Sit
 
 
 class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractVerifyStudy):
+    permission_required = "site.delete_site"
+    raise_exception = True
     pk_url_kwarg = 'site_id'
     model = Site
 
     def get_queryset(self):
         return super().get_queryset().filter(study_id=self.get_study_id(), deleted=False)
 
-    @method_decorator(permission_required('site.delete_site', raise_exception=True))
     def post(self, request, *args, **kwargs):
         site: Site | None = self.get_object()
         if not site:
@@ -412,6 +429,9 @@ class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractV
 
 
 class SiteMembershipOptionsApiView(SiteInvestigatorContextMixin, AuthenticateTemplateContextMixin, View):
+    permission_required = "site.view_site_membership_list"
+    raise_exception = True
+
     @staticmethod
     def _normalize_id(value):
         normalized = str(value).strip()

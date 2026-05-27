@@ -20,6 +20,7 @@ from apps.datacapture.public import (
     get_page_state_status_for_subject_visit_crf,
     get_verified_field_template_ids_for_subject_visit_crf,
 )
+from apps.reconcile.public import list_open_reconcile_validation_issues_by_fields
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
 from apps.subject.application.services.form_verification_navigation import (
@@ -407,11 +408,13 @@ class SubjectDetailView(
         form_verification_reopen_url = ""
         form_verification_open_query_url = ""
         form_verification_query_thread_url = ""
+        validation_issue_acknowledge_url = ""
         form_verification_show_field_checkboxes = True
         form_verification_show_actions = False
         form_verification_user_can_review = True
         form_verification_has_submitted_entry = False
         field_query_state_by_id = {}
+        field_validation_issue_state_by_id = {}
         if focused_form and focused_event and focused_form_fields and not is_submitted_readonly_mode:
             try:
                 visit_pk = int(focused_event["id"])
@@ -426,6 +429,29 @@ class SubjectDetailView(
                     crf_template_id=template_pk,
                 )
                 if page_state_pk is not None:
+                    validation_issue_acknowledge_url = reverse(
+                        "subject:subject_validation_issue_acknowledge",
+                        kwargs={
+                            "study_id": self.get_study_id(),
+                            "subject_id": subject.pk,
+                            "visit_id": visit_pk,
+                            "crf_template_id": template_pk,
+                        },
+                    )
+                    field_template_ids = tuple(
+                        int(field["id"])
+                        for field in focused_form_fields
+                        if str(field.get("id") or "").isdigit()
+                    )
+                    open_validation_issues_by_field = list_open_reconcile_validation_issues_by_fields(
+                        page_state_id=int(page_state_pk),
+                        field_template_ids=field_template_ids,
+                    )
+                    for field_template_id, issues in open_validation_issues_by_field.items():
+                        field_validation_issue_state_by_id[int(field_template_id)] = {
+                            "validation_issue_count": len(issues),
+                            "validation_issues": issues,
+                        }
                     form_verification_user_can_review = (
                         getattr(focused_render_entry, "updated_by_id", None) is None
                         or not _same_user_id(
@@ -473,6 +499,7 @@ class SubjectDetailView(
             focused_form_fields,
             entry_payload_map=focused_entry_values,
             field_query_state_by_id=field_query_state_by_id,
+            field_validation_issue_state_by_id=field_validation_issue_state_by_id,
         )
         # Do not require non-empty focused_form_fields: the verification endpoint still
         # needs visit + template IDs to initialize field review rows.
@@ -637,7 +664,9 @@ class SubjectDetailView(
         context["form_verification_reopen_url"] = form_verification_reopen_url
         context["form_verification_open_query_url"] = form_verification_open_query_url
         context["form_verification_query_thread_url"] = form_verification_query_thread_url
+        context["validation_issue_acknowledge_url"] = validation_issue_acknowledge_url
         context["page_entry_has_open_queries"] = bool(field_query_state_by_id)
+        context["page_entry_has_open_validation_issues"] = bool(field_validation_issue_state_by_id)
         context["form_verification_show_field_checkboxes"] = (
             form_verification_show_field_checkboxes and form_verification_user_can_review
         )

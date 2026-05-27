@@ -54,6 +54,15 @@ class CrfFieldTemplateImportService:
         return sections[0]
 
     @transaction.atomic
+    def reset_template_fields_for_import(self, *, crf_template_id, actor_user_id, now=None):
+        now = now or timezone.now()
+        return self.repository.reset_template_fields_for_import(
+            crf_template_id=crf_template_id,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
+    @transaction.atomic
     def upsert_template_field(self, *, crf_template_id, section_template_id, payload, actor_user_id, now=None):
         now = now or timezone.now()
         field_template = self.repository.get_field_template_for_import(

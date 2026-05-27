@@ -3,6 +3,7 @@ from apps.study.presentation.web.views.crf_templates import (
     StudyCrfTemplateFieldImportTemplateView,
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
+    StudyCrfValidationRuleImportTemplateView,
 )
 from apps.study.presentation.web.views.eventdefinitions import (
     StudyEventDefinitionCreateView,
@@ -32,6 +33,7 @@ from apps.study.presentation.web.views.site import (
 from apps.study.presentation.web.views.studies import (
     StudyDetailView,
     StudyListView,
+    StudyManageRolesView,
 )
 from apps.study.presentation.web.views.study_actions import (
     StudyCreateView,
@@ -51,6 +53,7 @@ __all__ = [
     "StudyCrfTemplateFieldImportTemplateView",
     "StudyCrfTemplateImportTemplateView",
     "StudyCrfTemplateListView",
+    "StudyCrfValidationRuleImportTemplateView",
     "StudyDeleteView",
     "StudyDetailView",
     "StudyEventDefinitionCreateView",
@@ -59,6 +62,7 @@ __all__ = [
     "StudyEventFormBindingImportTemplateView",
     "StudyFactMappingImportTemplateView",
     "StudyListView",
+    "StudyManageRolesView",
     "StudyRandomizationArmDeleteView",
     "StudyRandomizationArmImportCommitView",
     "StudyRandomizationArmImportPreviewView",

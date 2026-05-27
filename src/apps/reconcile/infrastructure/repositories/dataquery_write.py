@@ -12,7 +12,7 @@ from apps.core.form_data_document import (
     normalize_form_data,
 )
 from apps.crf.models import CrfFieldTemplate
-from apps.datacapture.models import DataCapturePageEntry
+from apps.datacapture.models import DataCaptureFieldEntry, DataCapturePageEntry
 from apps.reconcile.models import (
     ReconcileDataQuery,
     ReconcileDataQuerySeverityChoices,
@@ -22,6 +22,8 @@ from apps.reconcile.models import (
     ReconcileQueryThread,
     ReconcileQueryThreadSourceChoices,
     ReconcileQueryThreadVisibilityChoices,
+    ReconcileValidationIssue,
+    ReconcileValidationIssueStatusChoices,
 )
 
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
@@ -29,6 +31,18 @@ _JSONPATH_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class DjangoReconcileDataQueryWriteRepository:
+    ACTIVE_VALIDATION_ISSUE_STATUSES = (
+        ReconcileValidationIssueStatusChoices.OPEN,
+        ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+    )
+    TERMINAL_VALIDATION_ISSUE_STATUSES = (
+        ReconcileValidationIssueStatusChoices.ACKNOWLEDGED,
+        ReconcileValidationIssueStatusChoices.CORRECTED,
+        ReconcileValidationIssueStatusChoices.QUERY_CREATED,
+        ReconcileValidationIssueStatusChoices.CLOSED,
+        ReconcileValidationIssueStatusChoices.WAIVED,
+    )
+
     @staticmethod
     def list_field_key_to_id(*, crf_template_id: int) -> dict[str, int]:
         return dict(
@@ -127,6 +141,157 @@ class DjangoReconcileDataQueryWriteRepository:
         ReconcileDataQuery.objects.bulk_create(records)
         return len(records)
 
+    @staticmethod
+    def get_current_field_entry_id(
+        *,
+        page_state_id: int,
+        field_template_id: int | None,
+    ) -> int | None:
+        if field_template_id is None:
+            return None
+        field_entry = (
+            DataCaptureFieldEntry.objects.filter(
+                page_state_id=page_state_id,
+                page_entry_id=F("page_state__current_entry_id"),
+                field_template_id=field_template_id,
+                deleted=False,
+            )
+            .only("id")
+            .first()
+        )
+        return int(field_entry.pk) if field_entry is not None else None
+
+    @classmethod
+    def _validation_issue_value_key(cls, value: object) -> str:
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+        return str(value)
+
+    @staticmethod
+    def _validation_issue_field_identity_filter(
+        *,
+        field_template_id: int | None,
+        field_instance_id: int | None,
+    ) -> Q:
+        if field_template_id is not None:
+            return Q(field_instance__field_template_id=field_template_id) | Q(
+                field_instance_id__isnull=True,
+                rule__field_template_id=field_template_id,
+            )
+        if field_instance_id is not None:
+            return Q(field_instance_id=field_instance_id)
+        return Q(field_instance_id__isnull=True)
+
+    @classmethod
+    def _has_acknowledged_validation_issue_for_same_value(
+        cls,
+        *,
+        rule_id: int,
+        form_instance_id: int,
+        field_template_id: int | None,
+        field_instance_id: int | None,
+        failed_value: object,
+    ) -> bool:
+        expected_value_key = cls._validation_issue_value_key(failed_value)
+        issues = ReconcileValidationIssue.objects.filter(
+            cls._validation_issue_field_identity_filter(
+                field_template_id=field_template_id,
+                field_instance_id=field_instance_id,
+            ),
+            rule_id=rule_id,
+            form_instance_id=form_instance_id,
+            status=ReconcileValidationIssueStatusChoices.ACKNOWLEDGED,
+        ).only("failed_value")
+        return any(cls._validation_issue_value_key(issue.failed_value) == expected_value_key for issue in issues)
+
+    @classmethod
+    def bulk_create_soft_validation_issues(
+        cls,
+        *,
+        page_state_id: int,
+        items: list[dict[str, object]],
+        actor_user_id: int | None,
+        now: datetime,
+    ) -> int:
+        _ = actor_user_id
+        created_count = 0
+        for item in items:
+            rule_id = item.get("rule_id")
+            if rule_id is None:
+                continue
+            field_template_id = item.get("field_template_id")
+            normalized_field_template_id = int(field_template_id) if field_template_id is not None else None
+            field_instance_id = cls.get_current_field_entry_id(
+                page_state_id=page_state_id,
+                field_template_id=normalized_field_template_id,
+            )
+            unresolved_issue = ReconcileValidationIssue.objects.filter(
+                cls._validation_issue_field_identity_filter(
+                    field_template_id=normalized_field_template_id,
+                    field_instance_id=field_instance_id,
+                ),
+                rule_id=int(rule_id),
+                form_instance_id=page_state_id,
+            ).exclude(status__in=cls.TERMINAL_VALIDATION_ISSUE_STATUSES)
+            if unresolved_issue.exists():
+                continue
+            if cls._has_acknowledged_validation_issue_for_same_value(
+                rule_id=int(rule_id),
+                form_instance_id=page_state_id,
+                field_template_id=normalized_field_template_id,
+                field_instance_id=field_instance_id,
+                failed_value=item.get("failed_value"),
+            ):
+                continue
+            ReconcileValidationIssue.objects.create(
+                created_at=now,
+                rule_id=int(rule_id),
+                form_instance_id=page_state_id,
+                field_instance_id=field_instance_id,
+                mode=str(item.get("mode") or "SOFT").strip() or "SOFT",
+                severity=str(item.get("severity") or "").strip(),
+                status=ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+                message=str(item.get("message") or "").strip() or "Validation warning requires acknowledgement.",
+                failed_value=item.get("failed_value"),
+                acknowledged_by=None,
+                acknowledged_at=None,
+                acknowledgement_comment=None,
+                resolved_at=None,
+            )
+            created_count += 1
+        return created_count
+
+    @classmethod
+    def acknowledge_validation_issues(
+        cls,
+        *,
+        page_state_id: int,
+        items: list[dict[str, object]],
+        actor_user_id: int | None,
+        now: datetime,
+    ) -> list[int]:
+        acknowledged_issue_ids: list[int] = []
+        for item in items:
+            issue_id = item.get("issue_id")
+            try:
+                normalized_issue_id = int(issue_id)
+            except (TypeError, ValueError):
+                continue
+            updated = ReconcileValidationIssue.objects.filter(
+                id=normalized_issue_id,
+                form_instance_id=page_state_id,
+                status__in=cls.ACTIVE_VALIDATION_ISSUE_STATUSES,
+            ).update(
+                status=ReconcileValidationIssueStatusChoices.ACKNOWLEDGED,
+                acknowledged_by=actor_user_id,
+                acknowledged_at=now,
+                acknowledgement_comment=str(item.get("comment") or "").strip(),
+                resolved_at=now,
+            )
+            if updated:
+                acknowledged_issue_ids.append(normalized_issue_id)
+        return acknowledged_issue_ids
+
     @classmethod
     def has_open_query_for_page_field(
         cls,
@@ -220,6 +385,51 @@ class DjangoReconcileDataQueryWriteRepository:
             opened_by_id=actor_user_id,
             created_by_id=actor_user_id,
             updated_by_id=actor_user_id,
+        )
+
+    @classmethod
+    def create_validation_open_query(
+        cls,
+        *,
+        page_state_id: int,
+        field_template_id: int,
+        validation_rule_id: int | None,
+        question_text: str,
+        severity: str,
+        actor_user_id: int | None,
+        now: datetime,
+        field_key: str = "",
+    ) -> ReconcileDataQuery:
+        entry_context = cls._current_page_entry_query_context(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            storage_key_hint=field_key,
+        )
+        return ReconcileDataQuery.objects.create(
+            created_at=now,
+            updated_at=now,
+            deleted=False,
+            status=ReconcileDataQueryStatusChoices.OPEN,
+            source=ReconcileDataQuerySourceChoices.SYSTEM,
+            query_type=ReconcileDataQueryTypeChoices.VALIDATION,
+            severity=severity,
+            is_blocking=True,
+            question_text=question_text,
+            resolution_note="",
+            opened_at=now,
+            closed_at=None,
+            page_state_id=page_state_id,
+            page_entry_id=entry_context.get("page_entry_id"),
+            field_template_id=field_template_id,
+            validation_rule_id=validation_rule_id,
+            data_version=entry_context.get("data_version"),
+            field_path=entry_context.get("field_path"),
+            value_snapshot=entry_context.get("value_snapshot"),
+            assigned_to_id=entry_context.get("assigned_to_id"),
+            opened_by_id=actor_user_id,
+            created_by_id=actor_user_id,
+            updated_by_id=actor_user_id,
+            reason_code="validation_rule_failed",
         )
 
     @staticmethod

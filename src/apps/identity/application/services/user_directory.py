@@ -45,7 +45,7 @@ class IdentityUserDirectoryQueryService:
             filter_query_service_class() for filter_query_service_class in registered_filter_query_service_classes
         ]
 
-    def list_users(self, *, search_query="", filter_key="", sort_key="username", sort_direction="asc"):
+    def list_users(self, *, actor_user=None, search_query="", filter_key="", sort_key="username", sort_direction="asc"):
         normalized_search_query = (search_query or "").strip()
         normalized_filter_key = (filter_key or "").strip().lower()
         normalized_sort_key = (sort_key or "username").strip()
@@ -55,7 +55,8 @@ class IdentityUserDirectoryQueryService:
         if normalized_sort_key not in self.users_sort_map:
             normalized_sort_key = "username"
 
-        users_queryset = self.repository.list_users(
+        users_queryset = self.repository.list_users_accessible_to_user(
+            actor_user,
             order_by=self._build_order_by(normalized_sort_key, normalized_sort_direction),
         )
 
@@ -103,7 +104,7 @@ class IdentityUserDirectoryQueryService:
             ),
         }
 
-    def get_user_detail(self, *, user_id, include_deleted=False):
+    def get_user_detail(self, *, user_id, include_deleted=False, actor_user=None):
         user = self.repository.get_user_for_detail(user_id=user_id, include_deleted=include_deleted)
         if user is None:
             raise IdentityUserNotFoundError(user_id)
@@ -113,15 +114,22 @@ class IdentityUserDirectoryQueryService:
         explicit_display_name = getattr(user, "display_name", "").strip()
         full_name = user.get_full_name().strip()
         display_name = explicit_display_name or full_name or user.get_username()
-        user_role_records = list(self.repository.list_user_roles(user))
-        role_label = self._build_role_label(user_role_records)
-        selected_role_id = str(user_role_records[0].role_id) if user_role_records else ""
         study_membership_records = list(self.repository.list_study_memberships_for_user(user))
         selected_study_ids = [str(record.study_id) for record in study_membership_records]
         site_membership_records = list(self.repository.list_site_memberships_for_user(user))
         selected_site_ids = [str(record.site_id) for record in site_membership_records]
+        study_role_assignments = list(self.repository.list_study_membership_role_assignments_for_user(user))
+        site_role_assignments = list(self.repository.list_site_membership_role_assignments_for_user(user))
+        selected_study_role_ids = self._selected_study_role_ids(study_role_assignments)
+        selected_site_role_ids = self._selected_site_role_ids(site_role_assignments)
         permission_group_records = list(user.groups.order_by("name"))
         permission_groups = [group.name for group in permission_group_records]
+        selected_permission_group_ids = [str(group.pk) for group in permission_group_records]
+        accessible_study_ids = tuple(
+            self.repository.list_accessible_studies_for_user(actor_user).values_list("pk", flat=True)
+            if actor_user is not None
+            else ()
+        )
 
         return {
             "layout_breadcrumb_label": user.get_username(),
@@ -145,15 +153,30 @@ class IdentityUserDirectoryQueryService:
                 "email_value": user.email or "",
                 "phone_number": getattr(user, "phone_number", "") or "—",
                 "phone_number_value": getattr(user, "phone_number", "") or "",
-                "role": role_label,
-                "role_options": self._build_role_options(selected_role_id),
-                "selected_role": selected_role_id,
                 "permission_groups": permission_groups,
-                "permission_group_options": self._build_permission_group_options(permission_group_records),
-                "study_options": self._build_study_options(selected_study_ids),
+                "selected_permission_group_ids": selected_permission_group_ids,
+                "permission_group_options": self._build_permission_group_options(
+                    permission_group_records,
+                    actor_user=actor_user,
+                ),
+                "study_options": self._build_study_options(selected_study_ids, actor_user=actor_user),
                 "selected_study_ids": selected_study_ids,
-                "site_options": self._build_site_options(selected_study_ids, selected_site_ids),
+                "selected_study_role_ids": selected_study_role_ids,
+                "site_options": self._build_site_options(
+                    selected_study_ids,
+                    selected_site_ids,
+                    actor_user=actor_user,
+                ),
                 "selected_site_ids": selected_site_ids,
+                "selected_site_role_ids": selected_site_role_ids,
+                "study_membership_role_options": self.list_role_option_dicts(
+                    scope_level="STUDY",
+                    study_ids=accessible_study_ids,
+                ),
+                "site_membership_role_options": self.list_role_option_dicts(
+                    scope_level="STUDY_SITE",
+                    study_ids=accessible_study_ids,
+                ),
                 "is_active": user.is_active,
                 "status": _("Active") if user.is_active else _("Inactive"),
                 "status_tone": "active" if user.is_active else "inactive",
@@ -178,10 +201,26 @@ class IdentityUserDirectoryQueryService:
             for role in self.repository.list_roles()
         ]
 
-    def list_study_choices(self):
+    def list_role_option_dicts(self, *, scope_level, study_ids=()):
+        return [
+            {
+                "value": str(role.pk),
+                "label": role.name,
+                "study_id": str(role.study_id),
+                "scope_level": role.scope_level,
+            }
+            for role in self.repository.list_roles(study_ids=study_ids, scope_levels=(scope_level,))
+        ]
+
+    def list_study_choices(self, *, user=None):
+        studies = (
+            self.repository.list_accessible_studies_for_user(user)
+            if user is not None
+            else self.repository.list_active_studies()
+        )
         return [
             (str(study.pk), self._build_study_option_label(study))
-            for study in self.repository.list_active_studies()
+            for study in studies
         ]
 
     def _build_table_row(self, user):
@@ -324,20 +363,11 @@ class IdentityUserDirectoryQueryService:
             return "staff", _("Staff"), "staff"
         return "user", _("User"), "user"
 
-    def _build_role_options(self, selected_role_id):
-        role_records = list(self.repository.list_roles())
-        return [
-            {
-                "value": str(role.pk),
-                "label": role.name,
-                "selected": str(role.pk) == str(selected_role_id or ""),
-            }
-            for role in role_records
-        ]
-
-    def _build_permission_group_options(self, selected_permission_groups):
+    def _build_permission_group_options(self, selected_permission_groups, *, actor_user=None):
         selected_group_ids = {str(group.pk) for group in selected_permission_groups}
-        group_records = list(self.repository.list_groups())
+        group_records = list(self.repository.list_permission_groups_manageable_by_user(actor_user))
+        if not group_records:
+            group_records = list(selected_permission_groups)
 
         return [
             {
@@ -348,27 +378,38 @@ class IdentityUserDirectoryQueryService:
             for group in group_records
         ]
 
-    def _build_study_options(self, selected_study_ids):
+    def _build_study_options(self, selected_study_ids, *, actor_user=None):
         selected_study_ids_set = {str(study_id) for study_id in selected_study_ids}
+        studies = (
+            self.repository.list_accessible_studies_for_user(actor_user)
+            if actor_user is not None
+            else self.repository.list_active_studies()
+        )
         return [
             {
                 "value": str(study.pk),
                 "label": self._build_study_option_label(study),
                 "selected": str(study.pk) in selected_study_ids_set,
             }
-            for study in self.repository.list_active_studies()
+            for study in studies
         ]
 
-    def _build_site_options(self, selected_study_ids, selected_site_ids):
+    def _build_site_options(self, selected_study_ids, selected_site_ids, *, actor_user=None):
         selected_site_ids_set = {str(site_id) for site_id in selected_site_ids}
         selected_study_ids_int = [int(study_id) for study_id in selected_study_ids if str(study_id).isdigit()]
+        sites = (
+            self.repository.list_accessible_sites_for_user(actor_user, study_ids=selected_study_ids_int)
+            if actor_user is not None
+            else self.repository.list_active_sites(study_ids=selected_study_ids_int)
+        )
         return [
             {
                 "value": str(site.pk),
                 "label": self._build_site_option_label(site),
+                "study_id": str(site.study_id),
                 "selected": str(site.pk) in selected_site_ids_set,
             }
-            for site in self.repository.list_active_sites(study_ids=selected_study_ids_int)
+            for site in sites
         ]
 
     @staticmethod
@@ -377,6 +418,26 @@ class IdentityUserDirectoryQueryService:
         if not role_names:
             return "—"
         return ", ".join(role_names)
+
+    @staticmethod
+    def _selected_study_role_ids(assignments):
+        selected = {}
+        for assignment in assignments:
+            membership = getattr(assignment, "study_membership", None)
+            if membership is None:
+                continue
+            selected[str(membership.study_id)] = str(assignment.role_id)
+        return selected
+
+    @staticmethod
+    def _selected_site_role_ids(assignments):
+        selected = {}
+        for assignment in assignments:
+            membership = getattr(assignment, "study_site_membership", None)
+            if membership is None:
+                continue
+            selected[str(membership.site_id)] = str(assignment.role_id)
+        return selected
 
     @staticmethod
     def _build_study_option_label(study):

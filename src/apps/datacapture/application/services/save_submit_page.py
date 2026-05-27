@@ -19,7 +19,10 @@ from apps.datacapture.application.exceptions import (
     DataCaptureInvalidPayloadUseCaseError,
     DataCaptureUnsupportedEntryStatusUseCaseError,
 )
-from apps.datacapture.application.services.check_field_validation_rules import DataCaptureFieldValidationRulesService
+from apps.datacapture.application.services.check_field_validation_rules import (
+    DataCaptureFieldValidationRulesService,
+    FieldValidationCheckResult,
+)
 from apps.datacapture.application.services.pageentry_state_change_events import (
     PageEntryStateChangeEventDispatcher,
     PageEntrySubmittedEventContext,
@@ -230,19 +233,43 @@ class DataCaptureSaveSubmitPageService:
             actor_user_id=command.actor_user_id,
         )
 
-    def _resolve_target_page_status_after_validation(self, command: SubmitPageCommand) -> str:
-        validation_result = self.field_validation_rules_service.check_field_validation_rules(
+    def _check_submit_validation_rules(self, command: SubmitPageCommand) -> FieldValidationCheckResult:
+        return self.field_validation_rules_service.check_field_validation_rules(
             crf_template_id=command.crf_template_id,
             payload_data=command.data,
         )
-        if validation_result.has_failures:
-            return DataCapturePageState.CORRECTION_REQUIRED
-        return DataCapturePageState.SUBMITTED
+
+    def _create_validation_failure_reconcile_records(
+        self,
+        *,
+        page_state_id: int,
+        validation_result: FieldValidationCheckResult,
+        actor_user_id: int | None,
+    ) -> None:
+        if not validation_result.failures:
+            return
+        self.reconcile_data_query_write_service.create_validation_failure_records(
+            page_state_id=page_state_id,
+            failures=[
+                {
+                    "rule_id": failure.rule_id,
+                    "field_template_id": failure.field_template_id,
+                    "field_key": failure.field_key,
+                    "mode": failure.mode,
+                    "severity": failure.severity,
+                    "message": failure.message,
+                    "failed_value": failure.failed_value,
+                }
+                for failure in validation_result.failures
+            ],
+            actor_user_id=actor_user_id,
+        )
 
     def _submit_noop_identical_submitted(self, command: SubmitPageCommand, latest) -> SubmitPageResult:
         if latest is None:
             raise RuntimeError("submit noop requires latest submitted entry")
-        target_page_status = self._resolve_target_page_status_after_validation(command)
+        validation_result = self._check_submit_validation_rules(command)
+        target_page_status = DataCapturePageState.SUBMITTED
         started_page_state = self.repository.upsert_page_state_for_data_entry(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -266,6 +293,11 @@ class DataCaptureSaveSubmitPageService:
             command=command,
             page_state_id=page_state.pk,
             entry_id=latest.id,
+        )
+        self._create_validation_failure_reconcile_records(
+            page_state_id=page_state.pk,
+            validation_result=validation_result,
+            actor_user_id=command.actor_user_id,
         )
         self._complete_visit_if_all_forms_submitted(
             subject_id=command.subject_id,
@@ -598,7 +630,8 @@ class DataCaptureSaveSubmitPageService:
             page_state_id=started_page_state.pk,
             entry_id=entry.pk,
         )
-        target_page_status = self._resolve_target_page_status_after_validation(command)
+        validation_result = self._check_submit_validation_rules(command)
+        target_page_status = DataCapturePageState.SUBMITTED
         page_state = self.repository.submit_page_state_with_entry(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -623,6 +656,11 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=command.crf_template_id,
             changed_field_keys=changed_field_keys,
             candidate_payload=candidate_payload,
+            actor_user_id=command.actor_user_id,
+        )
+        self._create_validation_failure_reconcile_records(
+            page_state_id=page_state.pk,
+            validation_result=validation_result,
             actor_user_id=command.actor_user_id,
         )
         if plan.superseded_entry_state_change is not None:

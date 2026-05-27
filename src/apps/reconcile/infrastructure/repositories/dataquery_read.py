@@ -1,10 +1,21 @@
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.db.models.functions import Coalesce
 
-from apps.reconcile.models import ReconcileDataQuery, ReconcileDataQueryStatusChoices, ReconcileQueryThread
+from apps.reconcile.models import (
+    ReconcileDataQuery,
+    ReconcileDataQueryStatusChoices,
+    ReconcileQueryThread,
+    ReconcileValidationIssue,
+    ReconcileValidationIssueStatusChoices,
+)
 
 
 class DjangoReconcileDataQueryReadRepository:
+    OPEN_VALIDATION_ISSUE_STATUSES = (
+        ReconcileValidationIssueStatusChoices.OPEN,
+        ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+    )
+
     @staticmethod
     def _active_status_excludes() -> tuple[str, ...]:
         return ("cancelled", "closed")
@@ -29,6 +40,136 @@ class DjangoReconcileDataQueryReadRepository:
             .annotate(query_count=Count("id"))
         )
         return {int(row["field_template_id"]): int(row["query_count"]) for row in rows}
+
+    def list_open_validation_issues_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, list[dict[str, object]]]:
+        if not field_template_ids:
+            return {}
+        rows = (
+            ReconcileValidationIssue.objects.filter(
+                form_instance_id=page_state_id,
+                status__in=self.OPEN_VALIDATION_ISSUE_STATUSES,
+            )
+            .filter(
+                Q(field_instance__field_template_id__in=field_template_ids)
+                | Q(field_instance_id__isnull=True, rule__field_template_id__in=field_template_ids)
+            )
+            .values(
+                "id",
+                "rule_id",
+                "field_instance_id",
+                "field_instance__field_template_id",
+                "rule__field_template_id",
+                "mode",
+                "severity",
+                "status",
+                "message",
+                "created_at",
+            )
+        )
+        grouped: dict[int, list[dict[str, object]]] = {}
+        seen_ids: set[int] = set()
+        for row in rows:
+            issue_id = int(row["id"])
+            if issue_id in seen_ids:
+                continue
+            seen_ids.add(issue_id)
+            field_template_id = row["field_instance__field_template_id"] or row["rule__field_template_id"]
+            if field_template_id is None:
+                continue
+            grouped.setdefault(int(field_template_id), []).append(
+                {
+                    "id": issue_id,
+                    "rule_id": row["rule_id"],
+                    "field_instance_id": row["field_instance_id"],
+                    "mode": row["mode"],
+                    "severity": row["severity"],
+                    "status": row["status"],
+                    "message": row["message"],
+                    "created_at": row["created_at"],
+                }
+            )
+        for issues in grouped.values():
+            issues.sort(key=lambda item: (item.get("created_at") is None, item.get("created_at"), item.get("id")))
+        return grouped
+
+    def list_validation_issue_histories_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, list[dict[str, object]]]:
+        if not field_template_ids:
+            return {}
+        rows = (
+            ReconcileValidationIssue.objects.filter(form_instance_id=page_state_id)
+            .filter(
+                Q(field_instance__field_template_id__in=field_template_ids)
+                | Q(field_instance_id__isnull=True, rule__field_template_id__in=field_template_ids)
+            )
+            .annotate(sort_at=Coalesce("resolved_at", "acknowledged_at", "created_at"))
+            .order_by("field_instance__field_template_id", "rule__field_template_id", "-sort_at", "-id")
+            .values(
+                "id",
+                "rule_id",
+                "field_instance_id",
+                "field_instance__field_template_id",
+                "rule__field_template_id",
+                "mode",
+                "severity",
+                "status",
+                "message",
+                "created_at",
+                "acknowledged_by",
+                "acknowledged_at",
+                "acknowledgement_comment",
+                "resolved_at",
+            )
+        )
+        grouped: dict[int, list[dict[str, object]]] = {}
+        seen_ids: set[int] = set()
+        for row in rows:
+            issue_id = int(row["id"])
+            if issue_id in seen_ids:
+                continue
+            seen_ids.add(issue_id)
+            field_template_id = row["field_instance__field_template_id"] or row["rule__field_template_id"]
+            if field_template_id is None:
+                continue
+            grouped.setdefault(int(field_template_id), []).append(
+                {
+                    "id": issue_id,
+                    "rule_id": row["rule_id"],
+                    "field_instance_id": row["field_instance_id"],
+                    "mode": row["mode"],
+                    "severity": row["severity"],
+                    "status": row["status"],
+                    "message": row["message"],
+                    "created_at": row["created_at"],
+                    "acknowledged_by": row["acknowledged_by"],
+                    "acknowledged_at": row["acknowledged_at"],
+                    "acknowledgement_comment": row["acknowledgement_comment"],
+                    "resolved_at": row["resolved_at"],
+                }
+            )
+        return grouped
+
+    def has_open_validation_issue_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
+        return (
+            ReconcileValidationIssue.objects.filter(
+                form_instance_id=page_state_id,
+                status__in=self.OPEN_VALIDATION_ISSUE_STATUSES,
+            )
+            .filter(
+                Q(field_instance__field_template_id=field_template_id)
+                | Q(field_instance_id__isnull=True, rule__field_template_id=field_template_id)
+            )
+            .exists()
+        )
 
     def list_field_template_ids_with_verified_queries(
         self,

@@ -1,5 +1,3 @@
-from django.contrib.auth.views import redirect_to_login
-from django.core.exceptions import PermissionDenied
 from django.urls import include, path
 
 from apps.study.presentation.web.views import (
@@ -13,6 +11,7 @@ from apps.study.presentation.web.views import (
     StudyCrfTemplateFieldImportTemplateView,
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
+    StudyCrfValidationRuleImportTemplateView,
     StudyDeleteView,
     StudyDetailView,
     StudyEventDefinitionCreateView,
@@ -21,6 +20,7 @@ from apps.study.presentation.web.views import (
     StudyEventFormBindingImportTemplateView,
     StudyFactMappingImportTemplateView,
     StudyListView,
+    StudyManageRolesView,
     StudyRandomizationArmDeleteView,
     StudyRandomizationArmImportCommitView,
     StudyRandomizationArmImportPreviewView,
@@ -35,34 +35,26 @@ from apps.study.presentation.web.views import (
 app_name = "study"
 
 
-def _superuser_guard(view):
-    def wrapped(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path(), "/login/", "next")
-        if not request.user.is_superuser:
-            raise PermissionDenied
-        return view(request, *args, **kwargs)
-
-    return wrapped
-
 urlpatterns = [
-    path("studies", _superuser_guard(StudyListView.as_view()), name="study_list"),
-    path("studies/new", _superuser_guard(StudyCreateView.as_view()), name="study_create"),
-    path("studies/<int:study_id>", _superuser_guard(StudyDetailView.as_view()), name="study_detail"),
-    path("studies/<int:study_id>/crftemplates/import", _superuser_guard(StudyCrfTemplateImportTemplateView.as_view()), name="study_crf_template_import"),
-    path("studies/<int:study_id>/crftemplates/fields/import", _superuser_guard(StudyCrfTemplateFieldImportTemplateView.as_view()), name="study_crf_template_field_import"),
-    path("studies/<int:study_id>/crftemplates/section-layout-configs/import", _superuser_guard(StudyCrfSectionLayoutConfigImportTemplateView.as_view()), name="study_crf_section_layout_config_import"),
-    path("studies/<int:study_id>/crftemplates", _superuser_guard(StudyCrfTemplateListView.as_view()), name="study_crf_templates"),
-    path("studies/<int:study_id>/eventdefinitions/bindingforms/import", _superuser_guard(StudyEventFormBindingImportTemplateView.as_view()), name="study_event_form_binding_import"),
-    path("studies/<int:study_id>/eventdefinitions/factmappings/import", _superuser_guard(StudyFactMappingImportTemplateView.as_view()), name="study_fact_mapping_import"),
-    path("studies/<int:study_id>/eventdefinitions/import", _superuser_guard(StudyEventDefinitionImportTemplateView.as_view()), name="study_event_definition_import"),
-    path("studies/<int:study_id>/eventdefinitions/new", _superuser_guard(StudyEventDefinitionCreateView.as_view()), name="study_event_definition_create"),
-    path("studies/<int:study_id>/eventdefinitions", _superuser_guard(StudyEventDefinitionListView.as_view()), name="study_event_definitions"),
-    path("studies/<int:study_id>/randomization", _superuser_guard(StudyRandomizationView.as_view()), name="study_randomization"),
-    path("studies/<int:study_id>/delete", _superuser_guard(StudyDeleteView.as_view()), name="study_delete"),
-    path("studies/<int:study_id>/edit", _superuser_guard(StudyUpdateView.as_view()), name="study_update"),
+    path("studies", StudyListView.as_view(), name="study_list"),
+    path("studies/new", StudyCreateView.as_view(), name="study_create"),
+    path("studies/<int:study_id>", StudyDetailView.as_view(), name="study_detail"),
+    path("studies/<int:study_id>/roles", StudyManageRolesView.as_view(), name="study_manage_roles"),
+    path("studies/<int:study_id>/crftemplates/import", StudyCrfTemplateImportTemplateView.as_view(), name="study_crf_template_import"),
+    path("studies/<int:study_id>/crftemplates/fields/import", StudyCrfTemplateFieldImportTemplateView.as_view(), name="study_crf_template_field_import"),
+    path("studies/<int:study_id>/crftemplates/section-layout-configs/import", StudyCrfSectionLayoutConfigImportTemplateView.as_view(), name="study_crf_section_layout_config_import"),
+    path("studies/<int:study_id>/crftemplates/validation-rules/import", StudyCrfValidationRuleImportTemplateView.as_view(), name="study_crf_validation_rule_import"),
+    path("studies/<int:study_id>/crftemplates", StudyCrfTemplateListView.as_view(), name="study_crf_templates"),
+    path("studies/<int:study_id>/eventdefinitions/bindingforms/import", StudyEventFormBindingImportTemplateView.as_view(), name="study_event_form_binding_import"),
+    path("studies/<int:study_id>/eventdefinitions/factmappings/import", StudyFactMappingImportTemplateView.as_view(), name="study_fact_mapping_import"),
+    path("studies/<int:study_id>/eventdefinitions/import", StudyEventDefinitionImportTemplateView.as_view(), name="study_event_definition_import"),
+    path("studies/<int:study_id>/eventdefinitions/new", StudyEventDefinitionCreateView.as_view(), name="study_event_definition_create"),
+    path("studies/<int:study_id>/eventdefinitions", StudyEventDefinitionListView.as_view(), name="study_event_definitions"),
+    path("studies/<int:study_id>/randomization", StudyRandomizationView.as_view(), name="study_randomization"),
+    path("studies/<int:study_id>/delete", StudyDeleteView.as_view(), name="study_delete"),
+    path("studies/<int:study_id>/edit", StudyUpdateView.as_view(), name="study_update"),
     path(
-        "studies/<int:study_id>/toggle-status", _superuser_guard(StudyToggleStatusView.as_view()),
+        "studies/<int:study_id>/toggle-status", StudyToggleStatusView.as_view(),
         name="study_toggle_status",
     ),
 ]
@@ -74,32 +66,32 @@ urlpatterns += [
             [
                 path(
                     "schemes/import/preview",
-                    _superuser_guard(StudyRandomizationSchemeImportPreviewView.as_view()),
+                    StudyRandomizationSchemeImportPreviewView.as_view(),
                     name="study_randomization_scheme_import_preview",
                 ),
                 path(
                     "schemes/import/commit",
-                    _superuser_guard(StudyRandomizationSchemeImportCommitView.as_view()),
+                    StudyRandomizationSchemeImportCommitView.as_view(),
                     name="study_randomization_scheme_import_commit",
                 ),
                 path(
                     "schemes/<int:scheme_id>/delete",
-                    _superuser_guard(StudyRandomizationSchemeDeleteView.as_view()),
+                    StudyRandomizationSchemeDeleteView.as_view(),
                     name="study_randomization_scheme_delete",
                 ),
                 path(
                     "arms/import/preview",
-                    _superuser_guard(StudyRandomizationArmImportPreviewView.as_view()),
+                    StudyRandomizationArmImportPreviewView.as_view(),
                     name="study_randomization_arm_import_preview",
                 ),
                 path(
                     "arms/import/commit",
-                    _superuser_guard(StudyRandomizationArmImportCommitView.as_view()),
+                    StudyRandomizationArmImportCommitView.as_view(),
                     name="study_randomization_arm_import_commit",
                 ),
                 path(
                     "arms/<int:arm_id>/delete",
-                    _superuser_guard(StudyRandomizationArmDeleteView.as_view()),
+                    StudyRandomizationArmDeleteView.as_view(),
                     name="study_randomization_arm_delete",
                 ),
             ],
@@ -112,16 +104,16 @@ urlpatterns += [
 urlpatterns += [
     path(
         "api/studies/<int:study_id>/sites/<int:site_id>/memberships",
-        _superuser_guard(SiteMembershipOptionsApiView.as_view()),
+        SiteMembershipOptionsApiView.as_view(),
         name="api_site_memberships",
     ),
     path(
         "studies/<int:study_id>/sites/", include(
             [
-                path("", _superuser_guard(SiteListView.as_view()), name="site_list"),
-                path("new", _superuser_guard(SiteCreateView.as_view()), name="site_create"),
-                path("<int:site_id>", _superuser_guard(SiteDetailView.as_view()), name="site_detail"),
-                path("<int:site_id>/delete", _superuser_guard(SiteDeleteView.as_view()), name="site_delete"),
+                path("", SiteListView.as_view(), name="site_list"),
+                path("new", SiteCreateView.as_view(), name="site_create"),
+                path("<int:site_id>", SiteDetailView.as_view(), name="site_detail"),
+                path("<int:site_id>/delete", SiteDeleteView.as_view(), name="site_delete"),
             ],
         ),
     ),

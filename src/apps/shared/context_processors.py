@@ -12,6 +12,7 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext_lazy as _
 
 from apps.identity.infrastructure.persistence.models import StudyMembership, StudySiteMembership
+from apps.shared.navigation import get_layout_nav_permissions
 from apps.study.infrastructure.persistence.models import Site, Study
 
 
@@ -197,6 +198,7 @@ class SiteDropdownHandler(StudyDropdownHandler):
 def shared_select_options(request):
     study_dd = StudyDropdownHandler(request=request).build()
     site_dd = SiteDropdownHandler(request=request, study_id=study_dd.selected_id).build()
+    site_selected_id = site_dd.selected_id
     return {
         # study
         "shared_study_cookies_key": StudyDropdownHandler.COOKIE_NAME,
@@ -206,9 +208,14 @@ def shared_select_options(request):
 
         # site
         "shared_site_cookies_key": SiteDropdownHandler.COOKIE_NAME,
-        "shared_site_selected_id": site_dd.selected_id,
+        "shared_site_selected_id": site_selected_id,
         "shared_site_select_default": site_dd.select_display_text,
         "shared_site_select_options": site_dd.select_options,
+        "layout_nav_permissions": get_layout_nav_permissions(
+            request.user,
+            study_id=study_dd.selected_id,
+            site_id=site_selected_id,
+        ),
 
         # another
         "shared_language_select_options": [

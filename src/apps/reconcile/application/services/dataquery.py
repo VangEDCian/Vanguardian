@@ -20,6 +20,17 @@ class ReconcileChangeReasonItem:
     reason: str
 
 
+@dataclass(frozen=True)
+class ReconcileValidationFailureItem:
+    rule_id: int | None
+    field_template_id: int | None
+    field_key: str
+    mode: str
+    severity: str
+    message: str
+    failed_value: object
+
+
 class ReconcileDataQueryWriteService:
     def __init__(self, repository=None):
         self.repository = repository or DjangoReconcileDataQueryWriteRepository()
@@ -41,6 +52,135 @@ class ReconcileDataQueryWriteService:
             if raw_id.isdigit():
                 return int(raw_id)
         return field_key_to_id.get(canonical_field_key)
+
+    @staticmethod
+    def _to_int_or_none(value) -> int | None:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _normalize_query_severity(value: str) -> str:
+        normalized = str(value or "").strip().lower()
+        if normalized in {"critical", "fatal"}:
+            return "critical"
+        if normalized in {"major", "error", "hard"}:
+            return "major"
+        return "minor"
+
+    @classmethod
+    def _normalize_validation_failure(cls, item) -> ReconcileValidationFailureItem:
+        if isinstance(item, dict):
+            getter = item.get
+        else:
+            def getter(key, default=None):
+                return getattr(item, key, default)
+
+        return ReconcileValidationFailureItem(
+            rule_id=cls._to_int_or_none(getter("rule_id")),
+            field_template_id=cls._to_int_or_none(getter("field_template_id")),
+            field_key=str(getter("field_key") or "").strip(),
+            mode=str(getter("mode") or "").strip().upper(),
+            severity=str(getter("severity") or "").strip(),
+            message=str(getter("message") or "").strip(),
+            failed_value=getter("failed_value"),
+        )
+
+    def create_validation_failure_records(
+        self,
+        *,
+        page_state_id: int,
+        failures: list[object],
+        actor_user_id: int | None,
+    ) -> dict[str, int]:
+        normalized_failures = [self._normalize_validation_failure(item) for item in failures]
+        soft_failures = [item for item in normalized_failures if item.mode == "SOFT"]
+        query_failures = [item for item in normalized_failures if item.mode == "QUERY"]
+        now: datetime = timezone.now()
+
+        soft_issue_count = self.repository.bulk_create_soft_validation_issues(
+            page_state_id=page_state_id,
+            items=[
+                {
+                    "rule_id": item.rule_id,
+                    "field_template_id": item.field_template_id,
+                    "mode": item.mode,
+                    "severity": item.severity,
+                    "message": item.message,
+                    "failed_value": item.failed_value,
+                }
+                for item in soft_failures
+            ],
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
+        query_count = 0
+        for item in query_failures:
+            if item.field_template_id is None:
+                continue
+            if self.repository.has_open_query_for_page_field(
+                page_state_id=page_state_id,
+                field_template_id=item.field_template_id,
+                field_key=item.field_key,
+            ):
+                continue
+            message_text = item.message or "Validation rule failed."
+            dataquery = self.repository.create_validation_open_query(
+                page_state_id=page_state_id,
+                field_template_id=item.field_template_id,
+                validation_rule_id=item.rule_id,
+                field_key=item.field_key,
+                question_text=message_text,
+                severity=self._normalize_query_severity(item.severity),
+                actor_user_id=actor_user_id,
+                now=now,
+            )
+            self.repository.create_query_thread_message(
+                dataquery_id=dataquery.pk,
+                message_text=message_text,
+                message_type=_QUERY_THREAD_COMMENT,
+                actor_user_id=actor_user_id,
+                now=now,
+                source=_QUERY_THREAD_SOURCE_SYSTEM,
+            )
+            query_count += 1
+        return {
+            "soft_issue_count": soft_issue_count,
+            "query_count": query_count,
+        }
+
+    def acknowledge_validation_issues(
+        self,
+        *,
+        page_state_id: int,
+        issues: list[dict[str, object]],
+        actor_user_id: int | None,
+    ) -> dict[str, object]:
+        normalized_issues: list[dict[str, object]] = []
+        for item in issues:
+            if not isinstance(item, dict):
+                continue
+            issue_id = self._to_int_or_none(item.get("issue_id") or item.get("id"))
+            comment = str(item.get("comment") or item.get("acknowledgement_comment") or "").strip()
+            if issue_id is None:
+                continue
+            if not comment:
+                raise ValueError("Acknowledgement comment is required.")
+            normalized_issues.append({"issue_id": issue_id, "comment": comment})
+        if not normalized_issues:
+            return {"acknowledged_issue_ids": [], "acknowledged_count": 0}
+        acknowledged_issue_ids = self.repository.acknowledge_validation_issues(
+            page_state_id=page_state_id,
+            items=normalized_issues,
+            actor_user_id=actor_user_id,
+            now=timezone.now(),
+        )
+        return {
+            "acknowledged_issue_ids": acknowledged_issue_ids,
+            "acknowledged_count": len(acknowledged_issue_ids),
+        }
 
     def create_change_reason_data_queries(
         self,

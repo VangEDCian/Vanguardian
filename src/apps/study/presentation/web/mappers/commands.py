@@ -8,6 +8,7 @@ from apps.study.application import (
     ImportStudyCrfSectionLayoutConfigsTemplateCommand,
     ImportStudyCrfTemplateFieldsTemplateCommand,
     ImportStudyCrfTemplatesTemplateCommand,
+    ImportStudyCrfValidationRulesTemplateCommand,
     ImportStudyEventDefinitionsTemplateCommand,
     ImportStudyEventFormBindingsTemplateCommand,
     ImportStudyFactMappingsTemplateCommand,
@@ -31,6 +32,12 @@ def to_import_study_crf_section_layout_configs_template_command(
     **kwargs,
 ) -> ImportStudyCrfSectionLayoutConfigsTemplateCommand:
     return ImportStudyCrfSectionLayoutConfigsTemplateCommand(**kwargs)
+
+
+def to_import_study_crf_validation_rules_template_command(
+    **kwargs,
+) -> ImportStudyCrfValidationRulesTemplateCommand:
+    return ImportStudyCrfValidationRulesTemplateCommand(**kwargs)
 
 
 def to_import_study_event_definitions_template_command(**kwargs) -> ImportStudyEventDefinitionsTemplateCommand:
@@ -91,6 +98,7 @@ def to_delete_study_command(**kwargs) -> DeleteStudyCommand:
 
 __all__ = [
     "to_import_study_crf_template_fields_template_command",
+    "to_import_study_crf_validation_rules_template_command",
     "to_import_study_crf_section_layout_configs_template_command",
     "to_import_study_crf_templates_template_command",
     "to_import_study_event_definitions_template_command",

@@ -8,6 +8,8 @@ from apps.reconcile.infrastructure.persistence.models import (
     ReconcileQueryThreadMessageTypeChoices,
     ReconcileQueryThreadSourceChoices,
     ReconcileQueryThreadVisibilityChoices,
+    ReconcileValidationIssue,
+    ReconcileValidationIssueStatusChoices,
 )
 
 __all__ = [
@@ -20,4 +22,6 @@ __all__ = [
     "ReconcileQueryThreadMessageTypeChoices",
     "ReconcileQueryThreadSourceChoices",
     "ReconcileQueryThreadVisibilityChoices",
+    "ReconcileValidationIssue",
+    "ReconcileValidationIssueStatusChoices",
 ]

@@ -7,7 +7,8 @@ From a product perspective, Vanguardian aims to reduce data fragmentation, impro
 ## Implementation Principles
 
 - The default architecture is a modular monolith, and each bounded context must keep clear ownership and boundaries.
-- Business schema changes do not use Django migrations as the source of truth; schema updates must go through `db/dbdiagram.dbml` and `db/migrations/*.sql`.
+- Production business schema changes do not use Django migrations as the source of truth; production schema updates must go through `db/dbdiagram.dbml` and `db/migrations/*.sql`.
+- Development environments may use Django migrations for local schema iteration and day-to-day manipulation, but release-ready business schema changes must be reconciled back to the production DB-first flow.
 
 ## Local Setup
 
@@ -51,7 +52,9 @@ If you need the messaging service used by the current local stack, also start `m
 docker compose -f docker/docker-compose.yml up -d mariadb memcached mosquitto
 ```
 
-### 4. Initialize the database with the DB-first flow
+### 4. Initialize the database with the production-aligned DB-first flow
+
+For day-to-day development, Django migrations may be used against a local database to iterate quickly. Use the DB-first flow below when validating a production-like database or preparing release-ready business schema changes.
 
 Create Django foundation tables first:
 

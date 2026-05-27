@@ -5,6 +5,8 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.audit.public import build_audit_request_context
+from apps.identity.public import get_role_permission_summary_for_study, import_role_permissions_for_study
+from apps.shared.navigation import get_default_study_id
 from apps.shared.views import AuthenticateTemplateView
 from apps.study.application import (
     StudyAuditService,
@@ -44,6 +46,15 @@ class StudyListView(
         return self.study_directory_query_service_class(
             registered_filter_query_service_classes=self.registered_filter_query_service_classes
         )
+
+    def get_permission_resource_context(self):
+        study_id = get_default_study_id(self.request)
+        if study_id is None:
+            return None
+
+        from apps.identity.public import ResourceContext
+
+        return ResourceContext(study_id=study_id)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -250,3 +261,86 @@ class StudyDetailView(
             request_user.has_perm("study.update_study_field_description"),
             _can_change_study_status(request_user),
         ))
+
+
+class StudyManageRolesView(AuthenticateTemplateView):
+    permission_required = "study.view_study_detail"
+    raise_exception = True
+    template_name = "study/study_manage_roles.html"
+    layout_nav_key = "STUDIES"
+    study_directory_query_service_class = StudyDirectoryQueryService
+    _detail_view_model = None
+    _study = None
+
+    def get_study_directory_query_service(self):
+        return self.study_directory_query_service_class()
+
+    def dispatch(self, request, *args, **kwargs):
+        self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
+        if self._study is None:
+            raise Http404
+
+        try:
+            self._detail_view_model = self.get_study_directory_query_service().get_study_detail(study_id=kwargs["study_id"])
+        except StudyNotFoundError as exc:
+            raise Http404 from exc
+
+        if not _user_has_study_access(request.user, kwargs["study_id"]):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_layout_breadcrumb_label(self):
+        if self._detail_view_model is None:
+            return super().get_layout_breadcrumb_label()
+        return self._detail_view_model["layout_breadcrumb_label"]
+
+    def get_layout_show_breadcrumb_trail(self):
+        return False
+
+    def get_layout_detail_meta_items(self):
+        if self._detail_view_model is None:
+            return super().get_layout_detail_meta_items()
+        return self._detail_view_model.get("layout_detail_meta_items", ())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["detail_study"] = self._detail_view_model["detail_study"]
+        context["role_permission_import_result"] = kwargs.get("role_permission_import_result")
+        context["role_permission_summary"] = get_role_permission_summary_for_study(study_id=self._study.pk)
+        context["role_permission_import_url"] = reverse(
+            "study:study_manage_roles",
+            kwargs={"study_id": self._study.pk},
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        import_file = request.FILES.get("import_file")
+        if import_file is None:
+            import_result = {
+                "total_rows": 0,
+                "imported_rows": 0,
+                "skipped_rows": 0,
+                "created_roles": 0,
+                "updated_roles": 0,
+                "group_permission_links": 0,
+                "role_group_links": 0,
+                "role_permission_links": 0,
+                "issues": [str(_("Please select an Excel file to import."))],
+            }
+            return self.render_to_response(self.get_context_data(role_permission_import_result=import_result))
+
+        try:
+            import_result = import_role_permissions_for_study(study_id=self._study.pk, import_file=import_file)
+        except (OSError, ValueError) as exc:
+            import_result = {
+                "total_rows": 0,
+                "imported_rows": 0,
+                "skipped_rows": 0,
+                "created_roles": 0,
+                "updated_roles": 0,
+                "group_permission_links": 0,
+                "role_group_links": 0,
+                "role_permission_links": 0,
+                "issues": [str(exc)],
+            }
+        return self.render_to_response(self.get_context_data(role_permission_import_result=import_result))

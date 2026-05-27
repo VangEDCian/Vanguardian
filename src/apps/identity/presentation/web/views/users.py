@@ -1,6 +1,5 @@
 import json
 
-from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
@@ -36,10 +35,14 @@ from apps.identity.presentation.web.mappers.user_commands import (
     to_restore_identity_user_command,
     to_update_identity_user_detail_command,
 )
+from apps.identity.public import ResourceContext
+from apps.shared.navigation import get_default_study_id, user_can_access_permission
 from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 
 
 class IdentityUsersView(AuthenticateTemplateView):
+    permission_required = "identity.view_user_list"
+    raise_exception = True
     template_name = "identity/users.html"
     layout_nav_key = "USERS"
     layout_breadcrumb_label = _("USERS")
@@ -54,20 +57,37 @@ class IdentityUsersView(AuthenticateTemplateView):
             registered_filter_query_service_classes=self.registered_filter_query_service_classes
         )
 
+    def get_permission_resource_context(self):
+        study_id = get_default_study_id(self.request)
+        if study_id is None:
+            return None
+
+        from apps.identity.public import ResourceContext
+
+        return ResourceContext(study_id=study_id)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(
             self.get_user_directory_query_service().list_users(
+                actor_user=self.request.user,
                 search_query=self.request.GET.get("q", ""),
                 filter_key=self.request.GET.get("filter", ""),
                 sort_key=self.request.GET.get("sort", "username"),
                 sort_direction=self.request.GET.get("direction", "asc"),
             )
         )
+        context["can_create_user"] = user_can_access_permission(
+            self.request.user,
+            "identity.create_user",
+            study_id=get_default_study_id(self.request),
+        )
         return context
 
 
 class IdentityUserCreateView(AuthenticateTemplateView):
+    permission_required = "identity.create_user"
+    raise_exception = True
     template_name = "identity/user_create.html"
     layout_nav_key = "USERS"
     layout_breadcrumb_label = _("NEW USER")
@@ -77,8 +97,6 @@ class IdentityUserCreateView(AuthenticateTemplateView):
     identity_user_audit_service_class = IdentityUserAuditService
 
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_superuser:
-            raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
 
     def get_user_create_form(self, *args, **kwargs):
@@ -87,7 +105,6 @@ class IdentityUserCreateView(AuthenticateTemplateView):
             selected_study_ids = args[0].getlist("studies")
         return self.user_create_form_class(
             *args,
-            role_choices=self._build_role_choices(),
             permission_group_choices=self._build_permission_group_choices(),
             study_choices=self._build_study_choices(),
             site_choices=self._build_site_choices(selected_study_ids=selected_study_ids or ()),
@@ -103,17 +120,23 @@ class IdentityUserCreateView(AuthenticateTemplateView):
     def get_identity_user_audit_service(self):
         return self.identity_user_audit_service_class()
 
+    def get_permission_resource_context(self):
+        study_id = get_default_study_id(self.request)
+        if study_id is None:
+            return None
+
+        from apps.identity.public import ResourceContext
+
+        return ResourceContext(study_id=study_id)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.setdefault("form", self.get_user_create_form())
         form = context["form"]
         context["back_url"] = reverse("identity:users")
         context["create_url"] = reverse("identity:user_create")
-        context["can_manage_permissions"] = self.request.user.is_superuser
-        context["role_options"] = self._build_select_options(
-            form.fields["role"].choices,
-            [form["role"].value()],
-        )
+        context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
+        context["can_manage_permission_groups"] = self._can_manage_permission_groups(self.request.user)
         context["permission_group_options"] = self._build_select_options(
             form.fields["permission_groups"].choices,
             form["permission_groups"].value() or [],
@@ -122,13 +145,29 @@ class IdentityUserCreateView(AuthenticateTemplateView):
             form.fields["studies"].choices,
             form["studies"].value() or [],
         )
-        context["site_options"] = self._build_select_options(
-            form.fields["sites"].choices,
-            form["sites"].value() or [],
+        context["site_options"] = self._build_site_option_dicts(
+            selected_study_ids=form["studies"].value() or [],
+            selected_site_ids=form["sites"].value() or [],
         )
         context["has_selected_studies"] = bool(form["studies"].value())
         context["api_studies_url"] = reverse("identity:api_studies")
         context["api_study_sites_url"] = reverse("identity:api_study_sites")
+        context["study_membership_role_options"] = self.get_user_directory_query_service().list_role_option_dicts(
+            scope_level="STUDY",
+            study_ids=self._accessible_study_ids(),
+        )
+        context["site_membership_role_options"] = self.get_user_directory_query_service().list_role_option_dicts(
+            scope_level="STUDY_SITE",
+            study_ids=self._accessible_study_ids(),
+        )
+        context["selected_study_role_ids"] = self._extract_role_map_from_payload(
+            getattr(self.request, "POST", {}),
+            "study_roles",
+        )
+        context["selected_site_role_ids"] = self._extract_role_map_from_payload(
+            getattr(self.request, "POST", {}),
+            "site_roles",
+        )
         return context
 
     def post(self, request, *args, **kwargs):
@@ -146,11 +185,12 @@ class IdentityUserCreateView(AuthenticateTemplateView):
                     last_name=form.cleaned_data["last_name"],
                     email=form.cleaned_data["email"],
                     phone_number=form.cleaned_data["phone_number"],
-                    role_id=form.cleaned_data.get("role") or "",
                     study_ids=tuple(form.cleaned_data.get("studies", ())),
                     site_ids=tuple(form.cleaned_data.get("sites", ())),
+                    study_role_ids_by_study_id=self._extract_role_map_from_payload(request.POST, "study_roles"),
+                    site_role_ids_by_site_id=self._extract_role_map_from_payload(request.POST, "site_roles"),
                     permission_group_ids=tuple(form.cleaned_data.get("permission_groups", ())),
-                    can_manage_permissions=request.user.is_superuser,
+                    can_manage_permissions=self._can_manage_permissions(request.user),
                 )
             )
         except IdentityUsernameAlreadyExistsError:
@@ -169,26 +209,85 @@ class IdentityUserCreateView(AuthenticateTemplateView):
         )
         return redirect(reverse("identity:user_detail", kwargs={"user_id": created_user.pk}))
 
-    def _build_role_choices(self):
-        return self.get_user_directory_query_service().list_role_choices()
-
     def _build_study_choices(self):
-        return self.get_user_directory_query_service().list_study_choices()
+        return self.get_user_directory_query_service().list_study_choices(user=self.request.user)
 
     def _build_site_choices(self, *, selected_study_ids):
         selected_study_ids_set = {str(study_id) for study_id in (selected_study_ids or ()) if str(study_id).strip()}
         if not selected_study_ids_set:
             return ()
 
-        selected_study_ids_int = [int(study_id) for study_id in selected_study_ids_set if study_id.isdigit()]
+        allowed_study_ids = set(self._accessible_study_ids())
+        selected_study_ids_int = [
+            int(study_id)
+            for study_id in selected_study_ids_set
+            if study_id.isdigit() and int(study_id) in allowed_study_ids
+        ]
         return [
             (str(site.pk), f"{site.code} - {site.name}".strip())
-            for site in self.get_user_directory_query_service().repository.list_active_sites(study_ids=selected_study_ids_int)
+            for site in self.get_user_directory_query_service().repository.list_accessible_sites_for_user(
+                self.request.user,
+                study_ids=selected_study_ids_int,
+            )
         ]
 
+    def _build_site_option_dicts(self, *, selected_study_ids, selected_site_ids):
+        selected_study_ids_set = {str(study_id) for study_id in (selected_study_ids or ()) if str(study_id).strip()}
+        if not selected_study_ids_set:
+            return ()
+        allowed_study_ids = set(self._accessible_study_ids())
+        selected_study_ids_int = [
+            int(study_id)
+            for study_id in selected_study_ids_set
+            if study_id.isdigit() and int(study_id) in allowed_study_ids
+        ]
+        selected_site_ids_set = {str(site_id) for site_id in selected_site_ids or ()}
+        return [
+            {
+                "value": str(site.pk),
+                "label": f"{site.code} - {site.name}".strip(),
+                "study_id": str(site.study_id),
+                "selected": str(site.pk) in selected_site_ids_set,
+            }
+            for site in self.get_user_directory_query_service().repository.list_accessible_sites_for_user(
+                self.request.user,
+                study_ids=selected_study_ids_int,
+            )
+        ]
+
+    def _build_permission_group_choices(self):
+        return [
+            (str(group.pk), group.name)
+            for group in self.get_user_directory_query_service()
+            .repository.list_permission_groups_manageable_by_user(self.request.user)
+        ]
+
+    def _can_manage_permissions(self, request_user):
+        study_id = get_default_study_id(self.request)
+        return user_can_access_permission(
+            request_user,
+            "identity.create_user",
+            study_id=study_id,
+        ) or user_can_access_permission(
+            request_user,
+            "identity.update_user",
+            study_id=study_id,
+        )
+
     @staticmethod
-    def _build_permission_group_choices():
-        return [(str(group.pk), group.name) for group in Group.objects.order_by("name")]
+    def _can_manage_permission_groups(request_user):
+        return (
+            request_user.is_superuser
+            or request_user.has_perm("identity.create_user")
+            or request_user.has_perm("identity.update_user")
+        )
+
+    def _accessible_study_ids(self):
+        return tuple(
+            self.get_user_directory_query_service()
+            .repository.list_accessible_studies_for_user(self.request.user)
+            .values_list("pk", flat=True)
+        )
 
     @staticmethod
     def _build_select_options(choices, selected_values):
@@ -202,8 +301,33 @@ class IdentityUserCreateView(AuthenticateTemplateView):
             for value, label in choices
         ]
 
+    @staticmethod
+    def _extract_role_map_from_payload(payload, field_name):
+        if not payload:
+            return {}
+        if isinstance(payload, dict) and isinstance(payload.get(field_name), dict):
+            return {
+                str(scope_id): str(role_id)
+                for scope_id, role_id in payload[field_name].items()
+                if str(scope_id).strip() and str(role_id).strip()
+            }
+        prefix = f"{field_name}["
+        selected = {}
+        keys = payload.keys() if hasattr(payload, "keys") else ()
+        for key in keys:
+            raw_key = str(key)
+            if not raw_key.startswith(prefix) or not raw_key.endswith("]"):
+                continue
+            scope_id = raw_key[len(prefix):-1].strip()
+            role_id = payload.get(key)
+            if scope_id and str(role_id or "").strip():
+                selected[scope_id] = str(role_id).strip()
+        return selected
+
 
 class IdentityUserDetailView(AuthenticateTemplateView):
+    permission_required = "identity.view_user_detail"
+    raise_exception = True
     template_name = "identity/user_detail.html"
     layout_nav_key = "USERS"
     user_directory_query_service_class = IdentityUserDirectoryQueryService
@@ -225,10 +349,6 @@ class IdentityUserDetailView(AuthenticateTemplateView):
             selected_study_ids = args[0].get("studies", ())
         return self.user_detail_form_class(
             *args,
-            role_choices=[
-                (role_option["value"], role_option["label"])
-                for role_option in detail_user["role_options"]
-            ],
             permission_group_choices=[
                 (permission_group_option["value"], permission_group_option["label"])
                 for permission_group_option in detail_user["permission_group_options"]
@@ -256,19 +376,37 @@ class IdentityUserDetailView(AuthenticateTemplateView):
     def get_identity_user_audit_service(self):
         return self.identity_user_audit_service_class()
 
+    @staticmethod
+    def _extract_role_map_from_payload(payload, field_name):
+        return IdentityUserCreateView._extract_role_map_from_payload(payload, field_name)
+
     def dispatch(self, request, *args, **kwargs):
         self.include_deleted = self._include_deleted_users(request)
-        if self.include_deleted and not request.user.is_superuser:
+        if self.include_deleted and not request.user.has_perm("identity.restore_user"):
             raise PermissionDenied
 
         try:
             self.detail_view_model = self.get_user_directory_query_service().get_user_detail(
                 user_id=kwargs["user_id"],
                 include_deleted=self.include_deleted,
+                actor_user=request.user,
             )
         except IdentityUserNotFoundError as exc:
             raise Http404 from exc
+
+        target_user = User.objects.filter(pk=kwargs["user_id"]).first()
+        if not self.get_user_directory_query_service().repository.user_is_accessible_to_user(
+            actor_user=request.user,
+            target_user=target_user,
+        ):
+            raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
+
+    def get_permission_resource_context(self):
+        study_id = get_default_study_id(self.request)
+        if study_id is None:
+            return None
+        return ResourceContext(study_id=study_id)
 
     def get_layout_breadcrumb_label(self):
         if self.detail_view_model is None:
@@ -289,6 +427,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
             context["detail_user"] = self.detail_view_model["detail_user"]
             context["can_update_detail"] = self._can_update_detail(self.request.user)
             context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
+            context["can_manage_permission_groups"] = self._can_manage_permission_groups(self.request.user)
             context["can_delete_user"] = self._can_delete_user(self.request.user)
             context["can_restore_user"] = self._can_restore_user(self.request.user)
             context["delete_url"] = reverse("identity:user_delete", kwargs={"user_id": self.detail_view_model["detail_user"]["id"]})
@@ -337,10 +476,11 @@ class IdentityUserDetailView(AuthenticateTemplateView):
                     email=form.cleaned_data["email"],
                     phone_number=form.cleaned_data["phone_number"],
                     is_active=form.cleaned_data["is_active"],
-                    role_id=form.cleaned_data.get("role") or self.detail_view_model["detail_user"]["selected_role"],
                     study_ids=tuple(form.cleaned_data.get("studies", ())),
                     site_ids=tuple(form.cleaned_data.get("sites", ())),
-                    permission_group_ids=tuple(form.cleaned_data.get("permission_groups", ())),
+                    study_role_ids_by_study_id=self._extract_role_map_from_payload(payload, "study_roles"),
+                    site_role_ids_by_site_id=self._extract_role_map_from_payload(payload, "site_roles"),
+                    permission_group_ids=self._permission_group_ids_for_update(form),
                     can_manage_permissions=self._can_manage_permissions(request.user),
                     new_password=new_password,
                 )
@@ -374,7 +514,11 @@ class IdentityUserDetailView(AuthenticateTemplateView):
     def _can_update_detail(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
         return (
-            request_user.is_superuser
+            user_can_access_permission(
+                request_user,
+                "identity.update_user",
+                study_id=get_default_study_id(self.request),
+            )
             and request_user.pk != detail_user_id
             and not self.detail_view_model["detail_user"]["is_deleted"]
         )
@@ -382,7 +526,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
     def _can_delete_user(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
         return (
-            request_user.is_superuser
+            request_user.has_perm("identity.delete_user")
             and request_user.pk != detail_user_id
             and not self.detail_view_model["detail_user"]["is_deleted"]
         )
@@ -390,7 +534,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
     def _can_restore_user(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
         return (
-            request_user.is_superuser
+            request_user.has_perm("identity.restore_user")
             and request_user.pk != detail_user_id
             and self.detail_view_model["detail_user"]["is_deleted"]
         )
@@ -398,10 +542,27 @@ class IdentityUserDetailView(AuthenticateTemplateView):
     def _can_manage_permissions(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
         return (
-            request_user.is_superuser
+            user_can_access_permission(
+                request_user,
+                "identity.update_user",
+                study_id=get_default_study_id(self.request),
+            )
             and request_user.pk != detail_user_id
             and not self.detail_view_model["detail_user"]["is_deleted"]
         )
+
+    @staticmethod
+    def _can_manage_permission_groups(request_user):
+        return (
+            request_user.is_superuser
+            or request_user.has_perm("identity.create_user")
+            or request_user.has_perm("identity.update_user")
+        )
+
+    def _permission_group_ids_for_update(self, form):
+        if self._can_manage_permission_groups(self.request.user):
+            return tuple(form.cleaned_data.get("permission_groups", ()))
+        return tuple(self.detail_view_model["detail_user"].get("selected_permission_group_ids", ()))
 
     @staticmethod
     def _parse_request_payload(request):
@@ -428,24 +589,31 @@ class IdentityUserDetailView(AuthenticateTemplateView):
         selected_study_ids_int = [int(study_id) for study_id in selected_study_ids_set if study_id.isdigit()]
         return [
             (str(site.pk), f"{site.code} - {site.name}".strip())
-            for site in self.get_user_directory_query_service().repository.list_active_sites(study_ids=selected_study_ids_int)
+            for site in self.get_user_directory_query_service().repository.list_accessible_sites_for_user(
+                self.request.user,
+                study_ids=selected_study_ids_int,
+            )
         ]
 
 
 class IdentityStudyOptionsApiView(AuthenticateTemplateContextMixin, View):
+    permission_required = "study.view_study_list"
+    raise_exception = True
     user_directory_query_service_class = IdentityUserDirectoryQueryService
 
     def get_user_directory_query_service(self):
         return self.user_directory_query_service_class()
 
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        if not user.is_superuser and not user.has_perm("study.view_study_list"):
-            raise PermissionDenied
+    def get_permission_resource_context(self):
+        study_id = get_default_study_id(self.request)
+        if study_id is None:
+            return None
+        return ResourceContext(study_id=study_id)
 
+    def get(self, request, *args, **kwargs):
         search_query = (request.GET.get("q") or "").strip()
         studies = self.get_user_directory_query_service().repository.list_accessible_studies_for_user(
-            user,
+            request.user,
             search_query=search_query,
         )[:50]
 
@@ -463,29 +631,28 @@ class IdentityStudyOptionsApiView(AuthenticateTemplateContextMixin, View):
 
 
 class IdentityStudySiteOptionsApiView(AuthenticateTemplateContextMixin, View):
+    permission_required = ("study.view_study_list", "site.view_site_list")
+    raise_exception = True
     user_directory_query_service_class = IdentityUserDirectoryQueryService
 
     def get_user_directory_query_service(self):
         return self.user_directory_query_service_class()
 
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        if (
-            not user.is_superuser
-            and (
-                not user.has_perm("study.view_study_list")
-                or not user.has_perm("site.view_site_list")
-            )
-        ):
-            raise PermissionDenied
+    def get_permission_resource_context(self):
+        study_ids = _normalize_study_ids_param(self.request.GET.get("study_ids"))
+        study_id = study_ids[0] if study_ids else get_default_study_id(self.request)
+        if study_id is None:
+            return None
+        return ResourceContext(study_id=study_id)
 
+    def get(self, request, *args, **kwargs):
         study_ids = _normalize_study_ids_param(request.GET.get("study_ids"))
         if not study_ids:
             return JsonResponse({"results": []})
 
         search_query = (request.GET.get("q") or "").strip()
         sites = self.get_user_directory_query_service().repository.list_accessible_sites_for_user(
-            user,
+            request.user,
             study_ids=study_ids,
             search_query=search_query,
         )[:100]
@@ -516,6 +683,8 @@ def _normalize_study_ids_param(raw_value):
 
 
 class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
+    permission_required = "identity.delete_user"
+    raise_exception = True
     delete_user_service_class = DeleteIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService
 
@@ -526,7 +695,7 @@ class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
         return self.identity_user_audit_service_class()
 
     def post(self, request, *args, **kwargs):
-        if not request.user.is_superuser or request.user.pk == kwargs["user_id"]:
+        if not request.user.has_perm("identity.delete_user") or request.user.pk == kwargs["user_id"]:
             raise PermissionDenied
 
         target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()
@@ -549,6 +718,8 @@ class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
 
 
 class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
+    permission_required = "identity.restore_user"
+    raise_exception = True
     restore_user_service_class = RestoreIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService
 
@@ -559,7 +730,7 @@ class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
         return self.identity_user_audit_service_class()
 
     def post(self, request, *args, **kwargs):
-        if not request.user.is_superuser or request.user.pk == kwargs["user_id"]:
+        if not request.user.has_perm("identity.restore_user") or request.user.pk == kwargs["user_id"]:
             raise PermissionDenied
 
         target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()

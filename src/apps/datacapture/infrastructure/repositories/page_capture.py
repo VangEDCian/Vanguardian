@@ -22,7 +22,15 @@ from apps.core.form_data_document import (
     normalize_form_data,
     prune_empty_form_data_groups,
 )
-from apps.crf.models import CrfFieldLookup, CrfFieldTemplate, CrfFieldValidationRule, CrfSectionTemplate, CrfTemplate
+from apps.crf.models import (
+    CrfFieldLookup,
+    CrfFieldTemplate,
+    CrfFieldValidationRule,
+    CrfFieldValidationRuleModeChoices,
+    CrfFieldValidationRuleTypeChoices,
+    CrfSectionTemplate,
+    CrfTemplate,
+)
 from apps.datacapture.infrastructure.models.capture import (
     DataCapturePageEntrySnapshot,
     DataCapturePageStateSnapshot,
@@ -105,12 +113,25 @@ class DjangoDataCapturePageRepository:
             matched_keys_by_template_id[field_template_id] = matched_keys
         return matched_keys_by_template_id
 
-    def list_form_field_validation_rules(self, *, crf_template_id: int) -> dict[str, tuple[str, ...]]:
-        validation_rules_qs = CrfFieldValidationRule.objects.filter(deleted=False).only(
+    def list_form_field_validation_rules(self, *, crf_template_id: int) -> dict[str, tuple[dict[str, object], ...]]:
+        validation_rules_qs = CrfFieldValidationRule.objects.filter(
+            deleted=False,
+            mode__in=(
+                CrfFieldValidationRuleModeChoices.SOFT,
+                CrfFieldValidationRuleModeChoices.QUERY,
+            ),
+            rule_type__in=(
+                CrfFieldValidationRuleTypeChoices.CUSTOM_EXPRESSION,
+                CrfFieldValidationRuleTypeChoices.REQUIRED,
+            ),
+        ).only(
             "id",
             "field_template_id",
+            "mode",
+            "rule_type",
+            "severity",
             "expression",
-        )
+        ).prefetch_related("translations")
         fields = (
             CrfFieldTemplate.objects.filter(
                 crf_template_id=crf_template_id,
@@ -121,17 +142,29 @@ class DjangoDataCapturePageRepository:
             .prefetch_related(Prefetch("validation_rules", queryset=validation_rules_qs))
             .order_by("id")
         )
-        output: dict[str, tuple[str, ...]] = {}
+        output: dict[str, tuple[dict[str, object], ...]] = {}
         for field in fields:
             field_key = str(field.field_key or "").strip()
             if not field_key:
                 continue
-            expressions = tuple(
-                str(rule.expression or "").strip()
+            rules = tuple(
+                {
+                    "id": int(rule.pk),
+                    "field_template_id": int(rule.field_template_id),
+                    "mode": str(rule.mode or "").strip(),
+                    "rule_type": str(rule.rule_type or "").strip(),
+                    "severity": str(rule.severity or "").strip(),
+                    "expression": str(rule.expression or "").strip(),
+                    "message": (
+                        rule.safe_translation_getter("message", default="", any_language=True)
+                        if hasattr(rule, "safe_translation_getter")
+                        else ""
+                    ),
+                }
                 for rule in field.validation_rules.all()
-                if str(rule.expression or "").strip()
+                if str(rule.rule_type or "").strip()
             )
-            output[field_key] = expressions
+            output[field_key] = rules
         return output
 
     @staticmethod

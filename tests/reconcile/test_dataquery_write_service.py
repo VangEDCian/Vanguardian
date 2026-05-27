@@ -5,7 +5,7 @@ from django.test import SimpleTestCase
 
 from apps.reconcile.application import ReconcileDataQueryWriteService
 from apps.reconcile.infrastructure.repositories.dataquery_write import DjangoReconcileDataQueryWriteRepository
-from apps.reconcile.models import ReconcileQueryThreadSourceChoices
+from apps.reconcile.models import ReconcileQueryThreadSourceChoices, ReconcileValidationIssueStatusChoices
 
 
 class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
@@ -133,6 +133,65 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(repository.cancelled_calls[0]["field_template_id"], 11)
         self.assertEqual(repository.cancelled_calls[0]["actor_user_id"], 7)
 
+    def test_create_validation_failure_records_creates_soft_issue_and_query(self):
+        repository = _ReconcileRepositoryStub()
+
+        result = ReconcileDataQueryWriteService(repository=repository).create_validation_failure_records(
+            page_state_id=11,
+            failures=[
+                {
+                    "rule_id": 201,
+                    "field_template_id": 1,
+                    "field_key": "field_1",
+                    "mode": "SOFT",
+                    "severity": "warning",
+                    "message": "Please acknowledge.",
+                    "failed_value": "",
+                },
+                {
+                    "rule_id": 202,
+                    "field_template_id": 2,
+                    "field_key": "field_2",
+                    "mode": "QUERY",
+                    "severity": "error",
+                    "message": "Please resolve query.",
+                    "failed_value": "bad",
+                },
+            ],
+            actor_user_id=99,
+        )
+
+        self.assertEqual(result, {"soft_issue_count": 1, "query_count": 1})
+        self.assertEqual(repository.created_soft_issues[0]["items"][0]["rule_id"], 201)
+        self.assertEqual(repository.created_validation_queries[0]["validation_rule_id"], 202)
+        self.assertEqual(repository.created_validation_queries[0]["severity"], "major")
+        self.assertEqual(repository.created_threads[-1]["message_text"], "Please resolve query.")
+
+    def test_acknowledge_validation_issues_requires_comment(self):
+        repository = _ReconcileRepositoryStub()
+
+        with self.assertRaisesMessage(ValueError, "Acknowledgement comment is required."):
+            ReconcileDataQueryWriteService(repository=repository).acknowledge_validation_issues(
+                page_state_id=11,
+                issues=[{"issue_id": 701, "comment": ""}],
+                actor_user_id=99,
+            )
+
+        self.assertEqual(repository.acknowledged_validation_issues, [])
+
+    def test_acknowledge_validation_issues_delegates_normalized_items(self):
+        repository = _ReconcileRepositoryStub()
+
+        result = ReconcileDataQueryWriteService(repository=repository).acknowledge_validation_issues(
+            page_state_id=11,
+            issues=[{"issue_id": "701", "comment": "Reviewed warning."}],
+            actor_user_id=99,
+        )
+
+        self.assertEqual(result, {"acknowledged_issue_ids": [701], "acknowledged_count": 1})
+        self.assertEqual(repository.acknowledged_validation_issues[0]["page_state_id"], 11)
+        self.assertEqual(repository.acknowledged_validation_issues[0]["items"], [{"issue_id": 701, "comment": "Reviewed warning."}])
+
 
 class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
     def test_create_manual_open_query_persists_current_page_entry_field_context(self):
@@ -257,6 +316,115 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
 
         self.assertIs(closed, False)
 
+    def test_soft_validation_issue_does_not_duplicate_unresolved_issue(self):
+        repository = DjangoReconcileDataQueryWriteRepository()
+        unresolved_query = _ExistsQuery(exists=True)
+
+        with (
+            patch.object(DjangoReconcileDataQueryWriteRepository, "get_current_field_entry_id", return_value=301),
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.filter",
+                return_value=unresolved_query,
+            ) as filter_issues,
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.create",
+            ) as create_issue,
+        ):
+            created_count = repository.bulk_create_soft_validation_issues(
+                page_state_id=23,
+                items=[{"rule_id": 801, "field_template_id": 11, "message": "Needs ACK"}],
+                actor_user_id=7,
+                now="now",
+            )
+
+        self.assertEqual(created_count, 0)
+        field_identity_filter = filter_issues.call_args.args[0]
+        self.assertEqual(field_identity_filter.connector, "OR")
+        self.assertIn(("field_instance__field_template_id", 11), field_identity_filter.children)
+        self.assertNotIn("field_instance_id", filter_issues.call_args.kwargs)
+        self.assertEqual(
+            unresolved_query.excluded_with,
+            {
+                "status__in": (
+                    ReconcileValidationIssueStatusChoices.ACKNOWLEDGED,
+                    ReconcileValidationIssueStatusChoices.CORRECTED,
+                    ReconcileValidationIssueStatusChoices.QUERY_CREATED,
+                    ReconcileValidationIssueStatusChoices.CLOSED,
+                    ReconcileValidationIssueStatusChoices.WAIVED,
+                )
+            },
+        )
+        create_issue.assert_not_called()
+
+    def test_soft_validation_issue_does_not_duplicate_acknowledged_same_failed_value(self):
+        repository = DjangoReconcileDataQueryWriteRepository()
+        unresolved_query = _ExistsQuery(exists=False)
+        acknowledged_query = _IssueListQuery([SimpleNamespace(failed_value=123)])
+
+        with (
+            patch.object(DjangoReconcileDataQueryWriteRepository, "get_current_field_entry_id", return_value=301),
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.filter",
+                side_effect=[unresolved_query, acknowledged_query],
+            ) as filter_issues,
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.create",
+            ) as create_issue,
+        ):
+            created_count = repository.bulk_create_soft_validation_issues(
+                page_state_id=23,
+                items=[
+                    {
+                        "rule_id": 801,
+                        "field_template_id": 11,
+                        "message": "Needs ACK",
+                        "failed_value": "123",
+                    }
+                ],
+                actor_user_id=7,
+                now="now",
+            )
+
+        self.assertEqual(created_count, 0)
+        field_identity_filter = filter_issues.call_args_list[1].args[0]
+        self.assertEqual(field_identity_filter.connector, "OR")
+        self.assertIn(("field_instance__field_template_id", 11), field_identity_filter.children)
+        self.assertNotIn("field_instance_id", filter_issues.call_args_list[1].kwargs)
+        self.assertEqual(filter_issues.call_args_list[1].kwargs["status"], ReconcileValidationIssueStatusChoices.ACKNOWLEDGED)
+        create_issue.assert_not_called()
+
+    def test_soft_validation_issue_creates_new_record_when_acknowledged_failed_value_changed(self):
+        repository = DjangoReconcileDataQueryWriteRepository()
+        unresolved_query = _ExistsQuery(exists=False)
+        acknowledged_query = _IssueListQuery([SimpleNamespace(failed_value="old")])
+
+        with (
+            patch.object(DjangoReconcileDataQueryWriteRepository, "get_current_field_entry_id", return_value=301),
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.filter",
+                side_effect=[unresolved_query, acknowledged_query],
+            ),
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.create",
+            ) as create_issue,
+        ):
+            created_count = repository.bulk_create_soft_validation_issues(
+                page_state_id=23,
+                items=[
+                    {
+                        "rule_id": 801,
+                        "field_template_id": 11,
+                        "message": "Needs ACK",
+                        "failed_value": "new",
+                    }
+                ],
+                actor_user_id=7,
+                now="now",
+            )
+
+        self.assertEqual(created_count, 1)
+        create_issue.assert_called_once()
+
     def test_mark_query_answered_sets_answered_at_and_answered_by_id(self):
         repository = DjangoReconcileDataQueryWriteRepository()
         query = _UpdateQuery()
@@ -298,10 +466,34 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
         self.assertEqual(query.updated_with["updated_at"], "now")
         self.assertEqual(query.updated_with["updated_by_id"], 7)
 
+    def test_acknowledge_validation_issue_sets_actor_comment_and_resolution_time(self):
+        repository = DjangoReconcileDataQueryWriteRepository()
+        issue = _UpdateQuery()
+        with patch(
+            "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.filter",
+            return_value=issue,
+        ):
+            acknowledged_ids = repository.acknowledge_validation_issues(
+                page_state_id=23,
+                items=[{"issue_id": 701, "comment": "Reviewed warning."}],
+                actor_user_id=7,
+                now="now",
+            )
+
+        self.assertEqual(acknowledged_ids, [701])
+        self.assertEqual(issue.updated_with["status"], ReconcileValidationIssueStatusChoices.ACKNOWLEDGED)
+        self.assertEqual(issue.updated_with["acknowledged_by"], 7)
+        self.assertEqual(issue.updated_with["acknowledged_at"], "now")
+        self.assertEqual(issue.updated_with["acknowledgement_comment"], "Reviewed warning.")
+        self.assertEqual(issue.updated_with["resolved_at"], "now")
+
 
 class _ReconcileRepositoryStub:
     def __init__(self):
         self.created_threads = []
+        self.created_soft_issues = []
+        self.created_validation_queries = []
+        self.acknowledged_validation_issues = []
 
     def list_field_key_to_id(self, *, crf_template_id):
         return {"field_1": 1, "field_2": 2, "field_3": 3}
@@ -343,6 +535,23 @@ class _ReconcileRepositoryStub:
                 "source": kwargs["source"],
             }
         )
+        return SimpleNamespace(message_text=kwargs["message_text"], message_type=kwargs["message_type"], created_at=kwargs["now"])
+
+    def bulk_create_soft_validation_issues(self, **kwargs):
+        self.created_soft_issues.append(kwargs)
+        return len(kwargs["items"])
+
+    def has_open_query_for_page_field(self, **kwargs):
+        self.open_query_check = kwargs
+        return False
+
+    def create_validation_open_query(self, **kwargs):
+        self.created_validation_queries.append(kwargs)
+        return SimpleNamespace(pk=901)
+
+    def acknowledge_validation_issues(self, **kwargs):
+        self.acknowledged_validation_issues.append(kwargs)
+        return [int(item["issue_id"]) for item in kwargs["items"]]
 
 
 class _ReplyRepositoryStub:
@@ -405,3 +614,29 @@ class _UpdateQuery:
     def update(self, **kwargs):
         self.updated_with = kwargs
         return 1
+
+
+class _ExistsQuery:
+    def __init__(self, *, exists):
+        self.exists_value = exists
+        self.excluded_with = None
+
+    def exclude(self, **kwargs):
+        self.excluded_with = kwargs
+        return self
+
+    def exists(self):
+        return self.exists_value
+
+
+class _IssueListQuery:
+    def __init__(self, issues):
+        self.issues = issues
+        self.only_fields = None
+
+    def only(self, *fields):
+        self.only_fields = fields
+        return self
+
+    def __iter__(self):
+        return iter(self.issues)

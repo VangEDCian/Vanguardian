@@ -15,6 +15,7 @@ from apps.datacapture.public import (
     reopen_verified_form_verification_page_state,
 )
 from apps.reconcile.public import (
+    acknowledge_reconcile_validation_issues,
     cancel_reconcile_query,
     has_verified_reconcile_query_for_page_field,
     open_reconcile_query,
@@ -186,9 +187,12 @@ class SubjectFormVerificationReopenView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationQueryThreadView(
     LoginRequiredMixin,
+    PermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
+    permission_required = "subject.verify_form"
+    raise_exception = True
 
     def post(self, request, *args, **kwargs):
         try:
@@ -310,9 +314,49 @@ class SubjectFormVerificationOpenQueryView(
         )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
+class SubjectValidationIssueAcknowledgeView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SubjectAbstractVerifyStudy,
+    View,
+):
+    permission_required = "subject.view_subject_detail"
+    raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        try:
+            normalized = SubjectFormVerificationRequestValidator.parse_validation_issue_acknowledgements(
+                request.body
+            )
+            page_state_id = get_page_state_id_for_subject_visit_crf(
+                subject_id=int(kwargs["subject_id"]),
+                visit_id=int(kwargs["visit_id"]),
+                crf_template_id=int(kwargs["crf_template_id"]),
+            )
+            if page_state_id is None:
+                return JsonResponse({"error": ["Page state not found."]}, status=400)
+            result = acknowledge_reconcile_validation_issues(
+                page_state_id=int(page_state_id),
+                issues=normalized,
+                actor_user_id=getattr(request.user, "id", None),
+            )
+        except (SubjectValidationError, DataCaptureValidationError, ValueError) as exc:
+            messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
+            return JsonResponse({"error": messages}, status=400)
+        return JsonResponse(
+            {
+                "ok": True,
+                "acknowledged_issue_ids": result["acknowledged_issue_ids"],
+                "acknowledged_count": result["acknowledged_count"],
+            }
+        )
+
+
 __all__ = [
     "SubjectFormVerificationOpenQueryView",
     "SubjectFormVerificationQueryThreadView",
     "SubjectFormVerificationReopenView",
     "SubjectFormVerificationVerifyCheckedView",
+    "SubjectValidationIssueAcknowledgeView",
 ]

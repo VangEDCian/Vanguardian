@@ -17,7 +17,7 @@
         {% include "shared/components/_entity_table_toolbar.html" with toolbar=users_table_toolbar %}
         {% include "shared/components/_common_table.html" with headers=users_table_headers rows=users_table_rows empty_text=users_empty_text sortable_columns=users_table_sortable_columns sort_key=users_table_sort_key sort_direction=users_table_sort_direction sort_params=users_table_sort_params enable_detail_click=True %}
         <div class="entity-table__footer">
-            {% if auth_user.is_superuser %}
+            {% if can_create_user %}
                 <a href="{% url 'identity:user_create' %}"
                    class="entity-table__footer-button">{% trans "Add New User" %}</a>
             {% endif %}

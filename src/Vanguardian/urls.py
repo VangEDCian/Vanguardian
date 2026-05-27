@@ -16,11 +16,12 @@ Including another URLconf
 """
 
 from django.urls import include, path
-from django.views.generic import RedirectView
+
+from apps.shared.navigation import redirect_to_default_application_page
 
 urlpatterns = [
     path("i18n/", include("django.conf.urls.i18n")),
-    path("", RedirectView.as_view(pattern_name="identity:login", permanent=False)),
+    path("", redirect_to_default_application_page),
     path("api/", include("apps.crf.presentation.api.urls")),
     path("crf/", include("apps.crf.presentation.web.urls")),
     path("api/", include("apps.datacapture.presentation.api.urls")),

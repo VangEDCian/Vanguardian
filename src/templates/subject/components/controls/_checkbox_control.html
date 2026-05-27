@@ -11,7 +11,7 @@
                    tabindex="{% subject_control_tabindex field forloop.counter0 %}"
                    disabled
                    {% if option.value in field.selected_values %}checked{% elif field.is_checked and forloop.first %}checked{% endif %} />
-            {{ option.label|default:field.label }}
+            <span class="subject-form-choice-option-label">{{ option.label|default:field.label }}</span>
         </label>
     {% empty %}
         <label>
@@ -20,7 +20,7 @@
                    tabindex="{% subject_control_tabindex field 0 %}"
                    disabled
                    {% if field.is_checked %}checked{% endif %} />
-            {{ field.label|default:checkbox_control_i18n.default_label }}
+            <span class="subject-form-choice-option-label">{{ field.label|default:checkbox_control_i18n.default_label }}</span>
         </label>
     {% endfor %}
 </div>

@@ -22,4 +22,9 @@
        draggable="false">
         <span class="entity-detail-tabs__label">{% trans "Randomization" %}</span>
     </a>
+    <a href="{% url 'study:study_manage_roles' study_id=detail_study.id %}"
+       class="entity-detail-tabs__item{% if study_active_tab == 'manage_roles' %} is-active{% endif %}"
+       draggable="false">
+        <span class="entity-detail-tabs__label">{% trans "Manage Roles" %}</span>
+    </a>
 </nav>

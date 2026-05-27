@@ -105,17 +105,6 @@
                     <div class="user-detail-section__body">
                         <div class="user-detail-inline-row">
                             <div class="user-detail-inline-field">
-                                <label class="user-detail-inline-field__label" for="detail-role">{% trans 'Role' %}:</label>
-                                <div class="user-detail-inline-field__control-wrap">
-                                    {% trans 'Select role' as select_role_placeholder %}
-                                    {% if can_manage_permissions %}
-                                        {% include 'shared/components/_old_select2_single_choice.html' with select_id='detail-role' select_name='role' select_options=detail_user.role_options select_placeholder=select_role_placeholder %}
-                                    {% else %}
-                                        {% include 'shared/components/_old_select2_single_choice.html' with select_id='detail-role' select_name='role' select_options=detail_user.role_options select_placeholder=select_role_placeholder select_disabled='disabled' %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div class="user-detail-inline-field">
                                 <label class="user-detail-inline-field__label" for="detail-is-active">{% trans 'Status' %}:</label>
                                 <div class="user-detail-inline-field__control-wrap">
                                     <div class="user-detail-inline-field__display user-detail-field__status-toggle">
@@ -145,6 +134,15 @@
                         </div>
                         <div class="user-detail-inline-row">
                             <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <span class="user-detail-inline-field__label">{% trans 'Study Roles' %}:</span>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <div class="user-membership-role-list"
+                                         data-study-membership-role-container></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
                                 <label class="user-detail-inline-field__label" for="detail-sites">{% trans 'Sites' %}:</label>
                                 <div class="user-detail-inline-field__control-wrap">
                                     {% trans 'Select sites' as select_sites_placeholder %}
@@ -157,19 +155,25 @@
                             </div>
                         </div>
                         <div class="user-detail-inline-row">
-                            <div class="user-detail-inline-field user-detail-inline-field--full user-detail-inline-field--permission-groups">
-                                <label class="user-detail-inline-field__label"
-                                       for="detail-permission-groups">{% trans 'Permission Groups' %}:</label>
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <span class="user-detail-inline-field__label">{% trans 'Site Roles' %}:</span>
                                 <div class="user-detail-inline-field__control-wrap">
-                                    {% trans 'Select permission groups' as select_permission_groups_placeholder %}
-                                    {% if can_manage_permissions %}
-                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-permission-groups' select_name='permission_groups' select_options=detail_user.permission_group_options select_placeholder=select_permission_groups_placeholder %}
-                                    {% else %}
-                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-permission-groups' select_name='permission_groups' select_options=detail_user.permission_group_options select_placeholder=select_permission_groups_placeholder select_disabled='disabled' %}
-                                    {% endif %}
+                                    <div class="user-membership-role-list" data-site-membership-role-container></div>
                                 </div>
                             </div>
                         </div>
+                        {% if can_manage_permission_groups %}
+                            <div class="user-detail-inline-row">
+                                <div class="user-detail-inline-field user-detail-inline-field--full user-detail-inline-field--permission-groups">
+                                    <label class="user-detail-inline-field__label"
+                                           for="detail-permission-groups">{% trans 'Permission Groups' %}:</label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        {% trans 'Select permission groups' as select_permission_groups_placeholder %}
+                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-permission-groups' select_name='permission_groups' select_options=detail_user.permission_group_options select_placeholder=select_permission_groups_placeholder %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
                 </section>
                 {% if can_update_detail %}
@@ -267,4 +271,9 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="{% static 'identity/js/user_detail.js' %}"></script>
+    {{ detail_user.study_membership_role_options|json_script:"study-membership-role-options-data" }}
+    {{ detail_user.site_membership_role_options|json_script:"site-membership-role-options-data" }}
+    {{ detail_user.selected_study_role_ids|json_script:"selected-study-role-map-data" }}
+    {{ detail_user.selected_site_role_ids|json_script:"selected-site-role-map-data" }}
+    <script src="{% static 'identity/js/user-membership-roles.js' %}"></script>
 {% endblock %}

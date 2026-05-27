@@ -26,6 +26,9 @@ class DjangoStudyDirectoryRepository:
     def get_study(self, *, study_id):
         return Study.objects.filter(pk=study_id, deleted=False).first()
 
+    def get_study_by_code(self, *, code):
+        return Study.objects.filter(code__iexact=str(code or "").strip(), deleted=False).first()
+
     def list_active_studies(self, *, user):
         return self.list_studies(user=user).order_by("code")
 

@@ -9,7 +9,7 @@
                 {% if section.repeat_table_layout.show_row_number %}
                     <col style="width: {{ section.repeat_table_layout.row_number_width }};" />
                 {% endif %}
-                {% for field in section.fields %}
+                {% for field in section.fields|sort_fields_by_display_order %}
                     <col />
                 {% endfor %}
                 {% if can_add_repeat_sections %}
@@ -24,7 +24,7 @@
                                 {{ section.repeat_table_layout.row_number_label }}
                             </th>
                         {% endif %}
-                        {% for field in section.fields %}
+                        {% for field in section.fields|sort_fields_by_display_order %}
                             <th class="subject-form-repeat-table-section__head">
                                 {{ field.label }}
                                 {% if field.is_required %}
@@ -48,8 +48,8 @@
                         {% if section.repeat_table_layout.show_row_number %}
                             <td class="subject-form-repeat-table-row__index">{{ row.repeat_instance_index }}</td>
                         {% endif %}
-                        {% for field in row.fields %}
-                            <td class="subject-form-repeat-table-row__cell{% if field.active_query_id %} subject-form-field--has-open-query{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
+                        {% for field in row.fields|sort_fields_by_display_order %}
+                            <td class="subject-form-repeat-table-row__cell{% if field.active_query_id or field.validation_issue_count %} subject-form-field--has-open-query{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
                                 data-field-key="{{ field.field_key }}"
                                 data-repeat-base-field-key="{{ field.repeat_base_field_key|default:field.field_key }}"
                                 data-field-id="{{ field.id|default:'' }}"

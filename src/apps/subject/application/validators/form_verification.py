@@ -88,5 +88,27 @@ class SubjectFormVerificationRequestValidator:
             "message_text": str(body.get("message_text") or "").strip(),
         }
 
+    @classmethod
+    def parse_validation_issue_acknowledgements(cls, raw_body: bytes | str) -> list[dict[str, object]]:
+        body = cls._parse_json_body(raw_body)
+        raw_issues = body.get("issues")
+        if not isinstance(raw_issues, list):
+            raise SubjectFormVerificationFieldTemplateIdsTypeError()
+        normalized: list[dict[str, object]] = []
+        for item in raw_issues:
+            if not isinstance(item, dict):
+                raise SubjectFormVerificationFieldTemplateIdsValueError()
+            try:
+                issue_id = int(item.get("issue_id") or item.get("id"))
+            except (TypeError, ValueError) as exc:
+                raise SubjectFormVerificationFieldTemplateIdsValueError() from exc
+            normalized.append(
+                {
+                    "issue_id": issue_id,
+                    "comment": str(item.get("comment") or item.get("acknowledgement_comment") or "").strip(),
+                }
+            )
+        return normalized
+
 
 __all__ = ["SubjectFormVerificationRequestValidator"]

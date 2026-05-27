@@ -66,6 +66,21 @@ class FieldTemplateAggregate:
         "DATE": {"date_picker", "date_text"},
         "DATETIME": {"date_picker", "datetime_text"},
     }
+    VALIDATION_RULE_TYPE_ALIASES = {
+        "custom": "CUSTOM_EXPRESSION",
+        "custom expression": "CUSTOM_EXPRESSION",
+        "custom_expression": "CUSTOM_EXPRESSION",
+        "required": "REQUIRED",
+    }
+    VALIDATION_RULE_TYPES = set(VALIDATION_RULE_TYPE_ALIASES.values())
+    VALIDATION_RULE_MODE_ALIASES = {
+        "blocking": "HARD",
+        "hard": "HARD",
+        "query": "QUERY",
+        "soft": "SOFT",
+        "warning": "SOFT",
+    }
+    VALIDATION_RULE_MODES = set(VALIDATION_RULE_MODE_ALIASES.values())
 
     @classmethod
     def from_payload(
@@ -131,10 +146,10 @@ class FieldTemplateAggregate:
             normalized_rules.append(
                 FieldValidationRuleSection(
                     id=rule.get("id"),
-                    rule_type=cls._nullable_text(rule.get("rule_type")) or "custom",
+                    rule_type=cls._normalize_validation_rule_type(rule.get("rule_type")),
                     expression=cls._normalize_rule_expression(rule.get("expression")),
                     severity=(rule.get("severity") or "").strip() or "error",
-                    mode=(rule.get("mode") or "").strip() or "blocking",
+                    mode=cls._normalize_validation_rule_mode(rule.get("mode")),
                     translations=cls._normalize_rule_translations(rule.get("messages") or rule.get("translations") or {}),
                 )
             )
@@ -319,6 +334,28 @@ class FieldTemplateAggregate:
                 f"control_type must match data_type. Expected {expected_control_type} for {data_type}."
             )
         return normalized_value
+
+    @classmethod
+    def _normalize_validation_rule_type(cls, value):
+        normalized = cls._nullable_text(value)
+        if not normalized:
+            return "CUSTOM_EXPRESSION"
+        normalized_key = normalized.replace("-", "_").strip().lower()
+        rule_type = cls.VALIDATION_RULE_TYPE_ALIASES.get(normalized_key, normalized_key.upper())
+        if rule_type not in cls.VALIDATION_RULE_TYPES:
+            raise FormBuilderDomainValidationError("validation rule_type is not supported.")
+        return rule_type
+
+    @classmethod
+    def _normalize_validation_rule_mode(cls, value):
+        normalized = cls._nullable_text(value)
+        if not normalized:
+            return "HARD"
+        normalized_key = normalized.replace("-", "_").strip().lower()
+        mode = cls.VALIDATION_RULE_MODE_ALIASES.get(normalized_key, normalized_key.upper())
+        if mode not in cls.VALIDATION_RULE_MODES:
+            raise FormBuilderDomainValidationError("validation rule mode is not supported.")
+        return mode
 
     @classmethod
     def _normalize_options(cls, value, *, control_type):

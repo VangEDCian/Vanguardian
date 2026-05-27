@@ -10,7 +10,9 @@ from apps.crf.infrastructure.persistence.models import (
     CrfFieldUiConfig,
     CrfFieldUiConfigTranslation,
     CrfFieldValidationRule,
+    CrfFieldValidationRuleModeChoices,
     CrfFieldValidationRuleTranslation,
+    CrfFieldValidationRuleTypeChoices,
     CrfSectionLayoutConfig,
     CrfSectionTemplate,
     CrfSectionTemplateTranslation,
@@ -21,6 +23,8 @@ from apps.crf.infrastructure.persistence.models import (
 __all__ = [
     "CrfFieldControlTypeChoices",
     "CrfFieldOptionsSourceChoices",
+    "CrfFieldValidationRuleModeChoices",
+    "CrfFieldValidationRuleTypeChoices",
     "CrfTemplate",
     "CrfTemplateTranslation",
     "CrfSectionTemplate",

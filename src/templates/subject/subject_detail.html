@@ -305,6 +305,9 @@
     {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode and page_entry_has_open_queries %}
         <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
     {% endif %}
+    {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode and page_entry_has_open_validation_issues %}
+        <script src="{% static 'subject/js/subject_validation_issue_modal.js' %}"></script>
+    {% endif %}
     {% if is_form_verification_mode %}
         {% if form_verification_verify_checked_url or form_verification_reopen_url %}
             <script src="{% static 'subject/js/subject_form_verification_verify_all.js' %}"></script>

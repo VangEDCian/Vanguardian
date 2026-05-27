@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n subject_form_tags %}
 <div class="subject-form-table-section subject-form-table-section--response-{{ section.table_layout.response_direction }}{% if section.code_class %} subject-form-table-section--{{ section.code_class }}{% endif %}{% if section.layout_css_class %} {{ section.layout_css_class }}{% endif %}">
     {% if not hide_section_title and section.show_section_header %}
         <header class="subject-form-table-section__title">{{ section.title }}</header>
@@ -22,7 +22,7 @@
                 </thead>
             {% endif %}
             <tbody>
-                {% for field in section.fields %}
+                {% for field in section.fields|sort_fields_by_display_order %}
                     {% include "subject/components/_field_table_row_render.html" with field=field section=section %}
                 {% empty %}
                     <tr>

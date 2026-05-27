@@ -598,16 +598,6 @@
   text-align: center;
 }
 
-.subject-form-field--has-open-query,
-.subject-form-field--has-open-query :where(label, input, select, textarea, button, .subject-form-flat-field__label, .subject-form-flat-field__helper, .subject-form-field__title, .subject-form-field-card__helper, .subject-form-table-row__text, .subject-form-table-row__helper, .subject-form-table-row__criterion-text) {
-  color: #c62828;
-}
-
-.subject-form-field--has-open-query :where(input, select, textarea)::placeholder {
-  color: #c62828;
-  opacity: 0.72;
-}
-
 .subject-form-query-indicator {
   position: relative;
   display: inline-flex;
@@ -663,6 +653,65 @@
   border: 1px solid #aeb8c2;
   background: #ffffff;
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.24);
+}
+
+.subject-form-validation-issue-modal {
+  width: min(920px, calc(100vw - 32px));
+}
+
+.subject-form-validation-issue-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.subject-form-validation-issue-modal__row {
+  border-top: 1px solid #d4dbe2;
+}
+
+.subject-form-validation-issue-modal__row:first-child {
+  border-top: 0;
+}
+
+.subject-form-validation-issue-modal__check {
+  width: 34px;
+  padding: 10px 8px 10px 0;
+  vertical-align: top;
+}
+
+.subject-form-validation-issue-modal__content {
+  padding: 10px 0;
+  vertical-align: top;
+}
+
+.subject-form-validation-issue-modal__question {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #202833;
+}
+
+.subject-form-validation-issue-modal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: #52606d;
+  font-size: 0.78rem;
+}
+
+.subject-form-validation-issue-modal__textarea {
+  width: 100%;
+  min-height: 68px;
+  padding: 8px 10px;
+  border: 1px solid #aeb8c2;
+  border-radius: 4px;
+  resize: vertical;
+  font: inherit;
+}
+
+.subject-form-validation-issue-modal__textarea:disabled {
+  background: #eef2f5;
+  color: #6b7785;
 }
 
 .subject-form-verification-query-modal--history {
@@ -836,6 +885,12 @@
   background: #ffffff;
   color: #253544;
   font-size: 12px;
+}
+
+.subject-form-verification-query-modal__message--warning {
+  border-color: #f1c75b;
+  background: #fff8df;
+  color: #7a5d11;
 }
 
 .subject-form-verification-query-modal__message-meta {

@@ -3,10 +3,12 @@ from django.db.models import Q
 from apps.crf.models import (
     CrfFieldDefinition,
     CrfFieldDefinitionTranslation,
+    CrfFieldReviewPolicy,
     CrfFieldTemplate,
     CrfFieldTemplateTranslation,
     CrfFieldUiConfig,
     CrfFieldUiConfigTranslation,
+    CrfFieldValidationRule,
     CrfSectionTemplate,
     CrfTemplate,
 )
@@ -84,3 +86,54 @@ class DjangoCrfFieldTemplateImportRepository:
             language_code=language_code,
             defaults=values,
         )
+
+    def reset_template_fields_for_import(self, *, crf_template_id, actor_user_id, now):
+        field_ids = tuple(
+            CrfFieldTemplate.objects.filter(
+                crf_template_id=crf_template_id,
+                deleted=False,
+            ).values_list("id", flat=True)
+        )
+        if not field_ids:
+            return 0
+
+        CrfFieldTemplate.objects.filter(id__in=field_ids).update(
+            deleted=True,
+            is_active=False,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        CrfFieldDefinition.objects.filter(
+            field_template_id__in=field_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        CrfFieldUiConfig.objects.filter(
+            field_template_id__in=field_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        CrfFieldValidationRule.objects.filter(
+            field_template_id__in=field_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        CrfFieldReviewPolicy.objects.filter(
+            field_template_id__in=field_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            is_enabled=False,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        return len(field_ids)

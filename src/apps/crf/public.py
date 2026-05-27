@@ -4,13 +4,15 @@ from apps.crf.application import (
     CrfTemplateNotFoundError,
 )
 from apps.crf.application.services import CrfFieldTemplateImportService
+from apps.crf.application.services.validation_rule_import import CrfValidationRuleImportService
 from apps.crf.models import CrfSectionTemplate
 
 
 class CrfContextAdapter:
-    def __init__(self, crf_template_service=None, field_template_import_service=None):
+    def __init__(self, crf_template_service=None, field_template_import_service=None, validation_rule_import_service=None):
         self.crf_template_service = crf_template_service or CrfTemplateApplicationService()
         self.field_template_import_service = field_template_import_service or CrfFieldTemplateImportService()
+        self.validation_rule_import_service = validation_rule_import_service or CrfValidationRuleImportService()
 
     def get_crf_template_model(self):
         return self.crf_template_service.get_crf_template_model()
@@ -152,6 +154,43 @@ class CrfContextAdapter:
             section_name=section_name,
         )
 
+    def resolve_import_validation_rule_template_by_code_or_id(self, *, study_id, form_code):
+        return self.validation_rule_import_service.resolve_template_by_code_or_id(
+            study_id=study_id,
+            form_code=form_code,
+        )
+
+    def resolve_import_validation_rule_template_by_code(self, *, study_id, form_code):
+        return self.validation_rule_import_service.resolve_template_by_code(
+            study_id=study_id,
+            form_code=form_code,
+        )
+
+    def resolve_import_validation_rule_field_by_name_or_id(self, *, crf_template_id, field_name):
+        return self.validation_rule_import_service.resolve_field_by_name_or_id(
+            crf_template_id=crf_template_id,
+            field_name=field_name,
+        )
+
+    def resolve_import_validation_rule_field_by_key(self, *, crf_template_id, field_name):
+        return self.validation_rule_import_service.resolve_field_by_key(
+            crf_template_id=crf_template_id,
+            field_name=field_name,
+        )
+
+    def reset_import_template_fields(
+        self,
+        *,
+        crf_template_id,
+        actor_user_id,
+        now=None,
+    ):
+        return self.field_template_import_service.reset_template_fields_for_import(
+            crf_template_id=crf_template_id,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
     def upsert_import_template_field(
         self,
         *,
@@ -165,6 +204,35 @@ class CrfContextAdapter:
             crf_template_id=crf_template_id,
             section_template_id=section_template_id,
             payload=payload,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
+    def upsert_import_validation_rule(
+        self,
+        *,
+        study_id,
+        crf_template_id,
+        field_template_id,
+        rule_type,
+        expression,
+        severity,
+        mode,
+        vi_message,
+        en_message,
+        actor_user_id,
+        now=None,
+    ):
+        return self.validation_rule_import_service.upsert_validation_rule(
+            study_id=study_id,
+            crf_template_id=crf_template_id,
+            field_template_id=field_template_id,
+            rule_type=rule_type,
+            expression=expression,
+            severity=severity,
+            mode=mode,
+            vi_message=vi_message,
+            en_message=en_message,
             actor_user_id=actor_user_id,
             now=now,
         )

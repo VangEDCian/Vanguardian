@@ -155,6 +155,20 @@ def subject_control_tabindex(field, offset=0):
     return (display_order * 20) + offset_value
 
 
+@register.filter
+def sort_fields_by_display_order(fields):
+    def sort_key(field):
+        if not isinstance(field, dict):
+            return 999999, ""
+        try:
+            display_order = int(field.get("display_order") or 999999)
+        except (TypeError, ValueError):
+            display_order = 999999
+        return display_order, str(field.get("label") or field.get("field_key") or "").lower()
+
+    return sorted(fields or (), key=sort_key)
+
+
 @register.simple_tag
 def subject_text_control_i18n():
     return subject_control_i18n(CrfFieldControlTypeChoices.TEXT)

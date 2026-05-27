@@ -29,6 +29,50 @@ def create_data_queries_for_page_change_reasons(
     )
 
 
+def create_reconcile_records_for_validation_failures(
+    *,
+    page_state_id: int,
+    failures: list[object],
+    actor_user_id: int | None,
+) -> dict[str, int]:
+    return ReconcileDataQueryWriteService().create_validation_failure_records(
+        page_state_id=page_state_id,
+        failures=failures,
+        actor_user_id=actor_user_id,
+    )
+
+
+def list_open_reconcile_validation_issues_by_fields(
+    *,
+    page_state_id: int,
+    field_template_ids: tuple[int, ...],
+) -> dict[int, list[dict[str, object]]]:
+    return ReconcileDataQueryReadService().list_open_validation_issues_by_page_state_and_field_templates(
+        page_state_id=page_state_id,
+        field_template_ids=field_template_ids,
+    )
+
+
+def has_open_reconcile_validation_issue_for_page_field(*, page_state_id: int, field_template_id: int) -> bool:
+    return ReconcileDataQueryReadService().has_open_validation_issue_for_page_field(
+        page_state_id=page_state_id,
+        field_template_id=field_template_id,
+    )
+
+
+def acknowledge_reconcile_validation_issues(
+    *,
+    page_state_id: int,
+    issues: list[dict[str, object]],
+    actor_user_id: int | None,
+) -> dict[str, object]:
+    return ReconcileDataQueryWriteService().acknowledge_validation_issues(
+        page_state_id=page_state_id,
+        issues=issues,
+        actor_user_id=actor_user_id,
+    )
+
+
 def open_reconcile_query(
     *,
     page_state_id: int,
@@ -105,9 +149,13 @@ def reply_and_close_reconcile_query(
 
 
 __all__ = [
+    "acknowledge_reconcile_validation_issues",
     "cancel_reconcile_query",
     "create_data_queries_for_page_change_reasons",
+    "create_reconcile_records_for_validation_failures",
+    "has_open_reconcile_validation_issue_for_page_field",
     "has_verified_reconcile_query_for_page_field",
+    "list_open_reconcile_validation_issues_by_fields",
     "open_reconcile_query",
     "reply_and_close_reconcile_query",
     "reply_to_reconcile_query",

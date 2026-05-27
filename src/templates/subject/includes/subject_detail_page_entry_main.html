@@ -77,6 +77,55 @@
             </div>
         </div>
     {% endif %}
+    {% if page_entry_has_open_validation_issues %}
+        <div class="subject-form-verification-query-modal-backdrop"
+             hidden
+             data-validation-issue-modal
+             data-language-code="{{ LANGUAGE_CODE }}"
+             data-acknowledge-url="{{ validation_issue_acknowledge_url|default:'' }}"
+             data-title-en-prefix="Validation issues for field"
+             data-title-vi-prefix="Cảnh báo validation cho trường">
+            <div class="subject-form-verification-query-modal subject-form-validation-issue-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="subject-form-validation-issue-modal-title">
+                <header class="subject-form-verification-query-modal__header">
+                    <h3 id="subject-form-validation-issue-modal-title"
+                        class="subject-form-verification-query-modal__title"
+                        data-validation-issue-modal-title></h3>
+                </header>
+                <div class="subject-form-verification-query-modal__body">
+                    <section class="subject-form-verification-query-modal__section">
+                        <dl class="subject-form-verification-query-modal__facts">
+                            <div class="subject-form-verification-query-modal__fact-row">
+                                <dt>{% trans "Brief Description" %}</dt>
+                                <dd data-validation-issue-modal-brief></dd>
+                            </div>
+                            <div class="subject-form-verification-query-modal__fact-row">
+                                <dt>{% trans "Value" %}</dt>
+                                <dd data-validation-issue-modal-value></dd>
+                            </div>
+                        </dl>
+                    </section>
+                    <section class="subject-form-verification-query-modal__section">
+                        <table class="subject-form-validation-issue-modal__table">
+                            <tbody data-validation-issue-modal-list></tbody>
+                        </table>
+                    </section>
+                    <section class="subject-form-verification-query-modal__section">
+                        <div class="subject-form-verification-query-modal__actions">
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-validation-issue-modal-submit>{% trans "Submit" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-validation-issue-modal-close>{% trans "Close" %}</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    {% endif %}
 {% else %}
     <div class="subject-detail-screen__empty">{% trans "Select a CRF template to continue." %}</div>
 {% endif %}

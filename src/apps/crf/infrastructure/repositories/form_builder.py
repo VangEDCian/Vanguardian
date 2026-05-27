@@ -111,6 +111,7 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
             snapshots=aggregate.to_persistence_payload()["field_validation_rules"],
             actor_user_id=actor_user_id,
             now=now,
+            crf_template_id=field.crf_template_id,
         )
 
         return field, validation_rules
@@ -138,6 +139,7 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
             snapshots=snapshot["field_validation_rules"],
             actor_user_id=actor_user_id,
             now=now,
+            crf_template_id=existing_field.crf_template_id,
         )
 
         return existing_field, validation_rules
@@ -182,6 +184,7 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
             snapshots=snapshot["field_validation_rules"],
             actor_user_id=actor_user_id,
             now=now,
+            crf_template_id=field.crf_template_id,
         )
 
         return action, field
@@ -350,7 +353,21 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
                 },
             )
 
-    def _replace_validation_rules(self, *, field_template_id, snapshots, actor_user_id, now):
+    def _replace_validation_rules(
+        self,
+        *,
+        field_template_id,
+        snapshots,
+        actor_user_id,
+        now,
+        crf_template_id=None,
+        study_id=None,
+    ):
+        scope = self._resolve_validation_rule_scope(
+            field_template_id=field_template_id,
+            crf_template_id=crf_template_id,
+            study_id=study_id,
+        )
         existing_rules = list(
             CrfFieldValidationRule.objects.filter(field_template_id=field_template_id)
             .prefetch_related("translations")
@@ -362,6 +379,8 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
         for snapshot in snapshots:
             validation_rule = CrfFieldValidationRule(
                 field_template_id=field_template_id,
+                study_id=scope["study_id"],
+                crf_template_id=scope["crf_template_id"],
                 created_at=now,
                 updated_at=now,
                 created_by_id=actor_user_id,
@@ -382,6 +401,34 @@ class DjangoOrmFormBuilderRepository(FormBuilderCommandRepository, FormBuilderQu
             created_rules.append(validation_rule)
 
         return created_rules
+
+    def _resolve_validation_rule_scope(self, *, field_template_id, crf_template_id=None, study_id=None):
+        if crf_template_id is not None and study_id is not None:
+            return {
+                "study_id": study_id,
+                "crf_template_id": crf_template_id,
+            }
+
+        if crf_template_id is not None:
+            crf_template = CrfTemplate.objects.only("id", "study_id").filter(pk=crf_template_id).first()
+            if crf_template is not None:
+                return {
+                    "study_id": crf_template.study_id,
+                    "crf_template_id": crf_template.pk,
+                }
+
+        field = (
+            CrfFieldTemplate.objects.filter(pk=field_template_id)
+            .select_related("crf_template")
+            .only("id", "crf_template_id", "crf_template__study_id")
+            .first()
+        )
+        if field is None:
+            return {"study_id": None, "crf_template_id": crf_template_id}
+        return {
+            "study_id": field.crf_template.study_id if field.crf_template_id else None,
+            "crf_template_id": field.crf_template_id,
+        }
 
     def get_form_with_translations(self, *, study_id, form_id):
         return CrfTemplate.objects.filter(

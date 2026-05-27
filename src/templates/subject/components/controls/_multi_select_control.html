@@ -12,7 +12,7 @@
                    tabindex="{% subject_control_tabindex field forloop.counter0 %}"
                    disabled
                    {% if option.value in field.selected_values %}checked{% endif %} />
-            {{ option.label }}
+            <span class="subject-form-choice-option-label">{{ option.label }}</span>
         </label>
     {% empty %}
         <span>{{ multi_select_control_i18n.empty_option }}</span>

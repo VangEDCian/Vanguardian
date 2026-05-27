@@ -269,3 +269,46 @@
 .subject-form-table-row__control-invalid:focus-visible {
   outline: #d32f2f auto 1px;
 }
+
+.subject-form-field--has-open-query :where(
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="url"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  select,
+  textarea,
+  .subject-date-picker__input,
+  .subject-date-text__input
+) {
+  color: #c62828;
+}
+
+.subject-form-field--has-open-query :where(
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="url"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  textarea,
+  .subject-date-picker__input,
+  .subject-date-text__input
+)::placeholder {
+  color: #c62828;
+  opacity: 0.72;
+}
+
+.subject-form-field--has-open-query :where(
+  input[type="radio"]:checked + .subject-form-radio-option-label,
+  input[type="checkbox"]:checked + .subject-form-choice-option-label
+) {
+  color: #c62828;
+}

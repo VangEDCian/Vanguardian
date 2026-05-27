@@ -40,17 +40,19 @@ class UpdateIdentityUserDetailService:
         self.repository.save_user(user)
 
         if command.can_manage_permissions:
-            self.repository.set_user_roles(user=user, role_ids=self._build_role_ids(command.role_id))
+            self.repository.clear_user_roles(user=user)
             self.repository.set_user_study_memberships(
                 user=user,
                 study_ids=command.study_ids,
                 actor_user_id=command.actor_user_id,
+                role_ids_by_study_id=command.study_role_ids_by_study_id,
             )
             self.repository.set_user_site_memberships(
                 user=user,
                 site_ids=command.site_ids,
                 allowed_study_ids=command.study_ids,
                 actor_user_id=command.actor_user_id,
+                role_ids_by_site_id=command.site_role_ids_by_site_id,
             )
 
         if command.can_manage_permissions:
@@ -79,13 +81,6 @@ class UpdateIdentityUserDetailService:
 
         if self.repository.phone_number_exists(phone_number=phone_number, exclude_user_id=exclude_user_id):
             raise IdentityUserPhoneNumberAlreadyExistsError(phone_number)
-
-    @staticmethod
-    def _build_role_ids(role_id):
-        normalized_role_id = str(role_id or "").strip()
-        if not normalized_role_id:
-            return ()
-        return (normalized_role_id,)
 
     def _resolve_groups(self, permission_group_ids):
         normalized_group_ids = []

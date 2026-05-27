@@ -7,8 +7,14 @@ from django.urls import reverse
 from apps.identity.infrastructure.auth.constants import PASSWORD_RESET_BYPASS_SESSION_KEY
 from apps.identity.infrastructure.auth.session_state import is_single_active_session_valid
 from apps.identity.infrastructure.persistence.models import (
+    MembershipStatus,
+    RoleAssignmentStatus,
+    RoleScopeLevel,
     StudyMembership,
+    StudyMembershipRole,
     StudySiteMembership,
+    StudySiteMembershipRole,
+    UserRole,
 )
 from apps.shared.application.services.cookies import CookiesService
 
@@ -68,6 +74,8 @@ class MembershipAccessMiddleware:
     EXEMPT_PATH_PREFIXES = (
         "/login/",
         "/logout/",
+        "/first-login",
+        "/first-login/",
         "/forgot-password/",
         "/reset-password/",
         "/i18n/",
@@ -80,7 +88,7 @@ class MembershipAccessMiddleware:
         if self._should_skip(request):
             return self.get_response(request)
 
-        if self._has_membership(request.user.id):
+        if self._has_active_role_assignment(request.user.id):
             return self.get_response(request)
 
         return render(
@@ -98,14 +106,55 @@ class MembershipAccessMiddleware:
 
         return request.user.is_superuser
 
-    def _has_membership(self, user_id):
+    def _has_active_role_assignment(self, user_id):
         try:
-            if StudyMembership.objects.filter(user_id=user_id, deleted=False).exists():
+            if StudyMembershipRole.objects.filter(
+                study_membership__user_id=user_id,
+                study_membership__deleted=False,
+                study_membership__status=MembershipStatus.ACTIVE,
+                role__is_active=True,
+                status=RoleAssignmentStatus.ACTIVE,
+            ).exists():
                 return True
 
-            return StudySiteMembership.objects.filter(user_id=user_id, deleted=False).exists()
+            if StudySiteMembershipRole.objects.filter(
+                study_site_membership__user_id=user_id,
+                study_site_membership__deleted=False,
+                study_site_membership__status=MembershipStatus.ACTIVE,
+                role__is_active=True,
+                status=RoleAssignmentStatus.ACTIVE,
+            ).exists():
+                return True
+
+            return self._has_legacy_scoped_user_role(user_id)
         except DatabaseError:
             return False
+
+    def _has_legacy_scoped_user_role(self, user_id):
+        active_study_membership_ids = StudyMembership.objects.filter(
+            user_id=user_id,
+            deleted=False,
+            status=MembershipStatus.ACTIVE,
+        ).values("study_id")
+        if UserRole.objects.filter(
+            user_id=user_id,
+            role__is_active=True,
+            role__scope_level=RoleScopeLevel.STUDY,
+            role__study_id__in=active_study_membership_ids,
+        ).exists():
+            return True
+
+        active_site_membership_study_ids = StudySiteMembership.objects.filter(
+            user_id=user_id,
+            deleted=False,
+            status=MembershipStatus.ACTIVE,
+        ).values("study_id")
+        return UserRole.objects.filter(
+            user_id=user_id,
+            role__is_active=True,
+            role__scope_level=RoleScopeLevel.STUDY_SITE,
+            role__study_id__in=active_site_membership_study_ids,
+        ).exists()
 
 
 class CheckFirstLoginMiddleware:

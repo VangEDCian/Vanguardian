@@ -25,17 +25,21 @@ from apps.identity.presentation.web.forms import (
     StyledSetPasswordForm,
 )
 from apps.shared.application.services.cookies import CookiesService
+from apps.shared.navigation import get_default_authenticated_url
 
 
 class IdentityLoginView(LoginView):
     template_name = "identity/login.html"
     authentication_form = StyledAuthenticationForm
     redirect_authenticated_user = True
-    next_page = reverse_lazy("dashboard:main")
+    next_page = "/"
     login_audit_service_class = IdentityLoginAuditService
 
     def get_login_audit_service(self):
         return self.login_audit_service_class()
+
+    def get_success_url(self):
+        return self.get_redirect_url() or get_default_authenticated_url(self.request)
 
     def form_valid(self, form: StyledAuthenticationForm):
         response = super().form_valid(form)
@@ -173,13 +177,12 @@ class IdentityResetPasswordConfirmView(PasswordResetConfirmView):
 
 class IdentityUserFirstLoginView(TemplateView):
     template_name = "identity/first_login.html"
-    success_url = reverse_lazy("dashboard:main")
 
     def dispatch(self, request, *args, **kwargs):
         current_user = cast(User, self.request.user)
         if current_user and current_user.is_authenticated:
             if current_user.attempt_login > 0:
-                return redirect(reverse('dashboard:main'))
+                return redirect(get_default_authenticated_url(request))
             return super().dispatch(request, *args, **kwargs)
         return redirect(reverse('identity:login'))
 
@@ -227,4 +230,4 @@ class IdentityUserFirstLoginView(TemplateView):
             **build_audit_request_context(request),
         )
 
-        return redirect(str(self.success_url))
+        return redirect(get_default_authenticated_url(request))

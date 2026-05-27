@@ -16,6 +16,7 @@ from apps.subject.presentation.web.views.verification_verify_checked import (
     SubjectFormVerificationQueryThreadView,
     SubjectFormVerificationReopenView,
     SubjectFormVerificationVerifyCheckedView,
+    SubjectValidationIssueAcknowledgeView,
 )
 
 app_name = "subject"
@@ -55,6 +56,11 @@ urlpatterns = [
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/open-query/",
         SubjectFormVerificationOpenQueryView.as_view(),
         name="subject_form_verification_open_query",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/validation-issues/acknowledge/",
+        SubjectValidationIssueAcknowledgeView.as_view(),
+        name="subject_validation_issue_acknowledge",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/event-definitions/<int:event_definition_id>/add-another/",

@@ -16,9 +16,10 @@ class CreateIdentityUserCommand:
     last_name: str
     email: str
     phone_number: str
-    role_id: str = ""
     study_ids: tuple[str, ...] = ()
     site_ids: tuple[str, ...] = ()
+    study_role_ids_by_study_id: dict[str, str] | None = None
+    site_role_ids_by_site_id: dict[str, str] | None = None
     permission_group_ids: tuple[str, ...] = ()
     can_manage_permissions: bool = False
 

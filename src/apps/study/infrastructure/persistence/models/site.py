@@ -61,6 +61,9 @@ class SiteMembership(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='user_id')
     study = models.ForeignKey(Study, on_delete=models.CASCADE, db_column='study_id')
     site = models.ForeignKey(Site, on_delete=models.CASCADE, db_column='site_id')
+    status = models.CharField(max_length=30, default="ACTIVE")
+    valid_from = models.DateTimeField(null=True, blank=True)
+    valid_to = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "study_site_membership"
@@ -95,6 +98,10 @@ class SiteMembership(models.Model):
             models.Index(
                 fields=["user_id", "study_id", "site_id"],
                 name="site_mship_usr_study_site_uq",
+            ),
+            models.Index(
+                fields=["user_id", "site_id", "status"],
+                name="site_mship_usr_scope_stat_idx",
             ),
         ]
         verbose_name = "site membership"

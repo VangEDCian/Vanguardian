@@ -25,7 +25,54 @@ class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
         required_permissions = self.get_permission_required()
         if not required_permissions:
             return True
-        return self.request.user.has_perms(required_permissions)
+        if self.request.user.has_perms(required_permissions):
+            return True
+
+        resource_context = self.get_permission_resource_context()
+        user_id = getattr(self.request.user, "pk", None)
+        if resource_context is None or user_id is None:
+            return False
+
+        from apps.identity.public import can_perform
+
+        return all(
+            can_perform(
+                user_id=user_id,
+                permission_code=permission_code,
+                resource_context=resource_context,
+            ).is_allowed
+            for permission_code in required_permissions
+        )
+
+    def get_permission_resource_context(self):
+        study_id = self.get_permission_context_int("study_id")
+        if study_id is None:
+            return None
+
+        from apps.identity.public import ResourceContext
+
+        return ResourceContext(
+            study_id=study_id,
+            study_site_id=self.get_permission_context_site_id(study_id),
+        )
+
+    def get_permission_context_site_id(self, study_id):
+        site_id = self.get_permission_context_int("study_site_id") or self.get_permission_context_int("site_id")
+        if site_id is not None:
+            return site_id
+
+        from apps.shared.context_processors import SiteDropdownHandler
+
+        return SiteDropdownHandler(request=self.request, study_id=study_id).build().selected_id
+
+    def get_permission_context_int(self, key):
+        value = (getattr(self, "kwargs", None) or {}).get(key)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:

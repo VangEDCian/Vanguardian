@@ -2,6 +2,7 @@ from apps.study.presentation.web.forms.crftemplates import (
     CrfSectionLayoutConfigImportTemplateForm,
     CrfTemplateFieldsImportTemplateForm,
     CrfTemplateImportTemplateForm,
+    CrfValidationRuleImportTemplateForm,
     CrfTemplatesToolbarForm,
 )
 from apps.study.presentation.web.forms.eventdefinitions import (
@@ -22,6 +23,7 @@ __all__ = [
     "EventDefinitionsToolbarForm",
     "CrfTemplateFieldsImportTemplateForm",
     "CrfTemplateImportTemplateForm",
+    "CrfValidationRuleImportTemplateForm",
     "EventFormBindingImportTemplateForm",
     "EventDefinitionImportTemplateForm",
     "FactMappingImportTemplateForm",

@@ -27,6 +27,29 @@ class CrfFieldOptionsSourceChoices(models.TextChoices):
     LOOKUP = "lookup", _("Lookup")
 
 
+class CrfFieldValidationRuleModeChoices(models.TextChoices):
+    HARD = "HARD", _("Hard - block save/submit")
+    SOFT = "SOFT", _("Soft - warning with confirmation or reason")
+    QUERY = "QUERY", _("Query - save data and create a data query")
+
+
+class CrfFieldValidationRuleTypeChoices(models.TextChoices):
+    REQUIRED = "REQUIRED", _("Required")
+    DATA_TYPE = "DATA_TYPE", _("Data type")
+    LENGTH = "LENGTH", _("Length")
+    NUMERIC_RANGE = "NUMERIC_RANGE", _("Numeric range")
+    DATE_RANGE = "DATE_RANGE", _("Date range")
+    REGEX = "REGEX", _("Regex")
+    ALLOWED_VALUES = "ALLOWED_VALUES", _("Allowed values")
+    FIELD_COMPARE = "FIELD_COMPARE", _("Field compare")
+    CONDITIONAL_REQUIRED = "CONDITIONAL_REQUIRED", _("Conditional required")
+    CONDITIONAL_ALLOWED = "CONDITIONAL_ALLOWED", _("Conditional allowed")
+    CALCULATED_VALUE = "CALCULATED_VALUE", _("Calculated value")
+    UNIQUE = "UNIQUE", _("Unique")
+    VISIT_WINDOW = "VISIT_WINDOW", _("Visit window")
+    CUSTOM_EXPRESSION = "CUSTOM_EXPRESSION", _("Custom expression")
+
+
 class CrfTemplate(TranslatableModel):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -446,17 +469,39 @@ class CrfFieldValidationRule(TranslatableModel):
     updated_at = models.DateTimeField()
     deleted = models.BooleanField(default=False)
 
-    rule_type = models.CharField(max_length=64)
+    rule_type = models.CharField(
+        max_length=64,
+        choices=CrfFieldValidationRuleTypeChoices.choices,
+    )
     expression = models.TextField()
     message = TranslatedField(any_language=True)
     severity = models.CharField(max_length=20)
-    mode = models.CharField(max_length=20)
+    mode = models.CharField(
+        max_length=20,
+        choices=CrfFieldValidationRuleModeChoices.choices,
+    )
 
     field_template = models.ForeignKey(
         CrfFieldTemplate,
         on_delete=models.DO_NOTHING,
         db_column="field_template_id",
         related_name="validation_rules",
+    )
+    study = models.ForeignKey(
+        "study.Study",
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="crf_field_validation_rules",
+        null=True,
+        blank=True,
+    )
+    crf_template = models.ForeignKey(
+        CrfTemplate,
+        on_delete=models.DO_NOTHING,
+        db_column="crf_template_id",
+        related_name="validation_rules",
+        null=True,
+        blank=True,
     )
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)
@@ -466,6 +511,8 @@ class CrfFieldValidationRule(TranslatableModel):
         managed = True
         default_permissions = ()
         indexes = [
+            models.Index(fields=["study", "crf_template"], name="crf_fvr_study_crf_idx"),
+            models.Index(fields=["crf_template", "field_template"], name="crf_fvr_crf_field_idx"),
             models.Index(fields=["field_template"], name="crf_fvr_field_tpl_idx"),
         ]
         verbose_name = "CRF field validation rule"

@@ -36,7 +36,7 @@
                 {% trans "Verify Form" %}
             </button>
         {% endif %}
-        {% if perms.subject.update_subject and subject_trigger_workflow_url %}
+        {% if table.can_update_subject and subject_trigger_workflow_url %}
             <form method="post"
                   action="{{ subject_trigger_workflow_url }}"
                   class="crf-template-actions__form">
@@ -45,7 +45,7 @@
                 <button type="submit" class="crf-template-actions__item" data-dropdown-option>{% trans "Trigger Workflow" %}</button>
             </form>
         {% endif %}
-        {% if perms.subject.update_subject %}
+        {% if table.can_update_subject %}
             <form method="post"
                   action="{{ subject_resync_stage_url }}"
                   class="crf-template-actions__form">

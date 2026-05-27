@@ -20,7 +20,7 @@ from apps.shared.views import AuthenticateTemplateView
 
 
 class CrfFieldUpdateView(AuthenticateTemplateView):
-    permission_required = "study.view_study_detail"
+    permission_required = "study.manage_crf_template"
     raise_exception = True
     template_name = "crf/field_form.html"
     layout_nav_key = "STUDIES"

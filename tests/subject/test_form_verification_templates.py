@@ -16,6 +16,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
         is_checked: bool = False,
         has_verified_query: bool = False,
         open_query_count: int = 0,
+        validation_issue_count: int = 0,
         closed_query_histories: list[dict] | None = None,
         active_query_is_answered: bool = False,
         active_query_can_respond: bool = True,
@@ -42,6 +43,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
                             "brief_description": "Field 1",
                             "display_value": "Value 1",
                             "open_query_count": open_query_count,
+                            "validation_issue_count": validation_issue_count,
+                            "validation_issues": [],
                             "active_query_id": active_query_id,
                             "active_query_is_answered": active_query_is_answered,
                             "active_query_can_respond": active_query_can_respond,
@@ -190,6 +193,27 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("disabled", checkbox)
         self.assertIn('aria-disabled="true"', checkbox)
         self.assertIn('data-blocked-by-open-query="true"', checkbox)
+
+    def test_field_review_table_shows_validation_issue_count_and_disables_checkbox(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=False,
+            active_query_id=None,
+            query_thread_badge_count=0,
+            validation_issue_count=2,
+        )
+
+        checkbox_start = rendered.index('name="verify_field"')
+        input_start = rendered.rfind("<input", 0, checkbox_start)
+        input_end = rendered.index(">", checkbox_start)
+        checkbox = rendered[input_start : input_end + 1]
+
+        self.assertIn(">Validation Issues<", rendered)
+        self.assertIn("data-validation-issue-count", rendered)
+        self.assertIn(">2</td>", rendered)
+        self.assertIn("disabled", checkbox)
+        self.assertIn('aria-disabled="true"', checkbox)
+        self.assertIn('data-blocked-by-validation-issue="true"', checkbox)
 
     def test_field_review_action_button_is_disabled_when_page_status_is_locked(self):
         rendered = self._render_field_review_table(show_checkboxes=True, fields_locked=True)
@@ -347,6 +371,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
                             "brief_description": "Medication",
                             "display_value": "Paracetamol",
                             "open_query_count": 0,
+                            "validation_issue_count": 0,
+                            "validation_issues": [],
                             "active_query_id": None,
                             "active_query_is_answered": False,
                             "active_query_can_respond": False,

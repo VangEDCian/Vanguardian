@@ -133,6 +133,11 @@ class DataCapturePageStateVerificationFinalDataService:
                 field_template_id=field_template_id,
             ):
                 raise DataCaptureValidationError("yêu cầu đóng Query trước khi verify")
+            if self.reconcile_read_service.has_open_validation_issue_for_page_field(
+                page_state_id=snapshot.id,
+                field_template_id=field_template_id,
+            ):
+                raise DataCaptureValidationError("yêu cầu xử lý Validation Issues trước khi verify")
 
         page_state = self.repository.start_page_review(
             page_state_id=snapshot.id,

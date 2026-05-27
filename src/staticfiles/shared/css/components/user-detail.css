@@ -237,6 +237,40 @@
   margin-top: 3px;
 }
 
+.user-membership-role-list {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.user-membership-role-list__empty {
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.user-membership-role-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.4fr) minmax(220px, 0.6fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.user-membership-role-row__label {
+  min-width: 0;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-membership-role-row__control {
+  min-width: 0;
+}
+
 @media (max-width: 1080px) {
   .user-detail-inline-field {
     grid-template-columns: 108px minmax(0, 1fr);
@@ -258,6 +292,14 @@
     grid-column: auto;
     grid-template-columns: 1fr;
     row-gap: 6px;
+  }
+
+  .user-membership-role-row {
+    grid-template-columns: 1fr;
+  }
+
+  .user-membership-role-row__label {
+    white-space: normal;
   }
 }
 

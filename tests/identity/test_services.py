@@ -3,16 +3,20 @@ from unittest.mock import MagicMock
 
 from django.test import SimpleTestCase
 
+from apps.identity.application.commands.create_user import CreateIdentityUserCommand
 from apps.identity.application.commands.delete_user import (
     DeleteIdentityUserCommand,
     IdentityUserRestoreDataNotFoundError,
     RestoreIdentityUserCommand,
 )
+from apps.identity.application.commands.update_user_detail import UpdateIdentityUserDetailCommand
 from apps.identity.application.queries import IdentityUserNotFoundError
 from apps.identity.application.services import (
+    CreateIdentityUserService,
     CurrentUserProfileSummaryService,
     DeleteIdentityUserService,
     RestoreIdentityUserService,
+    UpdateIdentityUserDetailService,
 )
 
 
@@ -181,3 +185,92 @@ class CurrentUserProfileSummaryServiceTests(SimpleTestCase):
 
         self.assertEqual(summary["display_name"], "Demo User")
         self.assertEqual(summary["role_label"], "—")
+
+
+class IdentityUserMembershipRoleServiceTests(SimpleTestCase):
+    def test_create_user_assigns_roles_through_membership_scopes(self):
+        user = _make_user(pk=17)
+        repository = MagicMock()
+        repository.username_exists.return_value = False
+        repository.email_exists.return_value = False
+        repository.phone_number_exists.return_value = False
+        repository.build_user.return_value = user
+        repository.reload_user_with_groups.return_value = user
+        repository.list_groups_by_ids.return_value = []
+
+        CreateIdentityUserService.execute.__wrapped__(
+            CreateIdentityUserService(repository=repository),
+            CreateIdentityUserCommand(
+                actor_user_id=1,
+                username="dataentry",
+                password="Password123!",
+                first_name="Data",
+                last_name="Entry",
+                email="dataentry@example.com",
+                phone_number="",
+                study_ids=("101",),
+                site_ids=("201",),
+                study_role_ids_by_study_id={"101": "301"},
+                site_role_ids_by_site_id={"201": "401"},
+                can_manage_permissions=True,
+            ),
+        )
+
+        repository.clear_user_roles.assert_called_once_with(user=user)
+        repository.set_user_roles.assert_not_called()
+        repository.set_user_study_memberships.assert_called_once_with(
+            user=user,
+            study_ids=("101",),
+            actor_user_id=1,
+            role_ids_by_study_id={"101": "301"},
+        )
+        repository.set_user_site_memberships.assert_called_once_with(
+            user=user,
+            site_ids=("201",),
+            allowed_study_ids=("101",),
+            actor_user_id=1,
+            role_ids_by_site_id={"201": "401"},
+        )
+
+    def test_update_user_assigns_roles_through_membership_scopes(self):
+        user = _make_user(pk=18)
+        repository = MagicMock()
+        repository.get_user_with_groups.return_value = user
+        repository.email_exists.return_value = False
+        repository.phone_number_exists.return_value = False
+        repository.reload_user_with_groups.return_value = user
+        repository.list_groups_by_ids.return_value = []
+
+        UpdateIdentityUserDetailService.execute.__wrapped__(
+            UpdateIdentityUserDetailService(repository=repository),
+            UpdateIdentityUserDetailCommand(
+                user_id=18,
+                actor_user_id=1,
+                first_name="Principal",
+                last_name="Investigator",
+                email="pi@example.com",
+                phone_number="",
+                is_active=True,
+                study_ids=("101",),
+                site_ids=("201",),
+                study_role_ids_by_study_id={"101": "301"},
+                site_role_ids_by_site_id={"201": "401"},
+                can_manage_permissions=True,
+            ),
+        )
+
+        repository.clear_user_roles.assert_called_once_with(user=user)
+        repository.set_user_roles.assert_not_called()
+        repository.set_user_study_memberships.assert_called_once_with(
+            user=user,
+            study_ids=("101",),
+            actor_user_id=1,
+            role_ids_by_study_id={"101": "301"},
+        )
+        repository.set_user_site_memberships.assert_called_once_with(
+            user=user,
+            site_ids=("201",),
+            allowed_study_ids=("101",),
+            actor_user_id=1,
+            role_ids_by_site_id={"201": "401"},
+        )

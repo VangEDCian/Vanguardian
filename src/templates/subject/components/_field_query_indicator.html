@@ -32,3 +32,33 @@
         {% endfor %}
     </span>
 {% endif %}
+{% if field.validation_issue_count %}
+    <button type="button"
+            class="subject-form-query-indicator"
+            data-validation-issue-modal-trigger
+            data-field-template-id="{{ field.id|default:'' }}"
+            data-field-label="{{ field.label|escape }}"
+            data-field-key="{{ field.field_key|escape }}"
+            data-field-value="{{ field.display_value|default:field.value|default:'—'|escape }}"
+            title="{% trans 'Validation Issue' %}"
+            aria-label="{% trans 'Validation Issue' %}">
+        <span class="svg-icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/datacapture/warning.svg' %}')"></span>
+        <span class="subject-form-query-indicator__sr-only">{% trans "Validation Issue" %}</span>
+        <span class="subject-form-verification-review__query-badge"
+              data-validation-issue-badge>{{ field.validation_issue_count }}</span>
+    </button>
+    <span hidden data-validation-issue-source>
+        {% for issue in field.validation_issues %}
+            <span data-validation-issue
+                  data-issue-id="{{ issue.id|default:'' }}"
+                  data-issue-rule-id="{{ issue.rule_id|default:'' }}"
+                  data-issue-message="{{ issue.message|escape }}"
+                  data-issue-mode="{{ issue.mode|escape }}"
+                  data-issue-severity="{{ issue.severity|escape }}"
+                  data-issue-status="{{ issue.status|escape }}"
+                  data-issue-created-at="{{ issue.created_at|escape }}"></span>
+        {% endfor %}
+    </span>
+{% endif %}

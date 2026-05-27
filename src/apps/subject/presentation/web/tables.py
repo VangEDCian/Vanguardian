@@ -40,9 +40,14 @@ class SubjectListTable(tables.Table):
         verbose_name=_("Completion"),
         orderable=False,
     )
-    query_status = tables.Column(
+    open_queries = tables.Column(
         empty_values=(),
-        verbose_name=_("Query Status"),
+        verbose_name=_("Open Queries"),
+        orderable=False,
+    )
+    validation_issues = tables.Column(
+        empty_values=(),
+        verbose_name=_("Validation Issues"),
         orderable=False,
     )
     actions = tables.TemplateColumn(
@@ -58,6 +63,7 @@ class SubjectListTable(tables.Table):
         self.workflow_action_event_id_by_subject_id = (
             kwargs.pop("workflow_action_event_id_by_subject_id", None) or {}
         )
+        self.can_update_subject = kwargs.pop("can_update_subject", False)
         # For template: {% if record.pk in table.verify_eligible_subject_ids %} (no custom filter).
         self.verify_eligible_subject_ids = frozenset(
             sid for sid, ok in self._verify_show_by_subject_id.items() if ok
@@ -91,8 +97,12 @@ class SubjectListTable(tables.Table):
         return "—"
 
     @staticmethod
-    def render_query_status(record):
-        return "—"
+    def render_open_queries(record):
+        return int(getattr(record, "open_query_count", 0) or 0)
+
+    @staticmethod
+    def render_validation_issues(record):
+        return int(getattr(record, "validation_issue_count", 0) or 0)
 
     class Meta:
         model = get_subject_list_row_model()
@@ -103,6 +113,7 @@ class SubjectListTable(tables.Table):
             "enrollment",
             "randomization",
             "completion",
-            "query_status",
+            "open_queries",
+            "validation_issues",
             "actions",
         )

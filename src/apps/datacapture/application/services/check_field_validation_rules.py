@@ -2,14 +2,88 @@ import ast
 import json
 import re
 from dataclasses import dataclass
+from typing import Any
+
+from django.utils import timezone
 
 from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
+
+RULE_TYPE_CUSTOM_EXPRESSION = "CUSTOM_EXPRESSION"
+RULE_TYPE_REQUIRED = "REQUIRED"
 
 
 @dataclass(frozen=True)
 class FieldValidationCheckResult:
     has_failures: bool
     failed_field_keys: tuple[str, ...]
+    failures: tuple["FieldValidationFailure", ...] = ()
+
+
+@dataclass(frozen=True)
+class FieldValidationRuleCheck:
+    id: int | None
+    field_template_id: int | None
+    rule_type: str
+    mode: str
+    severity: str
+    expression: str
+    message: str
+
+
+@dataclass(frozen=True)
+class FieldValidationFailure:
+    rule_id: int | None
+    field_template_id: int | None
+    field_key: str
+    rule_type: str
+    mode: str
+    severity: str
+    message: str
+    failed_value: Any
+
+
+def _rule_attr(rule: Any, key: str):
+    if isinstance(rule, dict):
+        return rule.get(key)
+    return getattr(rule, key, None)
+
+
+def _normalize_rule_check(rule) -> FieldValidationRuleCheck:
+    if isinstance(rule, str):
+        return FieldValidationRuleCheck(
+            id=None,
+            field_template_id=None,
+            rule_type=RULE_TYPE_CUSTOM_EXPRESSION,
+            mode="SOFT",
+            severity="",
+            expression=rule,
+            message="",
+        )
+    rule_id = _rule_attr(rule, "id")
+    field_template_id = _rule_attr(rule, "field_template_id")
+    rule_type = _rule_attr(rule, "rule_type")
+    mode = _rule_attr(rule, "mode")
+    severity = _rule_attr(rule, "severity")
+    expression = _rule_attr(rule, "expression")
+    message = _rule_attr(rule, "message")
+    if rule_type is None and isinstance(rule, (tuple, list)) and len(rule) >= 2:
+        rule_type, expression = rule[0], rule[1]
+    return FieldValidationRuleCheck(
+        id=_to_int_or_none(rule_id),
+        field_template_id=_to_int_or_none(field_template_id),
+        rule_type=str(rule_type or "").strip().upper(),
+        mode=str(mode or "").strip().upper(),
+        severity=str(severity or "").strip(),
+        expression=str(expression or "").strip(),
+        message=str(message or "").strip(),
+    )
+
+
+def _to_int_or_none(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _to_eval_literal(raw_value):
@@ -20,13 +94,20 @@ def _to_eval_literal(raw_value):
     return raw_value
 
 
-def _normalize_expression(expression: str, value):
+def _normalize_expression(expression: str, value, payload_map=None):
     normalized = str(expression or "").strip()
     normalized = normalized.replace("&&", " and ").replace("||", " or ")
     normalized = re.sub(r"!\s*(?!=)", " not ", normalized)
     normalized = re.sub(r"\btrue\b", "True", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"\bfalse\b", "False", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"\bnull\b", "None", normalized, flags=re.IGNORECASE)
+    normalized = normalized.replace("$today", repr(timezone.localdate().isoformat()))
+    payload_map = payload_map or {}
+    normalized = re.sub(
+        r"\$field\.([A-Za-z_][A-Za-z0-9_]*)",
+        lambda match: repr(_to_eval_literal(payload_map.get(match.group(1)))),
+        normalized,
+    )
     value_literal = repr(_to_eval_literal(value))
     return normalized.replace("$val", value_literal)
 
@@ -65,8 +146,8 @@ def _is_safe_expression_ast(expression: str) -> bool:
     return all(isinstance(node, allowed_nodes) for node in ast.walk(root))
 
 
-def check_field_err(*, expression: str, value) -> bool:
-    normalized = _normalize_expression(expression, value)
+def check_field_err(*, expression: str, value, payload_map=None) -> bool:
+    normalized = _normalize_expression(expression, value, payload_map=payload_map)
     if not normalized:
         return False
     if not _is_safe_expression_ast(normalized):
@@ -76,6 +157,35 @@ def check_field_err(*, expression: str, value) -> bool:
     except Exception:
         return True
     return not bool(result)
+
+
+def _is_required_value_empty(value) -> bool:
+    return value is None or value == ""
+
+
+def _check_rule_has_error(*, rule, value, payload_map=None) -> bool:
+    rule_check = _normalize_rule_check(rule)
+    if rule_check.rule_type == RULE_TYPE_REQUIRED:
+        return _is_required_value_empty(value)
+    if rule_check.rule_type == RULE_TYPE_CUSTOM_EXPRESSION:
+        return check_field_err(expression=rule_check.expression, value=value, payload_map=payload_map)
+    return False
+
+
+def _field_validation_failure(*, field_key: str, rule, value, payload_map=None) -> FieldValidationFailure | None:
+    rule_check = _normalize_rule_check(rule)
+    if not _check_rule_has_error(rule=rule_check, value=value, payload_map=payload_map):
+        return None
+    return FieldValidationFailure(
+        rule_id=rule_check.id,
+        field_template_id=rule_check.field_template_id,
+        field_key=field_key,
+        rule_type=rule_check.rule_type,
+        mode=rule_check.mode,
+        severity=rule_check.severity,
+        message=rule_check.message,
+        failed_value=value,
+    )
 
 
 class DataCaptureFieldValidationRulesService:
@@ -94,22 +204,32 @@ class DataCaptureFieldValidationRulesService:
             repeat_strategy="legacy_repeat_suffix",
         )
         rules_by_field_key = self.repository.list_form_field_validation_rules(crf_template_id=crf_template_id)
-        failed_field_keys: list[str] = []
-        for field_key, expressions in rules_by_field_key.items():
-            if not expressions:
+        failures: list[FieldValidationFailure] = []
+        for field_key, rules in rules_by_field_key.items():
+            if not rules:
                 continue
             field_value = payload_map.get(field_key)
-            has_error = any(check_field_err(expression=expression, value=field_value) for expression in expressions)
-            if has_error:
-                failed_field_keys.append(field_key)
+            for rule in rules:
+                failure = _field_validation_failure(
+                    field_key=field_key,
+                    rule=rule,
+                    value=field_value,
+                    payload_map=payload_map,
+                )
+                if failure is not None:
+                    failures.append(failure)
+        failed_field_keys = tuple(sorted({failure.field_key for failure in failures}))
         return FieldValidationCheckResult(
-            has_failures=bool(failed_field_keys),
-            failed_field_keys=tuple(sorted(set(failed_field_keys))),
+            has_failures=bool(failures),
+            failed_field_keys=failed_field_keys,
+            failures=tuple(failures),
         )
 
 
 __all__ = [
     "DataCaptureFieldValidationRulesService",
+    "FieldValidationFailure",
     "FieldValidationCheckResult",
+    "FieldValidationRuleCheck",
     "check_field_err",
 ]

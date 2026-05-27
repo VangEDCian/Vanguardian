@@ -49,6 +49,16 @@ class ReconcileQueryThreadSourceChoices(models.TextChoices):
     IMPORT = "import", _("Import")
 
 
+class ReconcileValidationIssueStatusChoices(models.TextChoices):
+    OPEN = "OPEN", _("Open")
+    ACKNOWLEDGEMENT_REQUIRED = "ACKNOWLEDGEMENT_REQUIRED", _("Acknowledgement required")
+    ACKNOWLEDGED = "ACKNOWLEDGED", _("Acknowledged")
+    CORRECTED = "CORRECTED", _("Corrected")
+    QUERY_CREATED = "QUERY_CREATED", _("Query created")
+    CLOSED = "CLOSED", _("Closed")
+    WAIVED = "WAIVED", _("Waived")
+
+
 class ReconcileDataQuery(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -190,6 +200,59 @@ class ReconcileQueryThread(models.Model):
         verbose_name_plural = "reconcile query threads"
 
 
+class ReconcileValidationIssue(models.Model):
+    created_at = models.DateTimeField()
+
+    rule = models.ForeignKey(
+        "crf.CrfFieldValidationRule",
+        on_delete=models.DO_NOTHING,
+        db_column="rule_id",
+        related_name="reconcile_validation_issues",
+    )
+    form_instance = models.ForeignKey(
+        "datacapture.DataCapturePageState",
+        on_delete=models.DO_NOTHING,
+        db_column="form_instance_id",
+        related_name="reconcile_validation_issues",
+    )
+    field_instance = models.ForeignKey(
+        "datacapture.DataCaptureFieldEntry",
+        on_delete=models.DO_NOTHING,
+        db_column="field_instance_id",
+        related_name="reconcile_validation_issues",
+        null=True,
+        blank=True,
+    )
+
+    mode = models.CharField(max_length=30)
+    severity = models.CharField(max_length=30)
+    status = models.CharField(
+        max_length=50,
+        choices=ReconcileValidationIssueStatusChoices.choices,
+    )
+
+    message = models.TextField()
+    failed_value = models.JSONField(null=True, blank=True)
+
+    acknowledged_by = models.BigIntegerField(null=True, blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    acknowledgement_comment = models.TextField(null=True, blank=True)
+
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "reconcile_validation_issue"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(fields=["form_instance", "status"], name="recon_vi_form_status_idx"),
+            models.Index(fields=["rule", "form_instance", "status"], name="recon_vi_rule_form_st_idx"),
+            models.Index(fields=["field_instance", "status"], name="recon_vi_field_status_idx"),
+        ]
+        verbose_name = "reconcile validation issue"
+        verbose_name_plural = "reconcile validation issues"
+
+
 __all__ = [
     "ReconcileDataQuery",
     "ReconcileDataQuerySeverityChoices",
@@ -200,4 +263,6 @@ __all__ = [
     "ReconcileQueryThreadMessageTypeChoices",
     "ReconcileQueryThreadSourceChoices",
     "ReconcileQueryThreadVisibilityChoices",
+    "ReconcileValidationIssue",
+    "ReconcileValidationIssueStatusChoices",
 ]

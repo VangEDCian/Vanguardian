@@ -31,10 +31,15 @@ class _SubjectEventLifecycleAdapter:
 class _ReconcileDataQueryWriteService:
     def __init__(self):
         self.update_value_thread_calls = []
+        self.validation_failure_record_calls = []
 
     def add_update_value_threads_for_changed_fields(self, **kwargs):
         self.update_value_thread_calls.append(kwargs)
         return 1
+
+    def create_validation_failure_records(self, **kwargs):
+        self.validation_failure_record_calls.append(kwargs)
+        return {"soft_issue_count": 1, "query_count": 0}
 
 
 class _SubmitReasonRepository:
@@ -303,10 +308,78 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
             ],
         )
 
-    def test_submit_sets_page_status_correction_required_when_field_validation_fails(self):
+    def test_submit_creates_soft_validation_issue_records_when_field_validation_fails(self):
         repository = _SubmitReasonRepository(
             page_status=DataCapturePageStateStatusChoices.SUBMITTED,
-            validation_rules_by_field_key={"field_1": ("$val == 'expected'",)},
+            validation_rules_by_field_key={
+                "field_1": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'expected'",
+                        "message": "Value should match expected.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        result = _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
+        self.assertEqual(
+            repository.submit_page_state_calls[-1]["target_status"],
+            DataCapturePageStateStatusChoices.SUBMITTED,
+        )
+        self.assertEqual(
+            reconcile_data_query_write_service.validation_failure_record_calls,
+            [
+                {
+                    "page_state_id": 11,
+                    "failures": [
+                        {
+                            "rule_id": 101,
+                            "field_template_id": 1,
+                            "field_key": "field_1",
+                            "mode": "SOFT",
+                            "severity": "warning",
+                            "message": "Value should match expected.",
+                            "failed_value": "new",
+                        }
+                    ],
+                    "actor_user_id": 1,
+                }
+            ],
+        )
+
+    def test_submit_sets_page_status_submitted_when_field_validation_passes(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "field_1": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'new'",
+                        "message": "Value should match new.",
+                    },
+                )
+            },
         )
 
         result = _submit_without_transaction(
@@ -320,16 +393,131 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
             ),
         )
 
-        self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.CORRECTION_REQUIRED)
+        self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
         self.assertEqual(
             repository.submit_page_state_calls[-1]["target_status"],
-            DataCapturePageStateStatusChoices.CORRECTION_REQUIRED,
+            DataCapturePageStateStatusChoices.SUBMITTED,
         )
 
-    def test_submit_sets_page_status_submitted_when_field_validation_passes(self):
+    def test_custom_expression_supports_today_token(self):
         repository = _SubmitReasonRepository(
             page_status=DataCapturePageStateStatusChoices.SUBMITTED,
-            validation_rules_by_field_key={"field_1": ("$val == 'new'",)},
+            validation_rules_by_field_key={
+                "ICF_DATE": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "QUERY",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "MAJOR",
+                        "expression": "$val <= $today",
+                        "message": "ICF date must not be in the future.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"ICF_DATE": "9999-01-01"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
+
+    def test_custom_expression_supports_other_field_token(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "ICF_DATE": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "QUERY",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "MAJOR",
+                        "expression": "$val <= $field.SCREENING_VISIT_DATE",
+                        "message": "ICF date must not be after screening visit date.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"ICF_DATE": "2026-01-03", "SCREENING_VISIT_DATE": "2026-01-02"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
+
+    def test_submit_creates_soft_validation_issue_records_when_required_field_is_missing_or_empty(self):
+        for payload in ("{}", '{"field_1": ""}'):
+            with self.subTest(payload=payload):
+                repository = _SubmitReasonRepository(
+                    page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+                    validation_rules_by_field_key={
+                        "field_1": (
+                            {
+                                "id": 101,
+                                "field_template_id": 1,
+                                "mode": "SOFT",
+                                "rule_type": "REQUIRED",
+                                "severity": "warning",
+                                "expression": "",
+                                "message": "Field is required.",
+                            },
+                        )
+                    },
+                )
+                reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+                result = _submit_without_transaction(
+                    _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+                    SubmitPageCommand(
+                        subject_id=41,
+                        visit_id=51,
+                        crf_template_id=31,
+                        data=payload,
+                        actor_user_id=1,
+                    ),
+                )
+
+                self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
+                self.assertEqual(
+                    repository.submit_page_state_calls[-1]["target_status"],
+                    DataCapturePageStateStatusChoices.SUBMITTED,
+                )
+                self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
+
+    def test_submit_sets_page_status_submitted_when_required_field_has_value(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "field_1": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "REQUIRED",
+                        "severity": "warning",
+                        "expression": "",
+                        "message": "Field is required.",
+                    },
+                )
+            },
         )
 
         result = _submit_without_transaction(

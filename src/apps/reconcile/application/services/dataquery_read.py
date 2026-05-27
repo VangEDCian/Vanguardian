@@ -16,6 +16,34 @@ class ReconcileDataQueryReadService:
             field_template_ids=field_template_ids,
         )
 
+    def list_open_validation_issues_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, list[dict[str, object]]]:
+        return self.repository.list_open_validation_issues_by_page_state_and_field_templates(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
+    def list_validation_issue_histories_by_page_state_and_field_templates(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> dict[int, list[dict[str, object]]]:
+        return self.repository.list_validation_issue_histories_by_page_state_and_field_templates(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
+    def has_open_validation_issue_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
+        return self.repository.has_open_validation_issue_for_page_field(
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+        )
+
     def has_open_query_for_page_field(self, *, page_state_id: int, field_template_id: int) -> bool:
         return self.repository.has_open_query_for_page_field(
             page_state_id=page_state_id,

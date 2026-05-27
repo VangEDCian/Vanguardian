@@ -1,0 +1,78 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ detail_study.code }} | {% trans "Manage Roles | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'study/css/manage_roles.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="manage_roles" %}
+        <div class="entity-table__toolbar">
+            <div class="entity-table__summary">
+                {% blocktrans count total=role_permission_summary.role_count %}{{ total }} role{% plural %}{{ total }} roles{% endblocktrans %}
+            </div>
+        </div>
+        {% if role_permission_import_result %}
+            <div class="manage-roles-import-result">
+                <strong>{% trans "Import result" %}:</strong>
+                {% blocktrans with imported=role_permission_import_result.imported_rows total=role_permission_import_result.total_rows skipped=role_permission_import_result.skipped_rows %}{{ imported }}/{{ total }} rows imported, {{ skipped }} skipped.{% endblocktrans %}
+                {% if role_permission_import_result.issues %}
+                    <ul>
+                        {% for issue in role_permission_import_result.issues|slice:":20" %}<li>{{ issue }}</li>{% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        {% endif %}
+        <div class="entity-table__scroller">
+            <table class="entity-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Role" %}</th>
+                        <th>{% trans "Access Level From DMP" %}</th>
+                        <th>{% trans "Groups" %}</th>
+                        <th>{% trans "Permissions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in role_permission_summary.roles %}
+                        <tr>
+                            <td class="entity-table__primary">{{ role.name }}</td>
+                            <td>{{ role.description|default:"-" }}</td>
+                            <td>{{ role.group_count }}</td>
+                            <td>{{ role.permission_count }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="entity-table__empty">{% trans "No roles have been imported for this study." %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="entity-table__footer entity-table__footer--actions">
+            <form method="post"
+                  action="{{ role_permission_import_url }}"
+                  enctype="multipart/form-data"
+                  class="manage-roles-import-form">
+                {% csrf_token %}
+                <input type="file"
+                       name="import_file"
+                       accept=".xlsx,.xlsm,.csv"
+                       required>
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans "Import Role Permission" %}
+                </button>
+            </form>
+        </div>
+    </section>
+{% endblock %}

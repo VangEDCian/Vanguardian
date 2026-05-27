@@ -15,6 +15,7 @@ from apps.identity.presentation.web.forms import (
     CurrentUserChangePasswordForm,
     CurrentUserProfileForm,
 )
+from apps.shared.navigation import get_default_authenticated_url
 from apps.shared.views.generic import AuthenticateTemplateView
 
 
@@ -39,7 +40,7 @@ class CurrentUserProfileView(AuthenticateTemplateView):
         context = super().get_context_data(**kwargs)
         context.setdefault("form", self.get_profile_form(initial=self._build_profile_initial_data()))
         context["active_admin_section"] = "profile"
-        context["admin_back_url"] = reverse("dashboard:main")
+        context["admin_back_url"] = get_default_authenticated_url(self.request)
         context["profile_summary"] = self._build_profile_summary()
         return context
 
@@ -108,7 +109,7 @@ class CurrentUserChangePasswordView(AuthenticateTemplateView):
         context = super().get_context_data(**kwargs)
         context.setdefault("form", self.get_password_form())
         context["active_admin_section"] = "change_password"
-        context["admin_back_url"] = reverse("dashboard:main")
+        context["admin_back_url"] = get_default_authenticated_url(self.request)
         return context
 
     def post(self, request, *args, **kwargs):

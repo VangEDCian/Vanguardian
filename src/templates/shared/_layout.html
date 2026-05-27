@@ -32,51 +32,55 @@
             <header class="top-nav">
                 <div class="top-nav__inner">
                     <nav class="top-nav__menu" aria-label="{% trans 'Main navigation' %}">
-                        {% if shared_study_selected_id %}
-                            <a href="{% url 'subject:subject_list' study_id=shared_study_selected_id %}"
-                               class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
-                               data-nav-item
-                               data-nav-label="{% trans 'SUBJECTS' %}">
-                                <span class="top-nav__icon" aria-hidden="true">
-                                    <span class="svg-icon"
-                                          style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
-                                </span>
-                                <span>{% trans "SUBJECTS" %}</span>
-                            </a>
-                        {% else %}
-                            <button onclick="alert(`{% trans 'Choose a study first.' %}`)"
-                                    title="{% trans 'Choose a study first.' %}"
-                                    class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
-                                    data-nav-label="{% trans 'SUBJECTS' %}">
-                                <span class="top-nav__icon" aria-hidden="true">
-                                    <span class="svg-icon"
-                                          style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
-                                </span>
-                                <span>{% trans "SUBJECTS" %}</span>
-                            </button>
+                        {% if layout_nav_permissions.subjects %}
+                            {% if shared_study_selected_id %}
+                                <a href="{% url 'subject:subject_list' study_id=shared_study_selected_id %}"
+                                   class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
+                                   data-nav-item
+                                   data-nav-label="{% trans 'SUBJECTS' %}">
+                                    <span class="top-nav__icon" aria-hidden="true">
+                                        <span class="svg-icon"
+                                              style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
+                                    </span>
+                                    <span>{% trans "SUBJECTS" %}</span>
+                                </a>
+                            {% else %}
+                                <button onclick="alert(`{% trans 'Choose a study first.' %}`)"
+                                        title="{% trans 'Choose a study first.' %}"
+                                        class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
+                                        data-nav-label="{% trans 'SUBJECTS' %}">
+                                    <span class="top-nav__icon" aria-hidden="true">
+                                        <span class="svg-icon"
+                                              style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
+                                    </span>
+                                    <span>{% trans "SUBJECTS" %}</span>
+                                </button>
+                            {% endif %}
                         {% endif %}
-                        {% if shared_study_selected_id %}
-                            <a href="{% url 'study:site_list' study_id=shared_study_selected_id %}"
-                               class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}"
-                               data-nav-item
-                               data-nav-label="{% trans 'SITES' %}">
-                                <span class="top-nav__icon" aria-hidden="true">
-                                    <span class="svg-icon"
-                                          style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
-                                </span>
-                                <span>{% trans "SITES" %}</span>
-                            </a>
-                        {% else %}
-                            <button onclick="alert(`{% trans 'Choose a study first.' %}`)"
-                                    title="{% trans 'Choose a study first.' %}"
-                                    class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}"
-                                    data-nav-label="{% trans 'SITES' %}">
-                                <span class="top-nav__icon" aria-hidden="true">
-                                    <span class="svg-icon"
-                                          style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
-                                </span>
-                                <span>{% trans "SITES" %}</span>
-                            </button>
+                        {% if layout_nav_permissions.sites %}
+                            {% if shared_study_selected_id %}
+                                <a href="{% url 'study:site_list' study_id=shared_study_selected_id %}"
+                                   class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}"
+                                   data-nav-item
+                                   data-nav-label="{% trans 'SITES' %}">
+                                    <span class="top-nav__icon" aria-hidden="true">
+                                        <span class="svg-icon"
+                                              style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
+                                    </span>
+                                    <span>{% trans "SITES" %}</span>
+                                </a>
+                            {% else %}
+                                <button onclick="alert(`{% trans 'Choose a study first.' %}`)"
+                                        title="{% trans 'Choose a study first.' %}"
+                                        class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}"
+                                        data-nav-label="{% trans 'SITES' %}">
+                                    <span class="top-nav__icon" aria-hidden="true">
+                                        <span class="svg-icon"
+                                              style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
+                                    </span>
+                                    <span>{% trans "SITES" %}</span>
+                                </button>
+                            {% endif %}
                         {% endif %}
                         {% comment %} <button type="button" class="top-nav__item{% if layout_nav_key == 'PROJECT' %} is-active{% endif %}" data-nav-item data-nav-label="{% trans 'PROJECT' %}">
             <span class="top-nav__icon" aria-hidden="true">
@@ -84,7 +88,7 @@
             </span>
             <span>{% trans "PROJECT" %}</span>
                         </button> {% endcomment %}
-                        {% if auth_user.is_superuser %}
+                        {% if layout_nav_permissions.studies %}
                             <a href="{% url 'study:study_list' %}"
                                class="top-nav__item{% if layout_nav_key == 'STUDIES' %} is-active{% endif %}"
                                data-nav-item
@@ -96,26 +100,30 @@
                                 <span>{% trans "STUDIES" %}</span>
                             </a>
                         {% endif %}
-                        <a href="{% url 'identity:users' %}"
-                           class="top-nav__item{% if layout_nav_key == 'USERS' %} is-active{% endif %}"
-                           data-nav-item
-                           data-nav-label="{% trans 'USERS' %}">
-                            <span class="top-nav__icon" aria-hidden="true">
-                                <span class="svg-icon"
-                                      style="--icon-url: url('{% static 'images/navigation/users.svg' %}')"></span>
-                            </span>
-                            <span>{% trans "USERS" %}</span>
-                        </a>
-                        <a href="{% url 'dashboard:main' %}"
-                           class="top-nav__item{% if layout_nav_key == 'DASHBOARD' %} is-active{% endif %}"
-                           data-nav-item
-                           data-nav-label="{% trans 'DASHBOARD' %}">
-                            <span class="top-nav__icon" aria-hidden="true">
-                                <span class="svg-icon"
-                                      style="--icon-url: url('{% static 'images/navigation/dashboard.svg' %}')"></span>
-                            </span>
-                            <span>{% trans "DASHBOARD" %}</span>
-                        </a>
+                        {% if layout_nav_permissions.users %}
+                            <a href="{% url 'identity:users' %}"
+                               class="top-nav__item{% if layout_nav_key == 'USERS' %} is-active{% endif %}"
+                               data-nav-item
+                               data-nav-label="{% trans 'USERS' %}">
+                                <span class="top-nav__icon" aria-hidden="true">
+                                    <span class="svg-icon"
+                                          style="--icon-url: url('{% static 'images/navigation/users.svg' %}')"></span>
+                                </span>
+                                <span>{% trans "USERS" %}</span>
+                            </a>
+                        {% endif %}
+                        {% if layout_nav_permissions.dashboard %}
+                            <a href="{% url 'dashboard:main' %}"
+                               class="top-nav__item{% if layout_nav_key == 'DASHBOARD' %} is-active{% endif %}"
+                               data-nav-item
+                               data-nav-label="{% trans 'DASHBOARD' %}">
+                                <span class="top-nav__icon" aria-hidden="true">
+                                    <span class="svg-icon"
+                                          style="--icon-url: url('{% static 'images/navigation/dashboard.svg' %}')"></span>
+                                </span>
+                                <span>{% trans "DASHBOARD" %}</span>
+                            </a>
+                        {% endif %}
                     </nav>
                     <div class="top-nav__controls">
                         {% trans "Select study" as select_study_aria_label %}

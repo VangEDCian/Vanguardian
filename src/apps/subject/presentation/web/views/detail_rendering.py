@@ -570,6 +570,8 @@ class SubjectDetailRenderingMixin:
                 "active_query_is_answered",
                 "query_thread_badge_count",
                 "query_messages",
+                "validation_issue_count",
+                "validation_issues",
             }
         }
         base_field_key = str(field.get("field_key") or "").strip()
@@ -627,11 +629,17 @@ class SubjectDetailRenderingMixin:
         focused_form_fields,
         entry_payload_map=None,
         field_query_state_by_id=None,
+        field_validation_issue_state_by_id=None,
     ):
         if not focused_form_fields:
             return []
         payload_map = entry_payload_map if isinstance(entry_payload_map, dict) else {}
         query_state_by_id = field_query_state_by_id if isinstance(field_query_state_by_id, dict) else {}
+        validation_issue_state_by_id = (
+            field_validation_issue_state_by_id
+            if isinstance(field_validation_issue_state_by_id, dict)
+            else {}
+        )
 
         sections_by_key = {}
         for field in focused_form_fields:
@@ -720,6 +728,7 @@ class SubjectDetailRenderingMixin:
                 query_state_key = int(field.get("id"))
             except (TypeError, ValueError):
                 query_state_key = field.get("id")
+            validation_issue_state = validation_issue_state_by_id.get(query_state_key, {})
 
             sections_by_key[section_key]["fields"].append(
                 {
@@ -762,6 +771,7 @@ class SubjectDetailRenderingMixin:
                     "date_year": date_year,
                     "date_time": date_time,
                     **query_state_by_id.get(query_state_key, {}),
+                    **validation_issue_state,
                 }
             )
 

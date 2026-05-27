@@ -27,6 +27,7 @@ class Study(models.Model):
             ("view_study_history", "Can view study audit history"),
             ("create_study", "Can create study"),
             ("update_study", "Can update study"),
+            ("manage_crf_template", "Can manage CRF templates and field definitions"),
             ("change_study_status", "Can activate or deactivate a study"),
             ("delete_study", "Can delete study"),
             ("search_study_by_name", "Can search studies by name"),

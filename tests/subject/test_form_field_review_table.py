@@ -31,6 +31,12 @@ class _NoQueryReadService:
     def list_closed_query_histories_by_page_state_and_field_templates(self, **kwargs):
         return {}
 
+    def list_open_validation_issues_by_page_state_and_field_templates(self, **kwargs):
+        return {}
+
+    def list_validation_issue_histories_by_page_state_and_field_templates(self, **kwargs):
+        return {}
+
     def count_open_queries_by_page_state_field_paths(self, **kwargs):
         return {}
 
@@ -399,6 +405,43 @@ class FormFieldReviewTableServiceTests(SimpleTestCase):
         self.assertEqual(history["label"], "Query #201")
         self.assertEqual(history["messages"][0]["text"], "Closed message")
 
+    def test_sets_validation_issue_counts_and_history_messages(self):
+        service = FormFieldReviewTableService(reconcile_read_service=_ValidationIssueReadService())
+        with patch(
+            "apps.subject.application.services.form_field_review_table."
+            "DjangoSubjectEventInstanceScheduleReadRepository.get_event_start_datetime",
+            return_value=None,
+        ):
+            review = service.build_for_verification(
+                subject_code="S-001",
+                site_id=1,
+                event_name="Visit 1",
+                event_instance_id=1,
+                form_name="Vitals",
+                form_status="submitted",
+                entry_version="1",
+                entry_updated_at=None,
+                entry_updated_by_id=None,
+                field_templates_payload=[
+                    {
+                        "id": 11,
+                        "field_key": "sex",
+                        "label": "Sex",
+                    },
+                ],
+                entry_payload={},
+                page_state_id=23,
+            )
+
+        row = review["rows"][0]
+        self.assertEqual(row["validation_issue_count"], 1)
+        self.assertEqual(row["validation_issues"][0]["message"], "Soft warning")
+        issue_history = row["closed_query_histories"][0]
+        self.assertEqual(issue_history["label"], "Validation Issue #701")
+        self.assertEqual(issue_history["messages"][0]["text"], "Soft warning")
+        self.assertEqual(issue_history["messages"][1]["text"], "đang chờ trả lời")
+        self.assertEqual(issue_history["messages"][1]["tone"], "warning")
+
     def test_sets_active_query_answered_flag_from_reconcile_query(self):
         service = FormFieldReviewTableService(reconcile_read_service=_AnsweredQueryReadService())
         with patch(
@@ -516,6 +559,44 @@ class _ClosedQueryHistoryReadService(_NoQueryReadService):
                     ],
                 },
             ],
+        }
+
+
+class _ValidationIssueReadService(_NoQueryReadService):
+    def list_open_validation_issues_by_page_state_and_field_templates(self, **kwargs):
+        return {
+            11: [
+                {
+                    "id": 701,
+                    "rule_id": 31,
+                    "field_instance_id": 51,
+                    "mode": "soft_warning",
+                    "severity": "warning",
+                    "status": "OPEN",
+                    "message": "Soft warning",
+                    "created_at": None,
+                }
+            ]
+        }
+
+    def list_validation_issue_histories_by_page_state_and_field_templates(self, **kwargs):
+        return {
+            11: [
+                {
+                    "id": 701,
+                    "rule_id": 31,
+                    "field_instance_id": 51,
+                    "mode": "soft_warning",
+                    "severity": "warning",
+                    "status": "OPEN",
+                    "message": "Soft warning",
+                    "created_at": None,
+                    "acknowledged_by": None,
+                    "acknowledged_at": None,
+                    "acknowledgement_comment": "",
+                    "resolved_at": None,
+                }
+            ]
         }
 
 

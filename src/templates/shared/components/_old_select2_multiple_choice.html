@@ -6,6 +6,8 @@
         {% if select_disabled %}disabled{% endif %}>
     {% for option in select_options %}
         <option value="{{ option.value }}"
+                {% if option.study_id %}data-study-id="{{ option.study_id }}"{% endif %}
+                {% if option.scope_level %}data-scope-level="{{ option.scope_level }}"{% endif %}
                 {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
     {% endfor %}
 </select>

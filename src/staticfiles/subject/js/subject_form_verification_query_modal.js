@@ -115,6 +115,11 @@
   function buildMessageNode(message) {
     const item = document.createElement('article');
     item.className = 'subject-form-verification-query-modal__message';
+    const tone = String(message.tone || '').trim().toLowerCase();
+    const statusTone = String(message.status || '').trim().toLowerCase();
+    if (tone === 'warning' || statusTone === 'warning') {
+      item.classList.add('subject-form-verification-query-modal__message--warning');
+    }
     item.setAttribute('data-query-modal-message', '');
 
     const meta = document.createElement('div');
@@ -250,6 +255,7 @@
     node.dataset.messageDataqueryId = String(message.dataqueryId || '');
     node.dataset.messageText = String(message.text || '');
     node.dataset.messageStatus = String(message.status || '');
+    node.dataset.messageTone = String(message.tone || '');
     node.dataset.messageOpenedBy = String(message.openedBy || '');
     node.dataset.messageOpenedAt = String(message.openedAt || '');
     source.insertBefore(node, source.firstChild);
@@ -290,6 +296,7 @@
         messageNode.dataset.messageDataqueryId = String(node.dataset.messageDataqueryId || '');
         messageNode.dataset.messageText = String(node.dataset.messageText || '');
         messageNode.dataset.messageStatus = String(node.dataset.messageStatus || '');
+        messageNode.dataset.messageTone = String(node.dataset.messageTone || '');
         messageNode.dataset.messageOpenedBy = String(node.dataset.messageOpenedBy || '');
         messageNode.dataset.messageOpenedAt = String(node.dataset.messageOpenedAt || '');
         historyNode.appendChild(messageNode);
@@ -315,6 +322,7 @@
         {
           text: node.dataset.messageText,
           status: node.dataset.messageStatus,
+          tone: node.dataset.messageTone,
           openedBy: node.dataset.messageOpenedBy,
           openedAt: node.dataset.messageOpenedAt,
           dataqueryId: node.dataset.messageDataqueryId,
@@ -353,6 +361,7 @@
       appendHistoryMessage({
         text: node.dataset.messageText,
         status: node.dataset.messageStatus,
+        tone: node.dataset.messageTone,
         openedBy: node.dataset.messageOpenedBy,
         openedAt: node.dataset.messageOpenedAt,
         dataqueryId: node.dataset.messageDataqueryId,
@@ -516,7 +525,8 @@
     const checkbox = row ? row.querySelector('input[name="verify_field"]') : null;
     if (
       checkbox instanceof HTMLInputElement &&
-      String(checkbox.dataset.fieldVerified || '').trim().toLowerCase() !== 'true'
+      String(checkbox.dataset.fieldVerified || '').trim().toLowerCase() !== 'true' &&
+      String(checkbox.dataset.blockedByValidationIssue || '').trim().toLowerCase() !== 'true'
     ) {
       checkbox.dataset.blockedByOpenQuery = 'false';
       checkbox.disabled = false;

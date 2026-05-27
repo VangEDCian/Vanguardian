@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError, StudyScopeViolationError
@@ -9,6 +10,15 @@ from apps.study.application.commands.import_crf_template_fields_template import 
 )
 from apps.study.application.commands.import_crf_templates_template import CrfTemplateImportFormatError
 from apps.study.application.commands.import_crf_templates_template.workbook import CrfTemplateWorkbookMixin
+
+
+@dataclass(frozen=True)
+class _PreparedTemplateFieldImportRow:
+    row_number: int
+    identifier: str
+    form_template: object
+    section_template: object
+    payload: dict
 
 
 class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
@@ -103,6 +113,7 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
 
     def __init__(self, crf_context_adapter=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
+        self._reset_template_ids_for_import = set()
 
     @staticmethod
     def _normalize_selected_study_id(selected_study_id):
@@ -131,15 +142,17 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
         updated_count = 0
         issues = []
         rows = workbook_rows_by_sheet[self.template_fields_sheet_name]
+        prepared_rows = []
         for row_number, row_data in rows:
             identifier = self._build_field_identifier(row_data)
             try:
-                import_outcome = self._import_template_field_row(
-                    selected_study_id=command.selected_study_id,
-                    study_id=command.study_id,
-                    row_data=row_data,
-                    row_number=row_number,
-                    actor_user_id=command.actor_user_id,
+                prepared_rows.append(
+                    self._prepare_template_field_row(
+                        study_id=command.study_id,
+                        row_data=row_data,
+                        row_number=row_number,
+                        identifier=identifier,
+                    )
                 )
             except (CrfTemplateImportFormatError, FormBuilderDomainValidationError) as exc:
                 issues.append(
@@ -147,6 +160,33 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
                         sheet_name=self.template_fields_sheet_name,
                         row_number=row_number,
                         identifier=identifier,
+                        reason=str(exc),
+                    )
+                )
+
+        import_now = self._now()
+        for prepared_row in prepared_rows:
+            try:
+                crf_template_id = int(prepared_row.form_template.pk)
+                if crf_template_id not in self._reset_template_ids_for_import:
+                    self.crf_context_adapter.reset_import_template_fields(
+                        crf_template_id=crf_template_id,
+                        actor_user_id=command.actor_user_id,
+                        now=import_now,
+                    )
+                    self._reset_template_ids_for_import.add(crf_template_id)
+
+                import_outcome = self._import_prepared_template_field_row(
+                    prepared_row=prepared_row,
+                    actor_user_id=command.actor_user_id,
+                    now=import_now,
+                )
+            except (CrfTemplateImportFormatError, FormBuilderDomainValidationError) as exc:
+                issues.append(
+                    CrfTemplateFieldImportIssue(
+                        sheet_name=self.template_fields_sheet_name,
+                        row_number=prepared_row.row_number,
+                        identifier=prepared_row.identifier,
                         reason=str(exc),
                     )
                 )
@@ -166,7 +206,7 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             warnings=(),
         )
 
-    def _import_template_field_row(self, *, selected_study_id, study_id, row_data, row_number, actor_user_id):
+    def _prepare_template_field_row(self, *, study_id, row_data, row_number, identifier):
         form_name = self._require_text(
             row_data.get("form_name"),
             field_label="Form Name",
@@ -186,12 +226,21 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             section_name=section_name,
         )
         payload = self._build_payload(row_data)
-        import_outcome, _field_template = self.crf_context_adapter.upsert_import_template_field(
-            crf_template_id=form_template.pk,
-            section_template_id=section_template.pk,
+        return _PreparedTemplateFieldImportRow(
+            row_number=row_number,
+            identifier=identifier,
+            form_template=form_template,
+            section_template=section_template,
             payload=payload,
+        )
+
+    def _import_prepared_template_field_row(self, *, prepared_row, actor_user_id, now):
+        import_outcome, _field_template = self.crf_context_adapter.upsert_import_template_field(
+            crf_template_id=prepared_row.form_template.pk,
+            section_template_id=prepared_row.section_template.pk,
+            payload=prepared_row.payload,
             actor_user_id=actor_user_id,
-            now=self._now(),
+            now=now,
         )
         return import_outcome
 

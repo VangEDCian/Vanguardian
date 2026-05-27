@@ -120,6 +120,21 @@
                 .join(' ');
         }
 
+        function collectRoleMap(fieldName) {
+            const values = {};
+            form.querySelectorAll(`[name^="${fieldName}["]`).forEach(function (select) {
+                if (!(select instanceof HTMLSelectElement)) {
+                    return;
+                }
+                const scopeId = String(select.dataset.scopeId || '').trim();
+                const roleId = String(select.value || '').trim();
+                if (scopeId && roleId) {
+                    values[scopeId] = roleId;
+                }
+            });
+            return values;
+        }
+
         function syncSiteSelectState() {
             if ($studySelect.length === 0 || $siteSelect.length === 0) {
                 return;
@@ -139,10 +154,11 @@
                 email: form.querySelector('#detail-email')?.value || '',
                 phone_number: form.querySelector('#detail-phone-number')?.value || '',
                 is_active: form.querySelector('#detail-is-active')?.checked || false,
-                role: form.querySelector('#detail-role')?.value || '',
                 permission_groups: $('#detail-permission-groups').val() || [],
                 studies: $studySelect.val() || [],
                 sites: $siteSelect.val() || [],
+                study_roles: collectRoleMap('study_roles'),
+                site_roles: collectRoleMap('site_roles'),
             };
 
             if (enablePasswordChange?.checked) {
@@ -257,7 +273,6 @@
         form.addEventListener('reset', function () {
             clearFeedback();
             window.setTimeout(function () {
-                $('#detail-role').trigger('change.select2');
                 $('#detail-permission-groups').trigger('change.select2');
                 $('#detail-studies').trigger('change.select2');
                 $('#detail-sites').trigger('change.select2');
