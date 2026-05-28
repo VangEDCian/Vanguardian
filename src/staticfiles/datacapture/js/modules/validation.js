@@ -75,6 +75,18 @@
     function validateDateTextInputs() {
       const dateTextContainers = fieldScope.querySelectorAll('[data-field-key]');
       for (const container of dateTextContainers) {
+        const dateAndTimeControl = container.querySelector('[data-dateandtime-control]');
+        if (dateAndTimeControl) {
+          const validation = window.VanguardianDateAndTime?.validateControl?.(dateAndTimeControl) || {
+            ok: true,
+            message: '',
+            focusEl: null,
+          };
+          if (!validation.ok) {
+            return validation;
+          }
+          continue;
+        }
         if (!container.querySelector('[data-date-text-input]')) {
           continue;
         }

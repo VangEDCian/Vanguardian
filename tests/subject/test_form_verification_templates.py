@@ -22,6 +22,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
         active_query_can_respond: bool = True,
         query_actions_locked: bool = False,
         show_actions_column: bool = True,
+        show_all_rows_by_default: bool = False,
         display_order: int = 2,
     ) -> str:
         return render_to_string(
@@ -32,6 +33,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
                 "form_verification_query_actions_locked": query_actions_locked,
                 "form_verification_show_actions_column": show_actions_column,
                 "form_verification_show_field_checkboxes": show_checkboxes,
+                "form_verification_show_all_rows_by_default": show_all_rows_by_default,
                 "form_verification_show_actions": show_actions,
                 "form_verification_review": SimpleNamespace(
                     rows=[
@@ -116,7 +118,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
 
         self.assertIn("hidden", action_button)
 
-    def test_field_review_action_button_is_hidden_when_field_is_verified(self):
+    def test_field_review_action_button_stays_visible_when_field_is_verified(self):
         rendered = self._render_field_review_table(
             show_checkboxes=True,
             fields_locked=False,
@@ -127,7 +129,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
 
         action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
 
-        self.assertIn("hidden", action_button)
+        self.assertNotIn("hidden", action_button)
 
     def test_field_review_table_hides_verified_rows_by_default_filter(self):
         rendered = self._render_field_review_table(
@@ -145,6 +147,35 @@ class FormVerificationTemplateTests(SimpleTestCase):
 
         self.assertIn('data-field-verified="true"', row)
         self.assertIn("hidden", row)
+
+    def test_field_review_table_shows_verified_rows_when_show_all_is_default(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            fields_locked=True,
+            active_query_id=None,
+            query_thread_badge_count=0,
+            is_checked=True,
+            show_all_rows_by_default=True,
+            closed_query_histories=[
+                {
+                    "dataquery_id": 201,
+                    "label": "Query #201",
+                    "opened_at": "05/18/2026 09:00",
+                    "closed_at": "05/18/2026 10:00",
+                    "messages": [],
+                },
+            ],
+        )
+
+        row_start = rendered.index('data-field-template-id="11"')
+        tr_start = rendered.rfind("<tr", 0, row_start)
+        tr_end = rendered.index(">", row_start)
+        row = rendered[tr_start : tr_end + 1]
+        history_button = self._action_button_markup(rendered, "data-query-history-modal-trigger")
+
+        self.assertIn('data-field-verified="true"', row)
+        self.assertNotIn("hidden", row)
+        self.assertNotIn("hidden", history_button)
 
     def test_field_review_checkbox_stays_enabled_when_verified_field_is_reviewable(self):
         rendered = self._render_field_review_table(
@@ -164,7 +195,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertNotIn("disabled", checkbox)
         self.assertNotIn('aria-disabled="true"', checkbox)
 
-    def test_field_review_action_button_is_hidden_when_field_has_verified_query(self):
+    def test_field_review_action_button_stays_visible_when_field_has_query_history(self):
         rendered = self._render_field_review_table(
             show_checkboxes=True,
             fields_locked=False,
@@ -175,7 +206,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
 
         action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
 
-        self.assertIn("hidden", action_button)
+        self.assertNotIn("hidden", action_button)
 
     def test_field_review_checkbox_is_disabled_when_field_has_open_query(self):
         rendered = self._render_field_review_table(
@@ -215,14 +246,14 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn('aria-disabled="true"', checkbox)
         self.assertIn('data-blocked-by-validation-issue="true"', checkbox)
 
-    def test_field_review_action_button_is_disabled_when_page_status_is_locked(self):
+    def test_field_review_action_button_stays_enabled_when_page_status_is_locked(self):
         rendered = self._render_field_review_table(show_checkboxes=True, fields_locked=True)
 
         action_button = self._action_button_markup(rendered, "data-query-modal-trigger")
 
         self.assertIn("subject-form-verification-review__action-btn", action_button)
-        self.assertIn("disabled", action_button)
-        self.assertIn('aria-disabled="true"', action_button)
+        self.assertNotIn("disabled", action_button)
+        self.assertNotIn('aria-disabled="true"', action_button)
 
     def test_field_review_open_query_is_disabled_but_current_query_stays_clickable_when_query_actions_are_locked(self):
         rendered = self._render_field_review_table(
@@ -450,6 +481,39 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("data-query-history-modal-messages", rendered)
         self.assertIn("data-query-history-modal-close", rendered)
 
+    def test_field_review_panel_can_default_to_show_all_items(self):
+        rendered = render_to_string(
+            "subject/includes/form_verification_field_review.html",
+            {
+                "LANGUAGE_CODE": "en",
+                "form_verification_fields_locked": True,
+                "form_verification_query_actions_locked": False,
+                "form_verification_show_actions_column": True,
+                "form_verification_show_field_checkboxes": True,
+                "form_verification_show_all_rows_by_default": True,
+                "form_verification_open_query_url": "/open-query/",
+                "form_verification_query_thread_url": "/query-thread/",
+                "focused_render_entry": SimpleNamespace(id=101),
+                "form_verification_review": SimpleNamespace(
+                    header={
+                        "event_name": "Visit 1",
+                        "event_start_date": "05/18/2026",
+                        "form_name": "Vitals",
+                        "form_status": "verified",
+                        "form_version": "1",
+                        "last_modified": "05/18/2026",
+                    },
+                    rows=[],
+                ),
+            },
+        )
+
+        show_all_input = self._input_markup(rendered, 'value="all"')
+        needs_input = self._input_markup(rendered, 'value="needs_verification"')
+
+        self.assertIn("checked", show_all_input)
+        self.assertNotIn("checked", needs_input)
+
     def test_subject_detail_renders_revert_verification_reason_modal(self):
         rendered = render_to_string(
             "subject/subject_detail.html",
@@ -513,6 +577,13 @@ class FormVerificationTemplateTests(SimpleTestCase):
         button_start = rendered.rfind("<button", 0, class_index)
         button_end = rendered.index(">", class_index)
         return rendered[button_start : button_end + 1]
+
+    @staticmethod
+    def _input_markup(rendered: str, marker: str) -> str:
+        marker_index = rendered.index(marker)
+        input_start = rendered.rfind("<input", 0, marker_index)
+        input_end = rendered.index(">", marker_index)
+        return rendered[input_start : input_end + 1]
 
     def test_field_review_table_shows_checkbox_column_when_status_can_show_review_controls(self):
         rendered = self._render_field_review_table(show_checkboxes=True)

@@ -1,59 +1,36 @@
-{% load subject_form_tags %}
-{% subject_datetime_control_i18n as datetime_control_i18n %}
-<div class="subject-date-picker{% if field.classes %} {{ field.classes }}{% endif %}"{% if field.style %} style="{{ field.style }}"{% endif %}>
+{% load subject_form_tags subject_field_validators %}
+{% subject_datetime_text_control_i18n as datetime_control_i18n %}
+{% subject_date_validator_attrs field as datetime_validator_attrs %}
+<div class="subject-date-text subject-date-text--datetime{% if field.classes %} {{ field.classes }}{% endif %}"
+     data-dateandtime-control
+     data-dateandtime-kind="datetime"
+     data-dateandtime-locale="{{ datetime_control_i18n.locale }}"
+     {% if field.style %}style="{{ field.style }}"{% endif %}>
     <input type="hidden"
-           data-date-composite-input
-           data-date-composite-type="datetime"
+           data-date-text-composite-input
+           data-date-text-kind="datetime"
+           data-dateandtime-hidden
            tabindex="{% subject_control_tabindex field 0 %}"
            value="{{ field.value|default:'' }}">
-    <div class="subject-date-picker__part">
-        <span class="subject-date-picker__label">{{ datetime_control_i18n.day_label }}</span>
-        <input class="subject-date-picker__input subject-date-picker__input--day"
-               type="text"
-               tabindex="{% subject_control_tabindex field 1 %}"
-               inputmode="numeric"
-               pattern="^(?:[1-9]|[12][0-9]|3[01])$"
-               maxlength="2"
-               oninput="this.value=this.value.replace(/\D/g,'').slice(0,2);if(this.value){var day=parseInt(this.value,10);if(day<1){this.value='1';}else if(day>31){this.value='31';}}"
-               {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
-               placeholder="{{ datetime_control_i18n.day_placeholder }}"
-               value="{{ field.date_day }}">
-    </div>
-    <div class="subject-date-picker__part">
-        <span class="subject-date-picker__label">{{ datetime_control_i18n.month_label }}</span>
-        <select class="subject-date-picker__input subject-date-picker__input--month"
-                tabindex="{% subject_control_tabindex field 2 %}"
-                {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}>
-            <option value="">{{ datetime_control_i18n.month_empty_option }}</option>
-            {% for month in datetime_control_i18n.months %}
-                <option value="{{ month.value }}"{% if month.value == field.date_month %} selected{% endif %}>{{ month.label }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="subject-date-picker__part">
-        <span class="subject-date-picker__label">{{ datetime_control_i18n.year_label }}</span>
-        <input class="subject-date-picker__input subject-date-picker__input--year"
-               type="text"
-               tabindex="{% subject_control_tabindex field 3 %}"
-               inputmode="numeric"
-               pattern="^\d{4}$"
-               maxlength="4"
-               oninput="this.value=this.value.replace(/\D/g,'').slice(0,4);"
-               {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
-               placeholder="{{ datetime_control_i18n.year_placeholder }}"
-               value="{{ field.date_year }}">
-    </div>
-    <div class="subject-date-picker__part">
-        <span class="subject-date-picker__label">{{ datetime_control_i18n.time_label }}</span>
-        <input class="subject-date-picker__input subject-date-picker__input--time"
-               type="text"
-               tabindex="{% subject_control_tabindex field 4 %}"
-               inputmode="numeric"
-               pattern="^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
-               maxlength="5"
-               oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4);if(this.value.length>=3){this.value=this.value.slice(0,2)+':'+this.value.slice(2,4);}if(this.value.length===5){var p=this.value.split(':');var hh=parseInt(p[0],10);var mm=parseInt(p[1],10);if(hh>23){hh=23;}if(mm>59){mm=59;}this.value=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');}"
-               {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
-               placeholder="{{ datetime_control_i18n.time_placeholder }}"
-               value="{{ field.date_time }}">
-    </div>
+    <input class="subject-date-text__input subject-date-text__input--date"
+           type="date"
+           lang="{{ datetime_control_i18n.locale }}"
+           tabindex="{% subject_control_tabindex field 1 %}"
+           data-dateandtime-input
+           data-dateandtime-date
+           data-dateandtime-kind="datetime"
+           {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+           {{ datetime_validator_attrs }}
+           value=""
+           aria-label="{{ field.label|default:field.field_key|default:datetime_control_i18n.label }}">
+    <input class="subject-date-text__input subject-date-text__input--time"
+           type="time"
+           lang="{{ datetime_control_i18n.locale }}"
+           tabindex="{% subject_control_tabindex field 2 %}"
+           data-dateandtime-input
+           data-dateandtime-time
+           data-dateandtime-kind="datetime"
+           {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+           value=""
+           aria-label="{{ datetime_control_i18n.time_label }}">
 </div>

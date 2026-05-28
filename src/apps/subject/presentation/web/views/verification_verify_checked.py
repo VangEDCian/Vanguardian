@@ -10,14 +10,12 @@ from apps.datacapture.public import (
     get_latest_submitted_page_entry_for_subject_visit_crf,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
-    is_field_verified_for_page_state,
     merge_form_verification_checked_fields_into_page_state_final_data,
     reopen_verified_form_verification_page_state,
 )
 from apps.reconcile.public import (
     acknowledge_reconcile_validation_issues,
     cancel_reconcile_query,
-    has_verified_reconcile_query_for_page_field,
     open_reconcile_query,
     reply_and_close_reconcile_query,
     reply_to_reconcile_query,
@@ -273,8 +271,14 @@ class SubjectFormVerificationOpenQueryView(
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
             )
-            if (page_state_status or "").strip().lower() != DataCapturePageState.SUBMITTED:
-                return JsonResponse({"error": ["Chỉ được tạo Query khi Page State ở trạng thái Submitted."]}, status=400)
+            if (page_state_status or "").strip().lower() not in {
+                DataCapturePageState.SUBMITTED,
+                DataCapturePageState.VERIFIED,
+            }:
+                return JsonResponse(
+                    {"error": ["Chỉ được tạo Query khi Page State ở trạng thái Submitted hoặc Verified."]},
+                    status=400,
+                )
             if _current_user_matches_submitted_entry_editor(
                 request=request,
                 subject_id=int(kwargs["subject_id"]),
@@ -282,16 +286,6 @@ class SubjectFormVerificationOpenQueryView(
                 crf_template_id=int(kwargs["crf_template_id"]),
             ):
                 return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
-            if is_field_verified_for_page_state(
-                page_state_id=int(page_state_id),
-                field_template_id=int(normalized["field_template_id"]),
-            ):
-                return JsonResponse({"error": ["Dữ liệu đã được verify không thể tạo Query"]}, status=400)
-            if has_verified_reconcile_query_for_page_field(
-                page_state_id=int(page_state_id),
-                field_template_id=int(normalized["field_template_id"]),
-            ):
-                return JsonResponse({"error": ["Query đã được verify không thể tạo Query mới"]}, status=400)
             result = open_reconcile_query(
                 page_state_id=int(page_state_id),
                 field_template_id=int(normalized["field_template_id"]),

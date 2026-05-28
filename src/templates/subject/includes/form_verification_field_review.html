@@ -40,6 +40,7 @@
             <input type="radio"
                    name="verification_item_filter"
                    value="all"
+                   {% if form_verification_show_all_rows_by_default %}checked{% endif %}
                    data-verification-item-filter-option />
             <span>{% trans "Show all items" %}</span>
         </label>
@@ -47,7 +48,7 @@
             <input type="radio"
                    name="verification_item_filter"
                    value="needs_verification"
-                   checked
+                   {% if not form_verification_show_all_rows_by_default %}checked{% endif %}
                    data-verification-item-filter-option />
             <span>{% trans "Show items needing verification" %}</span>
         </label>

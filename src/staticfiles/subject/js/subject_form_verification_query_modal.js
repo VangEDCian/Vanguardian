@@ -406,10 +406,6 @@
     if (!(openQueryModal instanceof HTMLElement)) {
       return;
     }
-    if (String(trigger.dataset.fieldVerified || '').trim().toLowerCase() === 'true') {
-      showNotification('Dữ liệu đã được verify không thể tạo Query', 'error');
-      return;
-    }
     const fieldLabel = String(trigger.dataset.fieldLabel || '').trim();
     const fieldKey = String(trigger.dataset.fieldKey || '').trim();
     const fieldValue = String(trigger.dataset.fieldValue || '').trim();

@@ -69,9 +69,10 @@
             input.removeAttribute('readonly');
             return;
           }
-          if (
-            input.hasAttribute('data-date-text-input') ||
-            input.classList.contains('subject-date-picker__input--day') ||
+      if (
+        input.hasAttribute('data-date-text-input') ||
+        (input.hasAttribute('data-dateandtime-input') && !input.name) ||
+        input.classList.contains('subject-date-picker__input--day') ||
             input.classList.contains('subject-date-picker__input--month') ||
             input.classList.contains('subject-date-picker__input--year') ||
             input.classList.contains('subject-date-picker__input--time')
@@ -273,6 +274,7 @@
       datePickerControlModule.syncDateCompositeInput?.(container);
       dateTextControlModule.syncDateTextInput?.(container);
       datetimeControlModule.syncDatetimeCompositeInput?.(container);
+      window.VanguardianDateAndTime?.syncControl?.(container.querySelector('[data-dateandtime-control]') || container);
     });
     select2ControlModule.syncSelect2LookupControls?.(fieldScope);
     const payload = {};
@@ -521,8 +523,14 @@
       if (input.matches('input[type="hidden"][data-date-text-composite-input]')) {
         const container = input.closest('[data-field-key]');
         const compositeValue = payloadValue == null ? '' : String(payloadValue);
-        dateTextControlModule.applyDateTextCompositeValue?.(container, compositeValue);
-        dateTextControlModule.syncDateTextInput?.(container);
+        const dateAndTimeControl = container?.querySelector?.('[data-dateandtime-control]');
+        if (dateAndTimeControl) {
+          window.VanguardianDateAndTime?.applyCanonicalValue?.(dateAndTimeControl, compositeValue);
+          window.VanguardianDateAndTime?.syncControl?.(dateAndTimeControl);
+        } else {
+          dateTextControlModule.applyDateTextCompositeValue?.(container, compositeValue);
+          dateTextControlModule.syncDateTextInput?.(container);
+        }
         return;
       }
 
@@ -562,6 +570,7 @@
       datePickerControlModule.syncDateCompositeInput?.(container);
       dateTextControlModule.syncDateTextInput?.(container);
       datetimeControlModule.syncDatetimeCompositeInput?.(container);
+      window.VanguardianDateAndTime?.syncControl?.(container.querySelector('[data-dateandtime-control]') || container);
     });
     select2ControlModule.applyPayloadToSelect2Controls?.(fieldScope, payload);
     select2ControlModule.syncSelect2LookupControls?.(fieldScope);
@@ -604,6 +613,8 @@
   }
 
   function clearClonedInput(input) {
+    input.removeAttribute('data-dateandtime-bound');
+    input.closest?.('[data-dateandtime-control]')?.removeAttribute('data-dateandtime-bound');
     if (input instanceof HTMLInputElement) {
       if (input.type === 'checkbox' || input.type === 'radio') {
         input.checked = false;

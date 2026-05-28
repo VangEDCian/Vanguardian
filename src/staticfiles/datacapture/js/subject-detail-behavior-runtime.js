@@ -194,7 +194,6 @@
         'scope',
         `return (function () { with (scope) { return (${normalized}); } })();`,
       );
-      console.log(scope);
       const value = runner(scope);
       return value == null ? fallback : value;
     } catch (error) {
@@ -211,6 +210,7 @@
     controlModules.datePicker?.syncDateCompositeInput?.(container);
     controlModules.dateText?.syncDateTextInput?.(container);
     controlModules.datetime?.syncDatetimeCompositeInput?.(container);
+    window.VanguardianDateAndTime?.syncControl?.(container.querySelector('[data-dateandtime-control]') || container);
   }
 
   function ensureInputNames(container) {
@@ -224,6 +224,7 @@
       }
       if (
         control.hasAttribute('data-date-text-input') ||
+        (control.hasAttribute('data-dateandtime-input') && !control.name) ||
         control.classList.contains('subject-date-picker__input--day') ||
         control.classList.contains('subject-date-picker__input--month') ||
         control.classList.contains('subject-date-picker__input--year') ||
@@ -356,6 +357,11 @@
     const dateTextHiddenInput = container.querySelector('input[type="hidden"][data-date-text-composite-input]');
     if (dateTextHiddenInput) {
       const nextTextValue = nextValue == null ? '' : String(nextValue);
+      const dateAndTimeControl = container.querySelector('[data-dateandtime-control]');
+      if (dateAndTimeControl) {
+        window.VanguardianDateAndTime?.applyCanonicalValue?.(dateAndTimeControl, nextTextValue);
+        return true;
+      }
       const controlModules = window.DatacaptureSubjectDetailModules?.controls || {};
       controlModules.dateText?.applyDateTextCompositeValue?.(container, nextTextValue);
       return true;

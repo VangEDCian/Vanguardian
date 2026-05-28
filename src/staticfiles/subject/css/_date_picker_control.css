@@ -61,6 +61,12 @@
   width: 100%;
 }
 
+.subject-date-text--datetime {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .subject-date-text__input {
   width: 100%;
   max-width: 190px;
@@ -76,4 +82,12 @@
 
 .subject-date-text__input:focus {
   border-color: #38bdf8;
+}
+
+.subject-date-text__input--date {
+  max-width: 190px;
+}
+
+.subject-date-text__input--time {
+  max-width: 120px;
 }

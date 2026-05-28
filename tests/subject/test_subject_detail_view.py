@@ -239,14 +239,13 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
             },
         )
 
-        self.assertIn('class="subject-date-picker"', rendered)
-        self.assertIn('class="subject-date-picker__part"', rendered)
-        self.assertIn('class="subject-date-picker__input subject-date-picker__input--time"', rendered)
-        self.assertIn(">Time</span>", rendered)
-        self.assertIn('type="text"', rendered)
+        self.assertIn('class="subject-date-text"', rendered)
+        self.assertIn("subject-date-text__input", rendered)
+        self.assertIn('type="time"', rendered)
         self.assertIn('name="VISIT_TIME"', rendered)
-        self.assertIn('inputmode="numeric"', rendered)
-        self.assertIn('pattern="^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"', rendered)
+        self.assertIn("data-dateandtime-input", rendered)
+        self.assertIn("data-dateandtime-time", rendered)
+        self.assertIn('data-dateandtime-kind="time"', rendered)
         self.assertIn('data-submitted-diff-control="time"', rendered)
         self.assertIn("data-standalone-time-input", rendered)
         self.assertIn('value="08:30"', rendered)
@@ -267,7 +266,7 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
             },
         )
 
-        self.assertIn('type="text"', rendered)
+        self.assertIn('type="time"', rendered)
         self.assertIn('value=""', rendered)
 
 
@@ -440,6 +439,59 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
 
         self.assertIn("data-date-text-input", rendered)
         self.assertIn('data-date-text-kind="date"', rendered)
+
+    def test_date_picker_control_uses_native_date_input(self):
+        rendered = render_to_string(
+            "subject/components/controls/_date_picker_control.html",
+            {
+                "LANGUAGE_CODE": "vi",
+                "field": {
+                    "field_key": "VISIT_DATE",
+                    "label": "Visit Date",
+                    "value": "2026-02-12",
+                    "date_day": "12",
+                    "date_month": "2",
+                    "date_year": "2026",
+                },
+            },
+        )
+
+        self.assertIn("data-dateandtime-input", rendered)
+        self.assertIn("data-dateandtime-control", rendered)
+        self.assertIn("data-dateandtime-date", rendered)
+        self.assertIn('data-dateandtime-kind="date"', rendered)
+        self.assertIn('data-dateandtime-locale="vi"', rendered)
+        self.assertIn('type="date"', rendered)
+        self.assertIn('lang="vi"', rendered)
+        self.assertNotIn("subject-date-picker__part", rendered)
+
+    def test_datetime_control_uses_native_date_and_time_inputs(self):
+        rendered = render_to_string(
+            "subject/components/controls/_datetime_control.html",
+            {
+                "LANGUAGE_CODE": "en",
+                "field": {
+                    "field_key": "VISIT_AT",
+                    "label": "Visit At",
+                    "value": "2026-12-02 09:30:00",
+                    "date_day": "2",
+                    "date_month": "12",
+                    "date_year": "2026",
+                    "date_time": "09:30",
+                },
+            },
+        )
+
+        self.assertIn("data-dateandtime-input", rendered)
+        self.assertIn("data-dateandtime-control", rendered)
+        self.assertIn("data-dateandtime-date", rendered)
+        self.assertIn("data-dateandtime-time", rendered)
+        self.assertIn('data-dateandtime-kind="datetime"', rendered)
+        self.assertIn('data-dateandtime-locale="en"', rendered)
+        self.assertIn('type="date"', rendered)
+        self.assertIn('type="time"', rendered)
+        self.assertIn('lang="en"', rendered)
+        self.assertNotIn("subject-date-picker__part", rendered)
 
     def test_repeat_table_section_renders_headers_rows_and_add_button(self):
         rendered = render_to_string(

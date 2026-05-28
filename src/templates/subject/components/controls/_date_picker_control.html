@@ -1,50 +1,26 @@
 {% load subject_form_tags subject_field_validators %}
-{% subject_date_picker_i18n as date_picker_i18n %}
+{% subject_date_text_control_i18n as date_picker_i18n %}
 {% subject_date_validator_attrs field as date_validator_attrs %}
-<div class="subject-date-picker{% if field.classes %} {{ field.classes }}{% endif %}"{% if field.style %} style="{{ field.style }}"{% endif %}>
+<div class="subject-date-text{% if field.classes %} {{ field.classes }}{% endif %}"
+     data-dateandtime-control
+     data-dateandtime-kind="date"
+     data-dateandtime-locale="{{ date_picker_i18n.locale }}"
+     {% if field.style %}style="{{ field.style }}"{% endif %}>
     <input type="hidden"
-           data-date-composite-input
-           data-date-composite-type="date"
+           data-date-text-composite-input
+           data-date-text-kind="date"
+           data-dateandtime-hidden
            tabindex="{% subject_control_tabindex field 0 %}"
            value="{{ field.value|default:'' }}">
-    <div class="subject-date-picker__part">
-        <span class="subject-date-picker__label">{{ date_picker_i18n.day_label }}</span>
-        <input class="subject-date-picker__input subject-date-picker__input--day"
-               type="text"
-               tabindex="{% subject_control_tabindex field 1 %}"
-               inputmode="numeric"
-               pattern="^(?:[1-9]|[12][0-9]|3[01])$"
-               maxlength="2"
-               oninput="this.value=this.value.replace(/\D/g,'').slice(0,2);if(this.value){var day=parseInt(this.value,10);if(day<1){this.value='1';}else if(day>31){this.value='31';}}"
-               {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
-               {{ date_validator_attrs }}
-               placeholder="{{ date_picker_i18n.day_placeholder }}"
-               value="{{ field.date_day }}">
-    </div>
-    <div class="subject-date-picker__part">
-        <span class="subject-date-picker__label">{{ date_picker_i18n.month_label }}</span>
-        <select class="subject-date-picker__input subject-date-picker__input--month"
-                tabindex="{% subject_control_tabindex field 2 %}"
-                {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
-                {{ date_validator_attrs }}>
-            <option value="">{{ date_picker_i18n.month_empty_option }}</option>
-            {% for month in date_picker_i18n.months %}
-                <option value="{{ month.value }}"{% if month.value == field.date_month %} selected{% endif %}>{{ month.label }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="subject-date-picker__part">
-        <span class="subject-date-picker__label">{{ date_picker_i18n.year_label }}</span>
-        <input class="subject-date-picker__input subject-date-picker__input--year"
-               type="text"
-               tabindex="{% subject_control_tabindex field 3 %}"
-               inputmode="numeric"
-               pattern="^\d{4}$"
-               maxlength="4"
-               oninput="this.value=this.value.replace(/\D/g,'').slice(0,4);"
-               {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
-               {{ date_validator_attrs }}
-               placeholder="{{ date_picker_i18n.year_placeholder }}"
-               value="{{ field.date_year }}">
-    </div>
+    <input class="subject-date-text__input"
+           type="date"
+           lang="{{ date_picker_i18n.locale }}"
+           tabindex="{% subject_control_tabindex field 1 %}"
+           data-dateandtime-input
+           data-dateandtime-date
+           data-dateandtime-kind="date"
+           {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+           {{ date_validator_attrs }}
+           value=""
+           aria-label="{{ field.label|default:field.field_key|default:date_picker_i18n.label }}">
 </div>

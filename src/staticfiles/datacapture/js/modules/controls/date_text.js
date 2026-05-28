@@ -271,6 +271,7 @@
   }
 
   function initializeDateTextControls(root = document) {
+    window.VanguardianDateAndTime?.initialize?.(root);
     root.querySelectorAll('[data-date-text-input]').forEach((input) => {
       if (input.dataset.dateTextBound === '1') {
         return;

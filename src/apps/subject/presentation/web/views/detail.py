@@ -411,6 +411,7 @@ class SubjectDetailView(
         validation_issue_acknowledge_url = ""
         form_verification_show_field_checkboxes = True
         form_verification_show_actions = False
+        form_verification_show_all_rows_by_default = False
         form_verification_user_can_review = True
         form_verification_has_submitted_entry = False
         field_query_state_by_id = {}
@@ -550,7 +551,13 @@ class SubjectDetailView(
                 )
                 if is_form_verification_mode:
                     normalized_page_status = (focused_page_status or "").strip().lower()
-                    form_verification_show_actions = normalized_page_status == DataCapturePageState.SUBMITTED
+                    form_verification_show_actions = normalized_page_status in {
+                        DataCapturePageState.SUBMITTED,
+                        DataCapturePageState.VERIFIED,
+                    }
+                    form_verification_show_all_rows_by_default = (
+                        normalized_page_status == DataCapturePageState.VERIFIED
+                    )
                     form_verification_show_field_checkboxes = normalized_page_status not in {
                         "",
                         "none",
@@ -671,6 +678,7 @@ class SubjectDetailView(
             form_verification_show_field_checkboxes and form_verification_user_can_review
         )
         context["form_verification_show_actions"] = form_verification_show_actions
+        context["form_verification_show_all_rows_by_default"] = form_verification_show_all_rows_by_default
         context["form_verification_show_actions_column"] = form_verification_has_submitted_entry
         context["form_verification_fields_locked"] = (
             is_form_verification_mode and DataCapturePageState.is_capture_locked(focused_page_status)

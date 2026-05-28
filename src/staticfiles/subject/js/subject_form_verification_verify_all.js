@@ -227,7 +227,7 @@
               ? 'Saved. Pending blockers: ' + blockers.join(', ')
               : 'Saved.';
         showNotification(msg, 'success');
-        if (isReopenAction) {
+        if (isReopenAction || result.data.all_verified === true) {
           window.setTimeout(function () {
             window.location.reload();
           }, 250);

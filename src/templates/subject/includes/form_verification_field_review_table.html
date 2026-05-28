@@ -24,7 +24,7 @@
                     data-repeat-instance-index="{{ row.repeat_instance_index|default:1 }}"
                     data-section-code="{{ row.section_code|default:''|escape }}"
                     data-field-verified="{% if row.is_checked %}true{% else %}false{% endif %}"
-                    {% if row.is_checked %}hidden{% endif %}>
+                    {% if row.is_checked and not form_verification_show_all_rows_by_default %}hidden{% endif %}>
                     <td class="subject-form-verification-review__col-check">
                         <input type="checkbox"
                                name="verify_field"
@@ -63,8 +63,8 @@
                                         data-field-key="{{ row.field_key|escape }}"
                                         data-field-value="{{ row.display_value|default:'—'|escape }}"
                                         data-field-verified="{% if row.is_checked %}true{% else %}false{% endif %}"
-                                        {% if row.is_checked or row.active_query_id or row.has_verified_query %}hidden{% endif %}
-                                        {% if form_verification_fields_locked or form_verification_query_actions_locked %}disabled aria-disabled="true"{% endif %}
+                                        {% if row.active_query_id %}hidden{% endif %}
+                                        {% if form_verification_query_actions_locked %}disabled aria-disabled="true"{% endif %}
                                         aria-label="{% trans 'Open Query' %}">
                                     <span class="svg-icon"
                                           aria-hidden="true"
