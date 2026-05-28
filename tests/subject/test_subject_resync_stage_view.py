@@ -55,7 +55,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
             "subject/includes/subject_list_actions_cell.html",
             {
                 "csrf_token": "test-token",
-                "perms": SimpleNamespace(subject=SimpleNamespace(update_subject=True)),
+                "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(verify_eligible_subject_ids=frozenset()),
@@ -71,7 +71,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
             "subject/includes/subject_list_actions_cell.html",
             {
                 "csrf_token": "test-token",
-                "perms": SimpleNamespace(subject=SimpleNamespace(update_subject=True)),
+                "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(
@@ -95,7 +95,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
             "subject/includes/subject_list_actions_cell.html",
             {
                 "csrf_token": "test-token",
-                "perms": SimpleNamespace(subject=SimpleNamespace(update_subject=True)),
+                "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(
