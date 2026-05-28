@@ -72,7 +72,7 @@ class SingleActiveSessionMiddleware:
 
 class MembershipAccessMiddleware:
     EXEMPT_PATH_PREFIXES = (
-        "/login/",
+        reverse("identity:login"),
         "/logout/",
         "/first-login",
         "/first-login/",

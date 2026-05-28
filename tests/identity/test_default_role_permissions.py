@@ -5,34 +5,44 @@ from apps.identity.models import Role
 
 
 class DefaultRolePermissionSeedTests(TestCase):
-    def test_seed_creates_default_groups_roles_and_manual_site_permissions(self):
-        self.assertEqual(Group.objects.count(), 6)
-        self.assertEqual(Role.objects.filter(study_id=1).count(), 6)
+    def test_seed_creates_matrix_edc_groups_roles_and_permissions(self):
+        self.assertEqual(Group.objects.count(), 5)
+        self.assertEqual(Role.objects.filter(study_id=1).count(), 5)
         self.assertTrue(
             Permission.objects.filter(
-                content_type__app_label="dashboard",
-                codename="view_dashboard",
+                content_type__app_label="edc",
+                codename="CRF.ENTER",
             ).exists()
         )
         self.assertTrue(
             Permission.objects.filter(
-                content_type__app_label="site",
-                codename="view_site_membership_list",
+                content_type__app_label="edc",
+                codename="DATA.LOCK",
             ).exists()
         )
 
-        database_administrator_group = Group.objects.get(name="Database Administrator")
+        data_manager_group = Group.objects.get(name="Data Manager")
         self.assertTrue(
-            database_administrator_group.permissions.filter(
-                content_type__app_label="identity",
-                codename="create_user",
+            data_manager_group.permissions.filter(
+                content_type__app_label="edc",
+                codename="DATA.LOCK",
             ).exists()
         )
-        self.assertEqual(database_administrator_group.permissions.count(), 25)
+        self.assertFalse(
+            data_manager_group.permissions.filter(
+                content_type__app_label="edc",
+                codename="USER_ACCESS.MANAGE",
+            ).exists()
+        )
 
-        database_administrator_role = Role.objects.get(
+        study_admin_role = Role.objects.get(
             study_id=1,
-            name="Database Administrator",
+            name="Study Admin",
         )
-        self.assertTrue(database_administrator_role.groups.filter(name="Database Administrator").exists())
-        self.assertEqual(database_administrator_role.permissions.count(), 25)
+        self.assertTrue(study_admin_role.groups.filter(name="Study Admin").exists())
+        self.assertTrue(
+            study_admin_role.permissions.filter(
+                content_type__app_label="edc",
+                codename="USER_ACCESS.MANAGE",
+            ).exists()
+        )

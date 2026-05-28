@@ -6,7 +6,7 @@ from django.views.generic.base import ContextMixin
 
 
 class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
-    login_url = "/login/"
+    login_url = "/itsnotasignin/"
     redirect_field_name = "next"
 
     layout_nav_key = ""

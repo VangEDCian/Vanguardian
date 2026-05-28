@@ -305,7 +305,6 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
                 (
                     2,
                     {
-                        "study": "REACT-AF",
                         "form_code": "AE",
                         "field_name": "AETERM",
                         "rule_type": "REQUIRED",
@@ -326,11 +325,8 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_validation_rule_template_by_code.return_value = form_template
         mock_adapter.resolve_import_validation_rule_field_by_key.return_value = field_template
         mock_adapter.upsert_import_validation_rule.return_value = ("created", SimpleNamespace(pk=31))
-        study_repository = MagicMock()
-        study_repository.get_study_by_code.return_value = SimpleNamespace(pk=3, code="REACT-AF")
         service = ImportStudyCrfValidationRulesTemplateService(
             crf_context_adapter=mock_adapter,
-            study_repository=study_repository,
         )
 
         result = service.execute(
@@ -347,7 +343,6 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         self.assertEqual(result.created_count, 1)
         self.assertEqual(result.updated_count, 0)
         self.assertEqual(result.skipped_count, 0)
-        study_repository.get_study_by_code.assert_called_once_with(code="REACT-AF")
         mock_adapter.resolve_import_validation_rule_template_by_code.assert_called_once_with(
             study_id=3,
             form_code="AE",
@@ -392,13 +387,15 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
             ],
         },
     )
-    def test_execute_skips_row_when_study_scope_does_not_match(self, mock_load_rows):
+    def test_execute_ignores_legacy_study_column(self, mock_load_rows):
+        form_template = SimpleNamespace(pk=17)
+        field_template = SimpleNamespace(pk=23)
         mock_adapter = MagicMock()
-        study_repository = MagicMock()
-        study_repository.get_study_by_code.return_value = SimpleNamespace(pk=4, code="OTHER-STUDY")
+        mock_adapter.resolve_import_validation_rule_template_by_code.return_value = form_template
+        mock_adapter.resolve_import_validation_rule_field_by_key.return_value = field_template
+        mock_adapter.upsert_import_validation_rule.return_value = ("created", SimpleNamespace(pk=31))
         service = ImportStudyCrfValidationRulesTemplateService(
             crf_context_adapter=mock_adapter,
-            study_repository=study_repository,
         )
 
         result = service.execute(
@@ -411,10 +408,12 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
             )
         )
 
-        self.assertEqual(result.created_count, 0)
-        self.assertEqual(result.skipped_count, 1)
-        self.assertIn("study scope", result.issues[0].reason)
-        mock_adapter.upsert_import_validation_rule.assert_not_called()
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.skipped_count, 0)
+        mock_adapter.resolve_import_validation_rule_template_by_code.assert_called_once_with(
+            study_id=3,
+            form_code="AE",
+        )
 
 
 class ImportStudyCrfSectionLayoutConfigsTemplateServiceTests(SimpleTestCase):

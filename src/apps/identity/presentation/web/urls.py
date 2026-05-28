@@ -24,7 +24,7 @@ app_name = "identity"
 
 
 urlpatterns = [
-    path("login/", IdentityLoginView.as_view(), name="login"),
+    path("itsnotasignin/", IdentityLoginView.as_view(), name="login"),
     path("logout/", IdentityLogoutView.as_view(), name="logout"),
     path(
         "admin/profile",

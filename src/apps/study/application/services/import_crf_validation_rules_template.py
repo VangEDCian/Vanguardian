@@ -7,16 +7,13 @@ from apps.study.application.commands.import_crf_validation_rules_template import
     ImportStudyCrfValidationRulesTemplateCommand,
     ImportStudyCrfValidationRulesTemplateResult,
 )
-from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
 
 class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
     crf_context_adapter_class = CrfContextAdapter
-    study_repository_class = DjangoStudyDirectoryRepository
     validation_rules_sheet_name = "Validation Rules"
     expected_columns = {
         validation_rules_sheet_name: (
-            "Study",
             "Form Code",
             "Field Name",
             "Rule Type",
@@ -29,8 +26,6 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
     }
     expected_header_map = {
         validation_rules_sheet_name: {
-            "study": "study",
-            "study id": "study",
             "form code": "form_code",
             "field name": "field_name",
             "rule type": "rule_type",
@@ -49,9 +44,8 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
         ),
     }
 
-    def __init__(self, crf_context_adapter=None, study_repository=None):
+    def __init__(self, crf_context_adapter=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
-        self.study_repository = study_repository or self.study_repository_class()
 
     @staticmethod
     def _normalize_selected_study_id(selected_study_id):
@@ -117,10 +111,7 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
         )
 
     def _import_validation_rule_row(self, *, selected_study_id, row_data, actor_user_id):
-        study = self._resolve_study_by_code(row_data.get("study"))
-        study_id = int(study.pk)
-        if study_id != selected_study_id:
-            raise CrfTemplateImportFormatError("Import row study scope does not match the selected study.")
+        study_id = int(selected_study_id)
 
         form_code = self._require_text(row_data.get("form_code"), field_label="Form Code", max_length=64)
         field_name = self._require_text(row_data.get("field_name"), field_label="Field Name", max_length=100)
@@ -152,13 +143,6 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
         )
         return import_outcome
 
-    def _resolve_study_by_code(self, raw_study_code):
-        study_code = self._require_text(raw_study_code, field_label="Study", max_length=64)
-        study = self.study_repository.get_study_by_code(code=study_code)
-        if study is None:
-            raise CrfTemplateImportFormatError(f"Study '{study_code}' was not found.")
-        return study
-
     def _expression_for_rule_type(self, *, rule_type, raw_expression):
         normalized_rule_type = str(rule_type or "").strip().upper()
         if normalized_rule_type == "REQUIRED":
@@ -168,7 +152,6 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
     def _build_validation_rule_identifier(self, row_data):
         return " / ".join(
             part for part in (
-                self._as_text(row_data.get("study")),
                 self._as_text(row_data.get("form_code")),
                 self._as_text(row_data.get("field_name")),
                 self._as_text(row_data.get("rule_type")),

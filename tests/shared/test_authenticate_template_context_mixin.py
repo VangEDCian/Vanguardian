@@ -21,7 +21,7 @@ class AuthenticateTemplateContextMixinTests(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
-    @override_settings(LOGIN_URL="/login/")
+    @override_settings(LOGIN_URL="/itsnotasignin/")
     def test_redirects_anonymous_user_before_permission_check(self):
         request = self.factory.get("/studies/1/subjects/2/?event=1&form=4")
         request.user = SimpleNamespace(is_authenticated=False)
@@ -29,7 +29,7 @@ class AuthenticateTemplateContextMixinTests(SimpleTestCase):
         response = ProtectedView.as_view()(request)
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/login/"))
+        self.assertTrue(response.url.startswith("/itsnotasignin/"))
 
     def test_raises_permission_denied_after_authentication(self):
         request = self.factory.get("/studies/1/subjects/2/?event=1&form=4")

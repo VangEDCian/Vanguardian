@@ -20,7 +20,7 @@ class IdentityLoginRateLimiterTests(SimpleTestCase):
         caches["default"].clear()
         self.factory = RequestFactory()
         self.limiter = IdentityLoginRateLimiter()
-        self.request = self.factory.post("/login/", REMOTE_ADDR="127.0.0.1")
+        self.request = self.factory.post("/itsnotasignin/", REMOTE_ADDR="127.0.0.1")
 
     def tearDown(self):
         caches["default"].clear()

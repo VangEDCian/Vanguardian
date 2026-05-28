@@ -7,7 +7,7 @@
   }
 
   var statusUrl = root.getAttribute("data-session-guard-status-url");
-  var loginUrl = root.getAttribute("data-session-guard-login-url") || "/login/";
+  var loginUrl = root.getAttribute("data-session-guard-login-url") || "/itsnotasignin/";
   var pollInterval = Number(root.getAttribute("data-session-guard-interval") || "15000");
   var modal = document.querySelector("[data-session-guard-modal]");
   var loginLink = document.querySelector("[data-session-guard-login]");

@@ -50,6 +50,8 @@ class AuthorizationServiceTests(TestCase):
                 "QUERY.RESPOND",
                 "QUERY.CLOSE",
                 "CASEBOOK.SIGN",
+                "SDV.MARK",
+                "USER_ACCESS.MANAGE",
             )
         }
         self.user = User.objects.create_user(username="scope-user", password="pw")
@@ -174,6 +176,20 @@ class AuthorizationServiceTests(TestCase):
         self._assign_site_role(self.user, self.study_a, self.hcm_a, "DATA_COORDINATOR", ["CRF.UPDATE"])
 
         self.assertTrue(self._can("CRF.UPDATE", self.study_a, self.hcm_a).is_allowed)
+
+    def test_legacy_permission_alias_resolves_to_edc_permission(self):
+        self._assign_study_role(self.user, self.study_a, "STUDY_ADMIN", ["USER_ACCESS.MANAGE"])
+
+        result = self._can("identity.create_user", self.study_a, self.hcm_a)
+
+        self.assertTrue(result.is_allowed)
+
+    def test_legacy_verify_permission_alias_resolves_to_sdv_mark(self):
+        self._assign_site_role(self.user, self.study_a, self.hcm_a, "CRA_MONITOR", ["SDV.MARK"])
+
+        result = self._can("subject.verify_form", self.study_a, self.hcm_a)
+
+        self.assertTrue(result.is_allowed)
 
     def test_locked_form_denies_update_even_when_permission_exists(self):
         self._assign_site_role(self.user, self.study_a, self.hcm_a, "DATA_COORDINATOR", ["CRF.UPDATE"])

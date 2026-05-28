@@ -241,9 +241,9 @@ AUTH_USER_MODEL = "identity.User"
 AUTHENTICATION_BACKENDS = [
     "apps.identity.infrastructure.auth.backends.IdentifierBackend",
 ]
-LOGIN_URL = "/login/"
+LOGIN_URL = "/itsnotasignin/"
 LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/login/"
+LOGOUT_REDIRECT_URL = "/itsnotasignin/"
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
     cast=str,

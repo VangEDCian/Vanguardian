@@ -4,19 +4,13 @@ from django.db import OperationalError, ProgrammingError, transaction
 from django.db.models.signals import post_migrate
 
 from apps.identity.application.default_role_permissions import (
-    DEFAULT_PERMISSION_CONTENT_TYPES,
-    DEFAULT_PERMISSION_LABELS,
-    DEFAULT_ROLE_GROUPS,
+    DEFAULT_EDC_PERMISSION_LABELS,
+    DEFAULT_EDC_ROLE_GROUPS,
 )
 from apps.identity.models import Role, RoleScopeLevel  # noqa: DDD022
 
 _DEFAULT_STUDY_ID = 1
 _DISPATCH_UID = "identity.default_role_seed"
-_SCOPE_LEVEL_BY_DEFAULT_SCOPE = {
-    "global": RoleScopeLevel.GLOBAL,
-    "study": RoleScopeLevel.STUDY,
-    "study_site": RoleScopeLevel.STUDY_SITE,
-}
 
 
 def register_default_role_seed():
@@ -26,9 +20,9 @@ def register_default_role_seed():
 def seed_default_role_permissions(*, using, **kwargs):
     try:
         with transaction.atomic(using=using):
-            _ensure_permissions(using=using)
-            permission_by_code = _permission_by_code(using=using)
-            for role_definition in DEFAULT_ROLE_GROUPS:
+            _ensure_edc_permissions(using=using)
+            permission_by_code = _edc_permission_by_code(using=using)
+            for role_definition in DEFAULT_EDC_ROLE_GROUPS:
                 _sync_role_group(
                     role_definition,
                     permission_by_code=permission_by_code,
@@ -38,28 +32,26 @@ def seed_default_role_permissions(*, using, **kwargs):
         return
 
 
-def _ensure_permissions(*, using):
-    for permission_code, permission_label in DEFAULT_PERMISSION_LABELS.items():
-        app_label, codename = permission_code.split(".", 1)
-        model = DEFAULT_PERMISSION_CONTENT_TYPES[app_label]
-        content_type, _ = ContentType.objects.db_manager(using).get_or_create(
-            app_label=app_label,
-            model=model,
-        )
+def _ensure_edc_permissions(*, using):
+    content_type, _ = ContentType.objects.db_manager(using).get_or_create(
+        app_label="edc",
+        model="permissioncode",
+    )
+    for permission_code, permission_label in DEFAULT_EDC_PERMISSION_LABELS.items():
         Permission.objects.db_manager(using).update_or_create(
             content_type=content_type,
-            codename=codename,
+            codename=permission_code,
             defaults={"name": permission_label},
         )
 
 
-def _permission_by_code(*, using):
+def _edc_permission_by_code(*, using):
     permissions = (
         Permission.objects.using(using)
         .select_related("content_type")
-        .filter(content_type__app_label__in=DEFAULT_PERMISSION_CONTENT_TYPES)
+        .filter(content_type__app_label="edc", codename__in=DEFAULT_EDC_PERMISSION_LABELS)
     )
-    return {f"{permission.content_type.app_label}.{permission.codename}": permission for permission in permissions}
+    return {permission.codename: permission for permission in permissions}
 
 
 def _sync_role_group(role_definition, *, permission_by_code, using):
@@ -69,8 +61,8 @@ def _sync_role_group(role_definition, *, permission_by_code, using):
         name=role_definition["role_name"],
         defaults={
             "code": role_definition["role_code"],
-            "description": ", ".join(role_definition.get("access_levels", ())),
-            "scope_level": _SCOPE_LEVEL_BY_DEFAULT_SCOPE[role_definition["scope"]],
+            "description": "EDC baseline role",
+            "scope_level": RoleScopeLevel(role_definition["scope_level"]),
             "is_system_role": True,
             "is_active": True,
         },
