@@ -24,25 +24,25 @@ class IdentityRolePermissionImportServiceTests(TestCase):
         )
         worksheet.append(
             [
-                "Data Coordinator",
-                "Data Coordinator",
-                "Lock/Freeze; Compare",
+                "Site Coordinator",
+                "Site Coordinator",
+                "Input/edit/data; Query response",
                 "dashboard.test_import_permission",
             ]
         )
         worksheet.append(
             [
-                "Data Coordinator",
+                "Site Coordinator",
                 "Missing Group",
-                "Lock/Freeze; Compare",
+                "Input/edit/data; Query response",
                 "dashboard.test_import_permission",
             ]
         )
         worksheet.append(
             [
-                "Data Coordinator",
-                "Data Coordinator",
-                "Lock/Freeze; Compare",
+                "Site Coordinator",
+                "Site Coordinator",
+                "Input/edit/data; Query response",
                 "dashboard.missing_permission",
             ]
         )
@@ -62,7 +62,7 @@ class IdentityRolePermissionImportServiceTests(TestCase):
             codename="test_import_permission",
             name="Can test import permission",
         )
-        group = Group.objects.get(name="Data Coordinator")
+        group = Group.objects.get(name="Site Coordinator")
 
         result = IdentityRolePermissionImportService().import_workbook(
             study_id=3,
@@ -79,9 +79,9 @@ class IdentityRolePermissionImportServiceTests(TestCase):
         self.assertIn("Row 3: group 'Missing Group' does not exist.", result["issues"])
         self.assertIn("Row 4: permission 'dashboard.missing_permission' does not exist.", result["issues"])
 
-        role = Role.objects.get(study_id=3, name="Data Coordinator")
-        self.assertEqual(role.description, "Lock/Freeze; Compare")
+        role = Role.objects.get(study_id=3, name="Site Coordinator")
+        self.assertEqual(role.description, "Input/edit/data; Query response")
         self.assertEqual(list(role.groups.values_list("pk", flat=True)), [group.pk])
         self.assertEqual(list(role.permissions.values_list("pk", flat=True)), [permission.pk])
         self.assertTrue(group.permissions.filter(pk=permission.pk).exists())
-        self.assertFalse(Role.objects.filter(study_id=4, name="Data Coordinator").exists())
+        self.assertFalse(Role.objects.filter(study_id=4, name="Site Coordinator").exists())
