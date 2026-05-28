@@ -13,7 +13,11 @@ class SiteMembershipOptionsApiViewTests(SimpleTestCase):
 
     def _build_request(self, path):
         request = self.factory.get(path)
-        request.user = SimpleNamespace(is_authenticated=True, is_superuser=True)
+        request.user = SimpleNamespace(
+            has_perms=lambda permissions: True,
+            is_authenticated=True,
+            is_superuser=True,
+        )
         return request
 
     @patch.object(SiteMembershipOptionsApiView, "get_command_repository")
