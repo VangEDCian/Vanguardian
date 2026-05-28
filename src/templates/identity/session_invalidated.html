@@ -2,11 +2,8 @@
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}" class="h-full">
     <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="robots" content="noindex, nofollow, noarchive">
-        <meta name="description" content="{% trans 'Session ended notification.' %}">
-        <meta name="keywords" content="session,authentication,vanguardian">
+        {% trans "Session ended notification." as metadata_description %}
+        {% include "shared/_metadata.html" with metadata_description=metadata_description metadata_keywords="session,authentication,vanguardian" %}
         <title>{% trans "Session ended | Vanguardian" %}</title>
         <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
         <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">

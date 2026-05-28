@@ -2,11 +2,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow, noarchive">
-    <meta name="description" content="{% trans 'Preview uploaded event instance files.' %}">
-    <meta name="keywords" content="subject,event instance,file preview">
+    {% trans "Preview uploaded event instance files." as metadata_description %}
+    {% include "shared/_metadata.html" with metadata_charset="UTF-8" metadata_viewport="width=device-width, initial-scale=1.0" metadata_description=metadata_description metadata_keywords="subject,event instance,file preview" %}
     <title>{% trans "Preview Files | Vanguardian" %}</title>
     <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">
     <link rel="stylesheet" href="{% static 'subject/css/subject_eventinstance_files_preview2.css' %}">
