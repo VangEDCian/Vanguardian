@@ -1,7 +1,8 @@
 from django.db import models
 
 from apps.identity.infrastructure.persistence.models import User
-from apps.study.infrastructure.persistence.models import Study
+
+from .study import Study
 
 
 class Site(models.Model):

@@ -4,6 +4,9 @@ from apps.subject.infrastructure.persistence.models import (
     SubjectEventInstance,
     SubjectEventInstanceFile,
     SubjectEventInstanceTransitionLog,
+    SubjectMilestone,
+    SubjectPeriod,
+    SubjectPeriodMilestone,
     SubjectRandomization,
     SubjectStatusHistory,
 )
@@ -14,6 +17,9 @@ __all__ = [
     "SubjectEventInstance",
     "SubjectEventInstanceFile",
     "SubjectEventInstanceTransitionLog",
+    "SubjectMilestone",
+    "SubjectPeriod",
+    "SubjectPeriodMilestone",
     "SubjectRandomization",
     "SubjectStatusHistory",
 ]

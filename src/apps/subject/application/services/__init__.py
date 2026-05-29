@@ -8,6 +8,10 @@ __all__ = [
     "SubjectEventInstanceResyncService",
     "SubjectEventTransitionService",
     "SubjectWorkflowActionService",
+    "RandomizeSubject",
+    "RandomizeSubjectCommand",
+    "CorrectSubjectMilestone",
+    "CorrectSubjectMilestoneCommand",
 ]
 
 _MODULE_BY_NAME = {
@@ -18,6 +22,10 @@ _MODULE_BY_NAME = {
     "SubjectEventInstanceResyncService": "apps.subject.application.services.event_instance_resync",
     "SubjectEventTransitionService": "apps.subject.application.services.event_lifecycle",
     "SubjectWorkflowActionService": "apps.subject.application.services.workflow_action",
+    "RandomizeSubject": "apps.subject.application.services.randomize_subject",
+    "RandomizeSubjectCommand": "apps.subject.application.services.randomize_subject",
+    "CorrectSubjectMilestone": "apps.subject.application.services.subject_milestone",
+    "CorrectSubjectMilestoneCommand": "apps.subject.application.services.subject_milestone",
 }
 
 

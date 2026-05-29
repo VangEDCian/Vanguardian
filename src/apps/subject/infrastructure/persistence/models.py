@@ -162,6 +162,30 @@ class SubjectRandomization(models.Model):
     randomization_source = models.CharField(max_length=16, null=True, blank=True)
     randomized_by_id = models.BigIntegerField(null=True, blank=True)
 
+    scheme = models.ForeignKey(
+        "study.RandomizationScheme",
+        on_delete=models.DO_NOTHING,
+        db_column="scheme_id",
+        related_name="subject_randomizations",
+        null=True,
+        blank=True,
+    )
+    arm = models.ForeignKey(
+        "study.RandomizationArm",
+        on_delete=models.DO_NOTHING,
+        db_column="arm_id",
+        related_name="subject_randomizations",
+        null=True,
+        blank=True,
+    )
+    slot = models.OneToOneField(
+        "study.RandomizationSlot",
+        on_delete=models.DO_NOTHING,
+        db_column="slot_id",
+        related_name="subject_randomization",
+        null=True,
+        blank=True,
+    )
     subject = models.OneToOneField(
         Subject,
         on_delete=models.DO_NOTHING,
@@ -200,9 +224,184 @@ class SubjectRandomization(models.Model):
                 fields=["study", "randomization_number"],
                 name="study_srand_st_num_ix",
             ),
+            models.Index(
+                fields=["study", "arm", "randomization_status"],
+                name="study_srand_st_arm_status_idx",
+            ),
         ]
         verbose_name = "subject randomization"
         verbose_name_plural = "subject randomizations"
+
+
+class SubjectPeriod(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    period_no = models.SmallIntegerField()
+    treatment_code = models.CharField(max_length=64)
+    status = models.CharField(max_length=16, default="Planned")
+
+    sequence_period = models.ForeignKey(
+        "study.RandomizationSequencePeriod",
+        on_delete=models.DO_NOTHING,
+        db_column="sequence_period_id",
+        related_name="subject_periods",
+        null=True,
+        blank=True,
+    )
+    start_event_instance = models.ForeignKey(
+        "subject.SubjectEventInstance",
+        on_delete=models.DO_NOTHING,
+        db_column="start_event_instance_id",
+        related_name="started_subject_periods",
+        null=True,
+        blank=True,
+    )
+    end_event_instance = models.ForeignKey(
+        "subject.SubjectEventInstance",
+        on_delete=models.DO_NOTHING,
+        db_column="end_event_instance_id",
+        related_name="ended_subject_periods",
+        null=True,
+        blank=True,
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="periods",
+    )
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_period"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subject", "period_no"],
+                name="study_subject_period_subject_period_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["subject", "treatment_code"], name="study_subperiod_subj_trt_idx"),
+            models.Index(fields=["sequence_period"], name="study_subperiod_seq_period_idx"),
+            models.Index(fields=["subject", "status"], name="study_subperiod_status_idx"),
+        ]
+        verbose_name = "subject period"
+        verbose_name_plural = "subject periods"
+
+
+class SubjectPeriodMilestone(models.Model):
+    period = models.ForeignKey(
+        SubjectPeriod,
+        on_delete=models.DO_NOTHING,
+        db_column="period_id",
+        related_name="milestones",
+    )
+    milestone_code = models.CharField(max_length=64)
+    planned_at = models.DateTimeField(null=True, blank=True)
+    actual_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=32, default="planned")
+    source_context = models.CharField(max_length=64, null=True, blank=True)
+    source_object_type = models.CharField(max_length=64, null=True, blank=True)
+    source_object_id = models.BigIntegerField(null=True, blank=True)
+    source_field_code = models.CharField(max_length=128, null=True, blank=True)
+    recorded_at = models.DateTimeField(null=True, blank=True)
+    recorded_by_id = models.BigIntegerField(null=True, blank=True)
+    correction_reason = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_period_milestone"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["period", "milestone_code"],
+                name="study_subject_period_milestone_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["source_context", "source_object_type", "source_object_id"],
+                name="study_subperiod_ms_source_idx",
+            )
+        ]
+        verbose_name = "subject period milestone"
+        verbose_name_plural = "subject period milestones"
+
+
+class SubjectMilestone(models.Model):
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="subject_milestones",
+    )
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.DO_NOTHING,
+        db_column="site_id",
+        related_name="subject_milestones",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="milestones",
+    )
+    milestone_code = models.CharField(max_length=64)
+    milestone_label = models.CharField(max_length=255, null=True, blank=True)
+    occurred_at = models.DateTimeField(null=True, blank=True)
+    occurred_date = models.DateField(null=True, blank=True)
+    occurred_time = models.TimeField(null=True, blank=True)
+    date_precision = models.CharField(max_length=32, null=True, blank=True)
+    recorded_at = models.DateTimeField(null=True, blank=True)
+    recorded_by_id = models.BigIntegerField(null=True, blank=True)
+    source_type = models.CharField(max_length=32)
+    source_context = models.CharField(max_length=64, null=True, blank=True)
+    source_object_type = models.CharField(max_length=64, null=True, blank=True)
+    source_object_id = models.BigIntegerField(null=True, blank=True)
+    source_page_state_id = models.BigIntegerField(null=True, blank=True)
+    source_page_entry_id = models.BigIntegerField(null=True, blank=True)
+    source_field_code = models.CharField(max_length=128, null=True, blank=True)
+    source_event_instance = models.ForeignKey(
+        "subject.SubjectEventInstance",
+        on_delete=models.DO_NOTHING,
+        db_column="source_event_instance_id",
+        related_name="source_subject_milestones",
+        null=True,
+        blank=True,
+    )
+    derivation_rule_code = models.CharField(max_length=64, null=True, blank=True)
+    derivation_rule_version = models.CharField(max_length=20, null=True, blank=True)
+    status = models.CharField(max_length=32, default="derived")
+    is_current = models.BooleanField(default=True)
+    confirmed_by_id = models.BigIntegerField(null=True, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    correction_reason = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_milestone"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(fields=["study", "site", "milestone_code"], name="study_subms_st_site_code_idx"),
+            models.Index(fields=["subject", "milestone_code", "is_current"], name="study_subms_subj_current_idx"),
+            models.Index(
+                fields=["source_context", "source_object_type", "source_object_id"],
+                name="study_subms_source_idx",
+            ),
+        ]
+        verbose_name = "subject milestone"
+        verbose_name_plural = "subject milestones"
 
 
 class SubjectEventInstance(models.Model):

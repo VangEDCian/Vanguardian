@@ -124,6 +124,7 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
         repository.count_assigned_slots_for_scheme.return_value = 1
         repository.list_active_arms_for_scheme.return_value = active_arms
         repository.list_slots_for_scheme.return_value = existing_slots
+        repository.get_max_slot_sequence_no_for_scheme.return_value = 9
         repository.build_slot.side_effect = lambda **kwargs: SimpleNamespace(**kwargs)
         self.service.repository = repository
 
@@ -153,6 +154,31 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
             {RandomizationSlotStatusChoice.AVAILABLE},
         )
         self.assertEqual([slot.sequence_no for slot in created_slots], [10, 11])
+
+    def test_generate_slots_allocates_after_deleted_slot_sequence(self):
+        active_arms = [SimpleNamespace(pk=201, arm_code="ARM-A")]
+        repository = MagicMock()
+        repository.count_assigned_slots_for_scheme.return_value = 0
+        repository.list_active_arms_for_scheme.return_value = active_arms
+        repository.list_slots_for_scheme.return_value = []
+        repository.get_max_slot_sequence_no_for_scheme.return_value = 44
+        repository.build_slot.side_effect = lambda **kwargs: SimpleNamespace(**kwargs)
+        self.service.repository = repository
+
+        scheme = SimpleNamespace(
+            pk=55,
+            status=RandomizationSchemeStatusChoice.ACTIVE,
+            allocation_ratio_json={"ARM-A": 1},
+            target_randomized_total=2,
+        )
+
+        self.service.generate_slots_for_scheme_arm(
+            scheme=scheme,
+            arm=SimpleNamespace(arm_code="ARM-A"),
+        )
+
+        created_slots = repository.bulk_create_slots.call_args.args[0]
+        self.assertEqual([slot.sequence_no for slot in created_slots], [45, 46])
 
     def test_generate_slots_raises_when_ratio_contains_inactive_or_missing_arm(self):
         repository = MagicMock()

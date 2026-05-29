@@ -40,6 +40,8 @@ class StudyRandomizationSlotAssignmentService:
         subject_id: int,
         event_instance_id: int,
         actor_user_id: int | None = None,
+        scheme_id: int | None = None,
+        stratum_code: str | None = None,
     ) -> RandomizationSlotAssignment | None:
         if self.repository.active_scheme_requires_screening_pass(study_id=study_id):
             assessment = self.eligibility_repository.get_current_assessment(
@@ -61,6 +63,8 @@ class StudyRandomizationSlotAssignmentService:
                         event_instance_id=event_instance_id,
                         actor_user_id=actor_user_id,
                         now=now,
+                        scheme_id=scheme_id,
+                        stratum_code=stratum_code,
                         excluded_slot_ids=tuple(excluded_slot_ids),
                     )
             except DatabaseError:

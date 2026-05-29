@@ -13,7 +13,11 @@ from apps.subject.application.exceptions import (
 )
 from apps.subject.application.services import (
     AddRepeatingSubjectEventInstanceService,
+    CorrectSubjectMilestone,
+    CorrectSubjectMilestoneCommand,
     CreateSubjectService,
+    RandomizeSubject,
+    RandomizeSubjectCommand,
     SubjectEventCompletionService,
     SubjectEventInstanceResyncResult,
     SubjectEventInstanceResyncService,
@@ -36,6 +40,10 @@ __all__ = [
     "SubjectEventInstanceResyncService",
     "SubjectEventTransitionService",
     "SubjectWorkflowActionService",
+    "RandomizeSubject",
+    "RandomizeSubjectCommand",
+    "CorrectSubjectMilestone",
+    "CorrectSubjectMilestoneCommand",
     "SubjectFormVerificationRequestValidator",
     "SubjectUseCaseError",
     "SubjectValidationError",

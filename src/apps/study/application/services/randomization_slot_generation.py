@@ -165,7 +165,9 @@ class StudyRandomizationSlotGenerationService:
                 updated_at=now,
             )
 
-        max_sequence = max([int(getattr(slot, "sequence_no", 0) or 0) for slot in slots], default=0)
+        max_sequence = self.repository.get_max_slot_sequence_no_for_scheme(
+            scheme_id=scheme.pk,
+        )
         slots_to_create = []
         for arm_code, desired_available in desired_available_by_code.items():
             existing_available_count = len(available_slots_by_code.get(arm_code, []))

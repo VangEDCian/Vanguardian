@@ -1,9 +1,11 @@
+from django.db.models import Max
 from django.utils import timezone
 
 from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
 from apps.study.infrastructure.persistence.models import (
     RandomizationArm,
     RandomizationScheme,
+    RandomizationSequencePeriod,
     RandomizationSlot,
 )
 
@@ -164,6 +166,12 @@ class DjangoRandomizationRepository:
             deleted=False,
         ).order_by("sequence_no", "id")
 
+    def get_max_slot_sequence_no_for_scheme(self, *, scheme_id):
+        result = RandomizationSlot.objects.filter(
+            scheme_id=scheme_id,
+        ).aggregate(max_sequence_no=Max("sequence_no"))
+        return int(result["max_sequence_no"] or 0)
+
     def void_available_slots(self, *, slot_ids, updated_at):
         if not slot_ids:
             return 0
@@ -193,6 +201,8 @@ class DjangoRandomizationRepository:
         event_instance_id,
         actor_user_id,
         now,
+        scheme_id=None,
+        stratum_code=None,
         excluded_slot_ids=(),
     ):
         queryset = (
@@ -206,9 +216,13 @@ class DjangoRandomizationRepository:
                 status=RandomizationSlotStatusChoice.AVAILABLE,
             )
         )
+        if scheme_id is not None:
+            queryset = queryset.filter(scheme_id=scheme_id)
+        if stratum_code:
+            queryset = queryset.filter(stratum_code=stratum_code)
         if excluded_slot_ids:
             queryset = queryset.exclude(pk__in=excluded_slot_ids)
-        slot = queryset.order_by("?").first()
+        slot = queryset.order_by("sequence_no", "id").first()
         if slot is None:
             return None
 
@@ -233,3 +247,9 @@ class DjangoRandomizationRepository:
             "arm_name": slot.arm.arm_name,
             "sequence_no": slot.sequence_no,
         }
+
+    def list_sequence_periods_for_arm(self, *, arm_id):
+        return RandomizationSequencePeriod.objects.filter(
+            arm_id=arm_id,
+            deleted=False,
+        ).order_by("period_no", "display_order", "id")

@@ -11,7 +11,14 @@ from apps.subject.application.services.eligibility_workflow import (
     SubjectEventScopeSnapshot,
     SubjectScopeSnapshot,
 )
-from apps.subject.models import Subject, SubjectEventInstance, SubjectEventInstanceFile
+from apps.subject.models import (
+    Subject,
+    SubjectEventInstance,
+    SubjectEventInstanceFile,
+    SubjectMilestone,
+    SubjectPeriod,
+    SubjectPeriodMilestone,
+)
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 
@@ -187,6 +194,12 @@ def resync_subject_active_study_version(
     )
 
 
+def randomize_subject(**kwargs):
+    from apps.subject.application.services.randomize_subject import RandomizeSubject, RandomizeSubjectCommand
+
+    return RandomizeSubject().execute(RandomizeSubjectCommand(**kwargs))
+
+
 class SubjectEligibilityWorkflowAdapter:
     def __init__(self, workflow_service=None):
         self.workflow_service = workflow_service or SubjectEligibilityWorkflowService()
@@ -230,11 +243,15 @@ __all__ = [
     "SubjectEligibilityWorkflowAdapter",
     "SubjectEnrollmentTransitionResult",
     "SubjectEventScopeSnapshot",
+    "SubjectMilestone",
+    "SubjectPeriod",
+    "SubjectPeriodMilestone",
     "SubjectScopeSnapshot",
     "complete_subject_event_instance",
     "mark_subject_event_instance_in_progress",
     "resync_subject_active_study_version",
     "resync_subject_event_instances",
+    "randomize_subject",
     "trigger_subject_event_transition",
     "verify_subject_event_instance",
 ]

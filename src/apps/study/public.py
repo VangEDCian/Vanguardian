@@ -18,12 +18,43 @@ def assign_randomization_slot_for_subject(
     subject_id: int,
     event_instance_id: int,
     actor_user_id: int | None = None,
+    scheme_id: int | None = None,
+    stratum_code: str | None = None,
 ) -> RandomizationSlotAssignment | None:
     return StudyRandomizationSlotAssignmentService().assign_random_available_slot(
         study_id=study_id,
         subject_id=subject_id,
         event_instance_id=event_instance_id,
         actor_user_id=actor_user_id,
+        scheme_id=scheme_id,
+        stratum_code=stratum_code,
+    )
+
+
+def randomize_subject(**kwargs):
+    from apps.subject.application.services.randomize_subject import RandomizeSubject, RandomizeSubjectCommand
+
+    return RandomizeSubject().execute(RandomizeSubjectCommand(**kwargs))
+
+
+def get_subject_treatment_timeline(subject_id: int):
+    from apps.subject.application.services.treatment_timeline import SubjectTreatmentTimelineService
+
+    return SubjectTreatmentTimelineService().get_subject_treatment_timeline(subject_id=subject_id)
+
+
+def get_current_subject_treatment(
+    subject_id: int,
+    *,
+    event_instance_id: int | None = None,
+    as_of=None,
+):
+    from apps.subject.application.services.treatment_timeline import SubjectTreatmentTimelineService
+
+    return SubjectTreatmentTimelineService().get_current_subject_treatment(
+        subject_id=subject_id,
+        event_instance_id=event_instance_id,
+        as_of=as_of,
     )
 
 
@@ -70,5 +101,8 @@ __all__ = [
     "finalize_subject_eligibility_assessment",
     "mark_subject_eligibility_stale_on_source_data_change",
     "record_event_gate_evaluation",
+    "get_current_subject_treatment",
+    "get_subject_treatment_timeline",
+    "randomize_subject",
     "retract_subject_eligibility_assessment",
 ]

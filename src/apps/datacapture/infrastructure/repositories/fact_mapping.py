@@ -1,6 +1,6 @@
 from django.db.models import Count, Q
 
-from apps.datacapture.domain import (
+from apps.datacapture.infrastructure.models.capture import (
     DataCaptureEventFactContext,
     DataCaptureFactForm,
     DataCaptureFactMappingRule,

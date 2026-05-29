@@ -31,15 +31,14 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
             assigner.calls,
             [
                 {
-                    "study_id": 1,
                     "subject_id": 20,
                     "event_instance_id": 30,
-                    "actor_user_id": 99,
+                    "event_definition_id": 100,
+                    "actor_id": 99,
+                    "source": "workflow_action",
                 }
             ],
         )
-        self.assertEqual(repository.created_randomizations[0]["subject_id"], 20)
-        self.assertEqual(repository.created_randomizations[0]["assignment"].sequence_no, 42)
         self.assertEqual(repository.completed_events[0]["event_instance_id"], 30)
         self.assertEqual(repository.completed_events[0]["reason"], "randomization_assigned")
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 30)
@@ -79,8 +78,8 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(repository.created_randomizations, [])
 
     def test_existing_subject_randomization_is_idempotent(self):
-        repository = _WorkflowRepositoryStub(has_randomization=True)
-        assigner = _RandomizationSlotAssignerStub()
+        repository = _WorkflowRepositoryStub()
+        assigner = _RandomizationSlotAssignerStub(existing=True)
         transition_service = _TransitionServiceStub()
 
         with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
@@ -95,8 +94,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
 
         self.assertTrue(result.executed)
         self.assertEqual(result.reason, "subject_already_randomized")
-        self.assertEqual(assigner.calls, [])
-        self.assertEqual(repository.created_randomizations, [])
+        self.assertEqual(len(assigner.calls), 1)
         self.assertEqual(repository.completed_events[0]["event_instance_id"], 30)
         self.assertEqual(repository.completed_events[0]["reason"], "subject_already_randomized")
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 30)
@@ -294,8 +292,9 @@ class _WorkflowRepositoryStub:
 
 
 class _RandomizationSlotAssignerStub:
-    def __init__(self):
+    def __init__(self, *, existing=False):
         self.calls = []
+        self.existing = existing
 
     def __call__(self, **kwargs):
         self.calls.append(kwargs)
@@ -307,6 +306,7 @@ class _RandomizationSlotAssignerStub:
             arm_code="A",
             arm_name="Arm A",
             sequence_no=42,
+            randomization_event_id=None if self.existing else 1000,
         )
 
 

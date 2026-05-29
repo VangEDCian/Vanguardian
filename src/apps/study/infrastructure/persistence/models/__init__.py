@@ -1,4 +1,4 @@
-from .study import Study
+from .eligibility import SubjectEligibilityAssessment, SubjectEligibilityFailure
 from .events import (
     ConditionDefinition,
     EventDefinition,
@@ -7,13 +7,15 @@ from .events import (
     EventGateEvaluation,
     EventTransitionRule,
 )
-from .eligibility import SubjectEligibilityAssessment, SubjectEligibilityFailure
 from .randomization import (
-    RandomizationScheme,
     RandomizationArm,
+    RandomizationEvent,
+    RandomizationScheme,
+    RandomizationSequencePeriod,
     RandomizationSlot,
 )
 from .site import Site, SiteMembership
+from .study import Study
 
 __all__ = [
     "Study",
@@ -27,6 +29,8 @@ __all__ = [
     "SubjectEligibilityFailure",
     "RandomizationScheme",
     "RandomizationArm",
+    "RandomizationEvent",
+    "RandomizationSequencePeriod",
     "RandomizationSlot",
     "Site",
     "SiteMembership",
