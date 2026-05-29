@@ -5,6 +5,7 @@ __all__ = [
     "StudyRandomizationImportAuditService",
     "serialize_randomization_arm_snapshot",
     "serialize_randomization_scheme_snapshot",
+    "serialize_randomization_sequence_period_snapshot",
 ]
 
 
@@ -46,6 +47,37 @@ def serialize_randomization_arm_snapshot(arm):
         "is_active": getattr(arm, "is_active", None),
         "deleted": getattr(arm, "deleted", None),
         "notes": getattr(arm, "notes", None),
+    }
+
+
+def serialize_randomization_sequence_period_snapshot(sequence_period):
+    scheme_id = getattr(sequence_period, "scheme_id", None)
+    if scheme_id is None:
+        scheme = getattr(sequence_period, "scheme", None)
+        scheme_id = getattr(scheme, "pk", None)
+    arm_id = getattr(sequence_period, "arm_id", None)
+    if arm_id is None:
+        arm = getattr(sequence_period, "arm", None)
+        arm_id = getattr(arm, "pk", None)
+    start_event_definition_id = getattr(sequence_period, "start_event_definition_id", None)
+    if start_event_definition_id is None:
+        event_definition = getattr(sequence_period, "start_event_definition", None)
+        start_event_definition_id = getattr(event_definition, "pk", None)
+    end_event_definition_id = getattr(sequence_period, "end_event_definition_id", None)
+    if end_event_definition_id is None:
+        event_definition = getattr(sequence_period, "end_event_definition", None)
+        end_event_definition_id = getattr(event_definition, "pk", None)
+    return {
+        "scheme_id": scheme_id,
+        "arm_id": arm_id,
+        "period_no": getattr(sequence_period, "period_no", None),
+        "treatment_code": getattr(sequence_period, "treatment_code", None),
+        "start_event_definition_id": start_event_definition_id,
+        "end_event_definition_id": end_event_definition_id,
+        "washout_days": getattr(sequence_period, "washout_days", None),
+        "transition_rule_code": getattr(sequence_period, "transition_rule_code", None),
+        "display_order": getattr(sequence_period, "display_order", None),
+        "deleted": getattr(sequence_period, "deleted", None),
     }
 
 
@@ -93,6 +125,26 @@ class StudyRandomizationImportAuditService:
             actor_user_id=actor_user_id,
             before_data=before_data,
             after_data=serialize_randomization_arm_snapshot(arm),
+        )
+
+    def record_sequence_period_inserted_by_import(self, *, sequence_period, actor_user_id):
+        self.audit_context_adapter.record_event(
+            action=AuditEventActionEnum.STUDY_RANDOMIZATION_SEQUENCE_PERIOD_INSERTED_BY_IMPORT,
+            object_type=AuditEventObjectTypeEnum.STUDY_RANDOMIZATION_SEQUENCE_PERIOD,
+            object_id=str(sequence_period.pk),
+            actor_user_id=actor_user_id,
+            before_data={},
+            after_data=serialize_randomization_sequence_period_snapshot(sequence_period),
+        )
+
+    def record_sequence_period_updated_by_import(self, *, sequence_period, actor_user_id, before_data):
+        self.audit_context_adapter.record_event(
+            action=AuditEventActionEnum.STUDY_RANDOMIZATION_SEQUENCE_PERIOD_UPDATED_BY_IMPORT,
+            object_type=AuditEventObjectTypeEnum.STUDY_RANDOMIZATION_SEQUENCE_PERIOD,
+            object_id=str(sequence_period.pk),
+            actor_user_id=actor_user_id,
+            before_data=before_data,
+            after_data=serialize_randomization_sequence_period_snapshot(sequence_period),
         )
 
     def record_scheme_deleted(self, *, scheme, actor_user_id, before_data, deleted_slot_count, deleted_arm_count):

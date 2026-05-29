@@ -153,6 +153,29 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertEqual(sections[1]["fields"][0]["field_key"], "AETERM__repeat_2")
         self.assertEqual(sections[1]["fields"][0]["display_value"], "")
 
+    def test_extract_entry_payload_map_flattens_canonical_date_values(self):
+        payload = SubjectDetailView._extract_entry_payload_map(
+            """
+            {
+                "format": "edc.form_data.v1",
+                "groups": {
+                    "DEMOGRAPHICS": {
+                        "kind": "single",
+                        "items": {
+                            "AGE": "66",
+                            "DOB": "1960-05-25",
+                            "ICF_DATE": "2026-05-25",
+                            "SEX": "M"
+                        }
+                    }
+                }
+            }
+            """
+        )
+
+        self.assertEqual(payload["DOB"], "1960-05-25")
+        self.assertEqual(payload["ICF_DATE"], "2026-05-25")
+
     def test_repeat_table_section_groups_repeat_instances_as_rows(self):
         view = SubjectDetailView()
 
@@ -463,6 +486,7 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         self.assertIn('data-dateandtime-locale="vi"', rendered)
         self.assertIn('type="date"', rendered)
         self.assertIn('lang="vi"', rendered)
+        self.assertIn('value="2026-02-12"', rendered)
         self.assertNotIn("subject-date-picker__part", rendered)
 
     def test_datetime_control_uses_native_date_and_time_inputs(self):
@@ -491,6 +515,8 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         self.assertIn('type="date"', rendered)
         self.assertIn('type="time"', rendered)
         self.assertIn('lang="en"', rendered)
+        self.assertIn('value="2026-12-02"', rendered)
+        self.assertIn('value="09:30"', rendered)
         self.assertNotIn("subject-date-picker__part", rendered)
 
     def test_repeat_table_section_renders_headers_rows_and_add_button(self):

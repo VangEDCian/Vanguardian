@@ -1,6 +1,7 @@
 {% load subject_form_tags subject_field_validators %}
 {% subject_date_text_control_i18n as date_picker_i18n %}
 {% subject_date_validator_attrs field as date_validator_attrs %}
+{% subject_date_input_value field as date_input_value %}
 <div class="subject-date-text{% if field.classes %} {{ field.classes }}{% endif %}"
      data-dateandtime-control
      data-dateandtime-kind="date"
@@ -21,6 +22,6 @@
            data-dateandtime-kind="date"
            {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
            {{ date_validator_attrs }}
-           value=""
+           value="{{ date_input_value }}"
            aria-label="{{ field.label|default:field.field_key|default:date_picker_i18n.label }}">
 </div>

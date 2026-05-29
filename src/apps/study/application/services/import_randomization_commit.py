@@ -11,11 +11,13 @@ from apps.study.application.services.import_randomization_base import BaseRandom
 from apps.study.application.services.import_randomization_preview import (
     PreviewStudyRandomizationArmsImportService,
     PreviewStudyRandomizationSchemesImportService,
+    PreviewStudyRandomizationSequencePeriodsImportService,
 )
 from apps.study.application.services.randomization_audit import (
     StudyRandomizationImportAuditService,
     serialize_randomization_arm_snapshot,
     serialize_randomization_scheme_snapshot,
+    serialize_randomization_sequence_period_snapshot,
 )
 from apps.study.application.services.randomization_slot_generation import (
     RandomizationSlotGenerationError,
@@ -293,3 +295,114 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
                     ),
                 ),
             ) from exc
+
+
+class CommitStudyRandomizationSequencePeriodsImportService(BaseRandomizationImportValidationService):
+    preview_service_class = PreviewStudyRandomizationSequencePeriodsImportService
+    repository_class = DjangoRandomizationRepository
+    randomization_audit_service_class = StudyRandomizationImportAuditService
+
+    def __init__(
+        self,
+        preview_service=None,
+        randomization_audit_service=None,
+        repository=None,
+    ):
+        self.repository = repository or self.repository_class()
+        self.preview_service = preview_service or self.preview_service_class()
+        self.randomization_audit_service = (
+            randomization_audit_service or self.randomization_audit_service_class()
+        )
+
+    def execute(self, command: CommitRandomizationImportCommand) -> CommitRandomizationImportResult:
+        preview_result = self.preview_service.execute(
+            PreviewRandomizationImportCommand(
+                actor_user_id=command.actor_user_id,
+                study_id=command.study_id,
+                file_name=command.file_name,
+                file_content=command.file_content,
+            )
+        )
+        if preview_result.issues:
+            raise RandomizationImportValidationError(preview_result.issues)
+
+        created_count = 0
+        updated_count = 0
+        now = timezone.now()
+        scheme_map = self.repository.list_active_scheme_map(study_id=command.study_id)
+        arm_map = self.repository.list_arm_map(study_id=command.study_id)
+        event_definition_map = self.repository.list_event_definition_code_map(study_id=command.study_id)
+
+        with transaction.atomic():
+            for parsed_row in preview_result.parsed_rows:
+                outcome, sequence_period, before_data = self._upsert_sequence_period(
+                    parsed_row=parsed_row,
+                    scheme_map=scheme_map,
+                    arm_map=arm_map,
+                    event_definition_map=event_definition_map,
+                    now=now,
+                )
+                if outcome == "created":
+                    created_count += 1
+                    self.randomization_audit_service.record_sequence_period_inserted_by_import(
+                        sequence_period=sequence_period,
+                        actor_user_id=command.actor_user_id,
+                    )
+                else:
+                    updated_count += 1
+                    self.randomization_audit_service.record_sequence_period_updated_by_import(
+                        sequence_period=sequence_period,
+                        actor_user_id=command.actor_user_id,
+                        before_data=before_data,
+                    )
+
+        return CommitRandomizationImportResult(
+            total_rows=preview_result.total_rows,
+            created_count=created_count,
+            updated_count=updated_count,
+        )
+
+    def _upsert_sequence_period(self, *, parsed_row, scheme_map, arm_map, event_definition_map, now):
+        values = parsed_row.values
+        scheme_key = str(values["scheme_code"]).strip().lower()
+        arm_key = (scheme_key, str(values["arm_code"]).strip().lower())
+        scheme = scheme_map[scheme_key]
+        arm = arm_map[arm_key]
+        start_event_definition = PreviewStudyRandomizationSequencePeriodsImportService._resolve_event_definition(
+            values["start_event_code"],
+            event_definition_map=event_definition_map,
+        )
+        end_event_definition = PreviewStudyRandomizationSequencePeriodsImportService._resolve_event_definition(
+            values["end_event_code"],
+            event_definition_map=event_definition_map,
+        )
+        sequence_period = self.repository.get_sequence_period(
+            arm_id=arm.pk,
+            period_no=values["period_no"],
+        )
+        defaults = {
+            "scheme": scheme,
+            "arm": arm,
+            "treatment_code": values["treatment_code"],
+            "start_event_definition": start_event_definition,
+            "end_event_definition": end_event_definition,
+            "washout_days": self._optional_value(values, "washout_days"),
+            "transition_rule_code": self._optional_value(values, "transition_rule_code"),
+            "display_order": values["display_order"],
+            "deleted": False,
+            "updated_at": now,
+        }
+
+        if sequence_period is None:
+            sequence_period = self.repository.create_sequence_period(
+                period_no=values["period_no"],
+                created_at=now,
+                **defaults,
+            )
+            return "created", sequence_period, {}
+
+        before_data = serialize_randomization_sequence_period_snapshot(sequence_period)
+        for field_name, value in defaults.items():
+            setattr(sequence_period, field_name, value)
+        self.repository.save_sequence_period(sequence_period, update_fields=list(defaults.keys()))
+        return "updated", sequence_period, before_data

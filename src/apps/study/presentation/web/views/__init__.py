@@ -17,6 +17,8 @@ from apps.study.presentation.web.views.randomization import (
     StudyRandomizationArmImportPreviewView,
     StudyRandomizationSchemeImportCommitView,
     StudyRandomizationSchemeImportPreviewView,
+    StudyRandomizationSequencePeriodImportCommitView,
+    StudyRandomizationSequencePeriodImportPreviewView,
     StudyRandomizationView,
 )
 from apps.study.presentation.web.views.randomization_deletes import (
@@ -69,6 +71,8 @@ __all__ = [
     "StudyRandomizationSchemeDeleteView",
     "StudyRandomizationSchemeImportCommitView",
     "StudyRandomizationSchemeImportPreviewView",
+    "StudyRandomizationSequencePeriodImportCommitView",
+    "StudyRandomizationSequencePeriodImportPreviewView",
     "StudyRandomizationView",
     "StudyToggleStatusView",
     "StudyUpdateView",

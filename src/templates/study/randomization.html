@@ -64,6 +64,27 @@
             <section class="randomization-section">
                 <header class="randomization-section__header">
                     <div class="randomization-section__title-group">
+                        <h2 class="randomization-section__title">{% trans "Sequence Periods" %}</h2>
+                        <p class="randomization-section__description">
+                            {% trans "Treatment periods configured for each sequence arm." %}
+                        </p>
+                    </div>
+                    <div class="randomization-section__actions">
+                        <span class="randomization-section__count">{{ randomization_sequence_period_total }}</span>
+                        {% if can_manage_randomization_import %}
+                            <button type="button"
+                                    class="randomization-import-toggle"
+                                    data-modal-open="modal-import-randomization-sequence-periods">
+                                {% trans "Import By Template" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </header>
+                {% include "shared/components/_common_table.html" with headers=randomization_sequence_period_headers rows=randomization_sequence_period_rows empty_text=randomization_sequence_period_empty_text %}
+            </section>
+            <section class="randomization-section">
+                <header class="randomization-section__header">
+                    <div class="randomization-section__title-group">
                         <h2 class="randomization-section__title">{% trans "Randomization Slots" %}</h2>
                         <p class="randomization-section__description">
                             {% trans "Concrete assignment slots available for subject randomization." %}
@@ -101,6 +122,7 @@
         {% if can_manage_randomization_import %}
             {% include "study/components/_randomization_scheme_import_modal.html" %}
             {% include "study/components/_randomization_arm_import_modal.html" %}
+            {% include "study/components/_randomization_sequence_period_import_modal.html" %}
         {% endif %}
         <div id="scheme-import-modal"
              class="randomization-modal"

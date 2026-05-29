@@ -11,8 +11,10 @@ from apps.shared.views.generic import AuthenticateTemplateContextMixin, Authenti
 from apps.study.application import (
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,
+    CommitStudyRandomizationSequencePeriodsImportService,
     PreviewStudyRandomizationArmsImportService,
     PreviewStudyRandomizationSchemesImportService,
+    PreviewStudyRandomizationSequencePeriodsImportService,
     RandomizationImportDependencyError,
     RandomizationImportFormatError,
     RandomizationImportValidationError,
@@ -35,6 +37,8 @@ __all__ = [
     "StudyRandomizationSchemeImportCommitView",
     "StudyRandomizationArmImportPreviewView",
     "StudyRandomizationArmImportCommitView",
+    "StudyRandomizationSequencePeriodImportPreviewView",
+    "StudyRandomizationSequencePeriodImportCommitView",
 ]
 
 logger = logging.getLogger(__name__)
@@ -163,6 +167,14 @@ class StudyRandomizationView(
         )
         context["randomization_arm_commit_url"] = reverse(
             "study:study_randomization_arm_import_commit",
+            kwargs={"study_id": self._study.pk},
+        )
+        context["randomization_sequence_period_preview_url"] = reverse(
+            "study:study_randomization_sequence_period_import_preview",
+            kwargs={"study_id": self._study.pk},
+        )
+        context["randomization_sequence_period_commit_url"] = reverse(
+            "study:study_randomization_sequence_period_import_commit",
             kwargs={"study_id": self._study.pk},
         )
         context["randomization_page_url"] = reverse(
@@ -344,6 +356,22 @@ class StudyRandomizationArmImportPreviewView(StudyRandomizationImportBaseView):
     }
 
 
+class StudyRandomizationSequencePeriodImportPreviewView(StudyRandomizationImportBaseView):
+    preview_service_class = PreviewStudyRandomizationSequencePeriodsImportService
+    preview_title = _("Randomization Sequence Period Preview")
+    field_input_guidance = {
+        "Scheme Code": _("Existing scheme code in this study. Example: NNG31_XOVER"),
+        "Arm Code": _("Existing ARM code under the scheme. Example: SEQ_E_N"),
+        "Period No": _("Whole number used to order treatment periods. Example: 1"),
+        "Treatment Code": _("Treatment code, up to 64 characters. Example: EPREX_4000U"),
+        "Start Event Code": _("Existing event code. Multiple fallback codes can be separated by /."),
+        "End Event Code": _("Existing event code. Multiple fallback codes can be separated by /."),
+        "Washout Days": _("Optional whole number. Leave blank or use null when not applicable."),
+        "Transition Rule Code": _("Optional transition rule code. Leave blank or use null when not applicable."),
+        "Display Order": _("Whole number used for ordering. Example: 1"),
+    }
+
+
 class StudyRandomizationCommitBaseView(StudyRandomizationImportBaseView):
     commit_service_class = None
     success_message = _("Import completed successfully.")
@@ -430,4 +458,12 @@ class StudyRandomizationArmImportCommitView(StudyRandomizationCommitBaseView):
     field_input_guidance = StudyRandomizationArmImportPreviewView.field_input_guidance
     success_message = _(
         "Imported randomization arms successfully. Created: %(created_count)s. Updated: %(updated_count)s.",
+    )
+
+
+class StudyRandomizationSequencePeriodImportCommitView(StudyRandomizationCommitBaseView):
+    commit_service_class = CommitStudyRandomizationSequencePeriodsImportService
+    field_input_guidance = StudyRandomizationSequencePeriodImportPreviewView.field_input_guidance
+    success_message = _(
+        "Imported randomization sequence periods successfully. Created: %(created_count)s. Updated: %(updated_count)s.",
     )

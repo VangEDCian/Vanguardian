@@ -6,6 +6,7 @@ from apps.study.infrastructure.persistence.models import (
     EventTransitionRule,
     RandomizationArm,
     RandomizationScheme,
+    RandomizationSequencePeriod,
     RandomizationSlot,
     Site,
     Study,
@@ -87,6 +88,23 @@ class DjangoStudyDirectoryRepository:
                 deleted=False,
             )
             .order_by("scheme__code", "sequence_no", "id")
+        )
+
+    def list_randomization_sequence_periods(self, *, study_id):
+        return (
+            RandomizationSequencePeriod.objects.select_related(
+                "scheme",
+                "arm",
+                "start_event_definition",
+                "end_event_definition",
+            )
+            .filter(
+                scheme__study_id=study_id,
+                scheme__deleted=False,
+                arm__deleted=False,
+                deleted=False,
+            )
+            .order_by("scheme__code", "arm__display_order", "arm__arm_code", "period_no", "display_order", "id")
         )
 
     def get_site_model(self):

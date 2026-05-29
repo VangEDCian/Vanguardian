@@ -3,6 +3,7 @@ from django.utils import timezone
 
 from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
 from apps.study.infrastructure.persistence.models import (
+    EventDefinition,
     RandomizationArm,
     RandomizationScheme,
     RandomizationSequencePeriod,
@@ -125,6 +126,16 @@ class DjangoRandomizationRepository:
         return {
             (str(arm.scheme.code).strip().lower(), str(arm.arm_code).strip().lower()): arm
             for arm in self.list_arms_for_study(study_id=study_id)
+        }
+
+    def list_event_definition_code_map(self, *, study_id):
+        return {
+            str(event_definition.code).strip().lower(): event_definition
+            for event_definition in EventDefinition.objects.filter(
+                study_id=study_id,
+                deleted=False,
+                is_enabled=True,
+            )
         }
 
     def build_arm(self, **values):
@@ -253,3 +264,35 @@ class DjangoRandomizationRepository:
             arm_id=arm_id,
             deleted=False,
         ).order_by("period_no", "display_order", "id")
+
+    def list_sequence_period_map(self, *, study_id):
+        return {
+            (
+                str(sequence_period.scheme.code).strip().lower(),
+                str(sequence_period.arm.arm_code).strip().lower(),
+                sequence_period.period_no,
+            ): sequence_period
+            for sequence_period in RandomizationSequencePeriod.objects.select_related("scheme", "arm")
+            .filter(
+                scheme__study_id=study_id,
+                scheme__deleted=False,
+                arm__deleted=False,
+                deleted=False,
+            )
+        }
+
+    def get_sequence_period(self, *, arm_id, period_no):
+        return RandomizationSequencePeriod.objects.filter(
+            arm_id=arm_id,
+            period_no=period_no,
+        ).first()
+
+    def build_sequence_period(self, **values):
+        return RandomizationSequencePeriod(**values)
+
+    def create_sequence_period(self, **values):
+        return RandomizationSequencePeriod.objects.create(**values)
+
+    def save_sequence_period(self, sequence_period, *, update_fields):
+        sequence_period.save(update_fields=update_fields)
+        return sequence_period

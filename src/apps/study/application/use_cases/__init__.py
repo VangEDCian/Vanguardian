@@ -11,6 +11,7 @@ from apps.study.application.use_cases.randomization_import_preview import (
     RandomizationImportPreviewResult,
     RandomizationImportPreviewRow,
     RandomizationSchemeImportPreviewUseCase,
+    RandomizationSequencePeriodImportPreviewUseCase,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "RandomizationImportFormatError",
     "RandomizationSchemeImportPreviewUseCase",
     "RandomizationArmImportPreviewUseCase",
+    "RandomizationSequencePeriodImportPreviewUseCase",
 ]

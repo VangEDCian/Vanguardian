@@ -40,6 +40,19 @@ class StudyRandomizationDirectoryQueryService:
         {"label": _("CREATED AT")},
         {"label": _("UPDATED AT")},
     )
+    randomization_sequence_period_headers = (
+        {"label": _("SCHEME")},
+        {"label": _("ARM")},
+        {"label": _("PERIOD")},
+        {"label": _("TREATMENT")},
+        {"label": _("START EVENT")},
+        {"label": _("END EVENT")},
+        {"label": _("WASHOUT DAYS")},
+        {"label": _("TRANSITION RULE")},
+        {"label": _("ORDER")},
+        {"label": _("CREATED AT")},
+        {"label": _("UPDATED AT")},
+    )
     randomization_slot_headers = (
         {"label": _("SCHEME")},
         {"label": _("SEQUENCE")},
@@ -57,6 +70,7 @@ class StudyRandomizationDirectoryQueryService:
     def get_overview(self, *, study_id):
         schemes = list(self.repository.list_randomization_schemes(study_id=study_id))
         arms = list(self.repository.list_randomization_arms(study_id=study_id))
+        sequence_periods = list(self.repository.list_randomization_sequence_periods(study_id=study_id))
         slots = list(self.repository.list_randomization_slots(study_id=study_id))
 
         return {
@@ -73,6 +87,15 @@ class StudyRandomizationDirectoryQueryService:
             "randomization_arm_total": len(arms),
             "randomization_arm_empty_text": _(
                 "No randomization arms have been configured for this study."
+            ),
+            "randomization_sequence_period_headers": self.randomization_sequence_period_headers,
+            "randomization_sequence_period_rows": [
+                self._build_sequence_period_row(sequence_period)
+                for sequence_period in sequence_periods
+            ],
+            "randomization_sequence_period_total": len(sequence_periods),
+            "randomization_sequence_period_empty_text": _(
+                "No randomization sequence periods have been configured for this study."
             ),
             "randomization_slot_headers": self.randomization_slot_headers,
             "randomization_slot_rows": [self._build_slot_row(slot) for slot in slots],
@@ -127,6 +150,40 @@ class StudyRandomizationDirectoryQueryService:
                 ),
                 self._build_datetime_cell(scheme.created_at),
                 self._build_datetime_cell(scheme.updated_at),
+            ],
+        }
+
+    def _build_sequence_period_row(self, sequence_period):
+        return {
+            "selection_value": sequence_period.pk,
+            "cells": [
+                self._build_text_cell(sequence_period.scheme.code if sequence_period.scheme_id else ""),
+                self._build_text_cell(sequence_period.arm.arm_code if sequence_period.arm_id else ""),
+                self._build_text_cell(str(sequence_period.period_no)),
+                {
+                    "kind": "text",
+                    "value": sequence_period.treatment_code,
+                    "column_class": "entity-table__primary",
+                },
+                self._build_text_cell(
+                    sequence_period.start_event_definition.code
+                    if sequence_period.start_event_definition_id
+                    else "",
+                ),
+                self._build_text_cell(
+                    sequence_period.end_event_definition.code
+                    if sequence_period.end_event_definition_id
+                    else "",
+                ),
+                self._build_text_cell(
+                    str(sequence_period.washout_days)
+                    if sequence_period.washout_days is not None
+                    else "",
+                ),
+                self._build_text_cell(sequence_period.transition_rule_code),
+                self._build_text_cell(str(sequence_period.display_order)),
+                self._build_datetime_cell(sequence_period.created_at),
+                self._build_datetime_cell(sequence_period.updated_at),
             ],
         }
 

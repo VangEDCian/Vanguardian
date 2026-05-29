@@ -39,6 +39,8 @@ class AuditEventActionEnum(enum.Enum):
     STUDY_RANDOMIZATION_ARM_INSERTED_BY_IMPORT = "study.randomization_arm.inserted_by_import"
     STUDY_RANDOMIZATION_ARM_UPDATED_BY_IMPORT = "study.randomization_arm.updated_by_import"
     STUDY_RANDOMIZATION_ARM_DELETED = "study.randomization_arm.deleted"
+    STUDY_RANDOMIZATION_SEQUENCE_PERIOD_INSERTED_BY_IMPORT = "study.randomization_sequence_period.inserted_by_import"
+    STUDY_RANDOMIZATION_SEQUENCE_PERIOD_UPDATED_BY_IMPORT = "study.randomization_sequence_period.updated_by_import"
     ELIGIBILITY_ASSESSMENT_DRAFTED = "study.subject_eligibility_assessment.drafted"
     ELIGIBILITY_ASSESSMENT_FINALIZED = "study.subject_eligibility_assessment.finalized"
     ELIGIBILITY_ASSESSMENT_SUPERSEDED = "study.subject_eligibility_assessment.superseded"
@@ -55,6 +57,7 @@ class AuditEventObjectTypeEnum(enum.Enum):
 
     STUDY_RANDOMIZATION_SCHEME = "study.randomization_scheme"
     STUDY_RANDOMIZATION_ARM = "study.randomization_arm"
+    STUDY_RANDOMIZATION_SEQUENCE_PERIOD = "study.randomization_sequence_period"
     SUBJECT_ELIGIBILITY_ASSESSMENT = "study_subject_eligibility_assessment"
     SUBJECT_ENROLLMENT = "study_subject_enrollment"
     EVENT_GATE_EVALUATION = "study_event_gate_evaluation"

@@ -78,7 +78,7 @@ class SubjectListView(
                     distinct=True,
                 ),
             )
-            .select_related("site", "study", "enrollment", "randomization")
+            .select_related("site", "study", "enrollment", "randomization", "randomization__arm")
             .order_by("current_sequence", "id")
         )
 

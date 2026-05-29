@@ -266,6 +266,39 @@ def subject_time_control_i18n():
     return subject_control_i18n("TIME")
 
 
+def _normalize_date_input_value(raw_value):
+    if isinstance(raw_value, dict):
+        raw_value = raw_value.get("__date") or raw_value.get("date") or raw_value.get("value") or ""
+    text = str(raw_value or "").strip()
+    if not text:
+        return ""
+
+    match = re.search(r"(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})", text)
+    if not match:
+        return ""
+    try:
+        year = int(match.group("year"))
+        month = int(match.group("month"))
+        day = int(match.group("day"))
+    except (TypeError, ValueError):
+        return ""
+    if year < 1 or month < 1 or month > 12 or day < 1 or day > 31:
+        return ""
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+@register.simple_tag
+def subject_date_input_value(field):
+    if not isinstance(field, dict):
+        return ""
+    normalized_value = _normalize_date_input_value(field.get("value"))
+    if normalized_value:
+        return normalized_value
+    return _normalize_date_input_value(
+        f"{field.get('date_year') or ''}-{field.get('date_month') or ''}-{field.get('date_day') or ''}"
+    )
+
+
 def _normalize_time_input_value(raw_value):
     if isinstance(raw_value, dict):
         raw_value = raw_value.get("__time") or raw_value.get("time") or ""
@@ -296,7 +329,10 @@ def _normalize_time_input_value(raw_value):
 def subject_time_input_value(field):
     if not isinstance(field, dict):
         return ""
-    return _normalize_time_input_value(field.get("value"))
+    normalized_value = _normalize_time_input_value(field.get("value"))
+    if normalized_value:
+        return normalized_value
+    return _normalize_time_input_value(field.get("date_time"))
 
 
 @register.simple_tag

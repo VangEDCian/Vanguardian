@@ -18,7 +18,9 @@ from apps.study.application.commands.import_randomization import (
 from apps.study.application.services import (
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,
+    CommitStudyRandomizationSequencePeriodsImportService,
     PreviewStudyRandomizationArmsImportService,
+    PreviewStudyRandomizationSequencePeriodsImportService,
 )
 from apps.study.application.services.randomization_slot_generation import (
     RandomizationSlotGenerationError,
@@ -29,6 +31,7 @@ from apps.study.application.use_cases.randomization_import_preview import (
     RandomizationImportParsedRow,
     RandomizationImportPreviewResult,
     RandomizationSchemeImportPreviewUseCase,
+    RandomizationSequencePeriodImportPreviewUseCase,
 )
 from apps.study.presentation.web.views.randomization import (
     StudyRandomizationCommitBaseView,
@@ -148,6 +151,68 @@ class RandomizationArmImportPreviewTests(SimpleTestCase):
         self.assertEqual(len(result.issues), 1)
         self.assertEqual(result.issues[0].column_label, "Scheme Code")
         self.assertIn("SCH-MISSING", result.issues[0].reason)
+
+
+class RandomizationSequencePeriodImportPreviewTests(SimpleTestCase):
+    def test_static_template_headers_match_expected_columns(self):
+        workbook = load_workbook(
+            Path(__file__).resolve().parents[2] / "src/staticfiles/study/templates/randomization_sequence_periods_template.xlsx",
+            read_only=True,
+        )
+        worksheet = workbook.worksheets[0]
+        headers = list(next(worksheet.iter_rows(values_only=True)))
+
+        self.assertEqual(
+            [str(header).strip() for header in headers],
+            [column.label.strip() for column in RandomizationSequencePeriodImportPreviewUseCase.columns],
+        )
+
+    def test_execute_parses_csv_and_normalizes_null_optional_values(self):
+        result = RandomizationSequencePeriodImportPreviewUseCase().execute(
+            file_name="sequence_periods.csv",
+            file_content="\n".join(
+                [
+                    "Scheme Code,Arm Code,Period No,Treatment Code,Start Event Code,End Event Code,Washout Days,Transition Rule Code,Display Order",
+                    "NNG31_XOVER,SEQ_E_N,2,NANOKINE,V11 / V11_D29,V20 / V20_D42,null,null,2",
+                ]
+            ).encode("utf-8"),
+        )
+
+        self.assertEqual(result.issues, ())
+        self.assertEqual(result.parsed_rows[0].values["period_no"], 2)
+        self.assertEqual(result.parsed_rows[0].values["washout_days"], "")
+        self.assertEqual(result.parsed_rows[0].values["transition_rule_code"], "")
+
+    def test_preview_service_resolves_event_code_candidates_and_reports_missing_arm(self):
+        repository = MagicMock()
+        repository.list_active_scheme_map.return_value = {"nng31_xover": SimpleNamespace(pk=1, code="NNG31_XOVER")}
+        repository.list_arm_map.return_value = {}
+        repository.list_event_definition_code_map.return_value = {
+            "v1_d1": SimpleNamespace(pk=11, code="V1_D1"),
+            "v10": SimpleNamespace(pk=20, code="V10"),
+        }
+        repository.list_sequence_period_map.return_value = {}
+        repository.build_sequence_period.return_value = SimpleNamespace(full_clean=MagicMock())
+
+        preview_service = PreviewStudyRandomizationSequencePeriodsImportService(repository=repository)
+        command = PreviewRandomizationImportCommand(
+            actor_user_id=9,
+            study_id=3,
+            file_name="sequence_periods.csv",
+            file_content="\n".join(
+                [
+                    "Scheme Code,Arm Code,Period No,Treatment Code,Start Event Code,End Event Code,Washout Days,Transition Rule Code,Display Order",
+                    "NNG31_XOVER,SEQ_E_N,1,EPREX_4000U,V1 / V1_D1,V10,28,after_washout,1",
+                ]
+            ).encode("utf-8"),
+        )
+
+        result = preview_service.execute(command)
+
+        self.assertEqual(result.total_rows, 1)
+        self.assertEqual(len(result.issues), 1)
+        self.assertEqual(result.issues[0].column_label, "Arm Code")
+        self.assertIn("SEQ_E_N", result.issues[0].reason)
 
 
 class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
@@ -551,6 +616,143 @@ class CommitStudyRandomizationArmsImportServiceTests(SimpleTestCase):
         self.assertEqual(exc_info.exception.issues[0].row_number, 2)
         self.assertEqual(exc_info.exception.issues[0].column_label, "Scheme Code")
         self.assertIn("B", exc_info.exception.issues[0].reason)
+
+
+class CommitStudyRandomizationSequencePeriodsImportServiceTests(SimpleTestCase):
+    def setUp(self):
+        self.service = CommitStudyRandomizationSequencePeriodsImportService()
+        self.command = CommitRandomizationImportCommand(
+            actor_user_id=9,
+            study_id=3,
+            file_name="sequence_periods.xlsx",
+            file_content=b"xlsx",
+        )
+
+    def test_execute_raises_validation_error_when_preview_has_issues(self):
+        preview_result = RandomizationImportPreviewResult(
+            columns=(),
+            preview_rows=(),
+            parsed_rows=(),
+            total_rows=1,
+            issues=(
+                RandomizationImportIssue(
+                    row_number=2,
+                    identifier="NNG31_XOVER / SEQ_E_N / 1",
+                    column_label="Start Event Code",
+                    reason="Start Event Code did not match any enabled event definition in this study.",
+                ),
+            ),
+        )
+        self.service.preview_service = MagicMock()
+        self.service.preview_service.execute.return_value = preview_result
+
+        with self.assertRaises(RandomizationImportValidationError):
+            self.service.execute(self.command)
+
+    @patch("apps.study.application.services.import_randomization_commit.transaction.atomic")
+    def test_execute_counts_created_and_updated_rows(self, mock_atomic):
+        mock_atomic.return_value.__enter__.return_value = None
+        mock_atomic.return_value.__exit__.return_value = None
+        preview_result = RandomizationImportPreviewResult(
+            columns=(),
+            preview_rows=(),
+            parsed_rows=(
+                RandomizationImportParsedRow(
+                    2,
+                    "NNG31_XOVER / SEQ_E_N / 1",
+                    {"scheme_code": "NNG31_XOVER", "arm_code": "SEQ_E_N", "period_no": 1},
+                ),
+                RandomizationImportParsedRow(
+                    3,
+                    "NNG31_XOVER / SEQ_E_N / 2",
+                    {"scheme_code": "NNG31_XOVER", "arm_code": "SEQ_E_N", "period_no": 2},
+                ),
+            ),
+            total_rows=2,
+            issues=(),
+        )
+        self.service.preview_service = MagicMock()
+        self.service.preview_service.execute.return_value = preview_result
+        self.service.repository = MagicMock()
+        self.service.repository.list_active_scheme_map.return_value = {}
+        self.service.repository.list_arm_map.return_value = {}
+        self.service.repository.list_event_definition_code_map.return_value = {}
+        created_period = SimpleNamespace(pk=301)
+        updated_period = SimpleNamespace(pk=302)
+        self.service._upsert_sequence_period = MagicMock(
+            side_effect=[
+                ("created", created_period, {}),
+                ("updated", updated_period, {"period_no": 2}),
+            ]
+        )
+        self.service.randomization_audit_service = MagicMock()
+
+        result = self.service.execute(self.command)
+
+        self.assertEqual(result.total_rows, 2)
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.updated_count, 1)
+        self.service.randomization_audit_service.record_sequence_period_inserted_by_import.assert_called_once_with(
+            sequence_period=created_period,
+            actor_user_id=9,
+        )
+        self.service.randomization_audit_service.record_sequence_period_updated_by_import.assert_called_once_with(
+            sequence_period=updated_period,
+            actor_user_id=9,
+            before_data={"period_no": 2},
+        )
+
+    def test_upsert_sequence_period_create_uses_expected_payload(self):
+        repository = MagicMock()
+        repository.get_sequence_period.return_value = None
+        scheme = SimpleNamespace(pk=11)
+        arm = SimpleNamespace(pk=21)
+        start_event = SimpleNamespace(pk=31, code="V1_D1")
+        end_event = SimpleNamespace(pk=41, code="V10")
+        service = CommitStudyRandomizationSequencePeriodsImportService(repository=repository)
+        parsed_row = RandomizationImportParsedRow(
+            row_number=2,
+            identifier="NNG31_XOVER / SEQ_E_N / 1",
+            values={
+                "scheme_code": "NNG31_XOVER",
+                "arm_code": "SEQ_E_N",
+                "period_no": 1,
+                "treatment_code": "EPREX_4000U",
+                "start_event_code": "V1 / V1_D1",
+                "end_event_code": "V10 / V10_D14",
+                "washout_days": 28,
+                "transition_rule_code": "after_washout",
+                "display_order": 1,
+            },
+        )
+
+        outcome = service._upsert_sequence_period(
+            parsed_row=parsed_row,
+            scheme_map={"nng31_xover": scheme},
+            arm_map={("nng31_xover", "seq_e_n"): arm},
+            event_definition_map={
+                "v1_d1": start_event,
+                "v10": end_event,
+            },
+            now=ANY,
+        )
+
+        self.assertEqual(outcome[0], "created")
+        self.assertEqual(outcome[2], {})
+        repository.create_sequence_period.assert_called_once_with(
+            period_no=1,
+            created_at=ANY,
+            scheme=scheme,
+            arm=arm,
+            treatment_code="EPREX_4000U",
+            start_event_definition=start_event,
+            end_event_definition=end_event,
+            washout_days=28,
+            transition_rule_code="after_washout",
+            display_order=1,
+            deleted=False,
+            updated_at=ANY,
+        )
 
 
 class StudyRandomizationImportBaseViewTests(SimpleTestCase):

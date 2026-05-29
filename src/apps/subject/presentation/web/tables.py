@@ -35,6 +35,11 @@ class SubjectListTable(tables.Table):
         verbose_name=_("Randomization"),
         orderable=False,
     )
+    arm = tables.Column(
+        empty_values=(),
+        verbose_name=_("ARM"),
+        orderable=False,
+    )
     completion = tables.Column(
         empty_values=(),
         verbose_name=_("Completion"),
@@ -92,6 +97,13 @@ class SubjectListTable(tables.Table):
             return "—"
         return date_format(created_at, "DATETIME_FORMAT") if created_at else "—"
 
+    def render_arm(self, record):
+        try:
+            arm_name = record.randomization.arm.arm_name
+        except (AttributeError, ObjectDoesNotExist):
+            return "—"
+        return arm_name or "—"
+
     @staticmethod
     def render_completion(record):
         return "—"
@@ -112,6 +124,7 @@ class SubjectListTable(tables.Table):
             "screening",
             "enrollment",
             "randomization",
+            "arm",
             "completion",
             "open_queries",
             "validation_issues",
