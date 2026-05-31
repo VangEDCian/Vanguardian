@@ -2,10 +2,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase
 from django.urls import resolve, reverse
 
 from apps.reconcile.application.services.query_workbench import QueryWorkbenchReader
+from apps.reconcile.presentation.api.views import QueryLifecycleActionAPIView
 from apps.reconcile.presentation.web.views import QueryWorkbenchView
 
 
@@ -34,9 +35,15 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
             )
         }
         repository = _WorkbenchRepository()
-        with patch(
-            "apps.datacapture.public.list_page_state_contexts_for_study_site",
-            return_value=contexts,
+        with (
+            patch(
+                "apps.datacapture.public.list_page_state_contexts_for_study_site",
+                return_value=contexts,
+            ),
+            patch(
+                "apps.identity.public.get_user_display_map",
+                return_value={8: "CRA Reviewer", 9: "Site User"},
+            ),
         ):
             result = QueryWorkbenchReader(repository=repository).read(
                 study_id=1,
@@ -96,9 +103,15 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
                 }
             ]
         )
-        with patch(
-            "apps.datacapture.public.list_page_state_contexts_for_study_site",
-            return_value=contexts,
+        with (
+            patch(
+                "apps.datacapture.public.list_page_state_contexts_for_study_site",
+                return_value=contexts,
+            ),
+            patch(
+                "apps.identity.public.get_user_display_map",
+                return_value={8: "CRA Reviewer", 9: "Site User"},
+            ),
         ):
             result = QueryWorkbenchReader(repository=repository).read(
                 study_id=1,
@@ -116,7 +129,92 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
         self.assertEqual(result.items[0].pending_with, "CRA / Data Manager")
         self.assertEqual(result.items[0].reply_count, 3)
         self.assertEqual(result.items[0].subject_code, "SUBJ-001")
+        self.assertEqual(result.items[0].subject_display_code, "SUBJ-001")
+        self.assertEqual(result.items[0].assigned_to_display, "CRA Reviewer")
+        self.assertEqual(result.items[0].opened_by_display, "Site User")
         self.assertEqual(result.items[0].field_label_or_path, "Weight")
+        self.assertEqual(
+            result.items[0].review_focus_url,
+            "/studies/1/subjects/3/?mode=verification&event=4&form=5",
+        )
+
+    def test_reader_subject_display_falls_back_to_screening_code(self):
+        contexts = {
+            10: SimpleNamespace(
+                page_state_id=10,
+                study_id=1,
+                site_id=2,
+                subject_id=3,
+                subject_code="",
+                screening_code="SCR-001",
+                event_instance_id=4,
+                event_code="VISIT1",
+                event_label="Visit 1",
+                crf_page_label="Vitals",
+                page_template_id=5,
+            )
+        }
+        repository = _WorkbenchRepository(rows=[_query_row()])
+        with (
+            patch(
+                "apps.datacapture.public.list_page_state_contexts_for_study_site",
+                return_value=contexts,
+            ),
+            patch("apps.identity.public.get_user_display_map", return_value={}),
+        ):
+            result = QueryWorkbenchReader(repository=repository).read(
+                study_id=1,
+                site_id=2,
+                current_user_id=9,
+                can_view_internal_thread=False,
+            )
+
+        self.assertEqual(result.items[0].subject_display_code, "SCR-001")
+
+    def test_reader_maps_detail_thread_authors_to_display_name(self):
+        contexts = {
+            10: SimpleNamespace(
+                page_state_id=10,
+                study_id=1,
+                site_id=2,
+                subject_id=3,
+                subject_code="SUBJ-001",
+                screening_code="SCR-001",
+                event_instance_id=4,
+                event_code="VISIT1",
+                event_label="Visit 1",
+                crf_page_label="Vitals",
+                page_template_id=5,
+            )
+        }
+        repository = _WorkbenchRepository(
+            rows=[_query_row()],
+            threads=[
+                {
+                    "id": 301,
+                    "message_text": "Please confirm",
+                    "message_type": "comment",
+                    "visibility": "site",
+                    "source": "manual",
+                    "author_id": 8,
+                    "created_at": None,
+                }
+            ],
+        )
+        with (
+            patch("apps.datacapture.public.get_page_state_contexts", return_value=contexts),
+            patch(
+                "apps.identity.public.get_user_display_map",
+                return_value={8: "CRA Reviewer", 9: "Site User"},
+            ),
+        ):
+            query, threads = QueryWorkbenchReader(repository=repository).read_detail(
+                query_id=11,
+                can_view_internal_thread=False,
+            )
+
+        self.assertEqual(query.assigned_to_display, "CRA Reviewer")
+        self.assertEqual(threads[0].author_display, "CRA Reviewer")
 
     def test_reconcile_application_uses_datacapture_public_contract(self):
         source = Path("src/apps/reconcile/application/services/query_workbench.py").read_text()
@@ -132,6 +230,16 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
 
         self.assertEqual(match.func.view_class, QueryWorkbenchView)
 
+    def test_query_lifecycle_api_route_resolves(self):
+        match = resolve(
+            reverse(
+                "reconcile_api:query_action",
+                kwargs={"study_id": 1, "query_id": 2, "action": "resolve"},
+            )
+        )
+
+        self.assertEqual(match.func.view_class, QueryLifecycleActionAPIView)
+
     def test_query_nav_is_rendered_after_subjects(self):
         layout_source = Path("src/templates/shared/_layout.html").read_text()
 
@@ -141,10 +249,150 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
         self.assertLess(subject_index, query_index)
         self.assertLess(query_index, sites_index)
 
+    def test_query_detail_uses_shared_dashboard_breadcrumb(self):
+        detail_source = Path("src/templates/reconcile/query_detail.html").read_text()
+
+        self.assertIn("block dashboard_breadcrumb_prefix", detail_source)
+        self.assertIn("dashboard-breadcrumb__back", detail_source)
+        self.assertNotIn("query-detail__header", detail_source)
+        self.assertIn("query-detail__field-alias", detail_source)
+        self.assertIn("query.review_focus_url", detail_source)
+        self.assertNotIn("Field Path", detail_source)
+
+
+class QueryLifecycleActionAPIViewTests(SimpleTestCase):
+    def test_post_resolve_maps_to_reconcile_public_api(self):
+        request = RequestFactory().post(
+            "/api/studies/1/queries/2/resolve/",
+            data='{"message_text": "Confirmed"}',
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda permission: False)
+        context = SimpleNamespace(study_id=1, site_id=9)
+
+        with (
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.get_page_state_contexts",
+                return_value={33: context},
+            ),
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.user_can_access_permission",
+                return_value=True,
+            ) as can_access,
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.ReconcileDataQueryWriteService",
+                return_value=_QueryActionServiceStub(
+                    scope={
+                        "dataquery_id": 2,
+                        "page_state_id": 33,
+                        "field_template_id": 44,
+                        "status": "answered",
+                    },
+                    result={
+                        "changed": True,
+                        "status": "resolved",
+                        "message_text": "Confirmed",
+                        "message_type": "resolution",
+                    },
+                ),
+            ) as service_class,
+        ):
+            response = QueryLifecycleActionAPIView().post(
+                request,
+                study_id=1,
+                query_id=2,
+                action="resolve",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        can_access.assert_called_once_with(
+            request.user,
+            "reconcile.resolve_dataquery",
+            study_id=1,
+            site_id=9,
+        )
+        service = service_class.return_value
+        self.assertEqual(
+            service.resolve_kwargs,
+            {
+                "dataquery_id": 2,
+                "page_state_id": 33,
+                "field_template_id": 44,
+                "message_text": "Confirmed",
+                "actor_user_id": 7,
+            },
+        )
+
+    def test_post_rejects_action_for_wrong_status(self):
+        request = RequestFactory().post(
+            "/api/studies/1/queries/2/close/",
+            data="{}",
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda permission: False)
+
+        with (
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.get_page_state_contexts",
+                return_value={33: SimpleNamespace(study_id=1, site_id=9)},
+            ),
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.user_can_access_permission",
+                return_value=True,
+            ),
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.ReconcileDataQueryWriteService",
+                return_value=_QueryActionServiceStub(
+                    scope={
+                        "dataquery_id": 2,
+                        "page_state_id": 33,
+                        "field_template_id": 44,
+                        "status": "open",
+                    },
+                    result={},
+                ),
+            ),
+        ):
+            response = QueryLifecycleActionAPIView().post(
+                request,
+                study_id=1,
+                query_id=2,
+                action="close",
+            )
+
+        self.assertEqual(response.status_code, 400)
+
+
+class _QueryActionServiceStub:
+    def __init__(self, *, scope, result):
+        self.scope = scope
+        self.result = result
+
+    def query_action_scope(self, *, dataquery_id):
+        self.scope_query_id = dataquery_id
+        return self.scope
+
+    def resolve_query(self, **kwargs):
+        self.resolve_kwargs = kwargs
+        return self.result
+
+    def reply_to_query(self, **kwargs):
+        self.answer_kwargs = kwargs
+        return self.result
+
+    def close_resolved_query(self, **kwargs):
+        self.close_kwargs = kwargs
+        return self.result
+
+    def reopen_query(self, **kwargs):
+        self.reopen_kwargs = kwargs
+        return self.result
+
 
 class _WorkbenchRepository:
-    def __init__(self, rows=None):
+    def __init__(self, rows=None, threads=None):
         self.rows = rows or []
+        self.threads = threads or []
         self.last_query_kwargs = None
 
     def summarize_workbench(self, *, page_state_ids):
@@ -166,6 +414,12 @@ class _WorkbenchRepository:
             return []
         return self.rows
 
+    def get_workbench_query_detail(self, *, query_id, can_view_internal_thread):
+        for row in self.rows:
+            if row["query_id"] == query_id:
+                return {**row, "threads": self.threads}
+        return None
+
     def list_workbench_validation_issues(self, **kwargs):
         return [
             {
@@ -179,3 +433,28 @@ class _WorkbenchRepository:
                 "resolved_at": None,
             }
         ]
+
+
+def _query_row():
+    return {
+        "query_id": 11,
+        "page_state_id": 10,
+        "status": "answered",
+        "source": "manual",
+        "query_type": "manual",
+        "severity": "major",
+        "is_blocking": True,
+        "question_text": "Please confirm the weight value",
+        "resolution_note": "",
+        "field_path": "$.weight",
+        "value_snapshot": "72",
+        "opened_at": None,
+        "answered_at": None,
+        "resolved_at": None,
+        "closed_at": None,
+        "last_activity_at": None,
+        "reply_count": 3,
+        "assigned_to_id": 8,
+        "opened_by_id": 9,
+        "field_label": "Weight",
+    }

@@ -14,38 +14,51 @@
         <a href="{{ record.detail_url }}"
            class="crf-template-actions__item"
            data-dropdown-option>{% trans "View" %}</a>
-        {% comment %} TODO: enable these after reconcile lifecycle command services write query thread and audit events. {% endcomment %}
-        <button type="button"
-                class="crf-template-actions__item"
-                disabled
-                aria-disabled="true"
-                data-dropdown-option
-                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
-            {% trans "Answer" %}
-        </button>
-        <button type="button"
-                class="crf-template-actions__item"
-                disabled
-                aria-disabled="true"
-                data-dropdown-option
-                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
-            {% trans "Resolve" %}
-        </button>
-        <button type="button"
-                class="crf-template-actions__item"
-                disabled
-                aria-disabled="true"
-                data-dropdown-option
-                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
-            {% trans "Close" %}
-        </button>
-        <button type="button"
-                class="crf-template-actions__item"
-                disabled
-                aria-disabled="true"
-                data-dropdown-option
-                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
-            {% trans "Reopen" %}
-        </button>
+        {% with status=record.status|lower %}
+            {% if can_answer_dataquery and status == "open" or can_answer_dataquery and status == "reopened" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='answer' as answer_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="answer"
+                        data-query-action-url="{{ answer_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Answer" %}</button>
+            {% endif %}
+            {% if can_resolve_dataquery and status == "answered" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='resolve' as resolve_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="resolve"
+                        data-query-action-url="{{ resolve_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Resolve" %}</button>
+            {% endif %}
+            {% if can_close_dataquery and status == "resolved" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='close' as close_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="close"
+                        data-query-action-url="{{ close_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Close" %}</button>
+            {% endif %}
+            {% if can_reopen_dataquery and status == "resolved" or can_reopen_dataquery and status == "closed" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='reopen' as reopen_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="reopen"
+                        data-query-action-url="{{ reopen_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Reopen" %}</button>
+            {% endif %}
+        {% endwith %}
     </div>
 </div>

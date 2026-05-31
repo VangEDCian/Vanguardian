@@ -216,6 +216,24 @@
           showNotification(normalizeErrorMessage(result), 'error');
           return;
         }
+        const staleReviewFields = Array.isArray(result.data.stale_review_fields)
+          ? result.data.stale_review_fields
+          : [];
+        if (staleReviewFields.length > 0) {
+          const staleMessage = staleReviewFields
+            .map(function (field) {
+              return String(field && field.message ? field.message : '').trim();
+            })
+            .filter(Boolean)
+            .join(', ');
+          showNotification(staleMessage || 'Review data changed. Reloading.', 'error');
+          if (result.data.reload_required === true) {
+            window.setTimeout(function () {
+              window.location.reload();
+            }, 900);
+            return;
+          }
+        }
         const blockers = Array.isArray(result.data.blocking_reasons)
           ? result.data.blocking_reasons
           : [];

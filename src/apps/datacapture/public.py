@@ -172,6 +172,23 @@ def get_latest_submitted_page_entry_for_subject_visit_crf(
     )
 
 
+def get_page_entry_for_subject_visit_crf(
+    *,
+    page_entry_id: int,
+    subject_id: int,
+    visit_id: int | None,
+    crf_template_id: int,
+):
+    if visit_id is None:
+        return None
+    return DataCapturePageEntryReadService().get_page_entry(
+        page_entry_id=page_entry_id,
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+
+
 def merge_form_verification_checked_fields_into_page_state_final_data(
     *,
     subject_id: int,
@@ -293,6 +310,7 @@ __all__ = [
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",
     "get_latest_stable_page_state_id_for_event_instance",
+    "get_page_entry_for_subject_visit_crf",
     "get_page_state_final_data_for_subject_visit_crf",
     "get_page_state_id_for_subject_visit_crf",
     "get_page_state_status_for_subject_visit_crf",

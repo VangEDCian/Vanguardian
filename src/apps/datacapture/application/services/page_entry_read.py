@@ -27,6 +27,21 @@ class DataCapturePageEntryReadService:
             crf_template_id=crf_template_id,
         )
 
+    def get_page_entry(
+        self,
+        *,
+        page_entry_id: int,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+    ):
+        return self.repository.get_page_entry_by_id(
+            page_entry_id=page_entry_id,
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
+
     def get_latest_active_page_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         latest = self.get_latest_page_entry(
             subject_id=subject_id,

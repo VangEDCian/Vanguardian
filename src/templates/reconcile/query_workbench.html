@@ -6,7 +6,8 @@
 {% endblock %}
 {% block extra_css %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'reconcile/css/query_workbench.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'reconcile/css/query_workbench.css' %}">
 {% endblock %}
 {% block dashboard_content %}
     <section class="query-workbench">
@@ -27,5 +28,10 @@
                 {% render_table table %}
             {% endif %}
         </section>
+        {% include "reconcile/includes/query_action_modal.html" %}
     </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'reconcile/js/query_actions.js' %}"></script>
 {% endblock %}

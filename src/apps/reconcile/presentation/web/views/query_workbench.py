@@ -16,6 +16,10 @@ from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 VIEW_QUERY_PERMISSION = "reconcile.view_dataquery"
 VIEW_INTERNAL_QUERY_THREAD_PERMISSION = "reconcile.view_internal_query_thread"
+ANSWER_QUERY_PERMISSION = "reconcile.answer_dataquery"
+RESOLVE_QUERY_PERMISSION = "reconcile.resolve_dataquery"
+CLOSE_QUERY_PERMISSION = "reconcile.close_dataquery"
+REOPEN_QUERY_PERMISSION = "reconcile.reopen_dataquery"
 
 
 class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerifyStudy, TemplateView):
@@ -92,9 +96,38 @@ class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerify
                 "validation_issue_table": validation_issue_table,
                 "show_validation_issues": bucket == "validation_issues",
                 "empty_text": empty_text,
+                **self._query_action_permissions(selected_site_id=selected_site_id),
             }
         )
         return context
+
+    def _query_action_permissions(self, *, selected_site_id: int | None):
+        return {
+            "can_answer_dataquery": user_can_access_permission(
+                self.request.user,
+                ANSWER_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_resolve_dataquery": user_can_access_permission(
+                self.request.user,
+                RESOLVE_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_close_dataquery": user_can_access_permission(
+                self.request.user,
+                CLOSE_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_reopen_dataquery": user_can_access_permission(
+                self.request.user,
+                REOPEN_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+        }
 
     def _build_bucket_tabs(self, current_bucket, summary):
         labels = {
@@ -165,6 +198,42 @@ class QueryDetailView(AuthenticateTemplateContextMixin, SubjectAbstractVerifyStu
                 "query": query,
                 "threads": threads,
                 "back_url": reverse("reconcile:query_workbench", kwargs={"study_id": self.get_study_id()}),
+                "layout_breadcrumb_label": _("Data Query DQ-%(query_id)s") % {"query_id": query.query_id},
+                "layout_detail_meta_items": (
+                    {
+                        "label": _("Status"),
+                        "value": str(query.status or "").title() or "—",
+                    },
+                ),
+                **self._query_action_permissions(selected_site_id=query.site_id),
             }
         )
         return context
+
+    def _query_action_permissions(self, *, selected_site_id: int | None):
+        return {
+            "can_answer_dataquery": user_can_access_permission(
+                self.request.user,
+                ANSWER_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_resolve_dataquery": user_can_access_permission(
+                self.request.user,
+                RESOLVE_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_close_dataquery": user_can_access_permission(
+                self.request.user,
+                CLOSE_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_reopen_dataquery": user_can_access_permission(
+                self.request.user,
+                REOPEN_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+        }

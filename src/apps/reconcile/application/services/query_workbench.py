@@ -58,10 +58,12 @@ class QueryListItemDTO:
     opened_by_display: str
     subject_code: str
     screening_code: str
+    subject_display_code: str
     event_code: str
     event_label: str
     crf_page_label: str
     field_label_or_path: str
+    review_focus_url: str
     page_state_label: str
     detail_url: str
 
@@ -147,9 +149,10 @@ class QueryWorkbenchReader:
                 page_state_ids=page_state_ids,
                 search=search,
             )
+        user_display_by_id = self._user_display_map(self._row_user_ids(rows))
         return QueryWorkbenchResultDTO(
             summary=summary,
-            items=[self._to_query_item(row, contexts) for row in rows],
+            items=[self._to_query_item(row, contexts, user_display_by_id=user_display_by_id) for row in rows],
             validation_issues=[self._to_validation_issue_item(row, contexts) for row in issues],
         )
 
@@ -168,7 +171,11 @@ class QueryWorkbenchReader:
         if row is None:
             return None
         contexts = get_page_state_contexts(page_state_ids=[int(row["page_state_id"])])
-        item = self._to_query_item(row, contexts)
+        raw_threads = row.get("threads", [])
+        user_display_by_id = self._user_display_map(
+            self._row_user_ids([row]) | {thread.get("author_id") for thread in raw_threads}
+        )
+        item = self._to_query_item(row, contexts, user_display_by_id=user_display_by_id)
         threads = [
             QueryThreadDTO(
                 id=thread["id"],
@@ -176,10 +183,10 @@ class QueryWorkbenchReader:
                 message_type=thread["message_type"],
                 visibility=thread["visibility"],
                 source=thread["source"],
-                author_display=self._user_display(thread["author_id"]),
+                author_display=self._user_display(thread["author_id"], user_display_by_id),
                 created_at=thread["created_at"],
             )
-            for thread in row.get("threads", [])
+            for thread in raw_threads
         ]
         return item, threads
 
@@ -229,16 +236,25 @@ class QueryWorkbenchReader:
             return matched, ""
         return contexts, search
 
-    def _to_query_item(self, row: dict[str, object], contexts) -> QueryListItemDTO:
+    def _to_query_item(
+        self,
+        row: dict[str, object],
+        contexts,
+        *,
+        user_display_by_id: dict[int, str],
+    ) -> QueryListItemDTO:
         context = contexts.get(int(row["page_state_id"]))
         page_state_label = f"Page State #{row['page_state_id']}"
         field_path = str(row.get("field_path") or "").strip()
         field_label = str(row.get("field_label") or "").strip()
+        subject_code = getattr(context, "subject_code", "") or ""
+        screening_code = getattr(context, "screening_code", "") or ""
         detail_study_id = getattr(context, "study_id", None) or 0
         detail_url = reverse(
             "reconcile:query_detail",
             kwargs={"study_id": detail_study_id, "query_id": row["query_id"]},
         )
+        review_focus_url = self._review_focus_url(context)
         return QueryListItemDTO(
             query_id=row["query_id"],
             study_id=getattr(context, "study_id", None),
@@ -264,17 +280,35 @@ class QueryWorkbenchReader:
             closed_at=row.get("closed_at"),
             last_activity_at=row.get("last_activity_at"),
             reply_count=int(row.get("reply_count") or 0),
-            assigned_to_display=self._user_display(row.get("assigned_to_id")),
-            opened_by_display=self._user_display(row.get("opened_by_id")),
-            subject_code=getattr(context, "subject_code", "") or "—",
-            screening_code=getattr(context, "screening_code", "") or "—",
+            assigned_to_display=self._user_display(row.get("assigned_to_id"), user_display_by_id),
+            opened_by_display=self._user_display(row.get("opened_by_id"), user_display_by_id),
+            subject_code=subject_code or "—",
+            screening_code=screening_code or "—",
+            subject_display_code=subject_code or screening_code or "—",
             event_code=getattr(context, "event_code", "") or "",
             event_label=getattr(context, "event_label", "") or f"Event #{getattr(context, 'event_instance_id', '')}",
             crf_page_label=getattr(context, "crf_page_label", "") or page_state_label,
             field_label_or_path=field_label or (f"Field: {field_path}" if field_path else "—"),
+            review_focus_url=review_focus_url,
             page_state_label=page_state_label,
             detail_url=detail_url,
         )
+
+    @staticmethod
+    def _review_focus_url(context) -> str:
+        if context is None:
+            return ""
+        study_id = getattr(context, "study_id", None)
+        subject_id = getattr(context, "subject_id", None)
+        event_instance_id = getattr(context, "event_instance_id", None)
+        page_template_id = getattr(context, "page_template_id", None)
+        if not (study_id and subject_id and event_instance_id and page_template_id):
+            return ""
+        detail_url = reverse(
+            "subject:subject_detail",
+            kwargs={"study_id": study_id, "subject_id": subject_id},
+        )
+        return f"{detail_url}?mode=verification&event={event_instance_id}&form={page_template_id}"
 
     def _to_validation_issue_item(self, row: dict[str, object], contexts) -> ValidationIssueListItemDTO:
         context = contexts.get(int(row["page_state_id"]))
@@ -294,10 +328,32 @@ class QueryWorkbenchReader:
         )
 
     @staticmethod
-    def _user_display(user_id) -> str:
+    def _row_user_ids(rows) -> set:
+        user_ids = set()
+        for row in rows or ():
+            user_ids.add(row.get("assigned_to_id"))
+            user_ids.add(row.get("opened_by_id"))
+        return user_ids
+
+    @staticmethod
+    def _user_display_map(user_ids) -> dict[int, str]:
+        normalized_ids = {
+            int(user_id)
+            for user_id in user_ids or ()
+            if user_id not in (None, "")
+        }
+        if not normalized_ids:
+            return {}
+        from apps.identity.public import get_user_display_map
+
+        return get_user_display_map(normalized_ids)
+
+    @staticmethod
+    def _user_display(user_id, user_display_by_id: dict[int, str]) -> str:
         if user_id in (None, ""):
             return "—"
-        return f"User #{user_id}"
+        normalized_id = int(user_id)
+        return user_display_by_id.get(normalized_id) or f"User #{normalized_id}"
 
 
 __all__ = [

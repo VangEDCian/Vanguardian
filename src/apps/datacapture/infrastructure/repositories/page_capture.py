@@ -113,6 +113,26 @@ class DjangoDataCapturePageRepository:
             matched_keys_by_template_id[field_template_id] = matched_keys
         return matched_keys_by_template_id
 
+    def get_page_entry_by_id(
+        self,
+        *,
+        page_entry_id: int,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+    ):
+        return (
+            DataCapturePageEntry.objects.filter(
+                pk=page_entry_id,
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                deleted=False,
+            )
+            .only("id", "data", "entry_version", "status", "updated_by_id")
+            .first()
+        )
+
     def list_form_field_validation_rules(self, *, crf_template_id: int) -> dict[str, tuple[dict[str, object], ...]]:
         validation_rules_qs = CrfFieldValidationRule.objects.filter(
             deleted=False,

@@ -11,6 +11,7 @@ class Subject(models.Model):
     subject_code = models.CharField(max_length=64, null=True, blank=True)
     screening_code = models.CharField(max_length=64, null=True, blank=True)
     current_sequence = models.BigIntegerField()
+    enrollment_current_sequence = models.BigIntegerField(null=True, blank=True)
 
     site = models.ForeignKey(
         Site,
@@ -51,6 +52,10 @@ class Subject(models.Model):
             models.UniqueConstraint(
                 fields=["study", "current_sequence"],
                 name="study_subj_study_sequence_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["study", "enrollment_current_sequence"],
+                name="study_subj_enroll_sequence_uq",
             ),
         ]
         indexes = [

@@ -1,9 +1,11 @@
 from apps.identity.application.services.authorization_facade import ResourceContext, can_perform
 from apps.identity.application.services.role_permission_import import IdentityRolePermissionImportService
+from apps.identity.application.services.user_display import get_user_display_map
 
 __all__ = [
     "ResourceContext",
     "can_perform",
+    "get_user_display_map",
     "get_role_permission_summary_for_study",
     "import_role_permissions_for_study",
 ]

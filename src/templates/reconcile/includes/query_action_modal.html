@@ -1,0 +1,28 @@
+{% load i18n %}
+<div class="query-action-modal-backdrop" hidden data-query-action-modal>
+    <div class="query-action-modal"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="query-action-modal-title">
+        <header class="query-action-modal__header">
+            <h2 id="query-action-modal-title" data-query-action-modal-title>{% trans "Query Action" %}</h2>
+        </header>
+        <div class="query-action-modal__body">
+            <p class="query-action-modal__message" data-query-action-modal-message></p>
+            <textarea class="query-action-modal__textarea"
+                      rows="4"
+                      data-query-action-modal-input></textarea>
+            <p class="query-action-modal__error"
+               hidden
+               data-query-action-modal-error></p>
+        </div>
+        <footer class="query-action-modal__footer">
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--primary"
+                    data-query-action-modal-submit>{% trans "Submit" %}</button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    data-query-action-modal-cancel>{% trans "Cancel" %}</button>
+        </footer>
+    </div>
+</div>

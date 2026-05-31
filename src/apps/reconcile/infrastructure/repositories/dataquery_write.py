@@ -491,11 +491,12 @@ class DjangoReconcileDataQueryWriteRepository:
         return updated > 0
 
     @staticmethod
-    def mark_query_answered(
+    def resolve_query(
         *,
         dataquery_id: int,
         page_state_id: int,
-        field_template_id: int,
+        field_template_id: int | None,
+        resolution_note: str,
         actor_user_id: int | None,
         now: datetime,
     ) -> bool:
@@ -505,9 +506,98 @@ class DjangoReconcileDataQueryWriteRepository:
                 page_state_id=page_state_id,
                 field_template_id=field_template_id,
                 deleted=False,
+                status=ReconcileDataQueryStatusChoices.ANSWERED,
             )
-            .exclude(status__in=(ReconcileDataQueryStatusChoices.CANCELLED, ReconcileDataQueryStatusChoices.CLOSED))
             .update(
+                status=ReconcileDataQueryStatusChoices.RESOLVED,
+                resolution_note=resolution_note[:1000],
+                resolved_at=now,
+                resolved_by_id=actor_user_id,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+        )
+        return updated > 0
+
+    @staticmethod
+    def close_resolved_query(
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int | None,
+        actor_user_id: int | None,
+        now: datetime,
+    ) -> bool:
+        updated = (
+            ReconcileDataQuery.objects.filter(
+                pk=dataquery_id,
+                page_state_id=page_state_id,
+                field_template_id=field_template_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.RESOLVED,
+            ).update(
+                status=ReconcileDataQueryStatusChoices.CLOSED,
+                closed_at=now,
+                closed_by_id=actor_user_id,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+        )
+        return updated > 0
+
+    @staticmethod
+    def reopen_query(
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int | None,
+        actor_user_id: int | None,
+        now: datetime,
+    ) -> bool:
+        updated = (
+            ReconcileDataQuery.objects.filter(
+                pk=dataquery_id,
+                page_state_id=page_state_id,
+                field_template_id=field_template_id,
+                deleted=False,
+                status__in=(
+                    ReconcileDataQueryStatusChoices.RESOLVED,
+                    ReconcileDataQueryStatusChoices.CLOSED,
+                ),
+            ).update(
+                status=ReconcileDataQueryStatusChoices.REOPENED,
+                resolved_at=None,
+                resolved_by_id=None,
+                closed_at=None,
+                closed_by_id=None,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+        )
+        return updated > 0
+
+    @staticmethod
+    def mark_query_answered(
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int | None,
+        actor_user_id: int | None,
+        now: datetime,
+    ) -> bool:
+        updated = (
+            ReconcileDataQuery.objects.filter(
+                pk=dataquery_id,
+                page_state_id=page_state_id,
+                field_template_id=field_template_id,
+                deleted=False,
+                status__in=(
+                    ReconcileDataQueryStatusChoices.OPEN,
+                    ReconcileDataQueryStatusChoices.REOPENED,
+                ),
+            )
+            .update(
+                status=ReconcileDataQueryStatusChoices.ANSWERED,
                 answered_at=now,
                 answered_by_id=actor_user_id,
                 updated_at=now,
@@ -542,13 +632,29 @@ class DjangoReconcileDataQueryWriteRepository:
         return updated > 0
 
     @staticmethod
-    def query_belongs_to_scope(*, dataquery_id: int, page_state_id: int, field_template_id: int) -> bool:
+    def query_belongs_to_scope(*, dataquery_id: int, page_state_id: int, field_template_id: int | None) -> bool:
         return ReconcileDataQuery.objects.filter(
             pk=dataquery_id,
             page_state_id=page_state_id,
             field_template_id=field_template_id,
             deleted=False,
         ).exists()
+
+    @staticmethod
+    def get_query_action_scope(*, dataquery_id: int) -> dict[str, object] | None:
+        row = (
+            ReconcileDataQuery.objects.filter(pk=dataquery_id, deleted=False)
+            .values("id", "page_state_id", "field_template_id", "status")
+            .first()
+        )
+        if row is None:
+            return None
+        return {
+            "dataquery_id": int(row["id"]),
+            "page_state_id": int(row["page_state_id"]),
+            "field_template_id": row["field_template_id"],
+            "status": str(row["status"] or ""),
+        }
 
     @staticmethod
     def user_can_respond_to_query(*, dataquery_id: int, actor_user_id: int | None) -> bool:

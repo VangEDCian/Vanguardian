@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.utils import timezone
 
+from apps.study.models import Study
 from apps.subject.models import (
     Subject,
     SubjectEnrollment,
@@ -96,6 +97,12 @@ class DjangoSubjectEligibilityWorkflowRepository:
             if is_enrolled:
                 enrollment.enrollment_date = now.date()
                 enrollment.enrolled_by_id = actor_user_id
+                self._initialize_subject_code_on_enrollment(
+                    subject=subject,
+                    study_id=study_id,
+                    actor_user_id=actor_user_id,
+                    now=now,
+                )
             if to_status == screen_failure_status:
                 enrollment.screen_failed_at = now
             enrollment.save()
@@ -117,6 +124,36 @@ class DjangoSubjectEligibilityWorkflowRepository:
             "is_enrolled": is_enrolled,
             "status_datetime": now,
         }
+
+    @staticmethod
+    def _initialize_subject_code_on_enrollment(*, subject, study_id: int, actor_user_id: int | None, now) -> None:
+        if str(subject.subject_code or "").strip():
+            return
+
+        study = Study.objects.select_for_update().only("id", "code").get(pk=study_id, deleted=False)
+        enrollment_sequence = subject.enrollment_current_sequence
+        if enrollment_sequence is None:
+            last_sequence = (
+                Subject.objects.filter(study_id=study_id, enrollment_current_sequence__isnull=False)
+                .order_by("-enrollment_current_sequence")
+                .values_list("enrollment_current_sequence", flat=True)
+                .first()
+                or 0
+            )
+            enrollment_sequence = int(last_sequence) + 1
+
+        subject.enrollment_current_sequence = enrollment_sequence
+        subject.subject_code = f"{study.code}-{str(enrollment_sequence).rjust(3, '0')}"
+        subject.updated_at = now
+        subject.updated_by_id = actor_user_id
+        subject.save(
+            update_fields=[
+                "enrollment_current_sequence",
+                "subject_code",
+                "updated_at",
+                "updated_by_id",
+            ]
+        )
 
 
 __all__ = ["DjangoSubjectEligibilityWorkflowRepository"]

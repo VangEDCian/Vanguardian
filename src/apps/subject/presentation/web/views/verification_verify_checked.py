@@ -1,13 +1,18 @@
+import json
+
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
+from apps.crf.public import CrfContextAdapter
 from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.domain import DataCapturePageState
 from apps.datacapture.public import (
     get_latest_submitted_page_entry_for_subject_visit_crf,
+    get_page_entry_for_subject_visit_crf,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
     merge_form_verification_checked_fields_into_page_state_final_data,
@@ -28,6 +33,7 @@ from apps.subject.public import SubjectAbstractVerifyStudy
 
 SELF_REVIEW_ERROR = "Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."
 STALE_REVIEW_ERROR = "Dữ liệu đã bị thao tác, vui lòng reload lại trang để tiếp tục"
+FIELD_STALE_REVIEW_ERROR_TEMPLATE = "field {field_key} đã bị thay đổi, vui lòng kiểm tra lại."
 
 
 def _same_user(left, right) -> bool:
@@ -52,14 +58,126 @@ def _current_user_matches_submitted_entry_editor(
     return _same_user(getattr(request.user, "id", None), getattr(submitted_entry, "updated_by_id", None))
 
 
-def _review_context_matches_current_submitted_entry(
+def _parse_int_or_none(value) -> int | None:
+    try:
+        return int(str(value or "").strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _load_entry_payload_map(raw_payload) -> dict:
+    if not raw_payload:
+        return {}
+    try:
+        loaded = json.loads(raw_payload)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    doc = normalize_form_data(loaded, strict=False)
+    return flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
+
+
+def _field_display_key(field_row: dict, field_template_id: int) -> str:
+    return (
+        str(field_row.get("field_key") or "").strip()
+        or str(field_row.get("brief_description") or "").strip()
+        or f"field_{field_template_id}"
+    )
+
+
+def _field_value_marker(*, payload: dict, field_row: dict, field_template_id: int) -> str:
+    field_key = str(field_row.get("field_key") or "").strip()
+    aliases = [alias for alias in (field_key, f"field_{field_template_id}") if alias]
+    for alias in aliases:
+        if alias in payload:
+            return json.dumps(payload.get(alias), ensure_ascii=False, sort_keys=True, default=str)
+    return ""
+
+
+def _review_context_matches_submitted_entry(*, submitted_entry, review_page_entry_id: str, review_entry_version: str) -> bool:
+    normalized_review_page_entry_id = _parse_int_or_none(review_page_entry_id)
+    if normalized_review_page_entry_id is not None:
+        return int(getattr(submitted_entry, "id", 0) or 0) == normalized_review_page_entry_id
+    normalized_review_entry_version = str(review_entry_version or "").strip()
+    if not normalized_review_entry_version or normalized_review_entry_version == "—":
+        return False
+    return str(getattr(submitted_entry, "entry_version", "") or "").strip() == normalized_review_entry_version
+
+
+def _filter_changed_review_fields(
     *,
     subject_id: int,
     visit_id: int,
     crf_template_id: int,
-    review_page_entry_id: str,
-    review_entry_version: str,
-) -> bool:
+    normalized_payload: dict[str, object],
+    submitted_entry,
+) -> tuple[bool, list[int], list[dict[str, object]], bool]:
+    checked_field_template_ids = list(normalized_payload["field_template_ids"])
+    if _review_context_matches_submitted_entry(
+        submitted_entry=submitted_entry,
+        review_page_entry_id=str(normalized_payload["review_page_entry_id"]),
+        review_entry_version=str(normalized_payload["review_entry_version"]),
+    ):
+        return True, checked_field_template_ids, [], False
+
+    review_page_entry_id = _parse_int_or_none(normalized_payload["review_page_entry_id"])
+    if review_page_entry_id is None:
+        return False, [], [], False
+    reviewed_entry = get_page_entry_for_subject_visit_crf(
+        page_entry_id=review_page_entry_id,
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+    )
+    if reviewed_entry is None:
+        return False, [], [], False
+
+    reviewed_payload = _load_entry_payload_map(getattr(reviewed_entry, "data", ""))
+    submitted_payload = _load_entry_payload_map(getattr(submitted_entry, "data", ""))
+    field_rows = CrfContextAdapter().list_template_fields_with_ui_config(template_id=crf_template_id)
+    field_row_by_id = {}
+    for field_row in field_rows:
+        field_template_id = _parse_int_or_none(field_row.get("id"))
+        if field_template_id is None:
+            continue
+        field_row_by_id[field_template_id] = field_row
+
+    changed_fields: list[dict[str, object]] = []
+    allowed_field_template_ids: list[int] = []
+    for field_template_id in checked_field_template_ids:
+        field_row = field_row_by_id.get(int(field_template_id), {})
+        reviewed_value = _field_value_marker(
+            payload=reviewed_payload,
+            field_row=field_row,
+            field_template_id=int(field_template_id),
+        )
+        submitted_value = _field_value_marker(
+            payload=submitted_payload,
+            field_row=field_row,
+            field_template_id=int(field_template_id),
+        )
+        if reviewed_value != submitted_value:
+            field_key = _field_display_key(field_row, int(field_template_id))
+            changed_fields.append(
+                {
+                    "field_template_id": int(field_template_id),
+                    "field_key": field_key,
+                    "message": FIELD_STALE_REVIEW_ERROR_TEMPLATE.format(field_key=field_key),
+                }
+            )
+            continue
+        allowed_field_template_ids.append(int(field_template_id))
+
+    return True, allowed_field_template_ids, changed_fields, bool(changed_fields)
+
+
+def _review_context_status_and_submitted_entry(
+    *,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+):
     current_page_status = get_page_state_status_for_subject_visit_crf(
         subject_id=subject_id,
         visit_id=visit_id,
@@ -67,7 +185,7 @@ def _review_context_matches_current_submitted_entry(
     )
     normalized_current_status = (current_page_status or "").strip().lower()
     if not DataCapturePageState.can_start_or_continue_review(normalized_current_status):
-        return False
+        return False, current_page_status, None
 
     submitted_entry = get_latest_submitted_page_entry_for_subject_visit_crf(
         subject_id=subject_id,
@@ -75,19 +193,8 @@ def _review_context_matches_current_submitted_entry(
         crf_template_id=crf_template_id,
     )
     if submitted_entry is None:
-        return False
-    try:
-        normalized_review_page_entry_id = int(str(review_page_entry_id or "").strip())
-    except (TypeError, ValueError):
-        normalized_review_page_entry_id = None
-    if normalized_review_page_entry_id is not None:
-        return int(getattr(submitted_entry, "id", 0) or 0) == normalized_review_page_entry_id
-    normalized_review_entry_version = str(review_entry_version or "").strip()
-    if not normalized_review_entry_version or normalized_review_entry_version == "—":
-        return False
-    return str(getattr(submitted_entry, "entry_version", "") or "").strip() == str(
-        normalized_review_entry_version
-    ).strip()
+        return False, current_page_status, None
+    return True, current_page_status, submitted_entry
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -108,13 +215,14 @@ class SubjectFormVerificationVerifyCheckedView(
             subject_id = int(kwargs["subject_id"])
             visit_id = int(kwargs["visit_id"])
             crf_template_id = int(kwargs["crf_template_id"])
-            if not _review_context_matches_current_submitted_entry(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
-                review_page_entry_id=str(normalized["review_page_entry_id"]),
-                review_entry_version=str(normalized["review_entry_version"]),
-            ):
+            context_is_reviewable, current_page_status, submitted_entry = (
+                _review_context_status_and_submitted_entry(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                )
+            )
+            if not context_is_reviewable:
                 return JsonResponse({"error": [STALE_REVIEW_ERROR]}, status=400)
             if _current_user_matches_submitted_entry_editor(
                 request=request,
@@ -123,6 +231,30 @@ class SubjectFormVerificationVerifyCheckedView(
                 crf_template_id=crf_template_id,
             ):
                 return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
+            context_can_continue, checked_field_template_ids, stale_review_fields, reload_required = (
+                _filter_changed_review_fields(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    normalized_payload=normalized,
+                    submitted_entry=submitted_entry,
+                )
+            )
+            if not context_can_continue:
+                return JsonResponse({"error": [STALE_REVIEW_ERROR]}, status=400)
+            if not checked_field_template_ids and stale_review_fields:
+                return JsonResponse(
+                    {
+                        "ok": True,
+                        "field_template_ids": [],
+                        "all_verified": False,
+                        "page_status": current_page_status,
+                        "blocking_reasons": [],
+                        "unverified_field_template_ids": [],
+                        "stale_review_fields": stale_review_fields,
+                        "reload_required": reload_required,
+                    }
+                )
             (
                 all_verified,
                 page_status,
@@ -132,7 +264,7 @@ class SubjectFormVerificationVerifyCheckedView(
                 subject_id=subject_id,
                 visit_id=visit_id,
                 crf_template_id=crf_template_id,
-                checked_field_template_ids=normalized["field_template_ids"],
+                checked_field_template_ids=checked_field_template_ids,
                 unverify_reason_text=normalized["reason_text"],
                 actor_user_id=getattr(request.user, "id", None),
             )
@@ -141,11 +273,13 @@ class SubjectFormVerificationVerifyCheckedView(
         return JsonResponse(
             {
                 "ok": True,
-                "field_template_ids": normalized["field_template_ids"],
+                "field_template_ids": checked_field_template_ids,
                 "all_verified": all_verified,
                 "page_status": page_status,
                 "blocking_reasons": blocking_reasons,
                 "unverified_field_template_ids": unverified_field_template_ids,
+                "stale_review_fields": stale_review_fields,
+                "reload_required": reload_required,
             }
         )
 

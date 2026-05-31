@@ -823,6 +823,7 @@ class DjangoReconcileDataQueryReadRepository:
                     "reply_count": int(query.reply_count or 0),
                     "assigned_to_id": query.assigned_to_id,
                     "opened_by_id": query.opened_by_id,
+                    "field_template_id": query.field_template_id,
                     "field_label": field_label,
                 }
             )

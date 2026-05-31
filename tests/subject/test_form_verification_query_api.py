@@ -357,7 +357,102 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             actor_user_id=7,
         )
 
-    def test_verify_checked_returns_400_when_review_entry_version_is_stale(self):
+    def test_verify_checked_filters_changed_fields_when_review_entry_version_is_stale(self):
+        request = RequestFactory().post(
+            "/verify-checked/",
+            data=json.dumps(
+                {
+                    "field_template_ids": [11, 12],
+                    "review_page_entry_id": "101",
+                    "review_entry_version": "1",
+                    "review_page_status": "submitted",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_status_for_subject_visit_crf",
+                return_value="submitted",
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_latest_submitted_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(
+                    id=102,
+                    entry_version="2",
+                    data=json.dumps({"ICF_DATE": "2026-05-27", "AGE": "40"}),
+                ),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(
+                    id=101,
+                    entry_version="1",
+                    data=json.dumps({"ICF_DATE": "2026-05-26", "AGE": "40"}),
+                ),
+            ) as get_review_entry,
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "CrfContextAdapter.list_template_fields_with_ui_config",
+                return_value=[
+                    {"id": 11, "field_key": "ICF_DATE"},
+                    {"id": 12, "field_key": "AGE"},
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "merge_form_verification_checked_fields_into_page_state_final_data",
+                return_value=(False, "under_review", ["field_review_not_ready:11"], []),
+            ) as merge_checked,
+        ):
+            response = SubjectFormVerificationVerifyCheckedView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["field_template_ids"], [12])
+        self.assertEqual(
+            payload["stale_review_fields"],
+            [
+                {
+                    "field_template_id": 11,
+                    "field_key": "ICF_DATE",
+                    "message": "field ICF_DATE đã bị thay đổi, vui lòng kiểm tra lại.",
+                }
+            ],
+        )
+        self.assertIs(payload["reload_required"], True)
+        get_review_entry.assert_called_once_with(
+            page_entry_id=101,
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
+        )
+        merge_checked.assert_called_once_with(
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
+            checked_field_template_ids=[12],
+            unverify_reason_text="",
+            actor_user_id=7,
+        )
+
+    def test_verify_checked_reload_without_merge_when_all_checked_fields_are_stale(self):
         request = RequestFactory().post(
             "/verify-checked/",
             data=json.dumps(
@@ -381,7 +476,30 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
                 "get_latest_submitted_page_entry_for_subject_visit_crf",
-                return_value=SimpleNamespace(id=102, entry_version="2"),
+                return_value=SimpleNamespace(
+                    id=102,
+                    entry_version="2",
+                    data=json.dumps({"ICF_DATE": "2026-05-27"}),
+                ),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_entry_for_subject_visit_crf",
+                return_value=SimpleNamespace(
+                    id=101,
+                    entry_version="1",
+                    data=json.dumps({"ICF_DATE": "2026-05-26"}),
+                ),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "CrfContextAdapter.list_template_fields_with_ui_config",
+                return_value=[{"id": 11, "field_key": "ICF_DATE"}],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=False,
             ),
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
@@ -396,9 +514,12 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
                 crf_template_id=4,
             )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertEqual(payload["error"], ["Dữ liệu đã bị thao tác, vui lòng reload lại trang để tiếp tục"])
+        self.assertEqual(payload["field_template_ids"], [])
+        self.assertEqual(payload["page_status"], "submitted")
+        self.assertIs(payload["reload_required"], True)
+        self.assertEqual(payload["stale_review_fields"][0]["field_key"], "ICF_DATE")
         merge_checked.assert_not_called()
 
     def test_verify_checked_returns_400_when_review_page_status_is_stale(self):

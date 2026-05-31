@@ -9,6 +9,7 @@ from apps.reconcile.infrastructure.repositories import DjangoReconcileDataQueryW
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
 _QUERY_THREAD_COMMENT = "comment"
 _QUERY_THREAD_RESOLUTION = "resolution"
+_QUERY_THREAD_STATUS_CHANGE = "status_change"
 _QUERY_THREAD_SOURCE_SYSTEM = "system"
 _QUERY_RESPONSE_PERMISSION_ERROR = "Only the query opener or assignee can respond to this query."
 
@@ -332,7 +333,7 @@ class ReconcileDataQueryWriteService:
         *,
         dataquery_id: int,
         page_state_id: int,
-        field_template_id: int,
+        field_template_id: int | None,
         message_text: str,
         actor_user_id: int | None,
     ) -> dict[str, object]:
@@ -371,6 +372,128 @@ class ReconcileDataQueryWriteService:
             ),
             "closed": False,
         }
+
+    def query_action_scope(self, *, dataquery_id: int) -> dict[str, object] | None:
+        return self.repository.get_query_action_scope(dataquery_id=dataquery_id)
+
+    def resolve_query(
+        self,
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int | None,
+        message_text: str,
+        actor_user_id: int | None,
+    ) -> dict[str, object]:
+        normalized_text = str(message_text or "").strip()
+        if not normalized_text:
+            raise ValueError("Resolution note is required.")
+        if not self.repository.query_belongs_to_scope(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+        ):
+            raise ValueError("Query does not belong to the current field.")
+        now: datetime = timezone.now()
+        thread = self.repository.create_query_thread_message(
+            dataquery_id=dataquery_id,
+            message_text=normalized_text,
+            message_type=_QUERY_THREAD_RESOLUTION,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        resolved = self.repository.resolve_query(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            resolution_note=normalized_text,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return self._action_result(
+            dataquery_id=dataquery_id,
+            thread=thread,
+            status="resolved",
+            changed=resolved,
+        )
+
+    def close_resolved_query(
+        self,
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int | None,
+        message_text: str,
+        actor_user_id: int | None,
+    ) -> dict[str, object]:
+        if not self.repository.query_belongs_to_scope(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+        ):
+            raise ValueError("Query does not belong to the current field.")
+        now: datetime = timezone.now()
+        normalized_text = str(message_text or "").strip() or "Query closed."
+        thread = self.repository.create_query_thread_message(
+            dataquery_id=dataquery_id,
+            message_text=normalized_text,
+            message_type=_QUERY_THREAD_STATUS_CHANGE,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        closed = self.repository.close_resolved_query(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return self._action_result(
+            dataquery_id=dataquery_id,
+            thread=thread,
+            status="closed",
+            changed=closed,
+        )
+
+    def reopen_query(
+        self,
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int | None,
+        message_text: str,
+        actor_user_id: int | None,
+    ) -> dict[str, object]:
+        normalized_text = str(message_text or "").strip()
+        if not normalized_text:
+            raise ValueError("Reopen reason is required.")
+        if not self.repository.query_belongs_to_scope(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+        ):
+            raise ValueError("Query does not belong to the current field.")
+        now: datetime = timezone.now()
+        thread = self.repository.create_query_thread_message(
+            dataquery_id=dataquery_id,
+            message_text=normalized_text,
+            message_type=_QUERY_THREAD_STATUS_CHANGE,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        reopened = self.repository.reopen_query(
+            dataquery_id=dataquery_id,
+            page_state_id=page_state_id,
+            field_template_id=field_template_id,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return self._action_result(
+            dataquery_id=dataquery_id,
+            thread=thread,
+            status="reopened",
+            changed=reopened,
+        )
 
     def reply_and_close_query(
         self,
@@ -420,6 +543,21 @@ class ReconcileDataQueryWriteService:
                 else thread.created_at
             ),
             "closed": closed,
+        }
+
+    @staticmethod
+    def _action_result(*, dataquery_id: int, thread, status: str, changed: bool) -> dict[str, object]:
+        return {
+            "dataquery_id": dataquery_id,
+            "message_text": thread.message_text,
+            "message_type": thread.message_type,
+            "created_at": (
+                timezone.localtime(thread.created_at)
+                if timezone.is_aware(thread.created_at)
+                else thread.created_at
+            ),
+            "status": status,
+            "changed": changed,
         }
 
     def cancel_query(
