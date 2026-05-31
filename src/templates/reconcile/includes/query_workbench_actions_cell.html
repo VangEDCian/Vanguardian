@@ -1,0 +1,51 @@
+{% load i18n static %}
+<div class="crf-template-actions" data-dropdown>
+    <button type="button"
+            class="crf-template-actions__trigger"
+            data-dropdown-trigger
+            aria-expanded="false"
+            aria-label="{% trans 'Open actions menu' %}">
+        <span class="crf-template-actions__value" data-dropdown-value>{% trans "Actions" %}</span>
+        <span class="svg-icon crf-template-actions__icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/table/ellipsis-vertical-svgrepo-com.svg' %}')"></span>
+    </button>
+    <div class="crf-template-actions__menu" data-dropdown-menu hidden>
+        <a href="{{ record.detail_url }}"
+           class="crf-template-actions__item"
+           data-dropdown-option>{% trans "View" %}</a>
+        {% comment %} TODO: enable these after reconcile lifecycle command services write query thread and audit events. {% endcomment %}
+        <button type="button"
+                class="crf-template-actions__item"
+                disabled
+                aria-disabled="true"
+                data-dropdown-option
+                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
+            {% trans "Answer" %}
+        </button>
+        <button type="button"
+                class="crf-template-actions__item"
+                disabled
+                aria-disabled="true"
+                data-dropdown-option
+                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
+            {% trans "Resolve" %}
+        </button>
+        <button type="button"
+                class="crf-template-actions__item"
+                disabled
+                aria-disabled="true"
+                data-dropdown-option
+                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
+            {% trans "Close" %}
+        </button>
+        <button type="button"
+                class="crf-template-actions__item"
+                disabled
+                aria-disabled="true"
+                data-dropdown-option
+                title="{% trans 'Lifecycle actions require reconcile command services and audit handling.' %}">
+            {% trans "Reopen" %}
+        </button>
+    </div>
+</div>

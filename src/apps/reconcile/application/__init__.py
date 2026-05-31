@@ -4,8 +4,10 @@ from apps.reconcile.application.services.dataquery import (
     ReconcileValidationFailureItem,
 )
 from apps.reconcile.application.services.dataquery_read import ReconcileDataQueryReadService
+from apps.reconcile.application.services.query_workbench import QueryWorkbenchReader
 
 __all__ = [
+    "QueryWorkbenchReader",
     "ReconcileChangeReasonItem",
     "ReconcileDataQueryReadService",
     "ReconcileDataQueryWriteService",

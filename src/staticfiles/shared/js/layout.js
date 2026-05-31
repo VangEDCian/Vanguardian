@@ -54,6 +54,7 @@
     const trigger = dropdown.querySelector("[data-dropdown-trigger]");
     const menu = dropdown.querySelector("[data-dropdown-menu]");
     const valueNode = dropdown.querySelector("[data-dropdown-value]");
+    const inputNode = dropdown.querySelector("[data-dropdown-input]");
     const options = Array.from(dropdown.querySelectorAll("[data-dropdown-option]"));
 
     if (!trigger || !menu || !valueNode) {
@@ -71,8 +72,14 @@
     options.forEach((option) => {
       option.addEventListener("click", () => {
         valueNode.textContent = option.textContent || "";
+        if (inputNode) {
+          inputNode.value = option.value || "";
+        }
         trigger.setAttribute("aria-expanded", "false");
         menu.hidden = true;
+        if (option.hasAttribute("data-dropdown-auto-submit")) {
+          option.form?.submit();
+        }
       });
     });
   });

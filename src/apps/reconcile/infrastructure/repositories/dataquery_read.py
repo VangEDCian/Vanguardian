@@ -1,4 +1,4 @@
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.db.models.functions import Coalesce
 
 from apps.reconcile.models import (
@@ -706,6 +706,286 @@ class DjangoReconcileDataQueryReadRepository:
             field_template_id = field_id_by_query_id[dataquery_id]
             counts[field_template_id] = counts.get(field_template_id, 0) + 1
         return counts
+
+    def summarize_workbench(self, *, page_state_ids: tuple[int, ...]) -> dict[str, int]:
+        if not page_state_ids:
+            return {
+                "total": 0,
+                "open": 0,
+                "awaiting_site_response": 0,
+                "awaiting_review": 0,
+                "blocking_open": 0,
+                "resolved": 0,
+                "closed": 0,
+                "validation_issues_open": 0,
+                "actionable_for_current_user": 0,
+            }
+        inactive_statuses = ("cancelled", "closed", "resolved", "void")
+        queryset = ReconcileDataQuery.objects.filter(page_state_id__in=page_state_ids, deleted=False)
+        validation_issue_count = ReconcileValidationIssue.objects.filter(
+            form_instance_id__in=page_state_ids,
+            status__in=(
+                ReconcileValidationIssueStatusChoices.OPEN,
+                ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+                ReconcileValidationIssueStatusChoices.QUERY_CREATED,
+            ),
+        ).count()
+        return {
+            "total": queryset.count(),
+            "open": queryset.filter(status=ReconcileDataQueryStatusChoices.OPEN).count(),
+            "awaiting_site_response": queryset.filter(status__in=("open", "reopened")).count(),
+            "awaiting_review": queryset.filter(status=ReconcileDataQueryStatusChoices.ANSWERED).count(),
+            "blocking_open": (
+                queryset.filter(is_blocking=True)
+                .exclude(status__in=inactive_statuses)
+                .count()
+            ),
+            "resolved": queryset.filter(status=ReconcileDataQueryStatusChoices.RESOLVED).count(),
+            "closed": queryset.filter(status=ReconcileDataQueryStatusChoices.CLOSED).count(),
+            "validation_issues_open": validation_issue_count,
+            "actionable_for_current_user": queryset.filter(status__in=("open", "reopened", "answered")).count(),
+        }
+
+    def list_workbench_queries(
+        self,
+        *,
+        page_state_ids: tuple[int, ...],
+        bucket: str = "all",
+        search: str = "",
+        status: str = "",
+        severity: str = "",
+        source: str = "",
+        blocking: str = "",
+        assigned_to_id: int | None = None,
+        opened_by_id: int | None = None,
+        sort: str = "-last_activity_at",
+        can_view_internal_thread: bool = False,
+    ) -> list[dict[str, object]]:
+        if not page_state_ids:
+            return []
+        queryset = (
+            ReconcileDataQuery.objects.filter(page_state_id__in=page_state_ids, deleted=False)
+            .select_related("field_template")
+            .prefetch_related("field_template__translations")
+            .annotate(
+                reply_count=Count(
+                    "query_threads",
+                    filter=self._visible_thread_filter(can_view_internal_thread),
+                    distinct=True,
+                ),
+                last_thread_at=Max(
+                    "query_threads__created_at",
+                    filter=self._visible_thread_filter(can_view_internal_thread),
+                ),
+                sort_last_activity_at=Coalesce("last_thread_at", "closed_at", "resolved_at", "answered_at", "opened_at", "updated_at"),
+            )
+        )
+        queryset = self._apply_workbench_filters(
+            queryset,
+            bucket=bucket,
+            search=search,
+            status=status,
+            severity=severity,
+            source=source,
+            blocking=blocking,
+            assigned_to_id=assigned_to_id,
+            opened_by_id=opened_by_id,
+        )
+        queryset = queryset.order_by(self._workbench_sort_expression(sort), "-id")
+        rows = []
+        for query in queryset:
+            field_template = query.field_template
+            field_label = ""
+            if field_template is not None:
+                field_label = (
+                    field_template.safe_translation_getter("label", default="", any_language=True)
+                    if hasattr(field_template, "safe_translation_getter")
+                    else ""
+                )
+            rows.append(
+                {
+                    "query_id": int(query.pk),
+                    "page_state_id": int(query.page_state_id),
+                    "status": query.status,
+                    "source": query.source,
+                    "query_type": query.query_type,
+                    "severity": query.severity,
+                    "is_blocking": bool(query.is_blocking),
+                    "question_text": query.question_text,
+                    "resolution_note": query.resolution_note,
+                    "field_path": query.field_path,
+                    "value_snapshot": query.value_snapshot,
+                    "opened_at": query.opened_at,
+                    "answered_at": query.answered_at,
+                    "resolved_at": query.resolved_at,
+                    "closed_at": query.closed_at,
+                    "last_activity_at": query.sort_last_activity_at,
+                    "reply_count": int(query.reply_count or 0),
+                    "assigned_to_id": query.assigned_to_id,
+                    "opened_by_id": query.opened_by_id,
+                    "field_label": field_label,
+                }
+            )
+        return rows
+
+    def get_workbench_query_detail(
+        self,
+        *,
+        query_id: int,
+        can_view_internal_thread: bool = False,
+    ) -> dict[str, object] | None:
+        query = (
+            ReconcileDataQuery.objects.filter(pk=query_id, deleted=False)
+            .select_related("field_template")
+            .prefetch_related("field_template__translations")
+            .first()
+        )
+        if query is None:
+            return None
+        rows = self.list_workbench_queries(
+            page_state_ids=(int(query.page_state_id),),
+            search=str(query.pk),
+            can_view_internal_thread=can_view_internal_thread,
+        )
+        detail = next((row for row in rows if row["query_id"] == int(query.pk)), None)
+        if detail is None:
+            return None
+        detail["threads"] = self.list_query_threads(
+            query_id=query_id,
+            can_view_internal_thread=can_view_internal_thread,
+        )
+        return detail
+
+    def list_query_threads(
+        self,
+        *,
+        query_id: int,
+        can_view_internal_thread: bool = False,
+    ) -> list[dict[str, object]]:
+        rows = (
+            ReconcileQueryThread.objects.filter(dataquery_id=query_id, deleted=False)
+            .order_by("created_at", "id")
+            .values("id", "message_text", "message_type", "visibility", "source", "author_id", "created_at")
+        )
+        if not can_view_internal_thread:
+            rows = rows.exclude(visibility="internal")
+        return [
+            {
+                "id": int(row["id"]),
+                "message_text": row["message_text"],
+                "message_type": row["message_type"],
+                "visibility": row["visibility"],
+                "source": row["source"],
+                "author_id": row["author_id"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def list_workbench_validation_issues(
+        self,
+        *,
+        page_state_ids: tuple[int, ...],
+        search: str = "",
+    ) -> list[dict[str, object]]:
+        if not page_state_ids:
+            return []
+        queryset = ReconcileValidationIssue.objects.filter(
+            form_instance_id__in=page_state_ids,
+            status__in=(
+                ReconcileValidationIssueStatusChoices.OPEN,
+                ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+                ReconcileValidationIssueStatusChoices.QUERY_CREATED,
+            ),
+        )
+        if search:
+            queryset = queryset.filter(Q(message__icontains=search) | Q(severity__icontains=search))
+        return [
+            {
+                "issue_id": int(issue.pk),
+                "page_state_id": int(issue.form_instance_id),
+                "status": issue.status,
+                "severity": issue.severity,
+                "message": issue.message,
+                "failed_value": issue.failed_value,
+                "created_at": issue.created_at,
+                "resolved_at": issue.resolved_at,
+            }
+            for issue in queryset.order_by("-created_at", "-id")
+        ]
+
+    @staticmethod
+    def _visible_thread_filter(can_view_internal_thread: bool) -> Q:
+        query = Q(query_threads__deleted=False)
+        if not can_view_internal_thread:
+            query &= ~Q(query_threads__visibility="internal")
+        return query
+
+    @staticmethod
+    def _apply_workbench_filters(
+        queryset,
+        *,
+        bucket: str,
+        search: str,
+        status: str,
+        severity: str,
+        source: str,
+        blocking: str,
+        assigned_to_id: int | None,
+        opened_by_id: int | None,
+    ):
+        if bucket == "open":
+            queryset = queryset.filter(status=ReconcileDataQueryStatusChoices.OPEN)
+        elif bucket == "awaiting_site":
+            queryset = queryset.filter(status__in=("open", "reopened"))
+        elif bucket == "awaiting_review":
+            queryset = queryset.filter(status=ReconcileDataQueryStatusChoices.ANSWERED)
+        elif bucket == "blocking":
+            queryset = queryset.filter(is_blocking=True).exclude(status__in=("closed", "resolved", "cancelled", "void"))
+        elif bucket == "resolved":
+            queryset = queryset.filter(status=ReconcileDataQueryStatusChoices.RESOLVED)
+        elif bucket == "closed":
+            queryset = queryset.filter(status=ReconcileDataQueryStatusChoices.CLOSED)
+        elif bucket == "validation_issues":
+            queryset = queryset.none()
+
+        if status:
+            queryset = queryset.filter(status=status)
+        if severity:
+            queryset = queryset.filter(severity=severity)
+        if source:
+            queryset = queryset.filter(source=source)
+        if blocking == "yes":
+            queryset = queryset.filter(is_blocking=True)
+        elif blocking == "no":
+            queryset = queryset.filter(is_blocking=False)
+        if assigned_to_id is not None:
+            queryset = queryset.filter(assigned_to_id=assigned_to_id)
+        if opened_by_id is not None:
+            queryset = queryset.filter(opened_by_id=opened_by_id)
+        if search:
+            query = Q(question_text__icontains=search) | Q(resolution_note__icontains=search)
+            query |= Q(field_path__icontains=search) | Q(value_snapshot__icontains=search)
+            if search.isdigit():
+                query |= Q(pk=int(search))
+            queryset = queryset.filter(query)
+        return queryset
+
+    @staticmethod
+    def _workbench_sort_expression(sort: str) -> str:
+        allowed = {
+            "opened_at": "opened_at",
+            "-opened_at": "-opened_at",
+            "last_activity_at": "sort_last_activity_at",
+            "-last_activity_at": "-sort_last_activity_at",
+            "status": "status",
+            "-status": "-status",
+            "severity": "severity",
+            "-severity": "-severity",
+            "is_blocking": "is_blocking",
+            "-is_blocking": "-is_blocking",
+        }
+        return allowed.get(sort, "-sort_last_activity_at")
 
 
 __all__ = ["DjangoReconcileDataQueryReadRepository"]

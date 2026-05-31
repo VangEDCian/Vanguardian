@@ -1,8 +1,24 @@
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
 from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
+
+
+@dataclass(frozen=True)
+class PageStateContextDTO:
+    page_state_id: int
+    study_id: int | None
+    site_id: int | None
+    subject_id: int | None
+    subject_code: str
+    screening_code: str
+    event_instance_id: int | None
+    event_code: str
+    event_label: str
+    crf_page_label: str
+    page_template_id: int | None
 
 
 class DataCapturePageStateReadService:
@@ -61,3 +77,36 @@ class DataCapturePageStateReadService:
             for k, v in flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix").items()
             if k != "__form_verification__"
         }
+
+    def get_page_state_contexts(self, *, page_state_ids: list[int] | tuple[int, ...]) -> dict[int, PageStateContextDTO]:
+        rows = self.repository.list_page_state_contexts(page_state_ids=tuple(page_state_ids or ()))
+        return self._to_context_dto_map(rows)
+
+    def list_page_state_contexts_for_study_site(
+        self,
+        *,
+        study_id: int,
+        site_id: int | None = None,
+    ) -> dict[int, PageStateContextDTO]:
+        rows = self.repository.list_page_state_contexts(study_id=study_id, site_id=site_id)
+        return self._to_context_dto_map(rows)
+
+    @staticmethod
+    def _to_context_dto_map(rows) -> dict[int, PageStateContextDTO]:
+        contexts: dict[int, PageStateContextDTO] = {}
+        for row in rows:
+            page_state_id = int(row["page_state_id"])
+            contexts[page_state_id] = PageStateContextDTO(
+                page_state_id=page_state_id,
+                study_id=row["study_id"],
+                site_id=row["site_id"],
+                subject_id=row["subject_id"],
+                subject_code=row["subject_code"],
+                screening_code=row["screening_code"],
+                event_instance_id=row["event_instance_id"],
+                event_code=row["event_code"],
+                event_label=row["event_label"],
+                crf_page_label=row["crf_page_label"],
+                page_template_id=row["page_template_id"],
+            )
+        return contexts

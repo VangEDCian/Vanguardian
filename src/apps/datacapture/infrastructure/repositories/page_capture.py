@@ -239,6 +239,73 @@ class DjangoDataCapturePageRepository:
             ],
         )
 
+    def list_page_state_contexts(
+        self,
+        *,
+        page_state_ids: tuple[int, ...] = (),
+        study_id: int | None = None,
+        site_id: int | None = None,
+    ) -> list[dict[str, object]]:
+        queryset = (
+            DataCapturePageState.objects.filter(deleted=False)
+            .select_related(
+                "subject",
+                "subject__site",
+                "visit",
+                "visit__event_definition",
+                "crf_template",
+            )
+            .only(
+                "id",
+                "crf_template_id",
+                "subject_id",
+                "visit_id",
+                "subject__study_id",
+                "subject__site_id",
+                "subject__subject_code",
+                "subject__screening_code",
+                "visit__event_code_snapshot",
+                "visit__event_name_snapshot",
+                "visit__event_definition__code",
+                "visit__event_definition__name",
+                "crf_template__code",
+            )
+        )
+        if page_state_ids:
+            queryset = queryset.filter(pk__in=page_state_ids)
+        if study_id is not None:
+            queryset = queryset.filter(subject__study_id=study_id)
+        if site_id is not None:
+            queryset = queryset.filter(subject__site_id=site_id)
+
+        contexts: list[dict[str, object]] = []
+        for page_state in queryset.order_by("id"):
+            subject = page_state.subject
+            visit = page_state.visit
+            event_definition = getattr(visit, "event_definition", None)
+            crf_template = page_state.crf_template
+            crf_label = (
+                crf_template.safe_translation_getter("name", default="", any_language=True)
+                if hasattr(crf_template, "safe_translation_getter")
+                else ""
+            )
+            contexts.append(
+                {
+                    "page_state_id": int(page_state.pk),
+                    "study_id": int(subject.study_id) if subject.study_id else None,
+                    "site_id": int(subject.site_id) if subject.site_id else None,
+                    "subject_id": int(subject.pk) if subject.pk else None,
+                    "subject_code": str(subject.subject_code or "").strip(),
+                    "screening_code": str(subject.screening_code or "").strip(),
+                    "event_instance_id": int(visit.pk) if visit.pk else None,
+                    "event_code": str(visit.event_code_snapshot or getattr(event_definition, "code", "") or "").strip(),
+                    "event_label": str(visit.event_name_snapshot or getattr(event_definition, "name", "") or "").strip(),
+                    "crf_page_label": str(crf_label or crf_template.code or "").strip(),
+                    "page_template_id": int(page_state.crf_template_id) if page_state.crf_template_id else None,
+                }
+            )
+        return contexts
+
     def normalize_form_data_json_for_storage(
         self,
         *,

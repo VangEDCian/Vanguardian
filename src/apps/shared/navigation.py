@@ -28,6 +28,12 @@ def get_layout_nav_permissions(user, *, study_id=None, site_id=None):
             study_id=study_id,
             site_id=site_id,
         ),
+        "queries": user_can_access_permission(
+            user,
+            "reconcile.view_dataquery",
+            study_id=study_id,
+            site_id=site_id,
+        ),
         "sites": user_can_access_permission(
             user,
             "site.view_site_list",

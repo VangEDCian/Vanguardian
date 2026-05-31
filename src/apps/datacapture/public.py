@@ -119,6 +119,17 @@ def get_page_state_id_for_subject_visit_crf(
     )
 
 
+def get_page_state_contexts(*, page_state_ids: list[int] | tuple[int, ...]) -> dict:
+    return DataCapturePageStateReadService().get_page_state_contexts(page_state_ids=page_state_ids)
+
+
+def list_page_state_contexts_for_study_site(*, study_id: int, site_id: int | None = None) -> dict:
+    return DataCapturePageStateReadService().list_page_state_contexts_for_study_site(
+        study_id=study_id,
+        site_id=site_id,
+    )
+
+
 def get_latest_stable_page_state_id_for_event_instance(*, event_instance_id: int) -> int | None:
     return DataCapturePageStateReadService().get_latest_stable_page_state_id_for_event_instance(
         event_instance_id=event_instance_id,

@@ -1,0 +1,82 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {% trans "Data Query Detail | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'reconcile/css/query_workbench.css' %}">
+{% endblock %}
+{% block dashboard_content %}
+    <section class="query-detail">
+        <div class="query-detail__header">
+            <div>
+                <a href="{{ back_url }}" class="query-detail__back">{% trans "Back to Data Queries" %}</a>
+                <h1>{% blocktrans with query_id=query.query_id %}Data Query DQ-{{ query_id }}{% endblocktrans %}</h1>
+            </div>
+            <span class="query-detail__status">{{ query.status|title }}</span>
+        </div>
+        <div class="query-detail__grid">
+            <section class="query-detail__panel">
+                <h2>{% trans "Query Metadata" %}</h2>
+                <dl class="query-detail__meta">
+                    <dt>{% trans "Pending With" %}</dt>
+                    <dd>{{ query.pending_with }}</dd>
+                    <dt>{% trans "Severity" %}</dt>
+                    <dd>{{ query.severity|title }}</dd>
+                    <dt>{% trans "Blocking" %}</dt>
+                    <dd>{% if query.is_blocking %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</dd>
+                    <dt>{% trans "Source" %}</dt>
+                    <dd>{{ query.source|title }}</dd>
+                    <dt>{% trans "Opened" %}</dt>
+                    <dd>{{ query.opened_at|date:"DATETIME_FORMAT"|default:"—" }}</dd>
+                    <dt>{% trans "Last Activity" %}</dt>
+                    <dd>{{ query.last_activity_at|date:"DATETIME_FORMAT"|default:"—" }}</dd>
+                    <dt>{% trans "Assigned To" %}</dt>
+                    <dd>{{ query.assigned_to_display }}</dd>
+                </dl>
+            </section>
+            <section class="query-detail__panel">
+                <h2>{% trans "Clinical Context" %}</h2>
+                <dl class="query-detail__meta">
+                    <dt>{% trans "Subject" %}</dt>
+                    <dd>{{ query.subject_code }}</dd>
+                    <dt>{% trans "Screening Code" %}</dt>
+                    <dd>{{ query.screening_code }}</dd>
+                    <dt>{% trans "Visit/Event" %}</dt>
+                    <dd>{{ query.event_label|default:query.page_state_label }}</dd>
+                    <dt>{% trans "CRF Page" %}</dt>
+                    <dd>{{ query.crf_page_label }}</dd>
+                    <dt>{% trans "Field" %}</dt>
+                    <dd>{{ query.field_label_or_path }}</dd>
+                    <dt>{% trans "Field Path" %}</dt>
+                    <dd>{{ query.field_path|default:"—" }}</dd>
+                </dl>
+            </section>
+        </div>
+        <section class="query-detail__panel">
+            <h2>{% trans "Question" %}</h2>
+            <p class="query-detail__text">{{ query.question_text_excerpt }}</p>
+            <h2>{% trans "Current Value Snapshot" %}</h2>
+            <p class="query-detail__text">{{ query.value_snapshot_excerpt|default:"—" }}</p>
+            <h2>{% trans "Resolution Note" %}</h2>
+            <p class="query-detail__text">{{ query.resolution_note|default:"—" }}</p>
+        </section>
+        <section class="query-detail__panel">
+            <h2>{% trans "Thread Messages" %}</h2>
+            <div class="query-thread">
+                {% for thread in threads %}
+                    <article class="query-thread__item">
+                        <div class="query-thread__meta">
+                            <strong>{{ thread.message_type|title }}</strong>
+                            <span>{{ thread.visibility|title }} · {{ thread.author_display }} · {{ thread.created_at|date:"DATETIME_FORMAT" }}</span>
+                        </div>
+                        <p>{{ thread.message_text }}</p>
+                    </article>
+                {% empty %}
+                    <p class="query-detail__text">{% trans "No thread messages." %}</p>
+                {% endfor %}
+            </div>
+        </section>
+    </section>
+{% endblock %}

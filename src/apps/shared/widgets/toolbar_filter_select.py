@@ -41,5 +41,6 @@ class ToolbarFilterSelectWidget(forms.Select):
         context["widget"]["select_wrapper_class"] = self.select_wrapper_class
         context["widget"]["select_aria_label"] = self.aria_label
         context["widget"]["filter_options"] = filter_options
+        context["widget"]["select_value"] = normalized_value
         context["widget"]["select_display_text"] = selected_display_text
         return context

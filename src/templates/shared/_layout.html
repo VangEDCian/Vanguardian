@@ -53,6 +53,31 @@
                                 </button>
                             {% endif %}
                         {% endif %}
+                        {% if layout_nav_permissions.queries %}
+                            {% if shared_study_selected_id %}
+                                <a href="{% url 'reconcile:query_workbench' study_id=shared_study_selected_id %}"
+                                   class="top-nav__item{% if layout_nav_key == 'QUERIES' %} is-active{% endif %}"
+                                   data-nav-item
+                                   data-nav-label="{% trans 'QUERIES' %}">
+                                    <span class="top-nav__icon" aria-hidden="true">
+                                        <span class="svg-icon"
+                                              style="--icon-url: url('{% static 'images/table/query.svg' %}')"></span>
+                                    </span>
+                                    <span>{% trans "QUERIES" %}</span>
+                                </a>
+                            {% else %}
+                                <button onclick="alert(`{% trans 'Choose a study first.' %}`)"
+                                        title="{% trans 'Choose a study first.' %}"
+                                        class="top-nav__item{% if layout_nav_key == 'QUERIES' %} is-active{% endif %}"
+                                        data-nav-label="{% trans 'QUERIES' %}">
+                                    <span class="top-nav__icon" aria-hidden="true">
+                                        <span class="svg-icon"
+                                              style="--icon-url: url('{% static 'images/table/query.svg' %}')"></span>
+                                    </span>
+                                    <span>{% trans "QUERIES" %}</span>
+                                </button>
+                            {% endif %}
+                        {% endif %}
                         {% if layout_nav_permissions.sites %}
                             {% if shared_study_selected_id %}
                                 <a href="{% url 'study:site_list' study_id=shared_study_selected_id %}"

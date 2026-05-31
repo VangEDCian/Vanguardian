@@ -16,6 +16,12 @@
 {% else %}
     <div class="common-select{% if select_wrapper_class %} {{ select_wrapper_class }}{% endif %}"
          data-dropdown>
+        {% if select_name %}
+            <input type="hidden"
+                   name="{{ select_name }}"
+                   value="{{ select_value|default:'' }}"
+                   data-dropdown-input>
+        {% endif %}
         <button {% if select_id %}id="{{ select_id }}"{% endif %}
                 type="button"
                 class="common-select__trigger{% if select_trigger_class %} {{ select_trigger_class }}{% endif %}"
@@ -29,9 +35,9 @@
              data-dropdown-menu
              hidden>
             {% for option in select_options %}
-                <button type="{% if select_name %}submit{% else %}button{% endif %}"
-                        {% if select_name %}name="{{ select_name }}"{% endif %}
+                <button type="button"
                         value="{{ option.value }}"
+                        {% if select_auto_submit %}data-dropdown-auto-submit{% endif %}
                         data-dropdown-option>{{ option.label }}</button>
             {% endfor %}
         </div>
