@@ -12,6 +12,17 @@ RULE_TYPE_CUSTOM_EXPRESSION = "CUSTOM_EXPRESSION"
 RULE_TYPE_REQUIRED = "REQUIRED"
 
 
+def _num(value) -> float:
+    if isinstance(value, str):
+        value = value.strip()
+    return float(value)
+
+
+SAFE_EXPRESSION_FUNCTIONS = {
+    "num": _num,
+}
+
+
 @dataclass(frozen=True)
 class FieldValidationCheckResult:
     has_failures: bool
@@ -142,8 +153,17 @@ def _is_safe_expression_ast(expression: str) -> bool:
         ast.Mult,
         ast.Div,
         ast.Mod,
+        ast.Call,
     )
-    return all(isinstance(node, allowed_nodes) for node in ast.walk(root))
+    for node in ast.walk(root):
+        if not isinstance(node, allowed_nodes):
+            return False
+        if isinstance(node, ast.Call):
+            if node.keywords:
+                return False
+            if not isinstance(node.func, ast.Name) or node.func.id not in SAFE_EXPRESSION_FUNCTIONS:
+                return False
+    return True
 
 
 def check_field_err(*, expression: str, value, payload_map=None) -> bool:
@@ -153,10 +173,10 @@ def check_field_err(*, expression: str, value, payload_map=None) -> bool:
     if not _is_safe_expression_ast(normalized):
         return True
     try:
-        result = eval(normalized, {"__builtins__": {}}, {})  # noqa: S307
+        result = eval(normalized, {"__builtins__": {}}, SAFE_EXPRESSION_FUNCTIONS)  # noqa: S307
     except Exception:
         return True
-    return not bool(result)
+    return bool(result)
 
 
 def _is_required_value_empty(value) -> bool:
@@ -218,6 +238,7 @@ class DataCaptureFieldValidationRulesService:
                 )
                 if failure is not None:
                     failures.append(failure)
+                    break
         failed_field_keys = tuple(sorted({failure.field_key for failure in failures}))
         return FieldValidationCheckResult(
             has_failures=bool(failures),

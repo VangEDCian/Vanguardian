@@ -319,7 +319,7 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
                         "mode": "SOFT",
                         "rule_type": "CUSTOM_EXPRESSION",
                         "severity": "warning",
-                        "expression": "$val == 'expected'",
+                        "expression": "$val == 'new'",
                         "message": "Value should match expected.",
                     },
                 )
@@ -364,7 +364,7 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
             ],
         )
 
-    def test_submit_sets_page_status_submitted_when_field_validation_passes(self):
+    def test_submit_stops_checking_field_validation_rules_after_first_failure(self):
         repository = _SubmitReasonRepository(
             page_status=DataCapturePageStateStatusChoices.SUBMITTED,
             validation_rules_by_field_key={
@@ -376,6 +376,122 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
                         "rule_type": "CUSTOM_EXPRESSION",
                         "severity": "warning",
                         "expression": "$val == 'new'",
+                        "message": "First failure.",
+                    },
+                    {
+                        "id": 102,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'new'",
+                        "message": "Second failure.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        failures = reconcile_data_query_write_service.validation_failure_record_calls[0]["failures"]
+        self.assertEqual([failure["rule_id"] for failure in failures], [101])
+
+    def test_submit_checks_later_field_validation_rules_after_earlier_rules_pass(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "field_1": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'other'",
+                        "message": "First failure.",
+                    },
+                    {
+                        "id": 102,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'new'",
+                        "message": "Second failure.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        failures = reconcile_data_query_write_service.validation_failure_record_calls[0]["failures"]
+        self.assertEqual([failure["rule_id"] for failure in failures], [102])
+
+    def test_custom_expression_supports_num_function_for_error_expression(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "AGE": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val != '' and 18 > num($val)",
+                        "message": "Age must be at least 18.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"AGE": "17"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
+
+    def test_submit_sets_page_status_submitted_when_field_validation_passes(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "field_1": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val != 'new'",
                         "message": "Value should match new.",
                     },
                 )
@@ -410,7 +526,7 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
                         "mode": "QUERY",
                         "rule_type": "CUSTOM_EXPRESSION",
                         "severity": "MAJOR",
-                        "expression": "$val <= $today",
+                        "expression": "$val > $today",
                         "message": "ICF date must not be in the future.",
                     },
                 )
@@ -442,7 +558,7 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
                         "mode": "QUERY",
                         "rule_type": "CUSTOM_EXPRESSION",
                         "severity": "MAJOR",
-                        "expression": "$val <= $field.SCREENING_VISIT_DATE",
+                        "expression": "$val > $field.SCREENING_VISIT_DATE",
                         "message": "ICF date must not be after screening visit date.",
                     },
                 )
