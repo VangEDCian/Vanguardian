@@ -270,7 +270,7 @@
   outline: #d32f2f auto 1px;
 }
 
-.subject-form-field--has-open-query :where(
+.subject-form-field--has-open-query :is(
   input[type="text"],
   input[type="number"],
   input[type="email"],
@@ -288,7 +288,7 @@
   color: #c62828;
 }
 
-.subject-form-field--has-open-query :where(
+.subject-form-field--has-open-query :is(
   input[type="text"],
   input[type="number"],
   input[type="email"],
@@ -306,7 +306,7 @@
   opacity: 0.72;
 }
 
-.subject-form-field--has-open-query :where(
+.subject-form-field--has-open-query :is(
   input[type="radio"]:checked + .subject-form-radio-option-label,
   input[type="checkbox"]:checked + .subject-form-choice-option-label
 ) {
