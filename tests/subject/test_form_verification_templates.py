@@ -5,6 +5,57 @@ from django.test import SimpleTestCase
 
 
 class FormVerificationTemplateTests(SimpleTestCase):
+    def _render_subject_detail_verification_screen(self, **overrides) -> str:
+        context = {
+            "focused_forms": [{"id": 6, "title": "Vitals", "focus_url": "/subjects/1/?mode=verification&event=1&form=6"}],
+            "event_navigation": [],
+            "focused_event": {"id": 1},
+            "focused_form": {"id": 6, "title": "Vitals"},
+            "is_form_verification_mode": True,
+            "is_subject_detail_viewonly_mode": False,
+            "form_verification_review": SimpleNamespace(
+                header={
+                    "event_name": "Visit 1",
+                    "event_start_date": "05/18/2026",
+                    "form_name": "Vitals",
+                    "form_status": "submitted",
+                    "form_version": "1",
+                    "last_modified": "05/18/2026",
+                },
+                rows=[],
+            ),
+            "form_verification_verify_checked_url": "",
+            "form_verification_reopen_url": "",
+            "form_verification_finalize_page_data_url": "",
+            "form_verification_lock_page_url": "",
+            "form_verification_open_query_url": "",
+            "form_verification_query_thread_url": "",
+            "form_verification_fields_locked": False,
+            "form_verification_query_actions_locked": False,
+            "form_verification_show_actions_column": True,
+            "form_verification_show_field_checkboxes": True,
+            "form_verification_show_actions": True,
+            "page_entry_has_open_queries": False,
+            "subject_display_id": "SUBJ-001",
+            "subject_obj": {"site": {"code": "SITE-01"}, "screening_code": "SCR-01"},
+            "study_header_label": "Study A",
+            "back_url": "/subjects/",
+            "auth_user": {"is_superuser": False, "display_name": "Demo User", "username": "demo", "email": ""},
+            "shared_study_selected_id": 1,
+            "shared_study_select_default": "Study A",
+            "shared_study_select_options": [],
+            "shared_study_cookies_key": "study",
+            "shared_site_select_default": "Site 01",
+            "shared_site_select_options": [],
+            "shared_site_cookies_key": "site",
+            "shared_language_select_options": [],
+            "layout_nav_key": "",
+            "layout_show_breadcrumb_trail": False,
+            "layout_detail_meta_items": [],
+        }
+        context.update(overrides)
+        return render_to_string("subject/subject_detail.html", context)
+
     def _render_field_review_table(
         self,
         *,
@@ -77,6 +128,21 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("subject-form-verification-review__col-check", rendered)
         self.assertIn("disabled", rendered)
         self.assertIn('aria-disabled="true"', rendered)
+
+    def test_verification_footer_labels_verify_finalize_and_lock_actions(self):
+        rendered = self._render_subject_detail_verification_screen(
+            form_verification_verify_checked_url="/api/verify-checked/",
+            form_verification_finalize_page_data_url="/api/finalize-page-data/",
+            form_verification_lock_page_url="/api/lock-page/",
+        )
+
+        self.assertIn("Verify Page", rendered)
+        self.assertIn("Finalize Page Data", rendered)
+        self.assertIn("Lock Page", rendered)
+        self.assertIn("data-form-verification-verify-all", rendered)
+        self.assertIn('data-form-verification-page-action="finalize"', rendered)
+        self.assertIn('data-form-verification-page-action="lock"', rendered)
+        self.assertIn("subject_form_verification_page_actions.js", rendered)
 
     def test_field_review_table_hides_actions_column_without_submitted_entry(self):
         rendered = self._render_field_review_table(

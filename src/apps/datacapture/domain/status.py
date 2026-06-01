@@ -59,6 +59,14 @@ class DataCapturePageState:
         return _normalized(status) == cls.VERIFIED
 
     @classmethod
+    def can_finalize(cls, status) -> bool:
+        return _normalized(status) in {cls.VERIFIED, cls.FINALIZED}
+
+    @classmethod
+    def can_lock(cls, status) -> bool:
+        return _normalized(status) in {cls.FINALIZED, cls.LOCKED}
+
+    @classmethod
     def requires_change_reason_on_submit(cls, status) -> bool:
         return _normalized(status) == cls.VERIFIED
 

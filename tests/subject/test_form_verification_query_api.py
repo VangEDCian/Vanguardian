@@ -8,6 +8,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.subject.presentation.web.views.verification_verify_checked import (
+    SubjectFormVerificationFinalizePageDataView,
+    SubjectFormVerificationLockPageView,
     SubjectFormVerificationOpenQueryView,
     SubjectFormVerificationQueryThreadView,
     SubjectFormVerificationVerifyCheckedView,
@@ -30,6 +32,14 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
         self.assertEqual(
             reverse("subject:subject_form_verification_reopen", kwargs=kwargs),
             "/api/studies/1/subjects/2/events/3/forms/4/verification/reopen/",
+        )
+        self.assertEqual(
+            reverse("subject:subject_form_verification_finalize_page_data", kwargs=kwargs),
+            "/api/studies/1/subjects/2/events/3/forms/4/verification/finalize-page-data/",
+        )
+        self.assertEqual(
+            reverse("subject:subject_form_verification_lock_page", kwargs=kwargs),
+            "/api/studies/1/subjects/2/events/3/forms/4/verification/lock-page/",
         )
         self.assertEqual(
             reverse("subject:subject_form_verification_query_thread", kwargs=kwargs),
@@ -354,6 +364,109 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             crf_template_id=4,
             checked_field_template_ids=[11],
             unverify_reason_text="Revert verification",
+            actor_user_id=7,
+        )
+
+    def test_finalize_page_data_maps_request_to_datacapture_api(self):
+        request = RequestFactory().post(
+            "/finalize-page-data/",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "finalize_page_data_for_subject_visit_crf",
+                return_value="finalized",
+            ) as finalize_page_data,
+        ):
+            response = SubjectFormVerificationFinalizePageDataView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["page_status"], "finalized")
+        self.assertIs(payload["reload_required"], True)
+        finalize_page_data.assert_called_once_with(
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
+            actor_user_id=7,
+        )
+
+    def test_finalize_page_data_blocks_self_review_user(self):
+        request = RequestFactory().post(
+            "/finalize-page-data/",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "finalize_page_data_for_subject_visit_crf",
+            ) as finalize_page_data,
+        ):
+            response = SubjectFormVerificationFinalizePageDataView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["error"], ["Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."])
+        finalize_page_data.assert_not_called()
+
+    def test_lock_page_maps_request_to_datacapture_api(self):
+        request = RequestFactory().post(
+            "/lock-page/",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with patch(
+            "apps.subject.presentation.web.views.verification_verify_checked."
+            "lock_page_for_subject_visit_crf",
+            return_value="locked",
+        ) as lock_page:
+            response = SubjectFormVerificationLockPageView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["page_status"], "locked")
+        self.assertIs(payload["reload_required"], True)
+        lock_page.assert_called_once_with(
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
             actor_user_id=7,
         )
 

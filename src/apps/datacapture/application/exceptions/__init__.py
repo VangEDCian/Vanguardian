@@ -7,6 +7,8 @@ from apps.datacapture.application.exceptions.event_transition import (
 )
 from apps.datacapture.application.exceptions.page_state import (
     DataCaptureNoFieldDefinitionsError,
+    DataCapturePageFinalizeStateError,
+    DataCapturePageLockStateError,
     DataCapturePageReopenReasonRequiredError,
     DataCapturePageReopenStateError,
     DataCapturePageReviewStartStateError,
@@ -27,6 +29,8 @@ __all__ = [
     "DataCaptureInvalidPayloadUseCaseError",
     "DataCaptureNoActiveDraftError",
     "DataCaptureNoFieldDefinitionsError",
+    "DataCapturePageFinalizeStateError",
+    "DataCapturePageLockStateError",
     "DataCapturePageReopenReasonRequiredError",
     "DataCapturePageReopenStateError",
     "DataCapturePageReviewStartStateError",

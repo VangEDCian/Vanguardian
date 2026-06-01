@@ -30,6 +30,7 @@ class DataCapturePageStateVerificationFinalDataService:
         reconcile_read_service=None,
         subject_event_lifecycle_adapter=None,
         event_transition_service=None,
+        governance_lock_adapter=None,
     ):
         self.repository = repository or DjangoDataCapturePageRepository()
         self.reconcile_read_service = reconcile_read_service or ReconcileDataQueryReadService()
@@ -37,6 +38,7 @@ class DataCapturePageStateVerificationFinalDataService:
             subject_event_lifecycle_adapter or self.subject_event_lifecycle_adapter_class()
         )
         self.event_transition_service = event_transition_service or self.event_transition_service_class()
+        self.governance_lock_adapter = governance_lock_adapter
         self.validator = self.validator_class()
 
     @staticmethod
@@ -341,6 +343,76 @@ class DataCapturePageStateVerificationFinalDataService:
                 actor_user_id=actor_user_id,
             )
         return page_status
+
+    def finalize_page_data(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        actor_user_id: int | None = None,
+    ) -> str:
+        snapshot = self.repository.get_page_state(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
+        self.validator.require_page_state(snapshot)
+        self.validator.require_finalize_status(snapshot.status)
+        if DataCapturePageState.is_finalized(snapshot.status):
+            return DataCapturePageState.FINALIZED
+        self.repository.update_page_state_final_data_and_status(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            final_data=snapshot.final_data,
+            status=DataCapturePageState.FINALIZED,
+            actor_user_id=actor_user_id,
+            trigger_source="PageDataFinalized",
+        )
+        return DataCapturePageState.FINALIZED
+
+    def lock_page(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        actor_user_id: int | None = None,
+    ) -> str:
+        snapshot = self.repository.get_page_state(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
+        self.validator.require_page_state(snapshot)
+        self.validator.require_lock_status(snapshot.status)
+        if snapshot.status != DataCapturePageState.LOCKED:
+            self.repository.update_page_state_final_data_and_status(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                final_data=snapshot.final_data,
+                status=DataCapturePageState.LOCKED,
+                actor_user_id=actor_user_id,
+                trigger_source="PageLocked",
+            )
+        self._governance_lock_adapter().lock_page_scope(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            page_state_id=snapshot.id,
+            actor_user_id=actor_user_id,
+            reason="Lock Page",
+        )
+        return DataCapturePageState.LOCKED
+
+    def _governance_lock_adapter(self):
+        if self.governance_lock_adapter is None:
+            from apps.governance.public import GovernancePageLockAdapter
+
+            self.governance_lock_adapter = GovernancePageLockAdapter()
+        return self.governance_lock_adapter
 
     def list_verified_field_template_ids(
         self,

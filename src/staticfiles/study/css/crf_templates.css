@@ -190,6 +190,7 @@ body {
 
 .modal--crf-template-import .modal__body--scrollable {
   max-height: min(70vh, 720px);
+  overflow: auto;
 }
 
 .modal--crf-template-import .modal__footer--end {

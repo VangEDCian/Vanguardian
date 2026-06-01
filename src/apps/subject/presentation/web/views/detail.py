@@ -406,6 +406,8 @@ class SubjectDetailView(
         form_verification_review = None
         form_verification_verify_checked_url = ""
         form_verification_reopen_url = ""
+        form_verification_finalize_page_data_url = ""
+        form_verification_lock_page_url = ""
         form_verification_open_query_url = ""
         form_verification_query_thread_url = ""
         validation_issue_acknowledge_url = ""
@@ -610,6 +612,30 @@ class SubjectDetailView(
                                 "crf_template_id": template_pk,
                             },
                         )
+                    if normalized_page_status == DataCapturePageState.VERIFIED:
+                        form_verification_finalize_page_data_url = reverse(
+                            "subject:subject_form_verification_finalize_page_data",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": visit_pk,
+                                "crf_template_id": template_pk,
+                            },
+                        )
+                if (
+                    is_form_verification_mode
+                    and normalized_page_status == DataCapturePageState.FINALIZED
+                    and self.request.user.has_perm("DATA.LOCK")
+                ):
+                    form_verification_lock_page_url = reverse(
+                        "subject:subject_form_verification_lock_page",
+                        kwargs={
+                            "study_id": self.get_study_id(),
+                            "subject_id": subject.pk,
+                            "visit_id": visit_pk,
+                            "crf_template_id": template_pk,
+                        },
+                    )
 
         context["back_url"] = reverse(
             "subject:subject_list", kwargs={"study_id": self.get_study_id()},
@@ -669,6 +695,8 @@ class SubjectDetailView(
         context["form_verification_review"] = form_verification_review
         context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
         context["form_verification_reopen_url"] = form_verification_reopen_url
+        context["form_verification_finalize_page_data_url"] = form_verification_finalize_page_data_url
+        context["form_verification_lock_page_url"] = form_verification_lock_page_url
         context["form_verification_open_query_url"] = form_verification_open_query_url
         context["form_verification_query_thread_url"] = form_verification_query_thread_url
         context["validation_issue_acknowledge_url"] = validation_issue_acknowledge_url

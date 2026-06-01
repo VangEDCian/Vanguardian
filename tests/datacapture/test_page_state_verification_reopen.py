@@ -5,6 +5,8 @@ from django.test import SimpleTestCase
 
 from apps.core.choices import DataCaptureFieldReviewStatusChoices
 from apps.datacapture.application.exceptions import (
+    DataCapturePageFinalizeStateError,
+    DataCapturePageLockStateError,
     DataCapturePageReopenReasonRequiredError,
     DataCapturePageVerifyStateError,
     DataCaptureValidationError,
@@ -148,6 +150,40 @@ class _VerifiedReopenRepository:
     def reopen_verified_page_state(self, **kwargs):
         self.reopen_kwargs = kwargs
         return DataCapturePageState.CORRECTION_REQUIRED
+
+
+class _PageLifecycleRepository:
+    def __init__(self, *, status):
+        self.status = status
+        self.update_calls = []
+
+    def get_page_state(self, **kwargs):
+        return DataCapturePageStateSnapshot(
+            id=12,
+            status=self.status,
+            final_data='{"field_1": "final"}',
+            data_version=3,
+            current_entry_id=21,
+            crf_template_id=31,
+            subject_id=41,
+            visit_id=51,
+            study_id=61,
+            study_version="1",
+            event_definition_id=71,
+        )
+
+    def update_page_state_final_data_and_status(self, **kwargs):
+        self.update_calls.append(kwargs)
+        self.status = kwargs["status"]
+
+
+class _GovernanceLockAdapter:
+    def __init__(self):
+        self.lock_calls = []
+
+    def lock_page_scope(self, **kwargs):
+        self.lock_calls.append(kwargs)
+        return 501
 
 
 class _SubjectEventLifecycleAdapter:
@@ -454,6 +490,110 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                 {
                     "event_instance_id": 51,
                     "actor_user_id": 1,
+                }
+            ],
+        )
+
+    def test_finalize_page_data_requires_verified_state(self):
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=_PageLifecycleRepository(status=DataCapturePageState.SUBMITTED),
+            reconcile_read_service=_NoBlockingQueries(),
+        )
+
+        with self.assertRaises(DataCapturePageFinalizeStateError):
+            service.finalize_page_data(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                actor_user_id=1,
+            )
+
+    def test_finalize_page_data_sets_finalized_status_and_event_source(self):
+        repository = _PageLifecycleRepository(status=DataCapturePageState.VERIFIED)
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_NoBlockingQueries(),
+        )
+
+        page_status = service.finalize_page_data(
+            subject_id=41,
+            visit_id=51,
+            crf_template_id=31,
+            actor_user_id=1,
+        )
+
+        self.assertEqual(page_status, DataCapturePageState.FINALIZED)
+        self.assertEqual(
+            repository.update_calls,
+            [
+                {
+                    "subject_id": 41,
+                    "visit_id": 51,
+                    "crf_template_id": 31,
+                    "final_data": '{"field_1": "final"}',
+                    "status": DataCapturePageState.FINALIZED,
+                    "actor_user_id": 1,
+                    "trigger_source": "PageDataFinalized",
+                }
+            ],
+        )
+
+    def test_lock_page_requires_finalized_state(self):
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=_PageLifecycleRepository(status=DataCapturePageState.VERIFIED),
+            reconcile_read_service=_NoBlockingQueries(),
+            governance_lock_adapter=_GovernanceLockAdapter(),
+        )
+
+        with self.assertRaises(DataCapturePageLockStateError):
+            service.lock_page(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                actor_user_id=1,
+            )
+
+    def test_lock_page_sets_locked_status_and_creates_governance_lock(self):
+        repository = _PageLifecycleRepository(status=DataCapturePageState.FINALIZED)
+        governance_lock_adapter = _GovernanceLockAdapter()
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_NoBlockingQueries(),
+            governance_lock_adapter=governance_lock_adapter,
+        )
+
+        page_status = service.lock_page(
+            subject_id=41,
+            visit_id=51,
+            crf_template_id=31,
+            actor_user_id=1,
+        )
+
+        self.assertEqual(page_status, DataCapturePageState.LOCKED)
+        self.assertEqual(
+            repository.update_calls,
+            [
+                {
+                    "subject_id": 41,
+                    "visit_id": 51,
+                    "crf_template_id": 31,
+                    "final_data": '{"field_1": "final"}',
+                    "status": DataCapturePageState.LOCKED,
+                    "actor_user_id": 1,
+                    "trigger_source": "PageLocked",
+                }
+            ],
+        )
+        self.assertEqual(
+            governance_lock_adapter.lock_calls,
+            [
+                {
+                    "subject_id": 41,
+                    "visit_id": 51,
+                    "crf_template_id": 31,
+                    "page_state_id": 12,
+                    "actor_user_id": 1,
+                    "reason": "Lock Page",
                 }
             ],
         )

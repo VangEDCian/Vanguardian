@@ -286,6 +286,44 @@ def reopen_verified_form_verification_page_state(
     )
 
 
+def finalize_page_data_for_subject_visit_crf(
+    *,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+    actor_user_id: int | None = None,
+) -> str:
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().finalize_page_data(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+        actor_user_id=actor_user_id,
+    )
+
+
+def lock_page_for_subject_visit_crf(
+    *,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+    actor_user_id: int | None = None,
+) -> str:
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().lock_page(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+        actor_user_id=actor_user_id,
+    )
+
+
 def ensure_draft_page_state_if_not_exists(
     *,
     subject_id: int,
@@ -307,6 +345,7 @@ __all__ = [
     "delete_latest_draft_page_entry_for_subject_visit_crf",
     "ensure_draft_page_state_if_not_exists",
     "evaluate_facts_for_event_instance",
+    "finalize_page_data_for_subject_visit_crf",
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",
     "get_latest_stable_page_state_id_for_event_instance",
@@ -317,6 +356,7 @@ __all__ = [
     "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
     "is_field_verified_for_page_state",
+    "lock_page_for_subject_visit_crf",
     "merge_form_verification_checked_fields_into_page_state_final_data",
     "read_fact_snapshot_for_page_state",
     "reopen_verified_form_verification_page_state",

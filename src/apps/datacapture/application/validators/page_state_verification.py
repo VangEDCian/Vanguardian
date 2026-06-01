@@ -1,5 +1,7 @@
 from apps.datacapture.application.exceptions import (
     DataCaptureNoFieldDefinitionsError,
+    DataCapturePageFinalizeStateError,
+    DataCapturePageLockStateError,
     DataCapturePageReopenReasonRequiredError,
     DataCapturePageReopenStateError,
     DataCapturePageReviewStartStateError,
@@ -44,6 +46,16 @@ class DataCapturePageStateVerificationValidator:
     def require_reopen_status(status) -> None:
         if not DataCapturePageState.can_reopen(status):
             raise DataCapturePageReopenStateError()
+
+    @staticmethod
+    def require_finalize_status(status) -> None:
+        if not DataCapturePageState.can_finalize(status):
+            raise DataCapturePageFinalizeStateError()
+
+    @staticmethod
+    def require_lock_status(status) -> None:
+        if not DataCapturePageState.can_lock(status):
+            raise DataCapturePageLockStateError()
 
     @staticmethod
     def require_reopen_reason(reason_text: str | None) -> str:

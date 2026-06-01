@@ -1865,7 +1865,7 @@ class DjangoDataCapturePageRepository:
             from_status=from_status,
             to_status=DataCapturePageStateStatusChoices.VERIFIED,
             actor_user_id=actor_user_id,
-            trigger_source="review",
+            trigger_source="PageVerified",
         )
         return DataCapturePageStateStatusChoices.VERIFIED.value
 
@@ -1940,6 +1940,7 @@ class DjangoDataCapturePageRepository:
         final_data: str | None,
         status: str,
         actor_user_id: int | None = None,
+        trigger_source: str = "review",
     ) -> None:
         """Persist stable ``final_data`` when status is verified, locked, or finalized."""
         now = self._now()
@@ -1999,7 +2000,7 @@ class DjangoDataCapturePageRepository:
             from_status=from_status,
             to_status=status,
             actor_user_id=actor_user_id,
-            trigger_source="review",
+            trigger_source=trigger_source,
         )
 
     def _page_state_final_data_for_lifecycle_status(

@@ -112,7 +112,7 @@
             </main>
         </div>
         {% if is_form_verification_mode %}
-            {% if form_verification_reopen_url or form_verification_verify_checked_url %}
+            {% if form_verification_reopen_url or form_verification_verify_checked_url or form_verification_finalize_page_data_url or form_verification_lock_page_url %}
                 <footer class="subject-detail-screen__footer subject-detail-screen__footer--verification">
                     <div class="subject-detail-screen__footer-actions">
                         {% if form_verification_reopen_url %}
@@ -122,12 +122,33 @@
                                     data-post-url="{{ form_verification_reopen_url|escape }}">
                                 {% trans "Reopen Form" %}
                             </button>
-                        {% elif form_verification_verify_checked_url %}
+                        {% endif %}
+                        {% if form_verification_verify_checked_url %}
                             <button type="button"
                                     class="entity-table__footer-button entity-table__footer-button--primary"
                                     data-form-verification-verify-all
                                     data-post-url="{{ form_verification_verify_checked_url|escape }}">
-                                {% trans "Submit" %}
+                                {% trans "Verify Page" %}
+                            </button>
+                        {% endif %}
+                        {% if form_verification_finalize_page_data_url %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-form-verification-page-action="finalize"
+                                    data-post-url="{{ form_verification_finalize_page_data_url|escape }}"
+                                    data-loading-message="{% trans 'Finalizing page data...' %}"
+                                    data-success-message="{% trans 'Page data finalized.' %}">
+                                {% trans "Finalize Page Data" %}
+                            </button>
+                        {% endif %}
+                        {% if form_verification_lock_page_url %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--danger"
+                                    data-form-verification-page-action="lock"
+                                    data-post-url="{{ form_verification_lock_page_url|escape }}"
+                                    data-loading-message="{% trans 'Locking page...' %}"
+                                    data-success-message="{% trans 'Page locked.' %}">
+                                {% trans "Lock Page" %}
                             </button>
                         {% endif %}
                     </div>
@@ -312,6 +333,9 @@
     {% if is_form_verification_mode %}
         {% if form_verification_verify_checked_url or form_verification_reopen_url %}
             <script src="{% static 'subject/js/subject_form_verification_verify_all.js' %}"></script>
+        {% endif %}
+        {% if form_verification_finalize_page_data_url or form_verification_lock_page_url %}
+            <script src="{% static 'subject/js/subject_form_verification_page_actions.js' %}"></script>
         {% endif %}
         <script src="{% static 'subject/js/subject_form_verification_review_filter.js' %}"></script>
         <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>

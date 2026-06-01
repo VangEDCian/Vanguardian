@@ -31,12 +31,22 @@ class DataCapturePageReopenReasonRequiredError(DataCaptureValidationError):
     default_message = "Reopen reason is required."
 
 
+class DataCapturePageFinalizeStateError(DataCaptureValidationError):
+    default_message = "Page data can only be finalized from verified state."
+
+
+class DataCapturePageLockStateError(DataCaptureValidationError):
+    default_message = "Page can only be locked from finalized state."
+
+
 class DataCapturePageStatePersistError(DataCaptureValidationError):
     default_message = "Could not persist verification: page state update affected 0 rows."
 
 
 __all__ = [
     "DataCaptureNoFieldDefinitionsError",
+    "DataCapturePageFinalizeStateError",
+    "DataCapturePageLockStateError",
     "DataCapturePageReopenStateError",
     "DataCapturePageReopenReasonRequiredError",
     "DataCapturePageReviewStartStateError",

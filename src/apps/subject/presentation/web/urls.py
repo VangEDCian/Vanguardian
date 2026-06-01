@@ -12,6 +12,8 @@ from apps.subject.presentation.web.views import (
     SubjectTriggerWorkflowView,
 )
 from apps.subject.presentation.web.views.verification_verify_checked import (
+    SubjectFormVerificationFinalizePageDataView,
+    SubjectFormVerificationLockPageView,
     SubjectFormVerificationOpenQueryView,
     SubjectFormVerificationQueryThreadView,
     SubjectFormVerificationReopenView,
@@ -46,6 +48,16 @@ urlpatterns = [
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/reopen/",
         SubjectFormVerificationReopenView.as_view(),
         name="subject_form_verification_reopen",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/finalize-page-data/",
+        SubjectFormVerificationFinalizePageDataView.as_view(),
+        name="subject_form_verification_finalize_page_data",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/lock-page/",
+        SubjectFormVerificationLockPageView.as_view(),
+        name="subject_form_verification_lock_page",
     ),
     path(
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/query-thread/",
