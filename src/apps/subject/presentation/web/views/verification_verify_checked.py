@@ -13,6 +13,7 @@ from apps.datacapture.domain import DataCapturePageState
 from apps.datacapture.public import (
     finalize_page_data_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
+    get_page_state_contexts,
     get_page_entry_for_subject_visit_crf,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
@@ -22,9 +23,13 @@ from apps.datacapture.public import (
 )
 from apps.reconcile.public import (
     acknowledge_reconcile_validation_issues,
+    cancel_reconcile_dataquery,
     cancel_reconcile_query,
+    close_reconcile_query,
     open_reconcile_query,
-    reply_and_close_reconcile_query,
+    reopen_reconcile_query,
+    request_clarification_reconcile_query,
+    resolve_reconcile_query,
     reply_to_reconcile_query,
 )
 from apps.subject.application import (
@@ -32,10 +37,18 @@ from apps.subject.application import (
     SubjectValidationError,
 )
 from apps.subject.public import SubjectAbstractVerifyStudy
+from apps.shared.navigation import user_can_access_permission
 
 SELF_REVIEW_ERROR = "Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."
 STALE_REVIEW_ERROR = "Dữ liệu đã bị thao tác, vui lòng reload lại trang để tiếp tục"
 FIELD_STALE_REVIEW_ERROR_TEMPLATE = "field {field_key} đã bị thay đổi, vui lòng kiểm tra lại."
+QUERY_ACTION_PERMISSION_BY_ACTION = {
+    "request_clarification": "QUERY.RETURN",
+    "resolve": "QUERY.CLOSE",
+    "close": "QUERY.CLOSE",
+    "reopen": "QUERY.RETURN",
+    "cancel": "QUERY.CANCEL",
+}
 
 
 def _same_user(left, right) -> bool:
@@ -410,21 +423,63 @@ class SubjectFormVerificationQueryThreadView(
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
-            if normalized["cancel_query"]:
+            action = str(normalized.get("action") or "").strip().lower()
+            permission_code = QUERY_ACTION_PERMISSION_BY_ACTION.get(action)
+            if permission_code is not None:
+                page_context = get_page_state_contexts(page_state_ids=[int(page_state_id)]).get(int(page_state_id))
+                if not user_can_access_permission(
+                    request.user,
+                    permission_code,
+                    study_id=int(kwargs["study_id"]),
+                    site_id=getattr(page_context, "site_id", None),
+                ):
+                    return JsonResponse({"error": ["Permission denied."]}, status=403)
+            if action == "cancel":
+                result = cancel_reconcile_dataquery(
+                    dataquery_id=int(normalized["dataquery_id"]),
+                    page_state_id=int(page_state_id),
+                    field_template_id=int(normalized["field_template_id"]),
+                    message_text=str(normalized["message_text"]),
+                    actor_user_id=getattr(request.user, "id", None),
+                )
+            elif normalized["cancel_query"]:
                 result = cancel_reconcile_query(
                     dataquery_id=int(normalized["dataquery_id"]),
                     page_state_id=int(page_state_id),
                     field_template_id=int(normalized["field_template_id"]),
                     actor_user_id=getattr(request.user, "id", None),
                 )
-            elif normalized["close_query"]:
-                result = reply_and_close_reconcile_query(
+            elif action == "request_clarification":
+                result = request_clarification_reconcile_query(
                     dataquery_id=int(normalized["dataquery_id"]),
                     page_state_id=int(page_state_id),
                     field_template_id=int(normalized["field_template_id"]),
                     message_text=str(normalized["message_text"]),
                     actor_user_id=getattr(request.user, "id", None),
-                    is_resolved=normalized["is_resolved"],
+                )
+            elif action == "resolve":
+                result = resolve_reconcile_query(
+                    dataquery_id=int(normalized["dataquery_id"]),
+                    page_state_id=int(page_state_id),
+                    field_template_id=int(normalized["field_template_id"]),
+                    message_text=str(normalized["message_text"]),
+                    actor_user_id=getattr(request.user, "id", None),
+                )
+            elif normalized["close_query"] or action == "close":
+                result = close_reconcile_query(
+                    dataquery_id=int(normalized["dataquery_id"]),
+                    page_state_id=int(page_state_id),
+                    field_template_id=int(normalized["field_template_id"]),
+                    message_text=str(normalized["message_text"]),
+                    actor_user_id=getattr(request.user, "id", None),
+                )
+            elif action == "reopen":
+                result = reopen_reconcile_query(
+                    dataquery_id=int(normalized["dataquery_id"]),
+                    page_state_id=int(page_state_id),
+                    field_template_id=int(normalized["field_template_id"]),
+                    message_text=str(normalized["message_text"]),
+                    actor_user_id=getattr(request.user, "id", None),
                 )
             else:
                 result = reply_to_reconcile_query(
@@ -437,14 +492,17 @@ class SubjectFormVerificationQueryThreadView(
         except (SubjectValidationError, DataCaptureValidationError, ValueError) as exc:
             messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
             return JsonResponse({"error": messages}, status=400)
+        if result.get("changed") is False:
+            return JsonResponse({"error": ["Action is not allowed for current query status."]}, status=400)
         return JsonResponse(
             {
                 "ok": True,
                 "dataquery_id": result["dataquery_id"],
-                "message_text": result["message_text"],
-                "message_type": result["message_type"],
-                "created_at": result["created_at"],
-                "closed": result["closed"],
+                "message_text": result.get("message_text", ""),
+                "message_type": result.get("message_type", ""),
+                "created_at": result.get("created_at", ""),
+                "closed": result.get("closed", result.get("status") == "closed"),
+                "status": result.get("status", ""),
                 "cancelled": result.get("cancelled", False),
             }
         )

@@ -19,6 +19,12 @@
       placeholder: 'Answer',
       required: true,
     },
+    request_clarification: {
+      title: 'Request Clarification',
+      message: 'Enter the clarification request to send this query back to the site.',
+      placeholder: 'Clarification request',
+      required: true,
+    },
     resolve: {
       title: 'Resolve Query',
       message: 'Enter the resolution note for this query.',
@@ -35,6 +41,12 @@
       title: 'Reopen Query',
       message: 'Enter the reason for reopening this query.',
       placeholder: 'Reopen reason',
+      required: true,
+    },
+    cancel: {
+      title: 'Cancel Query',
+      message: 'Enter the reason for cancelling this query.',
+      placeholder: 'Cancellation reason',
       required: true,
     },
   };

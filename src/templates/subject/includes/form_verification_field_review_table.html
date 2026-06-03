@@ -78,6 +78,7 @@
                                         data-field-label="{{ row.brief_description|escape }}"
                                         data-field-key="{{ row.field_key|escape }}"
                                         data-field-value="{{ row.display_value|default:'—'|escape }}"
+                                        data-query-status="{{ row.active_query_status|default:''|escape }}"
                                         data-query-answered="{% if row.active_query_is_answered %}true{% else %}false{% endif %}"
                                         data-query-can-respond="{% if row.active_query_can_respond %}true{% else %}false{% endif %}"
                                         {% if not row.active_query_id %}hidden{% endif %}
@@ -124,6 +125,7 @@
                                 {% for history in row.closed_query_histories %}
                                     <div data-query-history
                                          data-history-dataquery-id="{{ history.dataquery_id|default:'' }}"
+                                         data-history-status="{{ history.status|default:''|escape }}"
                                          data-history-label="{{ history.label|escape }}"
                                          data-history-opened-at="{{ history.opened_at|escape }}"
                                          data-history-closed-at="{{ history.closed_at|escape }}">

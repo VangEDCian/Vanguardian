@@ -15,7 +15,7 @@
            class="crf-template-actions__item"
            data-dropdown-option>{% trans "View" %}</a>
         {% with status=record.status|lower %}
-            {% if can_answer_dataquery and status == "open" or can_answer_dataquery and status == "reopened" %}
+            {% if can_answer_dataquery and status == "open" or can_answer_dataquery and status == "answered" %}
                 {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='answer' as answer_url %}
                 <button type="button"
                         class="crf-template-actions__item"
@@ -25,6 +25,28 @@
                         data-query-action-url="{{ answer_url }}"
                         data-query-id="{{ record.query_id }}"
                         data-query-label="DQ-{{ record.query_id }}">{% trans "Answer" %}</button>
+            {% endif %}
+            {% if can_cancel_dataquery and status == "open" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='cancel' as cancel_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="cancel"
+                        data-query-action-url="{{ cancel_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Cancel" %}</button>
+            {% endif %}
+            {% if can_reopen_dataquery and status == "answered" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='request_clarification' as request_clarification_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="request_clarification"
+                        data-query-action-url="{{ request_clarification_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Request Clarification" %}</button>
             {% endif %}
             {% if can_resolve_dataquery and status == "answered" %}
                 {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='resolve' as resolve_url %}

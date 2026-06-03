@@ -69,10 +69,10 @@ class SubjectFormVerificationRequestValidator:
         return {
             "dataquery_id": dataquery_id,
             "field_template_id": field_template_id,
+            "action": str(body.get("action") or "answer").strip().lower(),
             "message_text": str(body.get("message_text") or "").strip(),
             "close_query": body.get("close_query") is True,
             "cancel_query": body.get("cancel_query") is True,
-            "is_resolved": body.get("is_resolved") is True,
         }
 
     @classmethod

@@ -29,6 +29,22 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         )
         self.assertEqual(created_count, 3)
         self.assertEqual(
+            [
+                {
+                    "dataquery_id": call["dataquery_id"],
+                    "page_state_id": call["page_state_id"],
+                    "field_template_id": call["field_template_id"],
+                    "actor_user_id": call["actor_user_id"],
+                }
+                for call in repository.answered_calls
+            ],
+            [
+                {"dataquery_id": 101, "page_state_id": 11, "field_template_id": 1, "actor_user_id": 99},
+                {"dataquery_id": 102, "page_state_id": 11, "field_template_id": 2, "actor_user_id": 99},
+                {"dataquery_id": 103, "page_state_id": 11, "field_template_id": 3, "actor_user_id": 99},
+            ],
+        )
+        self.assertEqual(
             repository.created_threads,
             [
                 {
@@ -72,6 +88,23 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(repository.answered_calls[0]["field_template_id"], 11)
         self.assertEqual(repository.answered_calls[0]["actor_user_id"], 7)
         self.assertIs(repository.answered_calls[0]["now"], repository.created_threads[0]["now"])
+        self.assertEqual(result["status"], "answered")
+        self.assertIs(result["changed"], True)
+
+    def test_reply_to_query_does_not_create_thread_when_status_update_fails(self):
+        repository = _ReplyRepositoryStub(can_answer=False)
+
+        result = ReconcileDataQueryWriteService(repository=repository).reply_to_query(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Answered by site",
+            actor_user_id=7,
+        )
+
+        self.assertIs(result["changed"], False)
+        self.assertEqual(repository.created_threads, [])
+        self.assertEqual(repository.answered_calls[0]["dataquery_id"], 101)
 
     def test_resolve_query_marks_query_resolved(self):
         repository = _ReplyRepositoryStub()
@@ -102,7 +135,7 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(result["status"], "closed")
         self.assertEqual(repository.closed_resolved_calls[0]["actor_user_id"], 7)
 
-    def test_reopen_query_marks_query_reopened(self):
+    def test_reopen_query_marks_query_open(self):
         repository = _ReplyRepositoryStub()
 
         result = ReconcileDataQueryWriteService(repository=repository).reopen_query(
@@ -113,8 +146,26 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
             actor_user_id=7,
         )
 
-        self.assertEqual(result["status"], "reopened")
-        self.assertEqual(repository.reopened_calls[0]["actor_user_id"], 7)
+        self.assertEqual(result["status"], "open")
+        self.assertEqual(repository.reopen_calls[0]["actor_user_id"], 7)
+
+    def test_request_clarification_marks_answered_query_open(self):
+        repository = _ReplyRepositoryStub()
+
+        result = ReconcileDataQueryWriteService(repository=repository).request_clarification(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Please clarify the updated value",
+            actor_user_id=7,
+        )
+
+        self.assertEqual(result["status"], "open")
+        self.assertIs(result["changed"], True)
+        self.assertEqual(repository.clarification_calls[0]["dataquery_id"], 101)
+        self.assertIs(repository.clarification_calls[0]["now"], repository.created_threads[0]["now"])
+        self.assertEqual(repository.created_threads[0]["message_type"], "status_change")
+        self.assertEqual(repository.created_threads[0]["message_text"], "Please clarify the updated value")
 
     def test_reply_to_query_allows_non_participant(self):
         repository = _ReplyRepositoryStub(can_respond=False)
@@ -132,38 +183,6 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(repository.answered_calls[0]["actor_user_id"], 99)
         self.assertFalse(hasattr(repository, "response_actor_check"))
 
-    def test_reply_and_close_query_requires_resolved_flag(self):
-        repository = _ReplyRepositoryStub()
-
-        with self.assertRaisesMessage(ValueError, "Query must be resolved before it can be closed."):
-            ReconcileDataQueryWriteService(repository=repository).reply_and_close_query(
-                dataquery_id=101,
-                page_state_id=23,
-                field_template_id=11,
-                message_text="Close it",
-                actor_user_id=7,
-                is_resolved=False,
-            )
-
-        self.assertEqual(repository.created_threads, [])
-        self.assertEqual(repository.closed_calls, [])
-
-    def test_reply_and_close_query_closes_when_resolved(self):
-        repository = _ReplyRepositoryStub()
-
-        result = ReconcileDataQueryWriteService(repository=repository).reply_and_close_query(
-            dataquery_id=101,
-            page_state_id=23,
-            field_template_id=11,
-            message_text="Close it",
-            actor_user_id=7,
-            is_resolved=True,
-        )
-
-        self.assertIs(result["closed"], True)
-        self.assertEqual(repository.closed_calls[0]["is_resolved"], True)
-        self.assertIs(repository.closed_calls[0]["now"], repository.created_threads[0]["now"])
-
     def test_cancel_query_marks_query_cancelled(self):
         repository = _ReplyRepositoryStub()
 
@@ -179,6 +198,24 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(repository.cancelled_calls[0]["page_state_id"], 23)
         self.assertEqual(repository.cancelled_calls[0]["field_template_id"], 11)
         self.assertEqual(repository.cancelled_calls[0]["actor_user_id"], 7)
+
+    def test_cancel_dataquery_marks_query_cancelled_with_status_thread(self):
+        repository = _ReplyRepositoryStub()
+
+        result = ReconcileDataQueryWriteService(repository=repository).cancel_dataquery(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Opened by mistake",
+            actor_user_id=7,
+        )
+
+        self.assertEqual(result["status"], "cancelled")
+        self.assertIs(result["changed"], True)
+        self.assertEqual(repository.cancelled_calls[0]["dataquery_id"], 101)
+        self.assertIs(repository.cancelled_calls[0]["now"], repository.created_threads[0]["now"])
+        self.assertEqual(repository.created_threads[0]["message_type"], "status_change")
+        self.assertEqual(repository.created_threads[0]["message_text"], "Opened by mistake")
 
     def test_create_validation_failure_records_creates_soft_issue_and_query(self):
         repository = _ReconcileRepositoryStub()
@@ -323,46 +360,6 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
             ),
         )
 
-    def test_close_query_sets_closed_by_id_to_actor_user(self):
-        repository = DjangoReconcileDataQueryWriteRepository()
-        query = _UpdateQuery()
-        with patch(
-            "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileDataQuery.objects.filter",
-            return_value=query,
-        ):
-            closed = repository.close_query(
-                dataquery_id=101,
-                page_state_id=23,
-                field_template_id=11,
-                resolution_note="Done",
-                actor_user_id=7,
-                now="now",
-                is_resolved=True,
-            )
-
-        self.assertIs(closed, True)
-        self.assertEqual(query.updated_with["status"], "closed")
-        self.assertEqual(query.updated_with["resolved_at"], "now")
-        self.assertEqual(query.updated_with["resolved_by_id"].name, "answered_by_id")
-        self.assertEqual(query.updated_with["closed_at"], "now")
-        self.assertEqual(query.updated_with["closed_by_id"], 7)
-        self.assertEqual(query.updated_with["updated_by_id"], 7)
-
-    def test_close_query_returns_false_when_not_resolved(self):
-        repository = DjangoReconcileDataQueryWriteRepository()
-
-        closed = repository.close_query(
-            dataquery_id=101,
-            page_state_id=23,
-            field_template_id=11,
-            resolution_note="Done",
-            actor_user_id=7,
-            now="now",
-            is_resolved=False,
-        )
-
-        self.assertIs(closed, False)
-
     def test_soft_validation_issue_does_not_duplicate_unresolved_issue(self):
         repository = DjangoReconcileDataQueryWriteRepository()
         unresolved_query = _ExistsQuery(exists=True)
@@ -495,7 +492,7 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
             deleted=False,
             status__in=(
                 ReconcileDataQueryStatusChoices.OPEN,
-                ReconcileDataQueryStatusChoices.REOPENED,
+                ReconcileDataQueryStatusChoices.ANSWERED,
             ),
         )
         self.assertEqual(query.updated_with["status"], "answered")
@@ -560,14 +557,14 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
         self.assertEqual(query.updated_with["closed_at"], "now")
         self.assertEqual(query.updated_with["closed_by_id"], 7)
 
-    def test_reopen_query_only_updates_resolved_or_closed_queries(self):
+    def test_reopen_query_marks_allowed_queries_open(self):
         repository = DjangoReconcileDataQueryWriteRepository()
         query = _UpdateQuery()
         with patch(
             "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileDataQuery.objects.filter",
             return_value=query,
         ) as filter_query:
-            reopened = repository.reopen_query(
+            opened = repository.reopen_query(
                 dataquery_id=101,
                 page_state_id=23,
                 field_template_id=11,
@@ -575,7 +572,7 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
                 now="now",
             )
 
-        self.assertIs(reopened, True)
+        self.assertIs(opened, True)
         filter_query.assert_called_once_with(
             pk=101,
             page_state_id=23,
@@ -586,11 +583,40 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
                 ReconcileDataQueryStatusChoices.CLOSED,
             ),
         )
-        self.assertEqual(query.updated_with["status"], "reopened")
+        self.assertEqual(query.updated_with["status"], "open")
         self.assertIsNone(query.updated_with["resolved_at"])
         self.assertIsNone(query.updated_with["resolved_by_id"])
         self.assertIsNone(query.updated_with["closed_at"])
         self.assertIsNone(query.updated_with["closed_by_id"])
+
+    def test_request_clarification_only_updates_answered_queries(self):
+        repository = DjangoReconcileDataQueryWriteRepository()
+        query = _UpdateQuery()
+        with patch(
+            "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileDataQuery.objects.filter",
+            return_value=query,
+        ) as filter_query:
+            opened = repository.request_clarification(
+                dataquery_id=101,
+                page_state_id=23,
+                field_template_id=11,
+                actor_user_id=7,
+                now="now",
+            )
+
+        self.assertIs(opened, True)
+        filter_query.assert_called_once_with(
+            pk=101,
+            page_state_id=23,
+            field_template_id=11,
+            deleted=False,
+            status=ReconcileDataQueryStatusChoices.ANSWERED,
+        )
+        self.assertEqual(query.updated_with["status"], "open")
+        self.assertIsNone(query.updated_with["answered_at"])
+        self.assertIsNone(query.updated_with["answered_by_id"])
+        self.assertEqual(query.updated_with["updated_at"], "now")
+        self.assertEqual(query.updated_with["updated_by_id"], 7)
 
     def test_cancel_query_sets_cancelled_status(self):
         repository = DjangoReconcileDataQueryWriteRepository()
@@ -640,6 +666,7 @@ class _ReconcileRepositoryStub:
         self.created_soft_issues = []
         self.created_validation_queries = []
         self.acknowledged_validation_issues = []
+        self.answered_calls = []
 
     def list_field_key_to_id(self, *, crf_template_id):
         return {"field_1": 1, "field_2": 2, "field_3": 3}
@@ -671,6 +698,10 @@ class _ReconcileRepositoryStub:
             },
         }
 
+    def mark_query_answered(self, **kwargs):
+        self.answered_calls.append(kwargs)
+        return True
+
     def create_query_thread_message(self, **kwargs):
         self.created_threads.append(
             {
@@ -701,15 +732,16 @@ class _ReconcileRepositoryStub:
 
 
 class _ReplyRepositoryStub:
-    def __init__(self, *, can_respond=True):
+    def __init__(self, *, can_respond=True, can_answer=True):
         self.created_threads = []
         self.answered_calls = []
-        self.closed_calls = []
         self.resolved_calls = []
         self.closed_resolved_calls = []
-        self.reopened_calls = []
+        self.reopen_calls = []
+        self.clarification_calls = []
         self.cancelled_calls = []
         self.can_respond = can_respond
+        self.can_answer = can_answer
 
     def query_belongs_to_scope(self, **kwargs):
         self.scope_check = kwargs
@@ -729,11 +761,7 @@ class _ReplyRepositoryStub:
 
     def mark_query_answered(self, **kwargs):
         self.answered_calls.append(kwargs)
-        return True
-
-    def close_query(self, **kwargs):
-        self.closed_calls.append(kwargs)
-        return True
+        return self.can_answer
 
     def resolve_query(self, **kwargs):
         self.resolved_calls.append(kwargs)
@@ -744,7 +772,11 @@ class _ReplyRepositoryStub:
         return True
 
     def reopen_query(self, **kwargs):
-        self.reopened_calls.append(kwargs)
+        self.reopen_calls.append(kwargs)
+        return True
+
+    def request_clarification(self, **kwargs):
+        self.clarification_calls.append(kwargs)
         return True
 
     def cancel_query(self, **kwargs):

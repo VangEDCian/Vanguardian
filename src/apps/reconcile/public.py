@@ -165,6 +165,40 @@ def reopen_reconcile_query(
     )
 
 
+def request_clarification_reconcile_query(
+    *,
+    dataquery_id: int,
+    page_state_id: int,
+    field_template_id: int | None,
+    message_text: str,
+    actor_user_id: int | None,
+) -> dict[str, object]:
+    return ReconcileDataQueryWriteService().request_clarification(
+        dataquery_id=dataquery_id,
+        page_state_id=page_state_id,
+        field_template_id=field_template_id,
+        message_text=message_text,
+        actor_user_id=actor_user_id,
+    )
+
+
+def cancel_reconcile_dataquery(
+    *,
+    dataquery_id: int,
+    page_state_id: int,
+    field_template_id: int | None,
+    message_text: str,
+    actor_user_id: int | None,
+) -> dict[str, object]:
+    return ReconcileDataQueryWriteService().cancel_dataquery(
+        dataquery_id=dataquery_id,
+        page_state_id=page_state_id,
+        field_template_id=field_template_id,
+        message_text=message_text,
+        actor_user_id=actor_user_id,
+    )
+
+
 def get_reconcile_query_action_scope(*, dataquery_id: int) -> dict[str, object] | None:
     return ReconcileDataQueryWriteService().query_action_scope(dataquery_id=dataquery_id)
 
@@ -184,27 +218,9 @@ def cancel_reconcile_query(
     )
 
 
-def reply_and_close_reconcile_query(
-    *,
-    dataquery_id: int,
-    page_state_id: int,
-    field_template_id: int,
-    message_text: str,
-    actor_user_id: int | None,
-    is_resolved: bool = False,
-) -> dict[str, object]:
-    return ReconcileDataQueryWriteService().reply_and_close_query(
-        dataquery_id=dataquery_id,
-        page_state_id=page_state_id,
-        field_template_id=field_template_id,
-        message_text=message_text,
-        actor_user_id=actor_user_id,
-        is_resolved=is_resolved,
-    )
-
-
 __all__ = [
     "acknowledge_reconcile_validation_issues",
+    "cancel_reconcile_dataquery",
     "cancel_reconcile_query",
     "close_reconcile_query",
     "create_data_queries_for_page_change_reasons",
@@ -215,7 +231,7 @@ __all__ = [
     "list_open_reconcile_validation_issues_by_fields",
     "open_reconcile_query",
     "reopen_reconcile_query",
+    "request_clarification_reconcile_query",
     "resolve_reconcile_query",
-    "reply_and_close_reconcile_query",
     "reply_to_reconcile_query",
 ]

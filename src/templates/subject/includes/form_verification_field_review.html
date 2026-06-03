@@ -4,31 +4,44 @@
      data-review-entry-version="{{ form_verification_review.header.form_version|default:''|escape }}"
      data-review-page-status="{{ form_verification_review.header.form_status|default:''|escape }}">
     {% with h=form_verification_review.header %}
-        <header class="subject-form-verification-review__header" aria-label="{% trans 'Form verification metadata' %}">
+        <header class="subject-form-verification-review__header"
+                aria-label="{% trans 'Form verification metadata' %}">
             <dl class="subject-form-verification-review__meta">
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Event Name" %}</dt>
-                    <dd>{{ h.event_name }}</dd>
+                    <dd>
+                        {{ h.event_name }}
+                    </dd>
                 </div>
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Event Start Date" %}</dt>
-                    <dd>{{ h.event_start_date }}</dd>
+                    <dd>
+                        {{ h.event_start_date }}
+                    </dd>
                 </div>
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Form Name" %}</dt>
-                    <dd>{{ h.form_name }}</dd>
+                    <dd>
+                        {{ h.form_name }}
+                    </dd>
                 </div>
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Form Status" %}</dt>
-                    <dd>{{ h.form_status|subject_form_status_label }}</dd>
+                    <dd>
+                        {{ h.form_status|subject_form_status_label }}
+                    </dd>
                 </div>
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Form Version" %}</dt>
-                    <dd>{{ h.form_version }}</dd>
+                    <dd>
+                        {{ h.form_version }}
+                    </dd>
                 </div>
                 <div class="subject-form-verification-review__meta-row">
                     <dt>{% trans "Last Modified" %}</dt>
-                    <dd>{{ h.last_modified }}</dd>
+                    <dd>
+                        {{ h.last_modified }}
+                    </dd>
                 </div>
             </dl>
         </header>
@@ -75,11 +88,13 @@
                     <dl class="subject-form-verification-query-modal__facts">
                         <div class="subject-form-verification-query-modal__fact-row">
                             <dt>{% trans "Brief Description" %}</dt>
-                            <dd data-open-query-modal-brief></dd>
+                            <dd data-open-query-modal-brief>
+                            </dd>
                         </div>
                         <div class="subject-form-verification-query-modal__fact-row">
                             <dt>{% trans "Value" %}</dt>
-                            <dd data-open-query-modal-value></dd>
+                            <dd data-open-query-modal-value>
+                            </dd>
                         </div>
                     </dl>
                 </section>
@@ -91,12 +106,20 @@
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--primary"
                                 data-open-query-modal-submit>
-                            {% if LANGUAGE_CODE|slice:":2" == "vi" %}Mở câu hỏi{% else %}Open Query{% endif %}
+                            {% if LANGUAGE_CODE|slice:":2" == "vi" %}
+                                Mở câu hỏi
+                            {% else %}
+                                Open Query
+                            {% endif %}
                         </button>
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--secondary"
                                 data-open-query-modal-close>
-                            {% if LANGUAGE_CODE|slice:":2" == "vi" %}Đóng{% else %}Close{% endif %}
+                            {% if LANGUAGE_CODE|slice:":2" == "vi" %}
+                                Đóng
+                            {% else %}
+                                Close
+                            {% endif %}
                         </button>
                     </div>
                 </section>
@@ -124,11 +147,13 @@
                     <dl class="subject-form-verification-query-modal__facts">
                         <div class="subject-form-verification-query-modal__fact-row">
                             <dt>{% trans "Brief Description" %}</dt>
-                            <dd data-query-modal-brief></dd>
+                            <dd data-query-modal-brief>
+                            </dd>
                         </div>
                         <div class="subject-form-verification-query-modal__fact-row">
                             <dt>{% trans "Value" %}</dt>
-                            <dd data-query-modal-value></dd>
+                            <dd data-query-modal-value>
+                            </dd>
                         </div>
                     </dl>
                 </section>
@@ -136,26 +161,28 @@
                     <textarea class="subject-form-verification-query-modal__textarea"
                               rows="2"
                               data-query-modal-comment-input></textarea>
-                    <label class="subject-form-verification-query-modal__resolved-check"
-                           hidden
-                           data-query-modal-resolved-wrap>
-                        <input type="checkbox" data-query-modal-resolved-input />
-                        <span>{% trans "Is this Resolved?" %}</span>
-                    </label>
                     <div class="subject-form-verification-query-modal__actions">
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--primary"
-                                data-query-modal-reply>{% trans "Reply" %}</button>
-                        <button type="button"
-                                class="entity-table__footer-button entity-table__footer-button--danger"
-                                hidden
-                                data-query-modal-reply-close>{% trans "Reply and Close Query" %}</button>
-                        <button type="button"
-                                class="entity-table__footer-button entity-table__footer-button--danger"
-                                data-query-modal-cancel>{% trans "Cancel Query" %}</button>
+                                data-query-modal-reply>{% trans "Answer" %}</button>
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--secondary"
-                                data-query-modal-close>{% trans "Close" %}</button>
+                                data-query-modal-request-clarification>{% trans "Request Clarification" %}</button>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--primary"
+                                data-query-modal-reply-close>{% trans "Resolve" %}</button>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--danger"
+                                data-query-modal-close-query>{% trans "Close" %}</button>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-query-modal-reopen>{% trans "Reopen" %}</button>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--danger"
+                                data-query-modal-cancel-query>{% trans "Cancel" %}</button>
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-query-modal-close>{% trans "Dismiss" %}</button>
                     </div>
                 </section>
                 <section class="subject-form-verification-query-modal__section subject-form-verification-query-modal__messages"
@@ -184,17 +211,20 @@
             <div class="subject-form-verification-query-modal__body subject-form-verification-query-modal__body--history">
                 <aside class="subject-form-verification-query-modal__history-list"
                        aria-label="{% trans 'Closed queries' %}"
-                       data-query-history-modal-list></aside>
+                       data-query-history-modal-list>
+                </aside>
                 <div class="subject-form-verification-query-modal__history-detail">
                     <section class="subject-form-verification-query-modal__section">
                         <dl class="subject-form-verification-query-modal__facts">
                             <div class="subject-form-verification-query-modal__fact-row">
                                 <dt>{% trans "Brief Description" %}</dt>
-                                <dd data-query-history-modal-brief></dd>
+                                <dd data-query-history-modal-brief>
+                                </dd>
                             </div>
                             <div class="subject-form-verification-query-modal__fact-row">
                                 <dt>{% trans "Value" %}</dt>
-                                <dd data-query-history-modal-value></dd>
+                                <dd data-query-history-modal-value>
+                                </dd>
                             </div>
                         </dl>
                     </section>
@@ -203,7 +233,18 @@
                         <p class="subject-form-verification-query-modal__empty"
                            data-query-history-modal-empty>{% trans "No query messages." %}</p>
                     </section>
+                    <section class="subject-form-verification-query-modal__section"
+                             data-query-history-modal-actions-section
+                             hidden>
+                        <textarea class="subject-form-verification-query-modal__textarea"
+                                  rows="2"
+                                  data-query-history-modal-action-input></textarea>
+                    </section>
                     <div class="subject-form-verification-query-modal__actions">
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-query-history-modal-reopen
+                                hidden>{% trans "Reopen" %}</button>
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--secondary"
                                 data-query-history-modal-close>{% trans "Close" %}</button>

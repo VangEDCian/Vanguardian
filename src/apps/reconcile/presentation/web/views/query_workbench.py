@@ -16,10 +16,11 @@ from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 VIEW_QUERY_PERMISSION = "reconcile.view_dataquery"
 VIEW_INTERNAL_QUERY_THREAD_PERMISSION = "reconcile.view_internal_query_thread"
-ANSWER_QUERY_PERMISSION = "reconcile.answer_dataquery"
-RESOLVE_QUERY_PERMISSION = "reconcile.resolve_dataquery"
-CLOSE_QUERY_PERMISSION = "reconcile.close_dataquery"
-REOPEN_QUERY_PERMISSION = "reconcile.reopen_dataquery"
+ANSWER_QUERY_PERMISSION = "QUERY.RESPOND"
+RESOLVE_QUERY_PERMISSION = "QUERY.CLOSE"
+CLOSE_QUERY_PERMISSION = "QUERY.CLOSE"
+REOPEN_QUERY_PERMISSION = "QUERY.RETURN"
+CANCEL_QUERY_PERMISSION = "QUERY.CANCEL"
 
 
 class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerifyStudy, TemplateView):
@@ -124,6 +125,12 @@ class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerify
             "can_reopen_dataquery": user_can_access_permission(
                 self.request.user,
                 REOPEN_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_cancel_dataquery": user_can_access_permission(
+                self.request.user,
+                CANCEL_QUERY_PERMISSION,
                 study_id=self.get_study_id(),
                 site_id=selected_site_id,
             ),
@@ -233,6 +240,12 @@ class QueryDetailView(AuthenticateTemplateContextMixin, SubjectAbstractVerifyStu
             "can_reopen_dataquery": user_can_access_permission(
                 self.request.user,
                 REOPEN_QUERY_PERMISSION,
+                study_id=self.get_study_id(),
+                site_id=selected_site_id,
+            ),
+            "can_cancel_dataquery": user_can_access_permission(
+                self.request.user,
+                CANCEL_QUERY_PERMISSION,
                 study_id=self.get_study_id(),
                 site_id=selected_site_id,
             ),

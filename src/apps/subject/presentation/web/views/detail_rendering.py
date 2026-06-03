@@ -567,6 +567,7 @@ class SubjectDetailRenderingMixin:
             if key
             not in {
                 "active_query_id",
+                "active_query_status",
                 "active_query_is_answered",
                 "query_thread_badge_count",
                 "query_messages",

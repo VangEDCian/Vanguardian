@@ -483,6 +483,7 @@ class SubjectDetailView(
                             continue
                         field_query_state_by_id[int(row["field_template_id"])] = {
                             "active_query_id": row.get("active_query_id"),
+                            "active_query_status": row.get("active_query_status"),
                             "active_query_is_answered": row.get("active_query_is_answered"),
                             "query_thread_badge_count": row.get("query_thread_badge_count"),
                             "query_messages": row.get("query_messages"),

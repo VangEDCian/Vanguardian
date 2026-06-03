@@ -5,7 +5,9 @@ from unittest.mock import patch
 from django.test import RequestFactory, SimpleTestCase
 from django.urls import resolve, reverse
 
+from apps.identity.application.default_role_permissions import DEFAULT_EDC_ROLE_GROUPS
 from apps.reconcile.application.services.query_workbench import QueryWorkbenchReader
+from apps.reconcile.infrastructure.repositories.dataquery_read import DjangoReconcileDataQueryReadRepository
 from apps.reconcile.presentation.api.views import QueryLifecycleActionAPIView
 from apps.reconcile.presentation.web.views import QueryWorkbenchView
 
@@ -13,7 +15,6 @@ from apps.reconcile.presentation.web.views import QueryWorkbenchView
 class QueryWorkbenchReaderTests(SimpleTestCase):
     def test_pending_with_maps_status_to_responsible_party(self):
         self.assertEqual(QueryWorkbenchReader.pending_with("open"), "Site / Data Entry")
-        self.assertEqual(QueryWorkbenchReader.pending_with("reopened"), "Site / Data Entry")
         self.assertEqual(QueryWorkbenchReader.pending_with("answered"), "CRA / Data Manager")
         self.assertEqual(QueryWorkbenchReader.pending_with("resolved"), "Data Manager / Close")
         self.assertEqual(QueryWorkbenchReader.pending_with("closed"), "—")
@@ -216,6 +217,33 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
         self.assertEqual(query.assigned_to_display, "CRA Reviewer")
         self.assertEqual(threads[0].author_display, "CRA Reviewer")
 
+    def test_repository_lists_query_threads_newest_first(self):
+        queryset = _ThreadQuerySet(
+            [
+                {
+                    "id": 301,
+                    "message_text": "Latest",
+                    "message_type": "comment",
+                    "visibility": "site",
+                    "source": "manual",
+                    "author_id": 8,
+                    "created_at": None,
+                }
+            ]
+        )
+
+        with patch(
+            "apps.reconcile.infrastructure.repositories.dataquery_read.ReconcileQueryThread.objects.filter",
+            return_value=queryset,
+        ):
+            threads = DjangoReconcileDataQueryReadRepository().list_query_threads(
+                query_id=11,
+                can_view_internal_thread=True,
+            )
+
+        self.assertEqual(queryset.ordered_by, ("-created_at", "-id"))
+        self.assertEqual(threads[0]["message_text"], "Latest")
+
     def test_reconcile_application_uses_datacapture_public_contract(self):
         source = Path("src/apps/reconcile/application/services/query_workbench.py").read_text()
 
@@ -257,7 +285,22 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
         self.assertNotIn("query-detail__header", detail_source)
         self.assertIn("query-detail__field-alias", detail_source)
         self.assertIn("query.review_focus_url", detail_source)
+        self.assertIn("request_clarification", detail_source)
+        self.assertIn("Request Clarification", detail_source)
+        self.assertIn('action="reopen"', detail_source)
+        self.assertIn("Reopen", detail_source)
+        self.assertIn('action="cancel"', detail_source)
+        self.assertIn("Cancel", detail_source)
         self.assertNotIn("Field Path", detail_source)
+
+    def test_default_cra_and_data_manager_roles_can_cancel_queries(self):
+        permissions_by_role = {
+            str(role["role_code"]): set(role["permissions"])
+            for role in DEFAULT_EDC_ROLE_GROUPS
+        }
+
+        self.assertIn("QUERY.CANCEL", permissions_by_role["CRA_MONITOR"])
+        self.assertIn("QUERY.CANCEL", permissions_by_role["DATA_MANAGER"])
 
 
 class QueryLifecycleActionAPIViewTests(SimpleTestCase):
@@ -307,7 +350,7 @@ class QueryLifecycleActionAPIViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         can_access.assert_called_once_with(
             request.user,
-            "reconcile.resolve_dataquery",
+            "QUERY.CLOSE",
             study_id=1,
             site_id=9,
         )
@@ -319,6 +362,192 @@ class QueryLifecycleActionAPIViewTests(SimpleTestCase):
                 "page_state_id": 33,
                 "field_template_id": 44,
                 "message_text": "Confirmed",
+                "actor_user_id": 7,
+            },
+        )
+
+    def test_post_request_clarification_maps_to_open_transition(self):
+        request = RequestFactory().post(
+            "/api/studies/1/queries/2/request_clarification/",
+            data='{"message_text": "Please clarify"}',
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda permission: False)
+        context = SimpleNamespace(study_id=1, site_id=9)
+
+        with (
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.get_page_state_contexts",
+                return_value={33: context},
+            ),
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.user_can_access_permission",
+                return_value=True,
+            ) as can_access,
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.ReconcileDataQueryWriteService",
+                return_value=_QueryActionServiceStub(
+                    scope={
+                        "dataquery_id": 2,
+                        "page_state_id": 33,
+                        "field_template_id": 44,
+                        "status": "answered",
+                    },
+                    result={
+                        "changed": True,
+                        "status": "open",
+                        "message_text": "Please clarify",
+                        "message_type": "status_change",
+                    },
+                ),
+            ) as service_class,
+        ):
+            response = QueryLifecycleActionAPIView().post(
+                request,
+                study_id=1,
+                query_id=2,
+                action="request_clarification",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        can_access.assert_called_once_with(
+            request.user,
+            "QUERY.RETURN",
+            study_id=1,
+            site_id=9,
+        )
+        service = service_class.return_value
+        self.assertEqual(
+            service.clarification_kwargs,
+            {
+                "dataquery_id": 2,
+                "page_state_id": 33,
+                "field_template_id": 44,
+                "message_text": "Please clarify",
+                "actor_user_id": 7,
+            },
+        )
+
+    def test_post_reopen_maps_to_open_transition(self):
+        request = RequestFactory().post(
+            "/api/studies/1/queries/2/reopen/",
+            data='{"message_text": "Issue found during review"}',
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda permission: False)
+        context = SimpleNamespace(study_id=1, site_id=9)
+
+        with (
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.get_page_state_contexts",
+                return_value={33: context},
+            ),
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.user_can_access_permission",
+                return_value=True,
+            ) as can_access,
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.ReconcileDataQueryWriteService",
+                return_value=_QueryActionServiceStub(
+                    scope={
+                        "dataquery_id": 2,
+                        "page_state_id": 33,
+                        "field_template_id": 44,
+                        "status": "resolved",
+                    },
+                    result={
+                        "changed": True,
+                        "status": "open",
+                        "message_text": "Issue found during review",
+                        "message_type": "status_change",
+                    },
+                ),
+            ) as service_class,
+        ):
+            response = QueryLifecycleActionAPIView().post(
+                request,
+                study_id=1,
+                query_id=2,
+                action="reopen",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        can_access.assert_called_once_with(
+            request.user,
+            "QUERY.RETURN",
+            study_id=1,
+            site_id=9,
+        )
+        service = service_class.return_value
+        self.assertEqual(
+            service.reopen_kwargs,
+            {
+                "dataquery_id": 2,
+                "page_state_id": 33,
+                "field_template_id": 44,
+                "message_text": "Issue found during review",
+                "actor_user_id": 7,
+            },
+        )
+
+    def test_post_cancel_maps_to_cancel_transition(self):
+        request = RequestFactory().post(
+            "/api/studies/1/queries/2/cancel/",
+            data='{"message_text": "Opened by mistake"}',
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda permission: False)
+        context = SimpleNamespace(study_id=1, site_id=9)
+
+        with (
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.get_page_state_contexts",
+                return_value={33: context},
+            ),
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.user_can_access_permission",
+                return_value=True,
+            ) as can_access,
+            patch(
+                "apps.reconcile.presentation.api.views.query_lifecycle.ReconcileDataQueryWriteService",
+                return_value=_QueryActionServiceStub(
+                    scope={
+                        "dataquery_id": 2,
+                        "page_state_id": 33,
+                        "field_template_id": 44,
+                        "status": "open",
+                    },
+                    result={
+                        "changed": True,
+                        "status": "cancelled",
+                        "message_text": "Opened by mistake",
+                        "message_type": "status_change",
+                    },
+                ),
+            ) as service_class,
+        ):
+            response = QueryLifecycleActionAPIView().post(
+                request,
+                study_id=1,
+                query_id=2,
+                action="cancel",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        can_access.assert_called_once_with(
+            request.user,
+            "QUERY.CANCEL",
+            study_id=1,
+            site_id=9,
+        )
+        service = service_class.return_value
+        self.assertEqual(
+            service.cancel_kwargs,
+            {
+                "dataquery_id": 2,
+                "page_state_id": 33,
+                "field_template_id": 44,
+                "message_text": "Opened by mistake",
                 "actor_user_id": 7,
             },
         )
@@ -388,6 +617,14 @@ class _QueryActionServiceStub:
         self.reopen_kwargs = kwargs
         return self.result
 
+    def request_clarification(self, **kwargs):
+        self.clarification_kwargs = kwargs
+        return self.result
+
+    def cancel_dataquery(self, **kwargs):
+        self.cancel_kwargs = kwargs
+        return self.result
+
 
 class _WorkbenchRepository:
     def __init__(self, rows=None, threads=None):
@@ -433,6 +670,25 @@ class _WorkbenchRepository:
                 "resolved_at": None,
             }
         ]
+
+
+class _ThreadQuerySet:
+    def __init__(self, rows):
+        self.rows = rows
+        self.ordered_by = None
+        self.excluded_with = None
+
+    def order_by(self, *fields):
+        self.ordered_by = fields
+        return self
+
+    def values(self, *fields):
+        self.selected_fields = fields
+        return self.rows
+
+    def exclude(self, **kwargs):
+        self.excluded_with = kwargs
+        return self
 
 
 def _query_row():

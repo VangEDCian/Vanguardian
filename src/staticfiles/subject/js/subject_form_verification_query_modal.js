@@ -17,10 +17,11 @@
   const valueNode = modal.querySelector('[data-query-modal-value]');
   const input = modal.querySelector('[data-query-modal-comment-input]');
   const replyButton = modal.querySelector('[data-query-modal-reply]');
-  const replyCloseButton = modal.querySelector('[data-query-modal-reply-close]');
-  const cancelButton = modal.querySelector('[data-query-modal-cancel]');
-  const resolvedWrap = modal.querySelector('[data-query-modal-resolved-wrap]');
-  const resolvedInput = modal.querySelector('[data-query-modal-resolved-input]');
+  const requestClarificationButton = modal.querySelector('[data-query-modal-request-clarification]');
+  const resolveButton = modal.querySelector('[data-query-modal-reply-close]');
+  const closeQueryButton = modal.querySelector('[data-query-modal-close-query]');
+  const reopenButton = modal.querySelector('[data-query-modal-reopen]');
+  const cancelQueryButton = modal.querySelector('[data-query-modal-cancel-query]');
   const closeButton = modal.querySelector('[data-query-modal-close]');
   const messagesNode = modal.querySelector('[data-query-modal-messages]');
   const emptyNode = modal.querySelector('[data-query-modal-empty]');
@@ -30,6 +31,9 @@
   const historyListNode = historyModal?.querySelector('[data-query-history-modal-list]');
   const historyMessagesNode = historyModal?.querySelector('[data-query-history-modal-messages]');
   const historyEmptyNode = historyModal?.querySelector('[data-query-history-modal-empty]');
+  const historyActionSection = historyModal?.querySelector('[data-query-history-modal-actions-section]');
+  const historyActionInput = historyModal?.querySelector('[data-query-history-modal-action-input]');
+  const historyReopenButton = historyModal?.querySelector('[data-query-history-modal-reopen]');
   const historyCloseButton = historyModal?.querySelector('[data-query-history-modal-close]');
   const languageCode = String(modal.dataset.languageCode || '').trim().toLowerCase();
   const openLanguageCode = String(openQueryModal?.dataset.languageCode || languageCode).trim().toLowerCase();
@@ -49,6 +53,7 @@
   document.body.appendChild(notificationHost);
   let activeContext = null;
   let activeOpenContext = null;
+  let activeHistoryContext = null;
 
   function isVietnamese(value) {
     const normalized = String(value || '').trim().toLowerCase();
@@ -160,10 +165,16 @@
   }
 
   function setThreadActionsEnabled(enabled) {
-    const canRespond = activeContext && activeContext.canRespond === true;
-    [replyButton, replyCloseButton, cancelButton].forEach(function (button) {
+    [
+      replyButton,
+      requestClarificationButton,
+      resolveButton,
+      closeQueryButton,
+      reopenButton,
+      cancelQueryButton,
+    ].forEach(function (button) {
       if (button instanceof HTMLButtonElement) {
-        button.disabled = !enabled || !canRespond;
+        button.disabled = !enabled || button.hidden;
       }
     });
   }
@@ -173,32 +184,41 @@
       input.hidden = !visible;
       input.disabled = !visible;
     }
-    [replyButton, replyCloseButton, cancelButton].forEach(function (button) {
+    [
+      replyButton,
+      requestClarificationButton,
+      resolveButton,
+      closeQueryButton,
+      reopenButton,
+      cancelQueryButton,
+    ].forEach(function (button) {
       if (button instanceof HTMLButtonElement) {
         button.hidden = !visible;
       }
     });
-    if (!visible && resolvedWrap instanceof HTMLElement) {
-      resolvedWrap.hidden = true;
+  }
+
+  function setButtonVisible(button, visible) {
+    if (button instanceof HTMLButtonElement) {
+      button.hidden = !visible;
     }
   }
 
-  function isResolvedChecked() {
-    return resolvedInput instanceof HTMLInputElement && resolvedInput.checked;
-  }
-
-  function updateResolvedControls() {
-    const canRespond = activeContext && activeContext.canRespond === true;
-    const canResolve = canRespond && activeContext && activeContext.isAnswered === true;
-    if (resolvedWrap instanceof HTMLElement) {
-      resolvedWrap.hidden = !canResolve;
-    }
-    if (resolvedInput instanceof HTMLInputElement && !canResolve) {
-      resolvedInput.checked = false;
-    }
-    if (replyCloseButton instanceof HTMLButtonElement && resolvedInput instanceof HTMLInputElement) {
-      replyCloseButton.hidden = !(canResolve && resolvedInput.checked);
-    }
+  function updateThreadActionVisibility(status) {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const visibleActionsByStatus = {
+      open: ['answer', 'cancel'],
+      answered: ['answer', 'resolve', 'request_clarification'],
+      resolved: ['reopen', 'close'],
+      closed: ['reopen'],
+    };
+    const visibleActions = visibleActionsByStatus[normalizedStatus] || [];
+    setButtonVisible(replyButton, visibleActions.includes('answer'));
+    setButtonVisible(requestClarificationButton, visibleActions.includes('request_clarification'));
+    setButtonVisible(resolveButton, visibleActions.includes('resolve'));
+    setButtonVisible(closeQueryButton, visibleActions.includes('close'));
+    setButtonVisible(reopenButton, visibleActions.includes('reopen'));
+    setButtonVisible(cancelQueryButton, visibleActions.includes('cancel'));
   }
 
   function setOpenActionsEnabled(enabled) {
@@ -348,6 +368,12 @@
     if (!(sourceNode instanceof HTMLElement) || !historyListNode) {
       return;
     }
+    activeHistoryContext = {
+      sourceNode: sourceNode,
+      dataqueryId: String(sourceNode.dataset.historyDataqueryId || '').trim(),
+      status: String(sourceNode.dataset.historyStatus || '').trim().toLowerCase(),
+      fieldTemplateId: activeHistoryContext ? activeHistoryContext.fieldTemplateId : '',
+    };
     Array.from(historyListNode.querySelectorAll('[data-query-history-item]')).forEach(function (node) {
       node.setAttribute(
         'aria-selected',
@@ -368,6 +394,7 @@
       });
     });
     updateHistoryEmptyState();
+    updateHistoryActionVisibility();
   }
 
   function loadHistoryList(trigger) {
@@ -375,6 +402,10 @@
       return;
     }
     historyListNode.replaceChildren();
+    activeHistoryContext = {
+      trigger: trigger,
+      fieldTemplateId: String(trigger.dataset.fieldTemplateId || '').trim(),
+    };
     const sources = historySourceItems(trigger);
     sources.forEach(function (sourceNode, index) {
       const item = document.createElement('button');
@@ -439,24 +470,25 @@
       trigger: trigger,
       dataqueryId: String(trigger.dataset.activeQueryId || '').trim(),
       fieldTemplateId: String(trigger.dataset.fieldTemplateId || '').trim(),
+      status: String(trigger.dataset.queryStatus || '').trim().toLowerCase(),
       isAnswered: String(trigger.dataset.queryAnswered || '').trim().toLowerCase() === 'true',
       canRespond: String(trigger.dataset.queryCanRespond || 'true').trim().toLowerCase() !== 'false',
     };
+    if (!activeContext.status) {
+      activeContext.status = activeContext.isAnswered ? 'answered' : 'open';
+    }
     setText(titleNode, `${titlePrefix} ${titleField}`.trim());
     setText(briefNode, fieldLabel || fieldKey || '-');
     setText(valueNode, fieldValue || '-');
     if (input instanceof HTMLTextAreaElement) {
       input.value = '';
     }
-    if (resolvedInput instanceof HTMLInputElement) {
-      resolvedInput.checked = false;
-    }
-    setThreadResponseControlsVisible(activeContext.canRespond);
-    updateResolvedControls();
+    setThreadResponseControlsVisible(true);
+    updateThreadActionVisibility(activeContext.status);
     loadMessages(trigger);
-    setThreadActionsEnabled(activeContext.canRespond && !!activeContext.dataqueryId && !!postUrl);
+    setThreadActionsEnabled(!!activeContext.dataqueryId && !!postUrl);
     modal.hidden = false;
-    if (activeContext.canRespond && input instanceof HTMLTextAreaElement) {
+    if (input instanceof HTMLTextAreaElement) {
       input.focus();
     }
   }
@@ -485,6 +517,24 @@
   function closeHistoryModal() {
     if (historyModal instanceof HTMLElement) {
       historyModal.hidden = true;
+    }
+    activeHistoryContext = null;
+  }
+
+  function updateHistoryActionVisibility() {
+    const showReopen = activeHistoryContext && activeHistoryContext.status === 'closed';
+    if (historyActionSection instanceof HTMLElement) {
+      historyActionSection.hidden = !showReopen;
+    }
+    if (historyReopenButton instanceof HTMLButtonElement) {
+      historyReopenButton.hidden = !showReopen;
+      historyReopenButton.disabled = !showReopen || !postUrl;
+    }
+    if (historyActionInput instanceof HTMLTextAreaElement) {
+      historyActionInput.hidden = !showReopen;
+      historyActionInput.disabled = !showReopen;
+      historyActionInput.value = '';
+      historyActionInput.placeholder = 'Reopen reason';
     }
   }
 
@@ -538,12 +588,13 @@
     }
   }
 
-  function postThreadAction(closeQuery, cancelQuery) {
+  function postThreadAction(action) {
     if (!activeContext || !postUrl || !(input instanceof HTMLTextAreaElement)) {
       return;
     }
+    const normalizedAction = String(action || 'answer').trim().toLowerCase();
     const messageText = String(input.value || '').trim();
-    if (!messageText && cancelQuery !== true) {
+    if (!messageText && normalizedAction !== 'close') {
       return;
     }
     setThreadActionsEnabled(false);
@@ -554,10 +605,10 @@
         body: JSON.stringify({
           dataquery_id: parseInt(activeContext.dataqueryId, 10),
           field_template_id: parseInt(activeContext.fieldTemplateId, 10),
+          action: normalizedAction,
           message_text: messageText,
-          close_query: closeQuery === true,
-          cancel_query: cancelQuery === true,
-          is_resolved: closeQuery === true && isResolvedChecked(),
+          close_query: normalizedAction === 'close',
+          cancel_query: normalizedAction === 'cancel',
         }),
       })
       .then(function (response) {
@@ -594,23 +645,28 @@
         if (badge) {
           badge.remove();
         }
-        if (result.data.closed === true && activeContext.trigger instanceof HTMLButtonElement) {
+        const resultStatus = String(result.data.status || '').trim().toLowerCase();
+        if ((result.data.closed === true || resultStatus === 'closed') && activeContext.trigger instanceof HTMLButtonElement) {
           promoteCurrentQueryToHistory(row, activeContext.trigger, result.data.created_at);
           releaseQueryRow(row, activeContext.trigger);
         }
-        if (result.data.cancelled === true && activeContext.trigger instanceof HTMLButtonElement) {
+        if ((result.data.cancelled === true || resultStatus === 'cancelled') && activeContext.trigger instanceof HTMLButtonElement) {
           releaseQueryRow(row, activeContext.trigger);
           closeModal();
         }
         if (
           result.data.closed !== true &&
           result.data.cancelled !== true &&
+          resultStatus !== 'closed' &&
+          resultStatus !== 'cancelled' &&
           activeContext &&
           activeContext.trigger instanceof HTMLElement
         ) {
-          activeContext.trigger.dataset.queryAnswered = 'true';
-          activeContext.isAnswered = true;
-          updateResolvedControls();
+          activeContext.status = resultStatus || activeContext.status;
+          activeContext.trigger.dataset.queryStatus = activeContext.status;
+          activeContext.isAnswered = activeContext.status === 'answered';
+          activeContext.trigger.dataset.queryAnswered = activeContext.isAnswered ? 'true' : 'false';
+          updateThreadActionVisibility(activeContext.status);
         }
       })
       .catch(function () {
@@ -619,10 +675,63 @@
       .finally(function () {
         if (
           activeContext &&
-          activeContext.canRespond === true &&
           !(activeContext.trigger instanceof HTMLButtonElement && activeContext.trigger.disabled)
         ) {
           setThreadActionsEnabled(true);
+        }
+      });
+  }
+
+  function postHistoryAction(action) {
+    if (!activeHistoryContext || !postUrl || !(historyActionInput instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    const normalizedAction = String(action || '').trim().toLowerCase();
+    const messageText = String(historyActionInput.value || '').trim();
+    if (!messageText) {
+      historyActionInput.focus();
+      return;
+    }
+    if (historyReopenButton instanceof HTMLButtonElement) {
+      historyReopenButton.disabled = true;
+    }
+    window
+      .fetch(postUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataquery_id: parseInt(activeHistoryContext.dataqueryId, 10),
+          field_template_id: parseInt(activeHistoryContext.fieldTemplateId, 10),
+          action: normalizedAction,
+          message_text: messageText,
+        }),
+      })
+      .then(function (response) {
+        return response.text().then(function (text) {
+          let data = {};
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch (_) {
+              data = {};
+            }
+          }
+          return { ok: response.ok, status: response.status, data: data };
+        });
+      })
+      .then(function (result) {
+        if (!result.ok || !result.data || result.data.ok !== true) {
+          appendHistoryMessage({ text: normalizeErrorMessage(result), status: 'error' });
+          return;
+        }
+        window.location.reload();
+      })
+      .catch(function () {
+        appendHistoryMessage({ text: 'Network error.', status: 'error' });
+      })
+      .finally(function () {
+        if (historyReopenButton instanceof HTMLButtonElement && activeHistoryContext) {
+          historyReopenButton.disabled = false;
         }
       });
   }
@@ -745,24 +854,38 @@
 
   if (replyButton instanceof HTMLElement) {
     replyButton.addEventListener('click', function () {
-      postThreadAction(false);
+      postThreadAction('answer');
     });
   }
 
-  if (replyCloseButton instanceof HTMLElement) {
-    replyCloseButton.addEventListener('click', function () {
-      postThreadAction(true, false);
+  if (requestClarificationButton instanceof HTMLElement) {
+    requestClarificationButton.addEventListener('click', function () {
+      postThreadAction('request_clarification');
     });
   }
 
-  if (cancelButton instanceof HTMLElement) {
-    cancelButton.addEventListener('click', function () {
-      postThreadAction(false, true);
+  if (resolveButton instanceof HTMLElement) {
+    resolveButton.addEventListener('click', function () {
+      postThreadAction('resolve');
     });
   }
 
-  if (resolvedInput instanceof HTMLElement) {
-    resolvedInput.addEventListener('change', updateResolvedControls);
+  if (closeQueryButton instanceof HTMLElement) {
+    closeQueryButton.addEventListener('click', function () {
+      postThreadAction('close');
+    });
+  }
+
+  if (reopenButton instanceof HTMLElement) {
+    reopenButton.addEventListener('click', function () {
+      postThreadAction('reopen');
+    });
+  }
+
+  if (cancelQueryButton instanceof HTMLElement) {
+    cancelQueryButton.addEventListener('click', function () {
+      postThreadAction('cancel');
+    });
   }
 
   if (closeButton instanceof HTMLElement) {
@@ -775,6 +898,11 @@
 
   if (historyCloseButton instanceof HTMLElement) {
     historyCloseButton.addEventListener('click', closeHistoryModal);
+  }
+  if (historyReopenButton instanceof HTMLElement) {
+    historyReopenButton.addEventListener('click', function () {
+      postHistoryAction('reopen');
+    });
   }
 
   if (openSubmitButton instanceof HTMLElement) {

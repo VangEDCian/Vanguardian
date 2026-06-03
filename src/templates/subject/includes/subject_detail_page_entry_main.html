@@ -37,11 +37,13 @@
                         <dl class="subject-form-verification-query-modal__facts">
                             <div class="subject-form-verification-query-modal__fact-row">
                                 <dt>{% trans "Brief Description" %}</dt>
-                                <dd data-query-modal-brief></dd>
+                                <dd data-query-modal-brief>
+                                </dd>
                             </div>
                             <div class="subject-form-verification-query-modal__fact-row">
                                 <dt>{% trans "Value" %}</dt>
-                                <dd data-query-modal-value></dd>
+                                <dd data-query-modal-value>
+                                </dd>
                             </div>
                         </dl>
                     </section>
@@ -49,23 +51,28 @@
                         <textarea class="subject-form-verification-query-modal__textarea"
                                   rows="2"
                                   data-query-modal-comment-input></textarea>
-                        <label class="subject-form-verification-query-modal__resolved-check"
-                               hidden
-                               data-query-modal-resolved-wrap>
-                            <input type="checkbox" data-query-modal-resolved-input />
-                            <span>{% trans "Is this Resolved?" %}</span>
-                        </label>
                         <div class="subject-form-verification-query-modal__actions">
                             <button type="button"
                                     class="entity-table__footer-button entity-table__footer-button--primary"
-                                    data-query-modal-reply>{% trans "Reply" %}</button>
-                            <button type="button"
-                                    class="entity-table__footer-button entity-table__footer-button--primary"
-                                    hidden
-                                    data-query-modal-reply-close>{% trans "Reply and Close Query" %}</button>
+                                    data-query-modal-reply>{% trans "Answer" %}</button>
                             <button type="button"
                                     class="entity-table__footer-button entity-table__footer-button--secondary"
-                                    data-query-modal-close>{% trans "Close" %}</button>
+                                    data-query-modal-request-clarification>{% trans "Request Clarification" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-query-modal-reply-close>{% trans "Resolve" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--danger"
+                                    data-query-modal-close-query>{% trans "Close" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-query-modal-reopen>{% trans "Reopen" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--danger"
+                                    data-query-modal-cancel-query>{% trans "Cancel" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-query-modal-close>{% trans "Dismiss" %}</button>
                         </div>
                     </section>
                     <section class="subject-form-verification-query-modal__section subject-form-verification-query-modal__messages"
@@ -99,17 +106,20 @@
                         <dl class="subject-form-verification-query-modal__facts">
                             <div class="subject-form-verification-query-modal__fact-row">
                                 <dt>{% trans "Brief Description" %}</dt>
-                                <dd data-validation-issue-modal-brief></dd>
+                                <dd data-validation-issue-modal-brief>
+                                </dd>
                             </div>
                             <div class="subject-form-verification-query-modal__fact-row">
                                 <dt>{% trans "Value" %}</dt>
-                                <dd data-validation-issue-modal-value></dd>
+                                <dd data-validation-issue-modal-value>
+                                </dd>
                             </div>
                         </dl>
                     </section>
                     <section class="subject-form-verification-query-modal__section">
                         <table class="subject-form-validation-issue-modal__table">
-                            <tbody data-validation-issue-modal-list></tbody>
+                            <tbody data-validation-issue-modal-list>
+                            </tbody>
                         </table>
                     </section>
                     <section class="subject-form-verification-query-modal__section">

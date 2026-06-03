@@ -376,6 +376,11 @@ class FormFieldReviewTableService:
             "validation_issue_count": int(validation_issue_count),
             "validation_issues": validation_issues,
             "active_query_id": active_query_id,
+            "active_query_status": (
+                str(active_query_context.get("active_query_status") or "").strip()
+                if active_query_context is not None
+                else str(active_query_participants.get(field_template_id, {}).get("active_query_status") or "").strip()
+            ),
             "active_query_can_respond": self._user_can_respond_to_query(
                 current_user_id=current_user_id,
                 participants=(
@@ -813,6 +818,7 @@ class FormFieldReviewTableService:
             out.append(
                 {
                     "dataquery_id": dataquery_id,
+                    "status": str(history.get("status") or "").strip(),
                     "label": f"Query #{dataquery_id}" if dataquery_id else "Query",
                     "question_text": str(history.get("question_text") or "").strip(),
                     "opened_at": cls._format_datetime(history.get("opened_at")),

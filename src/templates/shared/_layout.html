@@ -220,6 +220,7 @@
                     </section>
                 {% endblock %}
             </main>
+            {% block dashboard_footer %}{% endblock %}
         </div>
         <div data-session-guard-status-url="{% url 'identity:api_session_status' %}"
              data-session-guard-login-url="{% url 'identity:login' %}"

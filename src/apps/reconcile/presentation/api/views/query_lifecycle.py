@@ -12,17 +12,21 @@ from apps.shared.navigation import user_can_access_permission
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 ACTION_PERMISSION_BY_ACTION = {
-    "answer": "reconcile.answer_dataquery",
-    "resolve": "reconcile.resolve_dataquery",
-    "close": "reconcile.close_dataquery",
-    "reopen": "reconcile.reopen_dataquery",
+    "answer": "QUERY.RESPOND",
+    "request_clarification": "QUERY.RETURN",
+    "resolve": "QUERY.CLOSE",
+    "close": "QUERY.CLOSE",
+    "reopen": "QUERY.RETURN",
+    "cancel": "QUERY.CANCEL",
 }
 
 ALLOWED_STATUSES_BY_ACTION = {
-    "answer": {"open", "reopened"},
+    "answer": {"open", "answered"},
+    "request_clarification": {"answered"},
     "resolve": {"answered"},
     "close": {"resolved"},
     "reopen": {"resolved", "closed"},
+    "cancel": {"open"},
 }
 
 
@@ -108,10 +112,14 @@ class QueryLifecycleActionAPIView(LoginRequiredMixin, SubjectAbstractVerifyStudy
         }
         if action == "answer":
             return service.reply_to_query(**command_kwargs)
+        if action == "request_clarification":
+            return service.request_clarification(**command_kwargs)
         if action == "resolve":
             return service.resolve_query(**command_kwargs)
         if action == "close":
             return service.close_resolved_query(**command_kwargs)
         if action == "reopen":
             return service.reopen_query(**command_kwargs)
+        if action == "cancel":
+            return service.cancel_dataquery(**command_kwargs)
         raise ValueError("Unsupported query action.")

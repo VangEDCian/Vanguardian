@@ -20,6 +20,14 @@ class DjangoReconcileDataQueryReadRepository:
     def _active_status_excludes() -> tuple[str, ...]:
         return ("cancelled", "closed")
 
+    @staticmethod
+    def _active_query_statuses() -> tuple[str, ...]:
+        return (
+            ReconcileDataQueryStatusChoices.OPEN,
+            ReconcileDataQueryStatusChoices.ANSWERED,
+            ReconcileDataQueryStatusChoices.RESOLVED,
+        )
+
     def count_open_queries_by_page_state_and_field_templates(
         self,
         *,
@@ -32,7 +40,7 @@ class DjangoReconcileDataQueryReadRepository:
             ReconcileDataQuery.objects.filter(
                 page_state_id=page_state_id,
                 deleted=False,
-                status=ReconcileDataQueryStatusChoices.OPEN,
+                status__in=self._active_query_statuses(),
                 field_template_id__isnull=False,
                 field_template_id__in=field_template_ids,
             )
@@ -268,6 +276,7 @@ class DjangoReconcileDataQueryReadRepository:
                 "field_path",
                 "opened_by_id",
                 "assigned_to_id",
+                "status",
                 "answered_at",
                 "answered_by_id",
             )
@@ -281,6 +290,7 @@ class DjangoReconcileDataQueryReadRepository:
                     "active_query_id": int(row["id"]),
                     "opened_by_id": row["opened_by_id"],
                     "assigned_to_id": row["assigned_to_id"],
+                    "active_query_status": row["status"],
                     "active_query_is_answered": (
                         row["answered_at"] is not None or row["answered_by_id"] is not None
                     ),
@@ -469,6 +479,7 @@ class DjangoReconcileDataQueryReadRepository:
             .values(
                 "id",
                 "field_template_id",
+                "status",
                 "question_text",
                 "opened_at",
                 "closed_at",
@@ -515,6 +526,7 @@ class DjangoReconcileDataQueryReadRepository:
             grouped.setdefault(field_template_id, []).append(
                 {
                     "dataquery_id": dataquery_id,
+                    "status": row["status"],
                     "question_text": row["question_text"],
                     "opened_at": row["opened_at"],
                     "closed_at": row["closed_at"],
@@ -548,6 +560,7 @@ class DjangoReconcileDataQueryReadRepository:
                 "id",
                 "field_template_id",
                 "field_path",
+                "status",
                 "question_text",
                 "opened_at",
                 "closed_at",
@@ -568,6 +581,7 @@ class DjangoReconcileDataQueryReadRepository:
             grouped.setdefault(key, []).append(
                 {
                     "dataquery_id": dataquery_id,
+                    "status": row["status"],
                     "question_text": row["question_text"],
                     "opened_at": row["opened_at"],
                     "closed_at": row["closed_at"],
@@ -590,7 +604,7 @@ class DjangoReconcileDataQueryReadRepository:
             ReconcileDataQuery.objects.filter(
                 page_state_id=page_state_id,
                 deleted=False,
-                status=ReconcileDataQueryStatusChoices.OPEN,
+                status__in=self._active_query_statuses(),
                 field_template_id__isnull=False,
                 field_template_id__in=field_template_ids,
             )
@@ -616,13 +630,13 @@ class DjangoReconcileDataQueryReadRepository:
             ReconcileDataQuery.objects.filter(
                 page_state_id=page_state_id,
                 deleted=False,
-                status=ReconcileDataQueryStatusChoices.OPEN,
+                status__in=self._active_query_statuses(),
                 field_template_id__isnull=False,
                 field_template_id__in=field_template_ids,
             )
             .annotate(sort_at=Coalesce("opened_at", "created_at"))
             .order_by("field_template_id", "-sort_at", "-id")
-            .values("field_template_id", "opened_by_id", "assigned_to_id")
+            .values("field_template_id", "opened_by_id", "assigned_to_id", "status")
         )
         out: dict[int, dict[str, int | None]] = {}
         for row in rows:
@@ -632,6 +646,7 @@ class DjangoReconcileDataQueryReadRepository:
                 {
                     "opened_by_id": row["opened_by_id"],
                     "assigned_to_id": row["assigned_to_id"],
+                    "active_query_status": row["status"],
                 },
             )
         return out
@@ -648,7 +663,7 @@ class DjangoReconcileDataQueryReadRepository:
             ReconcileDataQuery.objects.filter(
                 page_state_id=page_state_id,
                 deleted=False,
-                status=ReconcileDataQueryStatusChoices.OPEN,
+                status__in=self._active_query_statuses(),
                 field_template_id__isnull=False,
                 field_template_id__in=field_template_ids,
             )
@@ -733,7 +748,7 @@ class DjangoReconcileDataQueryReadRepository:
         return {
             "total": queryset.count(),
             "open": queryset.filter(status=ReconcileDataQueryStatusChoices.OPEN).count(),
-            "awaiting_site_response": queryset.filter(status__in=("open", "reopened")).count(),
+            "awaiting_site_response": queryset.filter(status="open").count(),
             "awaiting_review": queryset.filter(status=ReconcileDataQueryStatusChoices.ANSWERED).count(),
             "blocking_open": (
                 queryset.filter(is_blocking=True)
@@ -743,7 +758,7 @@ class DjangoReconcileDataQueryReadRepository:
             "resolved": queryset.filter(status=ReconcileDataQueryStatusChoices.RESOLVED).count(),
             "closed": queryset.filter(status=ReconcileDataQueryStatusChoices.CLOSED).count(),
             "validation_issues_open": validation_issue_count,
-            "actionable_for_current_user": queryset.filter(status__in=("open", "reopened", "answered")).count(),
+            "actionable_for_current_user": queryset.filter(status__in=("open", "answered")).count(),
         }
 
     def list_workbench_queries(
@@ -865,7 +880,7 @@ class DjangoReconcileDataQueryReadRepository:
     ) -> list[dict[str, object]]:
         rows = (
             ReconcileQueryThread.objects.filter(dataquery_id=query_id, deleted=False)
-            .order_by("created_at", "id")
+            .order_by("-created_at", "-id")
             .values("id", "message_text", "message_type", "visibility", "source", "author_id", "created_at")
         )
         if not can_view_internal_thread:
@@ -938,7 +953,7 @@ class DjangoReconcileDataQueryReadRepository:
         if bucket == "open":
             queryset = queryset.filter(status=ReconcileDataQueryStatusChoices.OPEN)
         elif bucket == "awaiting_site":
-            queryset = queryset.filter(status__in=("open", "reopened"))
+            queryset = queryset.filter(status="open")
         elif bucket == "awaiting_review":
             queryset = queryset.filter(status=ReconcileDataQueryStatusChoices.ANSWERED)
         elif bucket == "blocking":

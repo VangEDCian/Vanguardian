@@ -193,7 +193,7 @@ class QueryWorkbenchReader:
     @staticmethod
     def pending_with(status: str) -> str:
         normalized = str(status or "").strip().lower()
-        if normalized in {"open", "reopened"}:
+        if normalized == "open":
             return str(_("Site / Data Entry"))
         if normalized == "answered":
             return str(_("CRA / Data Manager"))
@@ -206,7 +206,7 @@ class QueryWorkbenchReader:
         normalized = str(status or "").strip().lower()
         if is_blocking and normalized not in {"closed", "resolved", "cancelled", "void"}:
             return "blocking"
-        if normalized in {"open", "reopened"}:
+        if normalized == "open":
             return "awaiting_site"
         if normalized == "answered":
             return "awaiting_review"

@@ -87,34 +87,49 @@
                 </dl>
             </section>
         </div>
-        <section class="query-detail__panel">
-            <h2>{% trans "Question" %}</h2>
-            <p class="query-detail__text">{{ query.question_text_excerpt }}</p>
-            <h2>{% trans "Current Value Snapshot" %}</h2>
-            <p class="query-detail__text">{{ query.value_snapshot_excerpt|default:"—" }}</p>
-            <h2>{% trans "Resolution Note" %}</h2>
-            <p class="query-detail__text">{{ query.resolution_note|default:"—" }}</p>
-        </section>
-        <section class="query-detail__panel">
-            <h2>{% trans "Thread Messages" %}</h2>
-            <div class="query-thread">
-                {% for thread in threads %}
-                    <article class="query-thread__item">
-                        <div class="query-thread__meta">
-                            <strong>{{ thread.message_type|title }}</strong>
-                            <span>{{ thread.visibility|title }} · {{ thread.author_display }} · {{ thread.created_at|date:"DATETIME_FORMAT" }}</span>
-                        </div>
-                        <p>{{ thread.message_text }}</p>
-                    </article>
-                {% empty %}
-                    <p class="query-detail__text">{% trans "No thread messages." %}</p>
-                {% endfor %}
-            </div>
-        </section>
-        {% with status=query.status|lower %}
-            {% if can_answer_dataquery and status == "open" or can_answer_dataquery and status == "reopened" or can_resolve_dataquery and status == "answered" or can_close_dataquery and status == "resolved" or can_reopen_dataquery and status == "resolved" or can_reopen_dataquery and status == "closed" %}
-                <footer class="query-detail__footer">
-                    {% if can_answer_dataquery and status == "open" or can_answer_dataquery and status == "reopened" %}
+        <div class="query-detail__detail-grid">
+            <section class="query-detail__panel query-detail__question-panel">
+                <div class="query-detail__question-item">
+                    <h2>{% trans "Question" %}</h2>
+                    <p class="query-detail__text">{{ query.question_text_excerpt }}</p>
+                </div>
+                <div class="query-detail__question-item">
+                    <h2>{% trans "Current Value Snapshot" %}</h2>
+                    <p class="query-detail__text">{{ query.value_snapshot_excerpt|default:"—" }}</p>
+                </div>
+                <div class="query-detail__question-item">
+                    <h2>{% trans "Resolution Note" %}</h2>
+                    <p class="query-detail__text">{{ query.resolution_note|default:"—" }}</p>
+                </div>
+            </section>
+            <section class="query-detail__panel">
+                <h2>{% trans "Thread Messages" %}</h2>
+                <div class="query-thread-scroller">
+                    <div class="query-thread">
+                        {% for thread in threads %}
+                            <article class="query-thread__item">
+                                <div class="query-thread__meta">
+                                    <strong>{{ thread.message_type|title }}</strong>
+                                    <span>{{ thread.visibility|title }} · {{ thread.author_display }} · {{ thread.created_at|date:"DATETIME_FORMAT" }}</span>
+                                </div>
+                                <p>{{ thread.message_text }}</p>
+                            </article>
+                        {% empty %}
+                            <p class="query-detail__text">{% trans "No thread messages." %}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+        </div>
+        {% include "reconcile/includes/query_action_modal.html" %}
+    </section>
+{% endblock %}
+{% block dashboard_footer %}
+    {% with status=query.status|lower %}
+        {% if status == "open" and can_answer_dataquery or status == "open" and can_cancel_dataquery or status == "answered" and can_answer_dataquery or status == "answered" and can_resolve_dataquery or status == "answered" and can_reopen_dataquery or status == "resolved" and can_reopen_dataquery or status == "resolved" and can_close_dataquery or status == "closed" and can_reopen_dataquery %}
+            <footer class="subject-detail-screen__footer query-detail__footer">
+                <div class="subject-detail-screen__footer-actions">
+                    {% if can_answer_dataquery and status == "open" or can_answer_dataquery and status == "answered" %}
                         {% url 'reconcile_api:query_action' study_id=query.study_id query_id=query.query_id action='answer' as answer_url %}
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--primary"
@@ -123,6 +138,16 @@
                                 data-query-action-url="{{ answer_url }}"
                                 data-query-id="{{ query.query_id }}"
                                 data-query-label="DQ-{{ query.query_id }}">{% trans "Answer" %}</button>
+                    {% endif %}
+                    {% if can_cancel_dataquery and status == "open" %}
+                        {% url 'reconcile_api:query_action' study_id=query.study_id query_id=query.query_id action='cancel' as cancel_url %}
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-query-action-trigger
+                                data-query-action="cancel"
+                                data-query-action-url="{{ cancel_url }}"
+                                data-query-id="{{ query.query_id }}"
+                                data-query-label="DQ-{{ query.query_id }}">{% trans "Cancel" %}</button>
                     {% endif %}
                     {% if can_resolve_dataquery and status == "answered" %}
                         {% url 'reconcile_api:query_action' study_id=query.study_id query_id=query.query_id action='resolve' as resolve_url %}
@@ -134,15 +159,15 @@
                                 data-query-id="{{ query.query_id }}"
                                 data-query-label="DQ-{{ query.query_id }}">{% trans "Resolve" %}</button>
                     {% endif %}
-                    {% if can_close_dataquery and status == "resolved" %}
-                        {% url 'reconcile_api:query_action' study_id=query.study_id query_id=query.query_id action='close' as close_url %}
+                    {% if can_reopen_dataquery and status == "answered" %}
+                        {% url 'reconcile_api:query_action' study_id=query.study_id query_id=query.query_id action='request_clarification' as request_clarification_url %}
                         <button type="button"
                                 class="entity-table__footer-button entity-table__footer-button--secondary"
                                 data-query-action-trigger
-                                data-query-action="close"
-                                data-query-action-url="{{ close_url }}"
+                                data-query-action="request_clarification"
+                                data-query-action-url="{{ request_clarification_url }}"
                                 data-query-id="{{ query.query_id }}"
-                                data-query-label="DQ-{{ query.query_id }}">{% trans "Close" %}</button>
+                                data-query-label="DQ-{{ query.query_id }}">{% trans "Request Clarification" %}</button>
                     {% endif %}
                     {% if can_reopen_dataquery and status == "resolved" or can_reopen_dataquery and status == "closed" %}
                         {% url 'reconcile_api:query_action' study_id=query.study_id query_id=query.query_id action='reopen' as reopen_url %}
@@ -154,11 +179,20 @@
                                 data-query-id="{{ query.query_id }}"
                                 data-query-label="DQ-{{ query.query_id }}">{% trans "Reopen" %}</button>
                     {% endif %}
-                </footer>
-            {% endif %}
-        {% endwith %}
-        {% include "reconcile/includes/query_action_modal.html" %}
-    </section>
+                    {% if can_close_dataquery and status == "resolved" %}
+                        {% url 'reconcile_api:query_action' study_id=query.study_id query_id=query.query_id action='close' as close_url %}
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--secondary"
+                                data-query-action-trigger
+                                data-query-action="close"
+                                data-query-action-url="{{ close_url }}"
+                                data-query-id="{{ query.query_id }}"
+                                data-query-label="DQ-{{ query.query_id }}">{% trans "Close" %}</button>
+                    {% endif %}
+                </div>
+            </footer>
+        {% endif %}
+    {% endwith %}
 {% endblock %}
 {% block extra_js %}
     {{ block.super }}

@@ -4,7 +4,6 @@ from django.utils.translation import gettext_lazy as _
 
 class ReconcileDataQueryStatusChoices(models.TextChoices):
     OPEN = "open", _("Open")
-    REOPENED = "reopened", _("Reopened")
     ANSWERED = "answered", _("Answered")
     RESOLVED = "resolved", _("Resolved")
     CLOSED = "closed", _("Closed")

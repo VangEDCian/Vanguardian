@@ -890,21 +890,21 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
         self.assertEqual(payload["dataquery_id"], 102)
         open_reconcile_query.assert_called_once()
 
-    def test_query_thread_close_requires_resolved_flag(self):
+    def test_query_thread_resolve_calls_resolve_reconcile_query(self):
         request = RequestFactory().post(
             "/query-thread/",
             data=json.dumps(
                 {
                     "dataquery_id": 101,
                     "field_template_id": 11,
-                    "message_text": "Close this query",
-                    "close_query": True,
-                    "is_resolved": False,
+                    "message_text": "Answer accepted",
+                    "action": "resolve",
                 }
             ),
             content_type="application/json",
         )
         request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
 
         with (
             patch(
@@ -918,9 +918,335 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
                 return_value=False,
             ),
             patch(
-                "apps.subject.presentation.web.views.verification_verify_checked.reply_and_close_reconcile_query",
-                side_effect=ValueError("Query must be resolved before it can be closed."),
-            ) as reply_and_close,
+                "apps.subject.presentation.web.views.verification_verify_checked.get_page_state_contexts",
+                return_value={23: SimpleNamespace(site_id=5)},
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.user_can_access_permission",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.resolve_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "Answer accepted",
+                    "message_type": "resolution",
+                    "created_at": created_at,
+                    "status": "resolved",
+                    "changed": True,
+                },
+            ) as resolve_query,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["status"], "resolved")
+        self.assertIs(payload["closed"], False)
+        resolve_query.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Answer accepted",
+            actor_user_id=7,
+        )
+
+    def test_query_thread_close_calls_close_reconcile_query(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Close this query",
+                    "action": "close",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "_current_user_matches_submitted_entry_editor",
+                return_value=False,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.get_page_state_contexts",
+                return_value={23: SimpleNamespace(site_id=5)},
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.user_can_access_permission",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.close_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "Close this query",
+                    "message_type": "status_change",
+                    "created_at": created_at,
+                    "status": "closed",
+                    "changed": True,
+                },
+            ) as close_query,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIs(payload["closed"], True)
+        self.assertEqual(payload["status"], "closed")
+        close_query.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Close this query",
+            actor_user_id=7,
+        )
+
+    def test_query_thread_request_clarification_calls_reconcile_query(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Please clarify",
+                    "action": "request_clarification",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.get_page_state_contexts",
+                return_value={23: SimpleNamespace(site_id=5)},
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.user_can_access_permission",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.request_clarification_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "Please clarify",
+                    "message_type": "status_change",
+                    "created_at": created_at,
+                    "status": "open",
+                    "changed": True,
+                },
+            ) as request_clarification,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["status"], "open")
+        request_clarification.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Please clarify",
+            actor_user_id=7,
+        )
+
+    def test_query_thread_reopen_calls_reopen_reconcile_query(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Issue found",
+                    "action": "reopen",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.get_page_state_contexts",
+                return_value={23: SimpleNamespace(site_id=5)},
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.user_can_access_permission",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.reopen_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "Issue found",
+                    "message_type": "status_change",
+                    "created_at": created_at,
+                    "status": "open",
+                    "changed": True,
+                },
+            ) as reopen_query,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["status"], "open")
+        reopen_query.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Issue found",
+            actor_user_id=7,
+        )
+
+    def test_query_thread_cancel_action_calls_cancel_reconcile_dataquery(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Opened by mistake",
+                    "action": "cancel",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.get_page_state_contexts",
+                return_value={23: SimpleNamespace(site_id=5)},
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.user_can_access_permission",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.cancel_reconcile_dataquery",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "Opened by mistake",
+                    "message_type": "status_change",
+                    "created_at": created_at,
+                    "status": "cancelled",
+                    "changed": True,
+                },
+            ) as cancel_dataquery,
+        ):
+            response = SubjectFormVerificationQueryThreadView().post(
+                request,
+                study_id=1,
+                subject_id=2,
+                visit_id=3,
+                crf_template_id=4,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["status"], "cancelled")
+        cancel_dataquery.assert_called_once_with(
+            dataquery_id=101,
+            page_state_id=23,
+            field_template_id=11,
+            message_text="Opened by mistake",
+            actor_user_id=7,
+        )
+
+    def test_query_thread_transition_failure_returns_status_error(self):
+        request = RequestFactory().post(
+            "/query-thread/",
+            data=json.dumps(
+                {
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Close this query",
+                    "action": "close",
+                }
+            ),
+            content_type="application/json",
+        )
+        request.user = SimpleNamespace(id=7)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "get_page_state_id_for_subject_visit_crf",
+                return_value=23,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.get_page_state_contexts",
+                return_value={23: SimpleNamespace(site_id=5)},
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked.user_can_access_permission",
+                return_value=True,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.verification_verify_checked."
+                "close_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "message_text": "",
+                    "message_type": "",
+                    "status": "closed",
+                    "changed": False,
+                },
+            ),
         ):
             response = SubjectFormVerificationQueryThreadView().post(
                 request,
@@ -932,129 +1258,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 400)
         payload = json.loads(response.content)
-        self.assertEqual(payload["error"], ["Query must be resolved before it can be closed."])
-        reply_and_close.assert_called_once_with(
-            dataquery_id=101,
-            page_state_id=23,
-            field_template_id=11,
-            message_text="Close this query",
-            actor_user_id=7,
-            is_resolved=False,
-        )
-
-    def test_query_thread_close_passes_resolved_flag(self):
-        request = RequestFactory().post(
-            "/query-thread/",
-            data=json.dumps(
-                {
-                    "dataquery_id": 101,
-                    "field_template_id": 11,
-                    "message_text": "Close this query",
-                    "close_query": True,
-                    "is_resolved": True,
-                }
-            ),
-            content_type="application/json",
-        )
-        request.user = SimpleNamespace(id=7)
-        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
-
-        with (
-            patch(
-                "apps.subject.presentation.web.views.verification_verify_checked."
-                "get_page_state_id_for_subject_visit_crf",
-                return_value=23,
-            ),
-            patch(
-                "apps.subject.presentation.web.views.verification_verify_checked."
-                "_current_user_matches_submitted_entry_editor",
-                return_value=False,
-            ),
-            patch(
-                "apps.subject.presentation.web.views.verification_verify_checked.reply_and_close_reconcile_query",
-                return_value={
-                    "dataquery_id": 101,
-                    "message_text": "Close this query",
-                    "message_type": "resolution",
-                    "created_at": created_at,
-                    "closed": True,
-                },
-            ) as reply_and_close,
-        ):
-            response = SubjectFormVerificationQueryThreadView().post(
-                request,
-                study_id=1,
-                subject_id=2,
-                visit_id=3,
-                crf_template_id=4,
-            )
-
-        self.assertEqual(response.status_code, 200)
-        payload = json.loads(response.content)
-        self.assertIs(payload["closed"], True)
-        reply_and_close.assert_called_once_with(
-            dataquery_id=101,
-            page_state_id=23,
-            field_template_id=11,
-            message_text="Close this query",
-            actor_user_id=7,
-            is_resolved=True,
-        )
-
-    def test_query_thread_allows_reply_and_close_for_any_study_user(self):
-        request = RequestFactory().post(
-            "/query-thread/",
-            data=json.dumps(
-                {
-                    "dataquery_id": 101,
-                    "field_template_id": 11,
-                    "message_text": "Close this query",
-                    "close_query": True,
-                    "is_resolved": True,
-                }
-            ),
-            content_type="application/json",
-        )
-        request.user = SimpleNamespace(id=7)
-        created_at = timezone.make_aware(datetime(2026, 5, 18, 10, 0, 0))
-
-        with (
-            patch(
-                "apps.subject.presentation.web.views.verification_verify_checked."
-                "get_page_state_id_for_subject_visit_crf",
-                return_value=23,
-            ),
-            patch(
-                "apps.subject.presentation.web.views.verification_verify_checked."
-                "reply_and_close_reconcile_query",
-                return_value={
-                    "dataquery_id": 101,
-                    "message_text": "Close this query",
-                    "message_type": "resolution",
-                    "created_at": created_at,
-                    "closed": True,
-                },
-            ) as reply_and_close,
-        ):
-            response = SubjectFormVerificationQueryThreadView().post(
-                request,
-                study_id=1,
-                subject_id=2,
-                visit_id=3,
-                crf_template_id=4,
-            )
-
-        self.assertEqual(response.status_code, 200)
-        payload = json.loads(response.content)
-        self.assertIs(payload["closed"], True)
-        reply_and_close.assert_called_once_with(
-            dataquery_id=101,
-            page_state_id=23,
-            field_template_id=11,
-            message_text="Close this query",
-            actor_user_id=7,
-            is_resolved=True,
-        )
+        self.assertEqual(payload["error"], ["Action is not allowed for current query status."])
 
     def test_query_thread_cancel_calls_cancel_reconcile_query(self):
         request = RequestFactory().post(

@@ -334,7 +334,10 @@ class DjangoReconcileDataQueryWriteRepository:
                 page_state_id=page_state_id,
                 field_template_id__in=field_template_ids,
                 field_template_id__isnull=False,
-                status=ReconcileDataQueryStatusChoices.OPEN,
+                status__in=(
+                    ReconcileDataQueryStatusChoices.OPEN,
+                    ReconcileDataQueryStatusChoices.ANSWERED,
+                ),
                 deleted=False,
             )
             .order_by("field_template_id", "-opened_at", "-created_at", "-id")
@@ -457,40 +460,6 @@ class DjangoReconcileDataQueryWriteRepository:
         )
 
     @staticmethod
-    def close_query(
-        *,
-        dataquery_id: int,
-        page_state_id: int,
-        field_template_id: int,
-        resolution_note: str,
-        actor_user_id: int | None,
-        now: datetime,
-        is_resolved: bool,
-    ) -> bool:
-        if is_resolved is not True:
-            return False
-        updated = (
-            ReconcileDataQuery.objects.filter(
-                pk=dataquery_id,
-                page_state_id=page_state_id,
-                field_template_id=field_template_id,
-                deleted=False,
-            )
-            .exclude(status__in=(ReconcileDataQueryStatusChoices.CANCELLED, ReconcileDataQueryStatusChoices.CLOSED))
-            .update(
-                status=ReconcileDataQueryStatusChoices.CLOSED,
-                resolution_note=resolution_note[:1000],
-                resolved_at=now,
-                resolved_by_id=F("answered_by_id"),
-                closed_at=now,
-                closed_by_id=actor_user_id,
-                updated_at=now,
-                updated_by_id=actor_user_id,
-            )
-        )
-        return updated > 0
-
-    @staticmethod
     def resolve_query(
         *,
         dataquery_id: int,
@@ -565,11 +534,37 @@ class DjangoReconcileDataQueryWriteRepository:
                     ReconcileDataQueryStatusChoices.CLOSED,
                 ),
             ).update(
-                status=ReconcileDataQueryStatusChoices.REOPENED,
+                status=ReconcileDataQueryStatusChoices.OPEN,
                 resolved_at=None,
                 resolved_by_id=None,
                 closed_at=None,
                 closed_by_id=None,
+                updated_at=now,
+                updated_by_id=actor_user_id,
+            )
+        )
+        return updated > 0
+
+    @staticmethod
+    def request_clarification(
+        *,
+        dataquery_id: int,
+        page_state_id: int,
+        field_template_id: int | None,
+        actor_user_id: int | None,
+        now: datetime,
+    ) -> bool:
+        updated = (
+            ReconcileDataQuery.objects.filter(
+                pk=dataquery_id,
+                page_state_id=page_state_id,
+                field_template_id=field_template_id,
+                deleted=False,
+                status=ReconcileDataQueryStatusChoices.ANSWERED,
+            ).update(
+                status=ReconcileDataQueryStatusChoices.OPEN,
+                answered_at=None,
+                answered_by_id=None,
                 updated_at=now,
                 updated_by_id=actor_user_id,
             )
@@ -593,7 +588,7 @@ class DjangoReconcileDataQueryWriteRepository:
                 deleted=False,
                 status__in=(
                     ReconcileDataQueryStatusChoices.OPEN,
-                    ReconcileDataQueryStatusChoices.REOPENED,
+                    ReconcileDataQueryStatusChoices.ANSWERED,
                 ),
             )
             .update(
@@ -611,7 +606,7 @@ class DjangoReconcileDataQueryWriteRepository:
         *,
         dataquery_id: int,
         page_state_id: int,
-        field_template_id: int,
+        field_template_id: int | None,
         actor_user_id: int | None,
         now: datetime,
     ) -> bool:
