@@ -2,7 +2,7 @@ from django.utils import timezone
 
 from apps.core.choices import EventInstanceStatusChoices
 from apps.study.models import EventDefinition, EventTransitionRule
-from apps.subject.models import Subject, SubjectEventInstance, SubjectEventInstanceTransitionLog
+from apps.subject.models import Subject, SubjectEnrollment, SubjectEventInstance, SubjectEventInstanceTransitionLog
 
 
 class DjangoSubjectEventInstanceResyncRepository:
@@ -80,23 +80,37 @@ class DjangoSubjectEventInstanceResyncRepository:
             queryset = queryset.filter(id__in=subject_ids)
         return list(queryset.order_by("id").values_list("id", flat=True))
 
+    def list_terminal_subject_ids(self, *, study_id: int, subject_ids: list[int]) -> set[int]:
+        if not subject_ids:
+            return set()
+        rows = (
+            SubjectEnrollment.objects.filter(
+                study_id=study_id,
+                subject_id__in=subject_ids,
+                deleted=False,
+            )
+            .values_list("subject_id", "status")
+        )
+        terminal_statuses = {"withdrawn", "discontinued", "completed", "complete"}
+        return {
+            subject_id
+            for subject_id, status in rows
+            if str(status or "").strip().lower() in terminal_statuses
+        }
+
     def list_event_instances_for_subject_version_for_update(
         self,
         *,
         study_id: int,
         subject_id: int,
         study_version: str,
-        event_definition_ids: list[int],
     ) -> dict[int, SubjectEventInstance]:
-        if not event_definition_ids:
-            return {}
         event_instances = (
             SubjectEventInstance.objects.select_for_update()
             .filter(
                 study_id=study_id,
                 subject_id=subject_id,
                 study_version=study_version,
-                event_definition_id__in=event_definition_ids,
                 repeat_index=1,
                 deleted=False,
             )
@@ -108,6 +122,7 @@ class DjangoSubjectEventInstanceResyncRepository:
                 "study_version",
                 "repeat_index",
                 "planned_date",
+                "target_date",
                 "status",
                 "opened_at",
                 "event_code_snapshot",
@@ -162,6 +177,7 @@ class DjangoSubjectEventInstanceResyncRepository:
             study_version=event_definition.study_version,
             repeat_index=1,
             planned_date=planned_date or (now if is_open else None),
+            target_date=planned_date,
             status=status,
             opened_at=now if is_open else None,
             opened_by_id=actor_user_id if is_open else None,
@@ -184,33 +200,34 @@ class DjangoSubjectEventInstanceResyncRepository:
         )
         return event_instance
 
-    def resync_event_instance(
+    def update_event_instance_runtime(
         self,
         *,
         event_instance: SubjectEventInstance,
         event_definition,
-        desired_status: str,
+        update_snapshot: bool,
+        update_schedule: bool,
         planned_date,
+        target_date,
         actor_user_id: int | None,
         now,
-        trigger_source: str,
-        allow_status_change: bool,
     ) -> bool:
-        from_status = event_instance.status
-        next_status = desired_status if allow_status_change else from_status
-        is_opening = from_status != EventInstanceStatusChoices.OPEN and next_status == EventInstanceStatusChoices.OPEN
-        updates = {
-            "event_code_snapshot": event_definition.code,
-            "event_name_snapshot": event_definition.name,
-            "event_type_snapshot": event_definition.event_type,
-            "planned_date": planned_date or (now if is_opening else event_instance.planned_date),
-            "status": next_status,
-            "updated_at": now,
-            "updated_by_id": actor_user_id,
-        }
-        if is_opening:
-            updates["opened_at"] = now
-            updates["opened_by_id"] = actor_user_id
+        updates = {}
+        if update_snapshot:
+            updates.update(
+                {
+                    "event_code_snapshot": event_definition.code,
+                    "event_name_snapshot": event_definition.name,
+                    "event_type_snapshot": event_definition.event_type,
+                }
+            )
+        if update_schedule:
+            updates["planned_date"] = planned_date
+            updates["target_date"] = target_date
+        if not updates:
+            return False
+        updates["updated_at"] = now
+        updates["updated_by_id"] = actor_user_id
 
         comparison_updates = {
             field_name: value
@@ -225,17 +242,84 @@ class DjangoSubjectEventInstanceResyncRepository:
             return False
 
         SubjectEventInstance.objects.filter(pk=event_instance.pk).update(**updates)
-        if from_status != next_status:
-            self._record_transition_log(
-                event_instance=event_instance,
-                from_status=from_status,
-                to_status=next_status,
-                trigger_source=trigger_source,
-                reason="event_instance_resync_status_updated",
-                actor_user_id=actor_user_id,
-                now=now,
-            )
         return True
+
+    def reset_open_event_instance_for_gate_resync(
+        self,
+        *,
+        event_instance: SubjectEventInstance,
+        actor_user_id: int | None,
+        now,
+        trigger_source: str,
+    ) -> bool:
+        if event_instance.status != EventInstanceStatusChoices.OPEN:
+            return False
+        SubjectEventInstance.objects.filter(pk=event_instance.pk).update(
+            status=EventInstanceStatusChoices.NOT_READY,
+            opened_at=None,
+            opened_by_id=None,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        self._record_transition_log(
+            event_instance=event_instance,
+            from_status=EventInstanceStatusChoices.OPEN,
+            to_status=EventInstanceStatusChoices.NOT_READY,
+            trigger_source=trigger_source,
+            reason="event_instance_resync_gate_reset",
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return True
+
+    def cancel_event_instance(
+        self,
+        *,
+        event_instance: SubjectEventInstance,
+        reason: str,
+        actor_user_id: int | None,
+        now,
+        trigger_source: str,
+    ) -> bool:
+        from_status = event_instance.status
+        if from_status == EventInstanceStatusChoices.CANCELLED:
+            return False
+        SubjectEventInstance.objects.filter(pk=event_instance.pk).update(
+            status=EventInstanceStatusChoices.CANCELLED,
+            cancel_reason=reason,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )
+        self._record_transition_log(
+            event_instance=event_instance,
+            from_status=from_status,
+            to_status=EventInstanceStatusChoices.CANCELLED,
+            trigger_source=trigger_source,
+            reason=reason,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        return True
+
+    def record_resync_impact(
+        self,
+        *,
+        event_instance: SubjectEventInstance,
+        reason: str,
+        actor_user_id: int | None,
+        now,
+        trigger_source: str,
+    ) -> None:
+        self._record_transition_log(
+            event_instance=event_instance,
+            from_status=event_instance.status,
+            to_status=event_instance.status,
+            trigger_source=trigger_source,
+            reason=reason,
+            actor_user_id=actor_user_id,
+            now=now,
+            result="warning",
+        )
 
     def _record_transition_log(
         self,
@@ -247,6 +331,7 @@ class DjangoSubjectEventInstanceResyncRepository:
         reason: str,
         actor_user_id: int | None,
         now,
+        result: str = "applied",
     ) -> None:
         SubjectEventInstanceTransitionLog.objects.create(
             study_id=event_instance.study_id,
@@ -259,7 +344,7 @@ class DjangoSubjectEventInstanceResyncRepository:
             from_status=from_status,
             to_status=to_status,
             trigger_source=trigger_source,
-            result="applied",
+            result=result,
             reason=reason,
             facts_json="{}",
             created_at=now,

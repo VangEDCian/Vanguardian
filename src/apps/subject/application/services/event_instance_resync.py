@@ -18,13 +18,19 @@ class SubjectEventInstanceResyncResult:
     created_count: int = 0
     updated_count: int = 0
     skipped_terminal_count: int = 0
+    impact_flag_count: int = 0
     lifecycle_trigger_count: int = 0
     downstream_transition_count: int = 0
     reason: str = ""
 
     @property
     def has_changes(self) -> bool:
-        return self.created_count > 0 or self.updated_count > 0 or self.downstream_transition_count > 0
+        return (
+            self.created_count > 0
+            or self.updated_count > 0
+            or self.impact_flag_count > 0
+            or self.downstream_transition_count > 0
+        )
 
 
 class DataCaptureEventFactProvider:
@@ -34,21 +40,47 @@ class DataCaptureEventFactProvider:
         return evaluate_facts_for_event_instance(event_instance_id=event_instance_id)
 
 
+class DataCaptureEventDataStatusProvider:
+    def event_instance_has_data(self, *, event_instance_id: int) -> bool:
+        from apps.datacapture.public import event_instance_has_data
+
+        return event_instance_has_data(event_instance_id=event_instance_id)
+
+
 class SubjectEventInstanceResyncService:
     repository_class = DjangoSubjectEventInstanceResyncRepository
     transition_service_class = SubjectEventTransitionService
     event_fact_provider_class = DataCaptureEventFactProvider
+    event_data_status_provider_class = DataCaptureEventDataStatusProvider
     resyncable_statuses = frozenset(
         {
             SubjectEventInstance.NOT_READY,
             SubjectEventInstance.PLANNED,
         }
     )
+    destructive_protected_statuses = frozenset(
+        {
+            SubjectEventInstance.COMPLETED,
+            SubjectEventInstance.VERIFIED,
+            SubjectEventInstance.LOCKED,
+            SubjectEventInstance.FINALIZED,
+            SubjectEventInstance.SKIPPED,
+            SubjectEventInstance.CANCELLED,
+        }
+    )
+    schedulable_statuses = frozenset(
+        {
+            SubjectEventInstance.NOT_READY,
+            SubjectEventInstance.PLANNED,
+            SubjectEventInstance.OPEN,
+        }
+    )
 
-    def __init__(self, repository=None, transition_service=None, event_fact_provider=None):
+    def __init__(self, repository=None, transition_service=None, event_fact_provider=None, event_data_status_provider=None):
         self.repository = repository or self.repository_class()
         self.transition_service = transition_service or self.transition_service_class()
         self.event_fact_provider = event_fact_provider or self.event_fact_provider_class()
+        self.event_data_status_provider = event_data_status_provider or self.event_data_status_provider_class()
 
     def resync_study_version(
         self,
@@ -57,6 +89,8 @@ class SubjectEventInstanceResyncService:
         study_version: str,
         actor_user_id: int | None = None,
         include_all_subjects: bool = False,
+        include_terminal_subjects: bool = False,
+        create_missing_future_events: bool = False,
         subject_ids=None,
         trigger_source: str = "study_eventdefinition_resync",
     ) -> SubjectEventInstanceResyncResult:
@@ -70,6 +104,8 @@ class SubjectEventInstanceResyncService:
                 study_version=normalized_study_version,
                 actor_user_id=actor_user_id,
                 include_all_subjects=include_all_subjects,
+                include_terminal_subjects=include_terminal_subjects,
+                create_missing_future_events=create_missing_future_events,
                 target_subject_ids=self._normalize_subject_ids(subject_ids),
                 trigger_source=trigger_source,
             )
@@ -80,6 +116,8 @@ class SubjectEventInstanceResyncService:
         study_id: int,
         subject_id: int,
         actor_user_id: int | None = None,
+        include_terminal_subjects: bool = False,
+        create_missing_future_events: bool = False,
         trigger_source: str = "subject_list_resync_stage",
     ) -> SubjectEventInstanceResyncResult:
         study_version = self.repository.resolve_active_study_version(study_id=study_id)
@@ -93,6 +131,8 @@ class SubjectEventInstanceResyncService:
             study_id=study_id,
             study_version=study_version,
             actor_user_id=actor_user_id,
+            include_terminal_subjects=include_terminal_subjects,
+            create_missing_future_events=create_missing_future_events,
             subject_ids=[subject_id],
             trigger_source=trigger_source,
         )
@@ -104,6 +144,8 @@ class SubjectEventInstanceResyncService:
         study_version: str,
         actor_user_id: int | None,
         include_all_subjects: bool,
+        include_terminal_subjects: bool,
+        create_missing_future_events: bool,
         target_subject_ids: tuple[int, ...] | None,
         trigger_source: str,
     ) -> SubjectEventInstanceResyncResult:
@@ -116,9 +158,10 @@ class SubjectEventInstanceResyncService:
                 study_id=study_id,
                 study_version=study_version,
                 reason="event_definitions_not_found",
-            )
+        )
 
         event_definition_ids = [event_definition.pk for event_definition in event_definitions]
+        event_definition_id_set = set(event_definition_ids)
         transition_rules = self.repository.list_enabled_transition_rules(
             study_id=study_id,
             study_version=study_version,
@@ -139,6 +182,12 @@ class SubjectEventInstanceResyncService:
             )
 
         now = self.repository.now()
+        terminal_subject_ids = set()
+        if not include_terminal_subjects:
+            terminal_subject_ids = self.repository.list_terminal_subject_ids(
+                study_id=study_id,
+                subject_ids=subject_ids,
+            )
         planned_date_by_event_definition = self._build_planned_date_by_event_definition(
             transition_rules=transition_rules,
             anchor_datetime=now,
@@ -147,6 +196,7 @@ class SubjectEventInstanceResyncService:
         created_count = 0
         updated_count = 0
         skipped_terminal_count = 0
+        impact_flag_count = 0
         transition_ready_event_instance_ids = []
 
         for subject_id in subject_ids:
@@ -154,7 +204,6 @@ class SubjectEventInstanceResyncService:
                 study_id=study_id,
                 subject_id=subject_id,
                 study_version=study_version,
-                event_definition_ids=event_definition_ids,
             )
             status_by_event_definition = {
                 event_definition_id: event_instance.status
@@ -165,6 +214,12 @@ class SubjectEventInstanceResyncService:
                 incoming_rules_by_event_definition=incoming_rules_by_event_definition,
                 current_status_by_event_definition=status_by_event_definition,
             )
+            subject_is_terminal = subject_id in terminal_subject_ids
+            active_existing_events = {
+                event_definition_id: event_instance
+                for event_definition_id, event_instance in existing_events.items()
+                if event_definition_id in event_definition_id_set
+            }
 
             for event_definition in event_definitions:
                 desired_status = desired_status_by_event_definition.get(
@@ -172,13 +227,18 @@ class SubjectEventInstanceResyncService:
                     SubjectEventInstance.NOT_READY,
                 )
                 planned_date = planned_date_by_event_definition.get(event_definition.pk)
-                existing_event = existing_events.get(event_definition.pk)
+                incoming_rules = incoming_rules_by_event_definition.get(event_definition.pk, [])
+                existing_event = active_existing_events.get(event_definition.pk)
                 if existing_event is None:
+                    if subject_is_terminal:
+                        continue
+                    if incoming_rules and not create_missing_future_events:
+                        continue
                     self.repository.create_event_instance(
                         subject_id=subject_id,
                         study_id=study_id,
                         event_definition=event_definition,
-                        status=desired_status,
+                        status=desired_status if not incoming_rules else SubjectEventInstance.NOT_READY,
                         planned_date=planned_date,
                         actor_user_id=actor_user_id,
                         now=now,
@@ -187,21 +247,95 @@ class SubjectEventInstanceResyncService:
                     created_count += 1
                     continue
 
-                if SubjectEventInstance.is_terminal(existing_event.status):
+                has_data = self._event_instance_has_data(event_instance_id=existing_event.pk)
+                if existing_event.status in self.destructive_protected_statuses:
                     skipped_terminal_count += 1
+                    if self._event_definition_snapshot_changed(
+                        event_instance=existing_event,
+                        event_definition=event_definition,
+                    ):
+                        self.repository.record_resync_impact(
+                            event_instance=existing_event,
+                            reason="terminal_event_definition_changed",
+                            actor_user_id=actor_user_id,
+                            now=now,
+                            trigger_source=trigger_source,
+                        )
+                        impact_flag_count += 1
                     continue
 
-                updated = self.repository.resync_event_instance(
+                if has_data and self._event_definition_snapshot_changed(
                     event_instance=existing_event,
                     event_definition=event_definition,
-                    desired_status=desired_status,
+                ):
+                    self.repository.record_resync_impact(
+                        event_instance=existing_event,
+                        reason="needs_review_snapshot_changed",
+                        actor_user_id=actor_user_id,
+                        now=now,
+                        trigger_source=trigger_source,
+                    )
+                    impact_flag_count += 1
+
+                if (
+                    incoming_rules
+                    and existing_event.status == SubjectEventInstance.OPEN
+                    and not has_data
+                ):
+                    if self.repository.reset_open_event_instance_for_gate_resync(
+                        event_instance=existing_event,
+                        actor_user_id=actor_user_id,
+                        now=now,
+                        trigger_source=trigger_source,
+                    ):
+                        updated_count += 1
+                        status_by_event_definition[event_definition.pk] = SubjectEventInstance.NOT_READY
+
+                updated = self.repository.update_event_instance_runtime(
+                    event_instance=existing_event,
+                    event_definition=event_definition,
+                    update_snapshot=not has_data,
+                    update_schedule=self._can_update_schedule(event_instance=existing_event, has_data=has_data),
                     planned_date=planned_date,
+                    target_date=planned_date,
+                    actor_user_id=actor_user_id,
+                    now=now,
+                )
+                if updated:
+                    updated_count += 1
+
+            for event_definition_id, event_instance in existing_events.items():
+                if event_definition_id in event_definition_id_set:
+                    continue
+                has_data = self._event_instance_has_data(event_instance_id=event_instance.pk)
+                if event_instance.status in self.destructive_protected_statuses:
+                    skipped_terminal_count += 1
+                    self.repository.record_resync_impact(
+                        event_instance=event_instance,
+                        reason="terminal_event_definition_removed",
+                        actor_user_id=actor_user_id,
+                        now=now,
+                        trigger_source=trigger_source,
+                    )
+                    impact_flag_count += 1
+                    continue
+                if has_data:
+                    self.repository.record_resync_impact(
+                        event_instance=event_instance,
+                        reason="obsolete_with_data",
+                        actor_user_id=actor_user_id,
+                        now=now,
+                        trigger_source=trigger_source,
+                    )
+                    impact_flag_count += 1
+                    continue
+                if self.repository.cancel_event_instance(
+                    event_instance=event_instance,
+                    reason="event_definition_removed_or_disabled",
                     actor_user_id=actor_user_id,
                     now=now,
                     trigger_source=trigger_source,
-                    allow_status_change=existing_event.status in self.resyncable_statuses,
-                )
-                if updated:
+                ):
                     updated_count += 1
 
             transition_ready_event_instance_ids.extend(
@@ -226,9 +360,10 @@ class SubjectEventInstanceResyncService:
             created_count=created_count,
             updated_count=updated_count,
             skipped_terminal_count=skipped_terminal_count,
+            impact_flag_count=impact_flag_count,
             lifecycle_trigger_count=len(transition_ready_event_instance_ids),
             downstream_transition_count=downstream_transition_count,
-            reason="completed",
+            reason="completed" if impact_flag_count == 0 else "completed_with_impacts",
         )
 
     def _trigger_downstream_transitions(
@@ -258,6 +393,26 @@ class SubjectEventInstanceResyncService:
         )
         facts = getattr(evaluation, "facts", None)
         return facts if isinstance(facts, dict) else {}
+
+    def _event_instance_has_data(self, *, event_instance_id: int) -> bool:
+        return bool(
+            self.event_data_status_provider.event_instance_has_data(
+                event_instance_id=event_instance_id,
+            )
+        )
+
+    @staticmethod
+    def _event_definition_snapshot_changed(*, event_instance, event_definition) -> bool:
+        return (
+            str(getattr(event_instance, "event_code_snapshot", "") or "") != str(event_definition.code or "")
+            or str(getattr(event_instance, "event_name_snapshot", "") or "") != str(event_definition.name or "")
+            or str(getattr(event_instance, "event_type_snapshot", "") or "") != str(event_definition.event_type or "")
+        )
+
+    def _can_update_schedule(self, *, event_instance, has_data: bool) -> bool:
+        if has_data:
+            return False
+        return str(event_instance.status or "").strip().lower() in self.schedulable_statuses
 
     def _resolve_desired_status_by_event_definition(
         self,
@@ -295,7 +450,7 @@ class SubjectEventInstanceResyncService:
                 transition_rule.from_event_definition_id,
                 SubjectEventInstance.NOT_READY,
             )
-            if not SubjectEventInstance.is_terminal(from_event_status):
+            if not SubjectEventInstance.is_transition_ready(from_event_status):
                 return False
 
         condition_code = str(

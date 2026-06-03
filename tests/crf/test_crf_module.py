@@ -1,3 +1,4 @@
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -104,6 +105,39 @@ class CrfTemplateQueryServiceTests(SimpleTestCase):
         result = CrfTemplateQueryService._translated_related_value(instance, "vi", "unit")
 
         self.assertEqual(result, "kg-vi")
+
+    def test_template_fields_payload_includes_number_range_constraints(self):
+        field_template = SimpleNamespace(
+            pk=7,
+            field_key="WEIGHT",
+            data_type="NUMBER",
+            display_order=1,
+            section_template=None,
+            translations=SimpleNamespace(all=lambda: []),
+        )
+        field_definition = SimpleNamespace(
+            field_template_id=7,
+            data_semantic="",
+            range_min=Decimal("0"),
+            range_max=Decimal("200"),
+            precision=2,
+            text_max_length=None,
+            text_min_length=None,
+            pattern="",
+            translations=SimpleNamespace(all=lambda: []),
+        )
+        repository = MagicMock()
+        repository.list_template_fields_with_related_config.return_value = [field_template]
+        repository.list_field_definitions_by_field_template_ids.return_value = [field_definition]
+        repository.list_field_ui_configs_by_field_template_ids.return_value = []
+
+        payload = CrfTemplateQueryService(repository=repository).list_template_fields_with_ui_config(
+            template_id=2,
+        )
+
+        self.assertEqual(payload[0]["range_min"], Decimal("0"))
+        self.assertEqual(payload[0]["range_max"], Decimal("200"))
+        self.assertEqual(payload[0]["precision"], 2)
 
 
 class FieldTemplateAggregateTests(SimpleTestCase):

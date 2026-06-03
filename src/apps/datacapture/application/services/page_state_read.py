@@ -51,6 +51,9 @@ class DataCapturePageStateReadService:
             event_instance_id=event_instance_id,
         )
 
+    def event_instance_has_data(self, *, event_instance_id: int) -> bool:
+        return self.repository.event_instance_has_data(event_instance_id=event_instance_id)
+
     def get_page_state_final_data_map(
         self,
         *,

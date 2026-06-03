@@ -50,7 +50,7 @@ class SubjectResyncStageView(
         logger.info(
             "Subject resync stage result: study_id=%s subject_id=%s study_version=%s "
             "reason=%s subject_count=%s event_definition_count=%s created=%s updated=%s "
-            "skipped_terminal=%s lifecycle_triggers=%s downstream_transitions=%s user_id=%s",
+            "skipped_terminal=%s impacts=%s lifecycle_triggers=%s downstream_transitions=%s user_id=%s",
             study_id,
             subject_id,
             result.study_version,
@@ -60,6 +60,7 @@ class SubjectResyncStageView(
             result.created_count,
             result.updated_count,
             result.skipped_terminal_count,
+            getattr(result, "impact_flag_count", 0),
             result.lifecycle_trigger_count,
             result.downstream_transition_count,
             request.user.pk,
@@ -78,12 +79,13 @@ class SubjectResyncStageView(
         messages.success(
             request,
             _(
-                "Subject stage was resynced. Created: %(created_count)s, updated: %(updated_count)s, skipped: %(skipped_count)s, downstream opened: %(downstream_count)s."
+                "Subject stage was resynced. Created: %(created_count)s, updated: %(updated_count)s, skipped: %(skipped_count)s, impacts: %(impact_count)s, downstream opened: %(downstream_count)s."
             )
             % {
                 "created_count": result.created_count,
                 "updated_count": result.updated_count,
                 "skipped_count": result.skipped_terminal_count,
+                "impact_count": getattr(result, "impact_flag_count", 0),
                 "downstream_count": result.downstream_transition_count,
             },
         )

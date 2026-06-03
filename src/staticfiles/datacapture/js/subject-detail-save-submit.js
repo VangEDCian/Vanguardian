@@ -116,6 +116,7 @@
   if (shouldUnlockFields) {
     ensureEditableInputs();
     select2ControlModule.initializeSelect2LookupControls?.(fieldScope);
+    numberControlModule.initializeNumberControls?.(fieldScope);
   }
 
   if (!saveButton || !resetButton || !submitButton) {
@@ -809,6 +810,7 @@
     sourceSection.dataset.currentRepeats = String(rows.length + 1);
     sourceSection.dataset.nextRepeatIndex = String(nextRepeatIndex + 1);
     dateTextControlModule.initializeDateTextControls?.(clonedRow);
+    numberControlModule.initializeNumberControls?.(clonedRow);
     updateRepeatSectionButton(button, rows.length + 1, maxRepeats);
     return true;
   }
@@ -952,6 +954,7 @@
     placeholder.insertAdjacentElement('beforebegin', restoredSection);
     placeholder.remove();
     dateTextControlModule.initializeDateTextControls?.(restoredSection);
+    numberControlModule.initializeNumberControls?.(restoredSection);
     ensureEditableInputs();
     select2ControlModule.initializeSelect2LookupControls?.(restoredSection);
     syncStandardRepeatSectionState(templateId, nextRepeatIndex + 1);
@@ -1028,6 +1031,7 @@
             ensureEditableInputs();
             select2ControlModule.initializeSelect2LookupControls?.(sourceSection);
             dateTextControlModule.initializeDateTextControls?.(sourceSection);
+            numberControlModule.initializeNumberControls?.(sourceSection);
             bindRepeatTableRowDeleteButtons();
             bindRepeatSectionButtons();
             return;
@@ -1059,6 +1063,7 @@
 
         sourceSection.insertAdjacentElement('afterend', clonedSection);
         dateTextControlModule.initializeDateTextControls?.(clonedSection);
+        numberControlModule.initializeNumberControls?.(clonedSection);
         syncStandardRepeatSectionState(templateId, nextRepeatIndex + 1);
         ensureEditableInputs();
         select2ControlModule.initializeSelect2LookupControls?.(clonedSection);

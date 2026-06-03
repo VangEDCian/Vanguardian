@@ -1085,6 +1085,12 @@ class DjangoDataCapturePageRepository:
             .first()
         )
 
+    def event_instance_has_data(self, *, event_instance_id: int) -> bool:
+        return DataCapturePageEntry.objects.filter(
+            visit_id=event_instance_id,
+            deleted=False,
+        ).exists()
+
     def get_current_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
         return self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
 

@@ -16,6 +16,18 @@ def _normalize_decimal(raw_value):
         return ""
 
 
+def _normalize_non_negative_int(raw_value):
+    if raw_value in (None, ""):
+        return ""
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return ""
+    if value < 0:
+        return ""
+    return str(value)
+
+
 def _build_html_attrs(attrs):
     chunks = []
     for key, value in attrs.items():
@@ -53,6 +65,7 @@ def subject_number_validator_attrs(field):
         "max": normalized_max,
         "data-range-min": normalized_min,
         "data-range-max": normalized_max,
+        "data-precision": _normalize_non_negative_int(field.get("precision")),
         "data-field-label": field.get("label") or field.get("field_key") or "",
     }
     return _build_html_attrs(attrs)

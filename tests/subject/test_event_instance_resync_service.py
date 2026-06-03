@@ -12,7 +12,7 @@ from apps.subject.domain import SubjectEventInstance
 
 
 class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
-    def test_resync_creates_missing_event_instances_for_existing_study_version_subjects(self):
+    def test_resync_routes_missing_auto_create_events_through_transition_service(self):
         now = datetime(2026, 5, 25, 9, 0, tzinfo=timezone.utc)
         repository = _SubjectEventInstanceResyncRepositoryStub(
             now=now,
@@ -26,9 +26,11 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
                     to_event_definition_id=101,
                     requires_previous_completion=True,
                     offset_days=7,
+                    auto_create=True,
                 )
             ],
             subject_ids=[20],
+            transition_ready_event_instance_ids_by_subject={20: [10]},
             existing_events_by_subject={
                 20: {
                     100: _event_instance(
@@ -39,37 +41,100 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
                 }
             },
         )
+        transition_service = _SubjectEventTransitionServiceStub(applied_event_count=1)
+        event_fact_provider = _EventFactProviderStub(facts_by_event_instance_id={10: {"eligible": True}})
 
         with patch(
             "apps.subject.application.services.event_instance_resync.transaction.atomic",
             return_value=nullcontext(),
         ):
-            result = SubjectEventInstanceResyncService(repository=repository).resync_study_version(
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                transition_service=transition_service,
+                event_fact_provider=event_fact_provider,
+                event_data_status_provider=_EventDataStatusProviderStub(),
+            ).resync_study_version(
                 study_id=1,
                 study_version="v1.0",
                 actor_user_id=99,
+            )
+
+        self.assertEqual(result.created_count, 0)
+        self.assertEqual(result.downstream_transition_count, 1)
+        self.assertEqual(len(transition_service.commands), 1)
+        self.assertEqual(transition_service.commands[0].source_event_instance_id, 10)
+
+    def test_resync_create_missing_future_events_creates_not_ready_placeholder(self):
+        now = datetime(2026, 5, 25, 9, 0, tzinfo=timezone.utc)
+        repository = _SubjectEventInstanceResyncRepositoryStub(
+            now=now,
+            event_definitions=[
+                _event_definition(pk=100, code="SCREENING"),
+                _event_definition(pk=101, code="VISIT2"),
+            ],
+            transition_rules=[
+                _transition_rule(
+                    from_event_definition_id=100,
+                    to_event_definition_id=101,
+                    requires_previous_completion=True,
+                    offset_days=7,
+                    auto_create=False,
+                )
+            ],
+            subject_ids=[20],
+            existing_events_by_subject={
+                20: {
+                    100: _event_instance(
+                        pk=10,
+                        event_definition_id=100,
+                        status=SubjectEventInstance.OPEN,
+                    )
+                }
+            },
+        )
+
+        with patch(
+            "apps.subject.application.services.event_instance_resync.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                event_data_status_provider=_EventDataStatusProviderStub(),
+            ).resync_study_version(
+                study_id=1,
+                study_version="v1.0",
+                actor_user_id=99,
+                create_missing_future_events=True,
             )
 
         self.assertEqual(result.created_count, 1)
         created_event = repository.created_events[0]
         self.assertEqual(created_event.subject_id, 20)
         self.assertEqual(created_event.event_definition_id, 101)
-        self.assertEqual(created_event.status, SubjectEventInstance.OPEN)
+        self.assertEqual(created_event.status, SubjectEventInstance.NOT_READY)
         self.assertEqual(created_event.planned_date, now + timedelta(days=7))
 
-    def test_resync_does_not_downgrade_already_open_event_instances(self):
+    def test_resync_resets_open_event_without_data_for_gate_reevaluation(self):
         now = datetime(2026, 5, 25, 9, 0, tzinfo=timezone.utc)
         open_event = _event_instance(
             pk=11,
             event_definition_id=101,
             status=SubjectEventInstance.OPEN,
-            event_name_snapshot="Old Visit 2",
+            event_code_snapshot="VISIT2",
+            event_name_snapshot="Visit 2",
+        )
+        source_event = _event_instance(
+            pk=10,
+            event_definition_id=100,
+            status=SubjectEventInstance.COMPLETED,
+            event_code_snapshot="SCREENING",
+            event_name_snapshot="Screening",
         )
         repository = _SubjectEventInstanceResyncRepositoryStub(
             now=now,
             event_definitions=[
-                _event_definition(pk=100, code="SCREENING"),
-                _event_definition(pk=101, code="VISIT2", name="Visit 2 Updated"),
+                _event_definition(pk=100, code="SCREENING", name="Screening"),
+                _event_definition(pk=101, code="VISIT2", name="Visit 2"),
             ],
             transition_rules=[
                 _transition_rule(
@@ -79,34 +144,36 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
                 )
             ],
             subject_ids=[20],
+            transition_ready_event_instance_ids_by_subject={20: [10]},
             existing_events_by_subject={
                 20: {
-                    100: _event_instance(
-                        pk=10,
-                        event_definition_id=100,
-                        status=SubjectEventInstance.NOT_READY,
-                    ),
+                    100: source_event,
                     101: open_event,
                 }
             },
         )
+        transition_service = _SubjectEventTransitionServiceStub(applied_event_count=1)
+        event_fact_provider = _EventFactProviderStub(facts_by_event_instance_id={10: {}})
 
         with patch(
             "apps.subject.application.services.event_instance_resync.transaction.atomic",
             return_value=nullcontext(),
         ):
-            result = SubjectEventInstanceResyncService(repository=repository).resync_study_version(
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                transition_service=transition_service,
+                event_fact_provider=event_fact_provider,
+                event_data_status_provider=_EventDataStatusProviderStub(),
+            ).resync_study_version(
                 study_id=1,
                 study_version="v1.0",
                 actor_user_id=99,
             )
 
         self.assertEqual(result.created_count, 0)
-        self.assertEqual(result.updated_count, 2)
-        update = next(item for item in repository.updated_events if item["event_instance"].pk == 11)
-        self.assertEqual(update["event_instance"].pk, 11)
-        self.assertEqual(update["desired_status"], SubjectEventInstance.NOT_READY)
-        self.assertFalse(update["allow_status_change"])
+        self.assertEqual(result.updated_count, 1)
+        self.assertEqual(repository.reset_events, [11])
+        self.assertEqual(len(transition_service.commands), 1)
 
     def test_resync_skips_subjects_without_instances_for_version_by_default(self):
         repository = _SubjectEventInstanceResyncRepositoryStub(
@@ -122,7 +189,10 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
             "apps.subject.application.services.event_instance_resync.transaction.atomic",
             return_value=nullcontext(),
         ):
-            result = SubjectEventInstanceResyncService(repository=repository).resync_study_version(
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                event_data_status_provider=_EventDataStatusProviderStub(),
+            ).resync_study_version(
                 study_id=1,
                 study_version="v2.0",
                 actor_user_id=99,
@@ -145,7 +215,10 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
             "apps.subject.application.services.event_instance_resync.transaction.atomic",
             return_value=nullcontext(),
         ):
-            result = SubjectEventInstanceResyncService(repository=repository).resync_study_version(
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                event_data_status_provider=_EventDataStatusProviderStub(),
+            ).resync_study_version(
                 study_id=1,
                 study_version="v2.0",
                 actor_user_id=99,
@@ -171,7 +244,10 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
             "apps.subject.application.services.event_instance_resync.transaction.atomic",
             return_value=nullcontext(),
         ):
-            result = SubjectEventInstanceResyncService(repository=repository).resync_subject_active_study_version(
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                event_data_status_provider=_EventDataStatusProviderStub(),
+            ).resync_subject_active_study_version(
                 study_id=1,
                 subject_id=20,
                 actor_user_id=99,
@@ -215,6 +291,7 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
                 repository=repository,
                 transition_service=transition_service,
                 event_fact_provider=event_fact_provider,
+                event_data_status_provider=_EventDataStatusProviderStub(),
             ).resync_study_version(
                 study_id=1,
                 study_version="v1.0",
@@ -232,6 +309,109 @@ class SubjectEventInstanceResyncServiceTests(SimpleTestCase):
         self.assertEqual(command.trigger_source, "subject_list_resync_stage")
         self.assertEqual(event_fact_provider.event_instance_ids, [10])
 
+    def test_resync_flags_snapshot_change_when_event_has_data(self):
+        repository = _SubjectEventInstanceResyncRepositoryStub(
+            now=datetime(2026, 5, 25, 9, 0, tzinfo=timezone.utc),
+            event_definitions=[_event_definition(pk=100, code="VISIT1", name="Visit 1 Updated")],
+            transition_rules=[],
+            subject_ids=[20],
+            existing_events_by_subject={
+                20: {
+                    100: _event_instance(
+                        pk=10,
+                        event_definition_id=100,
+                        status=SubjectEventInstance.OPEN,
+                        event_code_snapshot="VISIT1",
+                        event_name_snapshot="Visit 1",
+                    )
+                }
+            },
+        )
+        data_status_provider = _EventDataStatusProviderStub(event_instance_ids_with_data={10})
+
+        with patch(
+            "apps.subject.application.services.event_instance_resync.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                event_data_status_provider=data_status_provider,
+            ).resync_study_version(
+                study_id=1,
+                study_version="v1.0",
+                actor_user_id=99,
+            )
+
+        self.assertEqual(result.impact_flag_count, 1)
+        self.assertEqual(repository.impact_reasons, ["needs_review_snapshot_changed"])
+        self.assertEqual(repository.updated_events, [])
+
+    def test_resync_cancels_removed_event_without_data(self):
+        repository = _SubjectEventInstanceResyncRepositoryStub(
+            now=datetime(2026, 5, 25, 9, 0, tzinfo=timezone.utc),
+            event_definitions=[_event_definition(pk=100, code="VISIT1")],
+            transition_rules=[],
+            subject_ids=[20],
+            existing_events_by_subject={
+                20: {
+                    100: _event_instance(
+                        pk=10,
+                        event_definition_id=100,
+                        status=SubjectEventInstance.OPEN,
+                        event_code_snapshot="VISIT1",
+                        event_name_snapshot="Visit1",
+                    ),
+                    101: _event_instance(pk=11, event_definition_id=101, status=SubjectEventInstance.NOT_READY),
+                }
+            },
+        )
+
+        with patch(
+            "apps.subject.application.services.event_instance_resync.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                event_data_status_provider=_EventDataStatusProviderStub(),
+            ).resync_study_version(
+                study_id=1,
+                study_version="v1.0",
+                actor_user_id=99,
+            )
+
+        self.assertEqual(result.updated_count, 1)
+        self.assertEqual(repository.cancelled_events, [(11, "event_definition_removed_or_disabled")])
+
+    def test_resync_flags_removed_event_with_data(self):
+        repository = _SubjectEventInstanceResyncRepositoryStub(
+            now=datetime(2026, 5, 25, 9, 0, tzinfo=timezone.utc),
+            event_definitions=[_event_definition(pk=100, code="VISIT1")],
+            transition_rules=[],
+            subject_ids=[20],
+            existing_events_by_subject={
+                20: {
+                    101: _event_instance(pk=11, event_definition_id=101, status=SubjectEventInstance.OPEN),
+                }
+            },
+        )
+        data_status_provider = _EventDataStatusProviderStub(event_instance_ids_with_data={11})
+
+        with patch(
+            "apps.subject.application.services.event_instance_resync.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            result = SubjectEventInstanceResyncService(
+                repository=repository,
+                event_data_status_provider=data_status_provider,
+            ).resync_study_version(
+                study_id=1,
+                study_version="v1.0",
+                actor_user_id=99,
+            )
+
+        self.assertEqual(result.impact_flag_count, 1)
+        self.assertEqual(repository.impact_reasons, ["obsolete_with_data"])
+
 
 class _SubjectEventInstanceResyncRepositoryStub:
     def __init__(
@@ -245,6 +425,7 @@ class _SubjectEventInstanceResyncRepositoryStub:
         all_subject_ids=None,
         active_study_version="v1.0",
         transition_ready_event_instance_ids_by_subject=None,
+        terminal_subject_ids=None,
     ):
         self._now = now
         self.event_definitions = event_definitions
@@ -254,8 +435,12 @@ class _SubjectEventInstanceResyncRepositoryStub:
         self.active_study_version = active_study_version
         self.existing_events_by_subject = existing_events_by_subject
         self.transition_ready_event_instance_ids_by_subject = transition_ready_event_instance_ids_by_subject or {}
+        self.terminal_subject_ids = set(terminal_subject_ids or ())
         self.created_events = []
         self.updated_events = []
+        self.reset_events = []
+        self.cancelled_events = []
+        self.impact_reasons = []
 
     def now(self):
         return self._now
@@ -277,13 +462,15 @@ class _SubjectEventInstanceResyncRepositoryStub:
             return [subject_id for subject_id in self.all_subject_ids if subject_id in subject_ids]
         return self.all_subject_ids
 
+    def list_terminal_subject_ids(self, *, study_id, subject_ids):
+        return {subject_id for subject_id in subject_ids if subject_id in self.terminal_subject_ids}
+
     def list_event_instances_for_subject_version_for_update(
         self,
         *,
         study_id,
         subject_id,
         study_version,
-        event_definition_ids,
     ):
         return self.existing_events_by_subject.get(subject_id, {})
 
@@ -312,27 +499,45 @@ class _SubjectEventInstanceResyncRepositoryStub:
         self.created_events.append(event_instance)
         return event_instance
 
-    def resync_event_instance(
+    def update_event_instance_runtime(
         self,
         *,
         event_instance,
         event_definition,
-        desired_status,
+        update_snapshot,
+        update_schedule,
         planned_date,
+        target_date,
         actor_user_id,
         now,
-        trigger_source,
-        allow_status_change,
     ):
+        if not update_snapshot and not update_schedule:
+            return False
         self.updated_events.append(
             {
                 "event_instance": event_instance,
                 "event_definition": event_definition,
-                "desired_status": desired_status,
-                "allow_status_change": allow_status_change,
+                "update_snapshot": update_snapshot,
+                "update_schedule": update_schedule,
+                "planned_date": planned_date,
+                "target_date": target_date,
             }
         )
-        return event_instance.event_name_snapshot != event_definition.name or allow_status_change
+        return (
+            (update_snapshot and event_instance.event_name_snapshot != event_definition.name)
+            or (update_schedule and event_instance.planned_date != planned_date)
+        )
+
+    def reset_open_event_instance_for_gate_resync(self, *, event_instance, actor_user_id, now, trigger_source):
+        self.reset_events.append(event_instance.pk)
+        return True
+
+    def cancel_event_instance(self, *, event_instance, reason, actor_user_id, now, trigger_source):
+        self.cancelled_events.append((event_instance.pk, reason))
+        return True
+
+    def record_resync_impact(self, *, event_instance, reason, actor_user_id, now, trigger_source):
+        self.impact_reasons.append(reason)
 
 
 class _SubjectEventTransitionServiceStub:
@@ -355,6 +560,14 @@ class _EventFactProviderStub:
         return SimpleNamespace(facts=self.facts_by_event_instance_id.get(event_instance_id, {}))
 
 
+class _EventDataStatusProviderStub:
+    def __init__(self, *, event_instance_ids_with_data=None):
+        self.event_instance_ids_with_data = set(event_instance_ids_with_data or ())
+
+    def event_instance_has_data(self, *, event_instance_id):
+        return event_instance_id in self.event_instance_ids_with_data
+
+
 def _event_definition(*, pk, code, name=None, study_version="v1.0"):
     return SimpleNamespace(
         pk=pk,
@@ -372,6 +585,7 @@ def _transition_rule(
     requires_previous_completion,
     offset_days=None,
     auto_open=True,
+    auto_create=False,
     condition_code=None,
 ):
     return SimpleNamespace(
@@ -380,19 +594,28 @@ def _transition_rule(
         requires_previous_completion=requires_previous_completion,
         offset_days=offset_days,
         auto_open=auto_open,
+        auto_create=auto_create,
         condition_code=condition_code,
         condition_definition=None,
     )
 
 
-def _event_instance(*, pk, event_definition_id, status, event_name_snapshot=None):
+def _event_instance(
+    *,
+    pk,
+    event_definition_id,
+    status,
+    event_code_snapshot="",
+    event_name_snapshot=None,
+):
     return SimpleNamespace(
         pk=pk,
         id=pk,
         event_definition_id=event_definition_id,
         status=status,
         planned_date=None,
-        event_code_snapshot="",
+        target_date=None,
+        event_code_snapshot=event_code_snapshot,
         event_name_snapshot=event_name_snapshot or "",
         event_type_snapshot="visit_based",
     )

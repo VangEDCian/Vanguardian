@@ -292,6 +292,30 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertIn('type="time"', rendered)
         self.assertIn('value=""', rendered)
 
+    def test_number_control_renders_range_and_precision_attrs(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "field": {
+                    "id": 13,
+                    "field_key": "WEIGHT",
+                    "label": "Weight",
+                    "control_type": "NUMBER",
+                    "range_min": "-10.5",
+                    "range_max": "120.25",
+                    "precision": 2,
+                    "value": "72.345",
+                    "is_required": True,
+                },
+            },
+        )
+
+        self.assertIn('data-validator-type="number"', rendered)
+        self.assertIn('data-range-min="-10.5"', rendered)
+        self.assertIn('data-range-max="120.25"', rendered)
+        self.assertIn('data-precision="2"', rendered)
+        self.assertIn('inputmode="decimal"', rendered)
+
 
 class SubjectDetailPageEntryFooterTests(SimpleTestCase):
     def _render_footer(self, **overrides):

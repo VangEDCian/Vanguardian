@@ -136,6 +136,12 @@ def get_latest_stable_page_state_id_for_event_instance(*, event_instance_id: int
     )
 
 
+def event_instance_has_data(*, event_instance_id: int) -> bool:
+    return DataCapturePageStateReadService().event_instance_has_data(
+        event_instance_id=event_instance_id,
+    )
+
+
 def get_page_state_final_data_for_subject_visit_crf(
     *, subject_id: int, visit_id: int | None, crf_template_id: int
 ) -> dict:
@@ -344,6 +350,7 @@ __all__ = [
     "DataCapturePageStateNotFoundError",
     "delete_latest_draft_page_entry_for_subject_visit_crf",
     "ensure_draft_page_state_if_not_exists",
+    "event_instance_has_data",
     "evaluate_facts_for_event_instance",
     "finalize_page_data_for_subject_visit_crf",
     "get_latest_page_entry_for_subject_visit_crf",

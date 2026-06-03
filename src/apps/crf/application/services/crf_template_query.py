@@ -189,6 +189,8 @@ class CrfTemplateQueryService:
                     "data_semantic": field_definition.data_semantic if field_definition else None,
                     "comments": field_definition_comments,
                     "unit": field_definition_unit,
+                    "range_min": field_definition.range_min if field_definition else None,
+                    "range_max": field_definition.range_max if field_definition else None,
                     "precision": field_definition.precision if field_definition else None,
                     "codelist": field_definition_codelist,
                     "text_max_length": field_definition.text_max_length if field_definition else None,

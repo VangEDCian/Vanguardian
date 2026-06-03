@@ -84,6 +84,8 @@ class SubjectEventLifecycleAdapter:
         study_version: str,
         actor_user_id: int | None = None,
         include_all_subjects: bool = False,
+        include_terminal_subjects: bool = False,
+        create_missing_future_events: bool = False,
         subject_ids=None,
         trigger_source: str = "study_eventdefinition_resync",
     ):
@@ -92,6 +94,8 @@ class SubjectEventLifecycleAdapter:
             study_version=study_version,
             actor_user_id=actor_user_id,
             include_all_subjects=include_all_subjects,
+            include_terminal_subjects=include_terminal_subjects,
+            create_missing_future_events=create_missing_future_events,
             subject_ids=subject_ids,
             trigger_source=trigger_source,
         )
@@ -102,12 +106,16 @@ class SubjectEventLifecycleAdapter:
         study_id: int,
         subject_id: int,
         actor_user_id: int | None = None,
+        include_terminal_subjects: bool = False,
+        create_missing_future_events: bool = False,
         trigger_source: str = "subject_list_resync_stage",
     ):
         return self.resync_service.resync_subject_active_study_version(
             study_id=study_id,
             subject_id=subject_id,
             actor_user_id=actor_user_id,
+            include_terminal_subjects=include_terminal_subjects,
+            create_missing_future_events=create_missing_future_events,
             trigger_source=trigger_source,
         )
 
@@ -166,6 +174,8 @@ def resync_subject_event_instances(
     study_version: str,
     actor_user_id: int | None = None,
     include_all_subjects: bool = False,
+    include_terminal_subjects: bool = False,
+    create_missing_future_events: bool = False,
     subject_ids=None,
     trigger_source: str = "study_eventdefinition_resync",
 ):
@@ -174,6 +184,8 @@ def resync_subject_event_instances(
         study_version=study_version,
         actor_user_id=actor_user_id,
         include_all_subjects=include_all_subjects,
+        include_terminal_subjects=include_terminal_subjects,
+        create_missing_future_events=create_missing_future_events,
         subject_ids=subject_ids,
         trigger_source=trigger_source,
     )
@@ -184,12 +196,16 @@ def resync_subject_active_study_version(
     study_id: int,
     subject_id: int,
     actor_user_id: int | None = None,
+    include_terminal_subjects: bool = False,
+    create_missing_future_events: bool = False,
     trigger_source: str = "subject_list_resync_stage",
 ):
     return SubjectEventLifecycleAdapter().resync_subject_active_study_version(
         study_id=study_id,
         subject_id=subject_id,
         actor_user_id=actor_user_id,
+        include_terminal_subjects=include_terminal_subjects,
+        create_missing_future_events=create_missing_future_events,
         trigger_source=trigger_source,
     )
 
