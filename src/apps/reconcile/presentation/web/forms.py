@@ -20,12 +20,6 @@ SOURCE_CHOICES = (
     ("system", _("System")),
     ("import", _("Import")),
 )
-CURRENT_USER_FILTER_CHOICES = (
-    ("", _("All")),
-    ("yes", _("Yes")),
-)
-
-
 class QueryWorkbenchFilterForm(forms.Form):
     search = forms.CharField(
         required=False,
@@ -75,23 +69,15 @@ class QueryWorkbenchFilterForm(forms.Form):
             aria_label=_("Filter blocking queries"),
         ),
     )
-    assigned_to_me = forms.ChoiceField(
+    assigned_to_me = forms.BooleanField(
         required=False,
         label=_("Assigned To Me"),
-        choices=CURRENT_USER_FILTER_CHOICES,
-        widget=ToolbarFilterSelectWidget(
-            filter_label=_("Assigned To Me:"),
-            aria_label=_("Filter queries assigned to me"),
-        ),
+        widget=forms.CheckboxInput(attrs={"class": "query-workbench__toolbar-checkbox-input"}),
     )
-    opened_by_me = forms.ChoiceField(
+    opened_by_me = forms.BooleanField(
         required=False,
         label=_("Opened by Me"),
-        choices=CURRENT_USER_FILTER_CHOICES,
-        widget=ToolbarFilterSelectWidget(
-            filter_label=_("Opened by Me:"),
-            aria_label=_("Filter queries opened by me"),
-        ),
+        widget=forms.CheckboxInput(attrs={"class": "query-workbench__toolbar-checkbox-input"}),
     )
 
 

@@ -7,6 +7,7 @@ from django.urls import resolve, reverse
 
 from apps.identity.application.default_role_permissions import DEFAULT_EDC_ROLE_GROUPS
 from apps.reconcile.application.services.query_workbench import QueryWorkbenchReader
+from apps.reconcile.presentation.web.forms import QueryWorkbenchFilterForm
 from apps.reconcile.infrastructure.repositories.dataquery_read import DjangoReconcileDataQueryReadRepository
 from apps.reconcile.presentation.api.views import QueryLifecycleActionAPIView
 from apps.reconcile.presentation.web.views import QueryWorkbenchView
@@ -250,6 +251,82 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
         self.assertIn("from apps.datacapture.public import", source)
         self.assertNotIn("apps.datacapture.models", source)
         self.assertNotIn("apps.datacapture.infrastructure", source)
+
+
+class QueryWorkbenchFilterFormTests(SimpleTestCase):
+    def test_current_user_filters_parse_to_booleans(self):
+        form = QueryWorkbenchFilterForm({"assigned_to_me": "on", "opened_by_me": "on"})
+
+        self.assertTrue(form.is_valid())
+        self.assertTrue(form.cleaned_data["assigned_to_me"])
+        self.assertTrue(form.cleaned_data["opened_by_me"])
+        self.assertEqual(
+            form.fields["assigned_to_me"].widget.attrs["class"],
+            "query-workbench__toolbar-checkbox-input",
+        )
+        self.assertEqual(
+            form.fields["opened_by_me"].widget.attrs["class"],
+            "query-workbench__toolbar-checkbox-input",
+        )
+
+    def test_current_user_filters_unchecked_when_missing(self):
+        form = QueryWorkbenchFilterForm({})
+
+        self.assertTrue(form.is_valid())
+        self.assertFalse(form.cleaned_data["assigned_to_me"])
+        self.assertFalse(form.cleaned_data["opened_by_me"])
+
+
+class QueryWorkbenchTemplateAndViewBehaviorTests(SimpleTestCase):
+    def test_query_workbench_view_passes_current_user_id_for_user_filters(self):
+        reader = _DummyWorkbenchReader()
+        user = SimpleNamespace(
+            pk=11,
+            id=11,
+            is_authenticated=True,
+            has_perm=lambda permission: True,
+            get_full_name=lambda: "Quality QA",
+            get_username=lambda: "quality.qa",
+            email="",
+            phone_number="",
+            is_staff=False,
+            is_superuser=False,
+        )
+
+        request = RequestFactory().get(
+            "/studies/1/queries/",
+            data={"assigned_to_me": "on", "opened_by_me": "on"},
+        )
+        request.user = user
+        request.COOKIES = {}
+
+        with (
+            patch(
+                "apps.reconcile.presentation.web.views.query_workbench.SiteDropdownHandler",
+                return_value=_WorkbenchSiteDropdownHandler(),
+            ),
+            patch(
+                "apps.reconcile.presentation.web.views.query_workbench.QueryWorkbenchView.reader_class",
+                return_value=reader,
+            ),
+            patch(
+                "apps.reconcile.presentation.web.views.query_workbench.user_can_access_permission",
+                return_value=True,
+            ),
+        ):
+            view = QueryWorkbenchView()
+            view.setup(request, study_id=1)
+            view.get_context_data()
+
+        self.assertEqual(reader.last_read_kwargs["assigned_to_id"], 11)
+        self.assertEqual(reader.last_read_kwargs["opened_by_id"], 11)
+
+    def test_query_workbench_template_has_checkbox_controls_and_auto_submit(self):
+        template_source = Path("src/templates/reconcile/query_workbench.html").read_text()
+
+        self.assertIn("query-workbench__toolbar-user-filters", template_source)
+        self.assertIn("query-workbench__toolbar-checkbox", template_source)
+        self.assertIn("toolbarForm.submit()", template_source)
 
 
 class QueryWorkbenchRoutingTests(SimpleTestCase):
@@ -624,6 +701,40 @@ class _QueryActionServiceStub:
     def cancel_dataquery(self, **kwargs):
         self.cancel_kwargs = kwargs
         return self.result
+
+
+class _DummyWorkbenchReader:
+    def __init__(self):
+        self.last_read_kwargs = None
+
+    def read(self, **kwargs):
+        self.last_read_kwargs = kwargs
+        return _DummyWorkbenchReaderResult()
+
+
+class _DummyWorkbenchReaderResult:
+    def __init__(self):
+        self.items = []
+        self.validation_issues = []
+        self.summary = SimpleNamespace(
+            total=0,
+            open=0,
+            awaiting_site_response=0,
+            awaiting_review=0,
+            blocking_open=0,
+            resolved=0,
+            closed=0,
+            validation_issues_open=0,
+        )
+
+
+class _WorkbenchSiteDropdownHandler:
+    def __init__(self, request=None, study_id=None, **kwargs):
+        self.request = request
+        self.study_id = study_id
+
+    def build(self):
+        return SimpleNamespace(selected_id=1)
 
 
 class _WorkbenchRepository:

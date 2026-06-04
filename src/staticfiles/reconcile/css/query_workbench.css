@@ -5,6 +5,39 @@
   height: 100%;
 }
 
+.query-workbench .entity-table__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.query-workbench__toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: center;
+  width: 100%;
+}
+
+.query-workbench__toolbar-user-filters {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  font-size: 12px;
+}
+
+.query-workbench__toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.query-workbench__toolbar-checkbox-input {
+  margin: 0;
+}
+
 .query-detail {
   gap: 0.5rem;
   padding: 1rem;

@@ -72,8 +72,8 @@ class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerify
             severity=cleaned.get("severity") or "",
             source=cleaned.get("source") or "",
             blocking=cleaned.get("blocking") or "",
-            assigned_to_id=self.request.user.pk if cleaned.get("assigned_to_me") == "yes" else None,
-            opened_by_id=self.request.user.pk if cleaned.get("opened_by_me") == "yes" else None,
+            assigned_to_id=self.request.user.pk if cleaned.get("assigned_to_me") else None,
+            opened_by_id=self.request.user.pk if cleaned.get("opened_by_me") else None,
             sort=self.request.GET.get("sort") or "-last_activity_at",
         )
         table = QueryWorkbenchTable(result.items)
