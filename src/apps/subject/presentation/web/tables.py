@@ -20,6 +20,11 @@ class SubjectListTable(tables.Table):
     screening_code = tables.Column(
         verbose_name=_("SCREENING CODE"),
     )
+    current_visit = tables.Column(
+        empty_values=(),
+        verbose_name=_("Current Visit"),
+        orderable=False,
+    )
     screening = tables.Column(
         empty_values=(),
         verbose_name=_("SCREENING"),
@@ -105,6 +110,10 @@ class SubjectListTable(tables.Table):
         return arm_name or "—"
 
     @staticmethod
+    def render_current_visit(record):
+        return getattr(record, "current_visit", None) or "—"
+
+    @staticmethod
     def render_completion(record):
         return "—"
 
@@ -121,6 +130,7 @@ class SubjectListTable(tables.Table):
         fields = (
             "subject_code",
             "screening_code",
+            "current_visit",
             "screening",
             "enrollment",
             "randomization",
