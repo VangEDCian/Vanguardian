@@ -1,11 +1,9 @@
-import csv
-import io
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 from django.contrib.auth.models import Group, Permission
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 from openpyxl import load_workbook
 
 from apps.identity.models import Role, RoleScopeLevel  # noqa: DDD022
@@ -13,7 +11,6 @@ from apps.identity.models import Role, RoleScopeLevel  # noqa: DDD022
 _REQUIRED_COLUMNS = {
     "role_name",
     "group_name",
-    "access_level_from_dmp",
     "permission",
 }
 
@@ -45,21 +42,96 @@ class RolePermissionImportResult:
 
 
 class IdentityRolePermissionImportService:
+    def build_role_create_options(self):
+        return {
+            "scope_options": [
+                {"value": RoleScopeLevel.STUDY, "label": _("Study")},
+                {"value": RoleScopeLevel.STUDY_SITE, "label": _("Study site")},
+            ],
+            "group_options": [
+                {"value": str(group.pk), "label": group.name}
+                for group in Group.objects.order_by("name")
+            ],
+            "permission_options": [
+                {
+                    "value": str(permission.pk),
+                    "label": f"{self.permission_code_for(permission)} - {permission.name}",
+                }
+                for permission in Permission.objects.select_related("content_type").order_by(
+                    "content_type__app_label",
+                    "codename",
+                )
+            ],
+        }
+
+    @transaction.atomic
+    def create_role(
+        self,
+        *,
+        study_id: int,
+        name: str,
+        code: str = "",
+        description: str = "",
+        scope_level: str = RoleScopeLevel.STUDY_SITE,
+        group_ids=(),
+        permission_ids=(),
+    ):
+        normalized_name = str(name or "").strip()
+        if not normalized_name:
+            raise ValueError(_("Role name is required."))
+
+        normalized_code = str(code or "").strip() or self._role_code_from_name(normalized_name)
+        normalized_scope = RoleScopeLevel(scope_level or RoleScopeLevel.STUDY_SITE)
+        if Role.objects.filter(study_id=study_id, name=normalized_name).exists():
+            raise ValueError(_("This role name already exists for the study."))
+        if Role.objects.filter(
+            study_id=study_id,
+            code=normalized_code,
+            scope_level=normalized_scope,
+            version_no=1,
+        ).exists():
+            raise ValueError(_("This role code already exists for the selected scope."))
+
+        groups = self._objects_by_ids(Group.objects.order_by("name"), group_ids)
+        permissions = self._objects_by_ids(
+            Permission.objects.select_related("content_type").order_by("content_type__app_label", "codename"),
+            permission_ids,
+        )
+        role = Role.objects.create(
+            study_id=study_id,
+            name=normalized_name,
+            code=normalized_code,
+            description=str(description or "").strip()[:255],
+            scope_level=normalized_scope,
+        )
+        role.groups.set(groups)
+        role.permissions.set(permissions)
+        return {
+            "id": role.pk,
+            "name": role.name,
+            "group_count": len(groups),
+            "permission_count": len(permissions),
+        }
+
     @transaction.atomic
     def import_workbook(self, *, study_id: int, import_file):
         rows = self._read_rows(import_file)
         result = RolePermissionImportResult(total_rows=len(rows))
-        access_levels_by_role: dict[str, set[str]] = defaultdict(set)
 
         for row_number, row in rows:
             role_name = row.get("role_name", "").strip()
             group_name = row.get("group_name", "").strip()
             permission_key = row.get("permission", "").strip()
-            access_levels = self._split_access_levels(row.get("access_level_from_dmp", ""))
+            description = row.get("description", "").strip()
+            scope_level = self._normalize_scope_level(row.get("scope_level", ""))
 
             if not role_name or not group_name or not permission_key:
                 result.skipped_rows += 1
                 result.issues.append(f"Row {row_number}: missing role_name, group_name, or permission.")
+                continue
+            if scope_level is None:
+                result.skipped_rows += 1
+                result.issues.append(f"Row {row_number}: invalid scope_level '{row.get('scope_level', '')}'.")
                 continue
             if "." not in permission_key:
                 result.skipped_rows += 1
@@ -87,20 +159,19 @@ class IdentityRolePermissionImportService:
                 name=role_name,
                 defaults={
                     "code": self._role_code_from_name(role_name),
-                    "description": self._description_from_access_levels(access_levels),
-                    "scope_level": RoleScopeLevel.STUDY_SITE,
+                    "description": description[:255],
+                    "scope_level": scope_level,
                 },
             )
             if created:
                 result.created_roles += 1
             else:
-                result.updated_roles += self._update_role_description(
+                result.updated_roles += self._update_role_metadata(
                     role,
-                    existing_levels=access_levels_by_role[role_name],
-                    incoming_levels=access_levels,
+                    description=description,
+                    scope_level=scope_level,
                 )
 
-            access_levels_by_role[role_name].update(access_levels)
             if not role.groups.filter(pk=group.pk).exists():
                 role.groups.add(group)
                 result.role_group_links += 1
@@ -118,25 +189,36 @@ class IdentityRolePermissionImportService:
         roles = [
             {
                 "name": role.name,
+                "scope_level": role.scope_level,
                 "description": role.description,
                 "group_count": role.groups.count(),
                 "permission_count": role.permissions.count(),
+                "group_names": [group.name for group in role.groups.all()],
+                "permission_codes": [
+                    self.permission_code_for(permission)
+                    for permission in role.permissions.all()
+                ],
             }
-            for role in Role.objects.filter(study_id=study_id).prefetch_related("groups", "permissions").order_by("name")
+            for role in Role.objects.filter(study_id=study_id)
+            .prefetch_related("groups", "permissions__content_type")
+            .order_by("name")
         ]
         return {"roles": roles, "role_count": len(roles)}
 
-    def _read_rows(self, import_file):
-        filename = getattr(import_file, "name", "")
-        if filename.lower().endswith(".csv"):
-            return self._read_csv_rows(import_file)
-        return self._read_excel_rows(import_file)
+    def _objects_by_ids(self, queryset, raw_ids):
+        normalized_ids = self._normalize_ids(raw_ids)
+        if not normalized_ids:
+            return []
+        objects = list(queryset.filter(pk__in=normalized_ids))
+        if len(objects) != len(normalized_ids):
+            raise ValueError(_("One or more selected groups or permissions no longer exist."))
+        return objects
 
-    def _read_csv_rows(self, import_file):
-        raw_data = import_file.read()
-        text = raw_data if isinstance(raw_data, str) else raw_data.decode("utf-8-sig")
-        reader = csv.DictReader(io.StringIO(text))
-        return self._normalize_dict_rows(reader)
+    def _read_rows(self, import_file):
+        filename = str(getattr(import_file, "name", "") or "").lower()
+        if not filename.endswith((".xlsx", ".xlsm")):
+            raise ValueError(_("Only .xlsx and .xlsm files are supported."))
+        return self._read_excel_rows(import_file)
 
     def _read_excel_rows(self, import_file):
         workbook = load_workbook(import_file, read_only=True, data_only=True)
@@ -165,28 +247,47 @@ class IdentityRolePermissionImportService:
     @staticmethod
     def _normalize_header(value):
         normalized = re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
-        if normalized in {"accss_level_from_dmp", "access_level_from_dmp"}:
-            return "access_level_from_dmp"
         return normalized
-
-    @staticmethod
-    def _split_access_levels(value):
-        return [item.strip() for item in str(value or "").split(";") if item.strip()]
 
     @staticmethod
     def _role_code_from_name(value):
         return re.sub(r"[^A-Z0-9]+", "_", str(value or "").strip().upper()).strip("_")
 
-    @classmethod
-    def _description_from_access_levels(cls, access_levels):
-        description = "; ".join(dict.fromkeys(access_levels))
-        return description[:255]
+    @staticmethod
+    def _normalize_scope_level(value):
+        normalized = str(value or RoleScopeLevel.STUDY_SITE).strip().upper()
+        if normalized in {"STUDY SITE", "STUDY-SITE"}:
+            normalized = RoleScopeLevel.STUDY_SITE
+        if normalized in RoleScopeLevel.values:
+            return RoleScopeLevel(normalized)
+        return None
 
-    def _update_role_description(self, role, *, existing_levels, incoming_levels):
-        combined_levels = list(dict.fromkeys([*existing_levels, *incoming_levels]))
-        description = self._description_from_access_levels(combined_levels)
-        if description and role.description != description:
-            role.description = description
-            role.save(update_fields=["description"])
-            return 1
-        return 0
+    @staticmethod
+    def permission_code_for(permission: Permission) -> str:
+        return f"{permission.content_type.app_label}.{permission.codename}"
+
+    @staticmethod
+    def _normalize_ids(raw_ids):
+        normalized_ids = []
+        for raw_id in raw_ids or ():
+            try:
+                normalized_id = int(raw_id)
+            except (TypeError, ValueError):
+                raise ValueError(_("Invalid group or permission selection.")) from None
+            if normalized_id not in normalized_ids:
+                normalized_ids.append(normalized_id)
+        return normalized_ids
+
+    def _update_role_metadata(self, role, *, description, scope_level):
+        normalized_description = str(description or "").strip()[:255]
+        update_fields = []
+        if normalized_description and role.description != normalized_description:
+            role.description = normalized_description
+            update_fields.append("description")
+        if scope_level and role.scope_level != scope_level:
+            role.scope_level = scope_level
+            update_fields.append("scope_level")
+        if not update_fields:
+            return 0
+        role.save(update_fields=update_fields)
+        return 1

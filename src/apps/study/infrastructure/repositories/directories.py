@@ -109,3 +109,10 @@ class DjangoStudyDirectoryRepository:
 
     def get_site_model(self):
         return Site
+
+    def study_site_belongs_to_study(self, *, study_id: int, study_site_id: int) -> bool:
+        return Site.objects.filter(
+            pk=study_site_id,
+            study_id=study_id,
+            deleted=False,
+        ).exists()

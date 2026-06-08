@@ -75,6 +75,7 @@
 }
 
 .top-nav__icon {
+  position: relative;
   width: 30px;
   height: 30px;
   border-radius: 999px;
@@ -90,6 +91,30 @@
 .top-nav__icon .svg-icon {
   width: 22px;
   height: 22px;
+}
+
+.top-nav__badge {
+  position: absolute;
+  top: -7px;
+  right: -11px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid #2196c4;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.top-nav__item.is-active .top-nav__badge {
+  border-color: #1a7aa8;
 }
 
 .top-nav__controls {

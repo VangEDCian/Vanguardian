@@ -62,6 +62,12 @@
                                     <span class="top-nav__icon" aria-hidden="true">
                                         <span class="svg-icon"
                                               style="--icon-url: url('{% static 'images/table/query.svg' %}')"></span>
+                                        {% if layout_queries_need_response_count %}
+                                            <span class="top-nav__badge"
+                                                  aria-label="{% blocktrans count query_count=layout_queries_need_response_count %}{{ query_count }} query needs your response{% plural %}{{ query_count }} queries need your response{% endblocktrans %}">
+                                                {{ layout_queries_need_response_count }}
+                                            </span>
+                                        {% endif %}
                                     </span>
                                     <span>{% trans "QUERIES" %}</span>
                                 </a>

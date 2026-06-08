@@ -37,3 +37,10 @@ class StudySiteDirectoryQueryService:
         if refresh_from_db:
             site.refresh_from_db()
         return serializers.serialize("json", [site])
+
+    @classmethod
+    def study_site_belongs_to_study(cls, *, study_id: int, study_site_id: int) -> bool:
+        return cls.repository_class().study_site_belongs_to_study(
+            study_id=study_id,
+            study_site_id=study_site_id,
+        )

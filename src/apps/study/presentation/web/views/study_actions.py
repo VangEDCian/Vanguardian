@@ -37,6 +37,8 @@ class StudyCreateView(
     AuthenticateTemplateView
 ):
     permission_required = "study.create_study"
+    require_study_context = False
+    allow_global_permission_check = True
     raise_exception = True
     template_name = "study/study_form.html"
     layout_nav_key = "STUDIES"

@@ -10,6 +10,7 @@ from apps.study.application.services.randomization_workflow import (
     RandomizationSlotAssignment,
     StudyRandomizationSlotAssignmentService,
 )
+from apps.study.application.services.site_directory import StudySiteDirectoryQueryService
 
 
 def assign_randomization_slot_for_subject(
@@ -88,6 +89,13 @@ def record_event_gate_evaluation(command: RecordEventGateEvaluationCommand):
     return EventGateEvaluationRecorder().record(command)
 
 
+def study_site_belongs_to_study(*, study_id: int, study_site_id: int) -> bool:
+    return StudySiteDirectoryQueryService.study_site_belongs_to_study(
+        study_id=study_id,
+        study_site_id=study_site_id,
+    )
+
+
 __all__ = [
     "RandomizationSlotAssignment",
     "EnrollSubjectCommand",
@@ -105,4 +113,5 @@ __all__ = [
     "get_subject_treatment_timeline",
     "randomize_subject",
     "retract_subject_eligibility_assessment",
+    "study_site_belongs_to_study",
 ]

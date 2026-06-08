@@ -5,7 +5,12 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.audit.public import build_audit_request_context
-from apps.identity.public import get_role_permission_summary_for_study, import_role_permissions_for_study
+from apps.identity.public import (
+    create_role_for_study,
+    get_role_create_options,
+    get_role_permission_summary_for_study,
+    import_role_permissions_for_study,
+)
 from apps.shared.navigation import get_default_study_id
 from apps.shared.views import AuthenticateTemplateView
 from apps.study.application import (
@@ -20,6 +25,7 @@ from apps.study.application import (
 )
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import StudyForm
+from apps.study.presentation.web.forms.roles import StudyRoleCreateForm
 from apps.study.presentation.web.mappers.commands import to_update_study_command
 from apps.study.presentation.web.views.helpers import (
     _can_change_study_status,
@@ -263,10 +269,9 @@ class StudyDetailView(
         ))
 
 
-class StudyManageRolesView(AuthenticateTemplateView):
+class StudyRolesContextMixin(AuthenticateTemplateView):
     permission_required = "study.view_study_detail"
     raise_exception = True
-    template_name = "study/study_manage_roles.html"
     layout_nav_key = "STUDIES"
     study_directory_query_service_class = StudyDirectoryQueryService
     _detail_view_model = None
@@ -302,15 +307,53 @@ class StudyManageRolesView(AuthenticateTemplateView):
             return super().get_layout_detail_meta_items()
         return self._detail_view_model.get("layout_detail_meta_items", ())
 
+    def _role_manage_url(self):
+        return reverse(
+            "study:study_manage_roles",
+            kwargs={"study_id": self._study.pk},
+        )
+
+    def _role_create_url(self):
+        return reverse(
+            "study:study_role_create",
+            kwargs={"study_id": self._study.pk},
+        )
+
+    def _build_role_create_form(self, *, role_create_options, data=None):
+        return StudyRoleCreateForm(
+            data=data,
+            scope_choices=self._choice_pairs(role_create_options["scope_options"]),
+            group_choices=self._choice_pairs(role_create_options["group_options"]),
+            permission_choices=self._choice_pairs(role_create_options["permission_options"]),
+        )
+
+    @staticmethod
+    def _choice_pairs(options):
+        return [(option["value"], option["label"]) for option in options]
+
+    @staticmethod
+    def _select_options(options, *, selected_values):
+        selected = {str(value) for value in selected_values if value not in (None, "")}
+        return [
+            {
+                **option,
+                "selected": str(option["value"]) in selected,
+            }
+            for option in options
+        ]
+
+
+class StudyManageRolesView(StudyRolesContextMixin):
+    template_name = "study/study_manage_roles.html"
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["detail_study"] = self._detail_view_model["detail_study"]
         context["role_permission_import_result"] = kwargs.get("role_permission_import_result")
+        context["role_permission_import_modal_open"] = bool(kwargs.get("role_permission_import_result"))
         context["role_permission_summary"] = get_role_permission_summary_for_study(study_id=self._study.pk)
-        context["role_permission_import_url"] = reverse(
-            "study:study_manage_roles",
-            kwargs={"study_id": self._study.pk},
-        )
+        context["role_create_url"] = self._role_create_url()
+        context["role_manage_url"] = self._role_manage_url()
         return context
 
     def post(self, request, *args, **kwargs):
@@ -344,3 +387,48 @@ class StudyManageRolesView(AuthenticateTemplateView):
                 "issues": [str(exc)],
             }
         return self.render_to_response(self.get_context_data(role_permission_import_result=import_result))
+
+
+class StudyRoleCreateView(StudyRolesContextMixin):
+    template_name = "study/study_role_create.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        role_create_options = get_role_create_options()
+        role_create_form = kwargs.get("role_create_form") or self._build_role_create_form(
+            role_create_options=role_create_options,
+        )
+        context["detail_study"] = self._detail_view_model["detail_study"]
+        context["role_create_form"] = role_create_form
+        context["role_create_scope_options"] = self._select_options(
+            role_create_options["scope_options"],
+            selected_values=[role_create_form["scope_level"].value()],
+        )
+        context["role_create_group_options"] = self._select_options(
+            role_create_options["group_options"],
+            selected_values=role_create_form["groups"].value() or (),
+        )
+        context["role_create_permission_options"] = self._select_options(
+            role_create_options["permission_options"],
+            selected_values=role_create_form["permissions"].value() or (),
+        )
+        context["role_create_url"] = self._role_create_url()
+        context["role_manage_url"] = self._role_manage_url()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        role_create_options = get_role_create_options()
+        form = self._build_role_create_form(
+            data=request.POST,
+            role_create_options=role_create_options,
+        )
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(role_create_form=form))
+
+        try:
+            create_role_for_study(study_id=self._study.pk, role_data=form.role_data())
+        except ValueError as exc:
+            form.add_error(None, str(exc))
+            return self.render_to_response(self.get_context_data(role_create_form=form))
+
+        return redirect(self._role_manage_url())

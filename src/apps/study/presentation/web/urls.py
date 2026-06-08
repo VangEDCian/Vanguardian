@@ -30,6 +30,7 @@ from apps.study.presentation.web.views import (
     StudyRandomizationSequencePeriodImportCommitView,
     StudyRandomizationSequencePeriodImportPreviewView,
     StudyRandomizationView,
+    StudyRoleCreateView,
     StudyToggleStatusView,
     StudyUpdateView,
 )
@@ -42,6 +43,7 @@ urlpatterns = [
     path("studies/new", StudyCreateView.as_view(), name="study_create"),
     path("studies/<int:study_id>", StudyDetailView.as_view(), name="study_detail"),
     path("studies/<int:study_id>/roles", StudyManageRolesView.as_view(), name="study_manage_roles"),
+    path("studies/<int:study_id>/roles/create", StudyRoleCreateView.as_view(), name="study_role_create"),
     path("studies/<int:study_id>/crftemplates/import", StudyCrfTemplateImportTemplateView.as_view(), name="study_crf_template_import"),
     path("studies/<int:study_id>/crftemplates/fields/import", StudyCrfTemplateFieldImportTemplateView.as_view(), name="study_crf_template_field_import"),
     path("studies/<int:study_id>/crftemplates/section-layout-configs/import", StudyCrfSectionLayoutConfigImportTemplateView.as_view(), name="study_crf_section_layout_config_import"),

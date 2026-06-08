@@ -761,6 +761,21 @@ class DjangoReconcileDataQueryReadRepository:
             "actionable_for_current_user": queryset.filter(status__in=("open", "answered")).count(),
         }
 
+    def count_open_queries_assigned_to_user(
+        self,
+        *,
+        page_state_ids: tuple[int, ...],
+        user_id: int | None,
+    ) -> int:
+        if not page_state_ids or user_id is None:
+            return 0
+        return ReconcileDataQuery.objects.filter(
+            page_state_id__in=page_state_ids,
+            assigned_to_id=user_id,
+            deleted=False,
+            status=ReconcileDataQueryStatusChoices.OPEN,
+        ).count()
+
     def list_workbench_queries(
         self,
         *,

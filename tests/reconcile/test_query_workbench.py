@@ -6,11 +6,13 @@ from django.test import RequestFactory, SimpleTestCase
 from django.urls import resolve, reverse
 
 from apps.identity.application.default_role_permissions import DEFAULT_EDC_ROLE_GROUPS
+from apps.reconcile.application import ReconcileDataQueryReadService
 from apps.reconcile.application.services.query_workbench import QueryWorkbenchReader
-from apps.reconcile.presentation.web.forms import QueryWorkbenchFilterForm
 from apps.reconcile.infrastructure.repositories.dataquery_read import DjangoReconcileDataQueryReadRepository
 from apps.reconcile.presentation.api.views import QueryLifecycleActionAPIView
+from apps.reconcile.presentation.web.forms import QueryWorkbenchFilterForm
 from apps.reconcile.presentation.web.views import QueryWorkbenchView
+from apps.shared.context_processors import shared_select_options
 
 
 class QueryWorkbenchReaderTests(SimpleTestCase):
@@ -245,6 +247,41 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
         self.assertEqual(queryset.ordered_by, ("-created_at", "-id"))
         self.assertEqual(threads[0]["message_text"], "Latest")
 
+    def test_repository_counts_open_queries_assigned_to_user(self):
+        manager = _DataQueryManagerStub(count=7)
+
+        with patch(
+            "apps.reconcile.infrastructure.repositories.dataquery_read.ReconcileDataQuery.objects",
+            manager,
+        ):
+            count = DjangoReconcileDataQueryReadRepository().count_open_queries_assigned_to_user(
+                page_state_ids=(10, 11),
+                user_id=9,
+            )
+
+        self.assertEqual(count, 7)
+        self.assertEqual(manager.filter_kwargs["page_state_id__in"], (10, 11))
+        self.assertEqual(manager.filter_kwargs["assigned_to_id"], 9)
+        self.assertEqual(manager.filter_kwargs["deleted"], False)
+        self.assertEqual(manager.filter_kwargs["status"], "open")
+
+    def test_read_service_delegates_assigned_open_query_count(self):
+        repository = _ReadServiceRepositoryStub()
+
+        count = ReconcileDataQueryReadService(repository=repository).count_open_queries_assigned_to_user(
+            page_state_ids=(10,),
+            user_id=9,
+        )
+
+        self.assertEqual(count, 4)
+        self.assertEqual(
+            repository.assigned_count_kwargs,
+            {
+                "page_state_ids": (10,),
+                "user_id": 9,
+            },
+        )
+
     def test_reconcile_application_uses_datacapture_public_contract(self):
         source = Path("src/apps/reconcile/application/services/query_workbench.py").read_text()
 
@@ -354,6 +391,13 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
         self.assertLess(subject_index, query_index)
         self.assertLess(query_index, sites_index)
 
+    def test_query_nav_renders_need_response_badge(self):
+        layout_source = Path("src/templates/shared/_layout.html").read_text()
+
+        self.assertIn("layout_queries_need_response_count", layout_source)
+        self.assertIn("top-nav__badge", layout_source)
+        self.assertIn("queries need your response", layout_source)
+
     def test_query_detail_uses_shared_dashboard_breadcrumb(self):
         detail_source = Path("src/templates/reconcile/query_detail.html").read_text()
 
@@ -378,6 +422,51 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
 
         self.assertIn("QUERY.CANCEL", permissions_by_role["CRA_MONITOR"])
         self.assertIn("QUERY.CANCEL", permissions_by_role["DATA_MANAGER"])
+
+    def test_shared_layout_context_counts_queries_needing_response(self):
+        user = SimpleNamespace(pk=9, is_authenticated=True)
+        request = SimpleNamespace(user=user)
+        read_service = _ReadServiceRepositoryStub()
+
+        with (
+            patch(
+                "apps.shared.context_processors.StudyDropdownHandler",
+                return_value=_SharedDropdownHandler(selected_id=1),
+            ),
+            patch(
+                "apps.shared.context_processors.SiteDropdownHandler",
+                return_value=_SharedDropdownHandler(selected_id=2),
+            ),
+            patch(
+                "apps.shared.context_processors.get_layout_nav_permissions",
+                return_value={
+                    "subjects": True,
+                    "queries": True,
+                    "sites": True,
+                    "studies": False,
+                    "users": False,
+                    "dashboard": False,
+                },
+            ),
+            patch(
+                "apps.datacapture.public.list_page_state_contexts_for_study_site",
+                return_value={12: object(), 10: object()},
+            ),
+            patch(
+                "apps.reconcile.application.ReconcileDataQueryReadService",
+                return_value=ReconcileDataQueryReadService(repository=read_service),
+            ),
+        ):
+            context = shared_select_options(request)
+
+        self.assertEqual(context["layout_queries_need_response_count"], 4)
+        self.assertEqual(
+            read_service.assigned_count_kwargs,
+            {
+                "page_state_ids": (10, 12),
+                "user_id": 9,
+            },
+        )
 
 
 class QueryLifecycleActionAPIViewTests(SimpleTestCase):
@@ -735,6 +824,45 @@ class _WorkbenchSiteDropdownHandler:
 
     def build(self):
         return SimpleNamespace(selected_id=1)
+
+
+class _SharedDropdownHandler:
+    def __init__(self, selected_id):
+        self.selected_id = selected_id
+
+    def build(self):
+        return SimpleNamespace(
+            selected_id=self.selected_id,
+            select_display_text="Selected",
+            select_options=[],
+        )
+
+
+class _ReadServiceRepositoryStub:
+    def __init__(self):
+        self.assigned_count_kwargs = None
+
+    def count_open_queries_assigned_to_user(self, **kwargs):
+        self.assigned_count_kwargs = kwargs
+        return 4
+
+
+class _DataQueryManagerStub:
+    def __init__(self, *, count):
+        self.count = count
+        self.filter_kwargs = None
+
+    def filter(self, **kwargs):
+        self.filter_kwargs = kwargs
+        return _CountQuerySet(self.count)
+
+
+class _CountQuerySet:
+    def __init__(self, count):
+        self._count = count
+
+    def count(self):
+        return self._count
 
 
 class _WorkbenchRepository:

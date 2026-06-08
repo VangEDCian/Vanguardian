@@ -2,22 +2,21 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from apps.identity.infrastructure.persistence.models import MembershipStatus, StudyMembership, StudySiteMembership
-from apps.identity.public import ResourceContext, can_perform
+from apps.identity.public import ContextualAuthorizationService
 from apps.study.infrastructure.persistence.models import Site, Study
 
 
 def user_can_access_permission(user, permission_code, *, study_id=None, site_id=None):
     if not getattr(user, "is_authenticated", False):
         return False
-    if user.has_perm(permission_code):
-        return True
     if study_id is None:
         return False
-    return can_perform(
-        user_id=user.pk,
-        permission_code=permission_code,
-        resource_context=ResourceContext(study_id=study_id, study_site_id=site_id),
-    ).is_allowed
+    return ContextualAuthorizationService().can(
+        user=user,
+        permission=permission_code,
+        study_id=study_id,
+        study_site_id=site_id,
+    ).allowed
 
 
 def get_layout_nav_permissions(user, *, study_id=None, site_id=None):

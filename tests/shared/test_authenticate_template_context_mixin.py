@@ -17,6 +17,16 @@ class ProtectedView(AuthenticateTemplateContextMixin, View):
         return HttpResponse(status=200)
 
 
+class GlobalProtectedView(AuthenticateTemplateContextMixin, View):
+    permission_required = "dashboard.view_dashboard"
+    require_study_context = False
+    allow_global_permission_check = True
+    raise_exception = True
+
+    def get(self, request, *args, **kwargs):
+        return HttpResponse(status=200)
+
+
 class AuthenticateTemplateContextMixinTests(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -31,7 +41,7 @@ class AuthenticateTemplateContextMixinTests(SimpleTestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.url.startswith("/itsnotasignin/"))
 
-    def test_raises_permission_denied_after_authentication(self):
+    def test_raises_permission_denied_after_authentication_without_context(self):
         request = self.factory.get("/studies/1/subjects/2/?event=1&form=4")
         request.user = SimpleNamespace(
             is_authenticated=True,
@@ -41,20 +51,33 @@ class AuthenticateTemplateContextMixinTests(SimpleTestCase):
         with self.assertRaises(PermissionDenied):
             ProtectedView.as_view()(request)
 
-    def test_allows_authenticated_user_with_required_permission(self):
+    def test_django_permission_does_not_bypass_missing_context(self):
         request = self.factory.get("/studies/1/subjects/2/?event=1&form=4")
         request.user = SimpleNamespace(
             is_authenticated=True,
+            is_superuser=False,
             has_perms=lambda permissions: True,
+        )
+
+        with self.assertRaises(PermissionDenied):
+            ProtectedView.as_view()(request)
+
+    def test_superuser_bypasses_missing_context_and_permission_check(self):
+        request = self.factory.get("/studies/1/subjects/2/?event=1&form=4")
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            is_active=True,
+            is_superuser=True,
+            has_perms=lambda permissions: False,
         )
 
         response = ProtectedView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
 
-    @patch("apps.identity.public.can_perform")
-    def test_allows_study_scoped_permission_from_authorization_service(self, can_perform):
-        can_perform.return_value = SimpleNamespace(is_allowed=True)
+    @patch("apps.shared.views.generic.authenticate_template_view.ContextualAuthorizationService")
+    def test_allows_study_scoped_permission_from_authorization_service(self, authorization_service):
+        authorization_service.return_value.can.return_value = SimpleNamespace(allowed=True)
         request = self.factory.get("/studies/1/subjects/2/?event=1&form=4")
         request.user = SimpleNamespace(
             is_authenticated=True,
@@ -65,7 +88,21 @@ class AuthenticateTemplateContextMixinTests(SimpleTestCase):
         response = ProtectedView.as_view()(request, study_id=1)
 
         self.assertEqual(response.status_code, 200)
-        can_perform.assert_called_once()
-        self.assertEqual(can_perform.call_args.kwargs["user_id"], 99)
-        self.assertEqual(can_perform.call_args.kwargs["permission_code"], "subject.view_subject_detail")
-        self.assertEqual(can_perform.call_args.kwargs["resource_context"].study_id, 1)
+        authorization_service.return_value.can.assert_called_once()
+        self.assertEqual(authorization_service.return_value.can.call_args.kwargs["user"], request.user)
+        self.assertEqual(
+            authorization_service.return_value.can.call_args.kwargs["permission"],
+            "subject.view_subject_detail",
+        )
+        self.assertEqual(authorization_service.return_value.can.call_args.kwargs["study_id"], 1)
+
+    def test_allows_explicit_global_permission_check_without_study_context(self):
+        request = self.factory.get("/dashboard/")
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            has_perms=lambda permissions: True,
+        )
+
+        response = GlobalProtectedView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)

@@ -36,6 +36,7 @@ from apps.study.presentation.web.views.studies import (
     StudyDetailView,
     StudyListView,
     StudyManageRolesView,
+    StudyRoleCreateView,
 )
 from apps.study.presentation.web.views.study_actions import (
     StudyCreateView,
@@ -65,6 +66,7 @@ __all__ = [
     "StudyFactMappingImportTemplateView",
     "StudyListView",
     "StudyManageRolesView",
+    "StudyRoleCreateView",
     "StudyRandomizationArmDeleteView",
     "StudyRandomizationArmImportCommitView",
     "StudyRandomizationArmImportPreviewView",

@@ -199,6 +199,11 @@ def shared_select_options(request):
     study_dd = StudyDropdownHandler(request=request).build()
     site_dd = SiteDropdownHandler(request=request, study_id=study_dd.selected_id).build()
     site_selected_id = site_dd.selected_id
+    layout_nav_permissions = get_layout_nav_permissions(
+        request.user,
+        study_id=study_dd.selected_id,
+        site_id=site_selected_id,
+    )
     return {
         # study
         "shared_study_cookies_key": StudyDropdownHandler.COOKIE_NAME,
@@ -211,10 +216,12 @@ def shared_select_options(request):
         "shared_site_selected_id": site_selected_id,
         "shared_site_select_default": site_dd.select_display_text,
         "shared_site_select_options": site_dd.select_options,
-        "layout_nav_permissions": get_layout_nav_permissions(
-            request.user,
+        "layout_nav_permissions": layout_nav_permissions,
+        "layout_queries_need_response_count": _count_queries_need_response(
+            request=request,
             study_id=study_dd.selected_id,
             site_id=site_selected_id,
+            can_view_queries=layout_nav_permissions["queries"],
         ),
 
         # another
@@ -223,3 +230,26 @@ def shared_select_options(request):
             {"value": "en", "label": _("English")},
         ],
     }
+
+
+def _count_queries_need_response(
+    *,
+    request,
+    study_id: int | None,
+    site_id: int | None,
+    can_view_queries: bool,
+) -> int:
+    user = getattr(request, "user", None)
+    if not can_view_queries or not study_id or not getattr(user, "is_authenticated", False):
+        return 0
+    try:
+        from apps.datacapture.public import list_page_state_contexts_for_study_site
+        from apps.reconcile.application import ReconcileDataQueryReadService
+
+        page_state_ids = tuple(sorted(list_page_state_contexts_for_study_site(study_id=study_id, site_id=site_id)))
+        return ReconcileDataQueryReadService().count_open_queries_assigned_to_user(
+            page_state_ids=page_state_ids,
+            user_id=getattr(user, "pk", None),
+        )
+    except Exception:
+        return 0

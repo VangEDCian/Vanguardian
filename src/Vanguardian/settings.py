@@ -92,6 +92,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.identity.infrastructure.auth.middleware.SingleActiveSessionMiddleware",
     "apps.identity.infrastructure.auth.middleware.CheckFirstLoginMiddleware",
+    "apps.identity.presentation.middleware.AuthorizationContextMiddleware",
     "apps.identity.infrastructure.auth.middleware.MembershipAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "Vanguardian.middleware.TemplateMutationFeedbackMiddleware",
@@ -183,6 +184,16 @@ AUTH_PASSWORD_VALIDATORS = [
 IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS = env("IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS", cast=int, default=5)
 IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS", cast=int, default=15 * 60)
 IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS", cast=int, default=15 * 60)
+AUTHZ_ALLOW_GLOBAL_ROLE_FOR_STUDY_CONTEXT = env(
+    "AUTHZ_ALLOW_GLOBAL_ROLE_FOR_STUDY_CONTEXT",
+    cast=bool,
+    default=False,
+)
+AUTHZ_SUPERUSER_BYPASS_EDC_CONTEXT = env(
+    "AUTHZ_SUPERUSER_BYPASS_EDC_CONTEXT",
+    cast=bool,
+    default=False,
+)
 
 SONIC_ENABLED = env("SONIC_ENABLED", cast=bool, default=False)
 if SONIC_ENABLED:

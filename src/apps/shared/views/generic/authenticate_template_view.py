@@ -4,6 +4,13 @@ from django.http import HttpRequest
 from django.views.generic import TemplateView
 from django.views.generic.base import ContextMixin
 
+from apps.identity.public import (
+    AuthorizationContext,
+    ContextualAuthorizationService,
+    ResourceContext,
+    user_bypasses_context_permission,
+)
+
 
 class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
     login_url = "/itsnotasignin/"
@@ -11,6 +18,10 @@ class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
 
     layout_nav_key = ""
     layout_breadcrumb_label = ""
+    authorization_scope = "ANY"
+    require_study_context = True
+    require_site_context = False
+    allow_global_permission_check = False
     request: HttpRequest
 
     def get_permission_required(self):
@@ -25,31 +36,64 @@ class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
         required_permissions = self.get_permission_required()
         if not required_permissions:
             return True
-        if self.request.user.has_perms(required_permissions):
-            return True
 
-        resource_context = self.get_permission_resource_context()
-        user_id = getattr(self.request.user, "pk", None)
-        if resource_context is None or user_id is None:
+        authorization_context = self.get_permission_authorization_context()
+        if not authorization_context.is_valid:
             return False
+        if user_bypasses_context_permission(self.request.user):
+            return True
+        if self.require_study_context and authorization_context.study_id is None:
+            return False
+        if self.require_site_context and authorization_context.study_site_id is None:
+            return False
+        if authorization_context.study_id is None:
+            return self.allow_global_permission_check and self.request.user.has_perms(required_permissions)
 
-        from apps.identity.public import can_perform
-
+        authorization = ContextualAuthorizationService(request=self.request)
+        allow_study_scope, allow_site_scope = self.get_authorization_scope_flags()
         return all(
-            can_perform(
-                user_id=user_id,
-                permission_code=permission_code,
-                resource_context=resource_context,
-            ).is_allowed
+            authorization.can(
+                user=self.request.user,
+                permission=permission_code,
+                study_id=authorization_context.study_id,
+                study_site_id=authorization_context.study_site_id,
+                allow_study_scope=allow_study_scope,
+                allow_site_scope=allow_site_scope,
+            ).allowed
             for permission_code in required_permissions
         )
+
+    def get_permission_authorization_context(self):
+        request_context = getattr(self.request, "authorization_context", None)
+        if request_context is not None and (
+            not request_context.is_valid
+            or request_context.study_id is not None
+            or request_context.study_site_id is not None
+        ):
+            return request_context
+
+        resource_context = self.get_permission_resource_context()
+        if resource_context is None:
+            return AuthorizationContext(study_id=None, study_site_id=None, source="none", raw={})
+        return AuthorizationContext(
+            study_id=resource_context.study_id,
+            study_site_id=resource_context.study_site_id,
+            source="view",
+            raw={},
+        )
+
+    def get_authorization_scope_flags(self):
+        normalized_scope = str(self.authorization_scope or "ANY").upper()
+        if normalized_scope == "STUDY":
+            return True, False
+        if normalized_scope == "STUDY_SITE":
+            return False, True
+        return True, True
 
     def get_permission_resource_context(self):
         study_id = self.get_permission_context_int("study_id")
         if study_id is None:
             return None
-
-        from apps.identity.public import ResourceContext
 
         return ResourceContext(
             study_id=study_id,

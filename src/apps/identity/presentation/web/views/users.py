@@ -694,8 +694,14 @@ class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
     def get_identity_user_audit_service(self):
         return self.identity_user_audit_service_class()
 
+    def get_permission_resource_context(self):
+        study_id = get_default_study_id(self.request)
+        if study_id is None:
+            return None
+        return ResourceContext(study_id=study_id)
+
     def post(self, request, *args, **kwargs):
-        if not request.user.has_perm("identity.delete_user") or request.user.pk == kwargs["user_id"]:
+        if request.user.pk == kwargs["user_id"]:
             raise PermissionDenied
 
         target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()
@@ -729,8 +735,14 @@ class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
     def get_identity_user_audit_service(self):
         return self.identity_user_audit_service_class()
 
+    def get_permission_resource_context(self):
+        study_id = get_default_study_id(self.request)
+        if study_id is None:
+            return None
+        return ResourceContext(study_id=study_id)
+
     def post(self, request, *args, **kwargs):
-        if not request.user.has_perm("identity.restore_user") or request.user.pk == kwargs["user_id"]:
+        if request.user.pk == kwargs["user_id"]:
             raise PermissionDenied
 
         target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()

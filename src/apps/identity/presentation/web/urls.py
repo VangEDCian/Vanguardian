@@ -1,6 +1,5 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
-from django.views.generic import RedirectView
 
 from apps.identity.presentation.web.views import (
     CurrentUserChangePasswordView,
@@ -27,40 +26,14 @@ urlpatterns = [
     path("itsnotasignin/", IdentityLoginView.as_view(), name="login"),
     path("logout/", IdentityLogoutView.as_view(), name="logout"),
     path(
-        "admin/profile",
-        RedirectView.as_view(pattern_name="identity:current_user_profile", permanent=False),
-        name="legacy_current_user_profile",
-    ),
-    path(
-        "admin/profile/",
-        RedirectView.as_view(pattern_name="identity:current_user_profile", permanent=False),
-    ),
-    path(
-        "admin/change-password",
-        RedirectView.as_view(pattern_name="identity:current_user_change_password", permanent=False),
-        name="legacy_current_user_change_password",
-    ),
-    path(
-        "admin/change-password/",
-        RedirectView.as_view(pattern_name="identity:current_user_change_password", permanent=False),
-    ),
-    path(
-        "admin/user/me/profile",
+        "admin/user/me/profile/",
         CurrentUserProfileView.as_view(),
         name="current_user_profile",
     ),
     path(
-        "admin/user/me/profile/",
-        RedirectView.as_view(pattern_name="identity:current_user_profile", permanent=False),
-    ),
-    path(
-        "admin/user/me/change-password",
+        "admin/user/me/change-password/",
         CurrentUserChangePasswordView.as_view(),
         name="current_user_change_password",
-    ),
-    path(
-        "admin/user/me/change-password/",
-        RedirectView.as_view(pattern_name="identity:current_user_change_password", permanent=False),
     ),
     path("users", IdentityUsersView.as_view(), name="users"),
     path("users/create", IdentityUserCreateView.as_view(), name="user_create"),

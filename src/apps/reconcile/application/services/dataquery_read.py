@@ -216,5 +216,16 @@ class ReconcileDataQueryReadService:
             current_user_id=current_user_id,
         )
 
+    def count_open_queries_assigned_to_user(
+        self,
+        *,
+        page_state_ids: tuple[int, ...],
+        user_id: int | None,
+    ) -> int:
+        return self.repository.count_open_queries_assigned_to_user(
+            page_state_ids=page_state_ids,
+            user_id=user_id,
+        )
+
 
 __all__ = ["ReconcileDataQueryReadService"]

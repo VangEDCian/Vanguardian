@@ -9,6 +9,7 @@ from apps.study.presentation.web.forms.eventdefinitions import (
 )
 from apps.study.presentation.web.forms.eventformbindings import EventFormBindingImportTemplateForm
 from apps.study.presentation.web.forms.randomization import RandomizationImportFileForm
+from apps.study.presentation.web.forms.roles import StudyRoleCreateForm
 from apps.study.presentation.web.forms.site import SiteForm, SiteMembershipForm
 from apps.study.presentation.web.forms.study import StudyForm
 
@@ -21,6 +22,7 @@ __all__ = [
     "EventDefinitionImportTemplateForm",
     "EventDefinitionsToolbarForm",
     "RandomizationImportFileForm",
+    "StudyRoleCreateForm",
     "SiteForm",
     "SiteMembershipForm",
 ]

@@ -1,0 +1,149 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ detail_study.code }} | {% trans "Create New Role | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_textbox.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_select2_multiple_choice.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/user-detail.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'study/css/manage_roles.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+    <span aria-hidden="true">›</span>
+    <a href="{{ role_manage_url }}" class="dashboard-breadcrumb__back">{% trans "Manage Roles" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="manage_roles" %}
+        <div class="entity-table__toolbar">
+            <div class="entity-table__summary">
+                <strong>{% trans "Create New Role" %}</strong>
+            </div>
+        </div>
+        <form method="post"
+              action="{{ role_create_url }}"
+              class="user-detail-form">
+            {% csrf_token %}
+            <div class="user-detail-form__content">
+                <section class="user-detail-section">
+                    <h2 class="user-detail-section__title">{% trans "ROLE INFO" %}</h2>
+                    <div class="user-detail-section__body">
+                        {% if role_create_form.non_field_errors %}
+                            <div class="manage-roles-form-errors">
+                                {% for error in role_create_form.non_field_errors %}<span>{{ error }}</span>{% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ role_create_form.code.id_for_label }}">{% trans "Role Code" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <input id="{{ role_create_form.code.id_for_label }}"
+                                           name="{{ role_create_form.code.html_name }}"
+                                           class="old-textbox{% if role_create_form.code.errors %} old-textbox--error{% endif %}"
+                                           value="{{ role_create_form.code.value|default:'' }}">
+                                    {% for error in role_create_form.code.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ role_create_form.name.id_for_label }}">{% trans "Role Name" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <input id="{{ role_create_form.name.id_for_label }}"
+                                           name="{{ role_create_form.name.html_name }}"
+                                           class="old-textbox{% if role_create_form.name.errors %} old-textbox--error{% endif %}"
+                                           value="{{ role_create_form.name.value|default:'' }}"
+                                           required>
+                                    {% for error in role_create_form.name.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ role_create_form.scope_level.id_for_label }}">{% trans "Scope" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <select id="{{ role_create_form.scope_level.id_for_label }}"
+                                            name="{{ role_create_form.scope_level.html_name }}"
+                                            class="manage-roles-create-form__select">
+                                        {% for option in role_create_scope_options %}
+                                            <option value="{{ option.value }}"
+                                                    {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% for error in role_create_form.scope_level.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ role_create_form.description.id_for_label }}">{% trans "Description" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    <input id="{{ role_create_form.description.id_for_label }}"
+                                           name="{{ role_create_form.description.html_name }}"
+                                           class="old-textbox{% if role_create_form.description.errors %} old-textbox--error{% endif %}"
+                                           value="{{ role_create_form.description.value|default:'' }}">
+                                    {% for error in role_create_form.description.errors %}
+                                        <span class="user-detail-field__error">{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ role_create_form.groups.id_for_label }}">{% trans "Groups" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans "Select groups" as groups_placeholder %}
+                                    {% include "shared/components/_old_select2_multiple_choice.html" with select_id=role_create_form.groups.id_for_label select_name=role_create_form.groups.html_name select_options=role_create_group_options select_placeholder=groups_placeholder select_class="manage-roles-select" %}
+                                    {% for error in role_create_form.groups.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field user-detail-inline-field--full">
+                                <label class="user-detail-inline-field__label"
+                                       for="{{ role_create_form.permissions.id_for_label }}">{% trans "Permissions" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% trans "Select permissions" as permissions_placeholder %}
+                                    {% include "shared/components/_old_select2_multiple_choice.html" with select_id=role_create_form.permissions.id_for_label select_name=role_create_form.permissions.html_name select_options=role_create_permission_options select_placeholder=permissions_placeholder select_class="manage-roles-select" %}
+                                    {% for error in role_create_form.permissions.errors %}
+                                        <span class="user-detail-field__error">{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="entity-table__footer entity-table__footer--actions">
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans "Create Roles" %}
+                </button>
+                <a href="{{ role_manage_url }}"
+                   class="entity-table__footer-button entity-table__footer-button--secondary">
+                    {% trans "Cancel" %}
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{% static 'study/js/manage_roles.js' %}"></script>
+{% endblock %}
