@@ -1,4 +1,3 @@
-from django.contrib.auth.models import Group
 from django.db.models import Q
 from django.utils import timezone
 
@@ -56,20 +55,6 @@ class DjangoIdentityUserRepository:
             return True
 
         return self.list_users_accessible_to_user(actor_user).filter(pk=target_user.pk).exists()
-
-    def list_groups(self):
-        return Group.objects.order_by("name")
-
-    def list_permission_groups_manageable_by_user(self, user):
-        if user is None:
-            return Group.objects.none()
-        if (
-            user.is_superuser
-            or self._user_has_context_permission_anywhere(user, "identity.create_user")
-            or self._user_has_context_permission_anywhere(user, "identity.update_user")
-        ):
-            return self.list_groups()
-        return Group.objects.none()
 
     def get_user_for_detail(self, *, user_id, include_deleted=False):
         queryset = User.objects.filter(pk=user_id)

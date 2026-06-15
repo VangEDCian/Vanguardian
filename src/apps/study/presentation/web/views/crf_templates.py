@@ -84,6 +84,9 @@ class StudyCrfTemplateListView(
         return self.import_crf_validation_rules_template_service_class()
 
     def dispatch(self, request, *args, **kwargs):
+        unauthenticated_response = self.dispatch_authenticated(request)
+        if unauthenticated_response is not None:
+            return unauthenticated_response
         self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
         if self._study is None:
             raise Http404

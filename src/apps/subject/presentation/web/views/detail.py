@@ -42,6 +42,18 @@ def _same_user_id(left, right) -> bool:
         return False
 
 
+def _split_closed_field_review_histories(histories):
+    query_histories = []
+    validation_issue_histories = []
+    for history in histories or []:
+        dataquery_id = str(history.get("dataquery_id") or "").strip().lower()
+        if dataquery_id.startswith("validation_issue_"):
+            validation_issue_histories.append(history)
+            continue
+        query_histories.append(history)
+    return query_histories, validation_issue_histories
+
+
 class SubjectDetailView(
     SubjectDetailNavigationMixin,
     SubjectDetailRenderingMixin,
@@ -482,14 +494,28 @@ class SubjectDetailView(
                         verified_field_template_ids=verified_field_template_ids,
                     )
                     for row in query_review.get("rows", []):
-                        if not row.get("active_query_id"):
+                        field_template_id = row.get("field_template_id")
+                        if not str(field_template_id or "").isdigit():
                             continue
-                        field_query_state_by_id[int(row["field_template_id"])] = {
+                        closed_query_histories = row.get("closed_query_histories") or []
+                        query_histories, validation_issue_histories = _split_closed_field_review_histories(
+                            closed_query_histories
+                        )
+                        if (
+                            not row.get("active_query_id")
+                            and not closed_query_histories
+                            and not validation_issue_histories
+                        ):
+                            continue
+                        field_query_state_by_id[int(field_template_id)] = {
                             "active_query_id": row.get("active_query_id"),
                             "active_query_status": row.get("active_query_status"),
                             "active_query_is_answered": row.get("active_query_is_answered"),
                             "query_thread_badge_count": row.get("query_thread_badge_count"),
                             "query_messages": row.get("query_messages"),
+                            "closed_query_histories": closed_query_histories,
+                            "has_query_history": bool(query_histories),
+                            "has_validation_issue_history": bool(validation_issue_histories),
                         }
                     if field_query_state_by_id:
                         form_verification_query_thread_url = reverse(

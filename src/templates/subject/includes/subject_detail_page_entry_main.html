@@ -15,7 +15,7 @@
     {% else %}
         {% include "subject/components/_form_render.html" with focused_form=focused_form focused_event=focused_event form_render_sections=form_render_sections can_add_repeat_sections=False %}
     {% endif %}
-    {% if page_entry_has_open_queries %}
+    {% if page_entry_has_open_queries or page_entry_has_open_validation_issues %}
         <div class="subject-form-verification-query-modal-backdrop"
              hidden
              data-query-modal
@@ -80,6 +80,68 @@
                         <p class="subject-form-verification-query-modal__empty"
                            data-query-modal-empty>{% trans "No query messages." %}</p>
                     </section>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    {% if page_entry_has_open_queries or page_entry_has_open_validation_issues %}
+        <div class="subject-form-verification-query-modal-backdrop"
+             hidden
+             data-query-history-modal
+             data-language-code="{{ LANGUAGE_CODE|default:'' }}"
+             data-history-en-prefix="Queries History for field"
+             data-history-vi-prefix="Lịch sử câu hỏi cho trường">
+            <div class="subject-form-verification-query-modal subject-form-verification-query-modal--history"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="subject-form-page-entry-query-history-modal-title">
+                <header class="subject-form-verification-query-modal__header">
+                    <h3 id="subject-form-page-entry-query-history-modal-title"
+                        class="subject-form-verification-query-modal__title"
+                        data-query-history-modal-title></h3>
+                </header>
+                <div class="subject-form-verification-query-modal__body subject-form-verification-query-modal__body--history">
+                    <aside class="subject-form-verification-query-modal__history-list"
+                           aria-label="{% trans 'Closed queries' %}"
+                           data-query-history-modal-list>
+                    </aside>
+                    <div class="subject-form-verification-query-modal__history-detail">
+                        <section class="subject-form-verification-query-modal__section">
+                            <dl class="subject-form-verification-query-modal__facts">
+                                <div class="subject-form-verification-query-modal__fact-row">
+                                    <dt>{% trans "Brief Description" %}</dt>
+                                    <dd data-query-history-modal-brief>
+                                    </dd>
+                                </div>
+                                <div class="subject-form-verification-query-modal__fact-row">
+                                    <dt>{% trans "Value" %}</dt>
+                                    <dd data-query-history-modal-value>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </section>
+                        <section class="subject-form-verification-query-modal__section subject-form-verification-query-modal__messages"
+                                 data-query-history-modal-messages>
+                            <p class="subject-form-verification-query-modal__empty"
+                               data-query-history-modal-empty>{% trans "No query messages." %}</p>
+                        </section>
+                        <section class="subject-form-verification-query-modal__section"
+                                 data-query-history-modal-actions-section
+                                 hidden>
+                            <textarea class="subject-form-verification-query-modal__textarea"
+                                      rows="2"
+                                      data-query-history-modal-action-input></textarea>
+                        </section>
+                        <div class="subject-form-verification-query-modal__actions">
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-query-history-modal-reopen
+                                    hidden>{% trans "Reopen" %}</button>
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-query-history-modal-close>{% trans "Close" %}</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

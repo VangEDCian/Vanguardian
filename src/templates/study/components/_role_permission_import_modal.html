@@ -13,7 +13,7 @@
             <div class="modal__header modal__header--left">
                 <div class="modal__icon" aria-hidden="true">i</div>
                 <h2 class="modal__title" id="modal-import-role-permission-title">
-                    {% trans "Import Role Permission" %}
+                    {% trans "Import Roles" %}
                 </h2>
             </div>
             <div class="modal__body modal__body--left modal__body--scrollable">
@@ -30,7 +30,10 @@
                         <p class="crf-template-import-form__help">
                             {% trans "Required columns: role_name, permission. Optional columns: description, scope_level." %}
                         </p>
-                        <a href="{% static 'study/templates/role_permissions_import_template.xlsx' %}"
+                        <p class="crf-template-import-form__help">
+                            {% trans "This import no longer uses group-based mapping." %}
+                        </p>
+                        <a href="{% static 'study/templates/roles_import_template.xlsx' %}"
                            class="crf-template-import-form__template-link"
                            download>{% trans "Download Template" %}</a>
                     </div>

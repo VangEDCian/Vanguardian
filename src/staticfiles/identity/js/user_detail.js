@@ -154,7 +154,6 @@
                 email: form.querySelector('#detail-email')?.value || '',
                 phone_number: form.querySelector('#detail-phone-number')?.value || '',
                 is_active: form.querySelector('#detail-is-active')?.checked || false,
-                permission_groups: $('#detail-permission-groups').val() || [],
                 studies: $studySelect.val() || [],
                 sites: $siteSelect.val() || [],
                 study_roles: collectRoleMap('study_roles'),
@@ -273,7 +272,6 @@
         form.addEventListener('reset', function () {
             clearFeedback();
             window.setTimeout(function () {
-                $('#detail-permission-groups').trigger('change.select2');
                 $('#detail-studies').trigger('change.select2');
                 $('#detail-sites').trigger('change.select2');
                 syncSiteSelectState();

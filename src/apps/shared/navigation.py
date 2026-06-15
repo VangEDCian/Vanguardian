@@ -9,6 +9,8 @@ from apps.study.infrastructure.persistence.models import Site, Study
 def user_can_access_permission(user, permission_code, *, study_id=None, site_id=None):
     if not getattr(user, "is_authenticated", False):
         return False
+    if getattr(user, "is_superuser", False):
+        return True
     if study_id is None:
         return False
     return ContextualAuthorizationService().can(
@@ -62,6 +64,11 @@ def user_can_access_global_permission(user, permission_code):
 def get_default_authenticated_url(request):
     study_id = get_default_study_id(request)
     site_id = get_default_site_id(request, study_id=study_id)
+    if getattr(request.user, "is_superuser", False):
+        if study_id is not None:
+            return reverse("subject:subject_list", kwargs={"study_id": study_id})
+        return reverse("study:study_list")
+
     if study_id is not None and user_can_access_permission(
         request.user,
         "subject.view_subject_list",

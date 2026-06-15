@@ -118,13 +118,22 @@ class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
         except (TypeError, ValueError):
             return None
 
-    def dispatch(self, request, *args, **kwargs):
+    def handle_unauthenticated_request(self, request):
+        return redirect_to_login(
+            request.get_full_path(),
+            self.get_login_url(),
+            self.get_redirect_field_name(),
+        )
+
+    def dispatch_authenticated(self, request):
         if not request.user.is_authenticated:
-            return redirect_to_login(
-                request.get_full_path(),
-                self.get_login_url(),
-                self.get_redirect_field_name(),
-            )
+            return self.handle_unauthenticated_request(request)
+        return None
+
+    def dispatch(self, request, *args, **kwargs):
+        unauthenticated_response = self.dispatch_authenticated(request)
+        if unauthenticated_response is not None:
+            return unauthenticated_response
         if not self.has_permission():
             return self.handle_no_permission()
         return super().dispatch(request, *args, **kwargs)

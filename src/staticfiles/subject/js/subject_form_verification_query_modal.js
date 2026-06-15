@@ -329,6 +329,17 @@
     }
   }
 
+  function shouldKeepAttentionHighlight(container) {
+    if (!(container instanceof HTMLElement)) {
+      return false;
+    }
+    return Boolean(
+      container.querySelector('[data-query-thread-modal-trigger]') ||
+        container.querySelector('[data-validation-issue-modal-trigger]') ||
+        container.querySelector('[data-query-history-modal-trigger]:not([hidden])')
+    );
+  }
+
   function loadMessages(trigger) {
     clearMessages();
     const container = trigger.closest('[data-query-field-container]') || trigger.closest('tr');
@@ -578,7 +589,7 @@
       checkbox.disabled = false;
       checkbox.removeAttribute('aria-disabled');
     }
-    if (row instanceof HTMLElement) {
+    if (row instanceof HTMLElement && !shouldKeepAttentionHighlight(row)) {
       row.classList.remove('subject-form-field--has-open-query');
     }
     const countCell = row ? row.querySelector('[data-open-query-count]') : null;

@@ -117,6 +117,9 @@ class StudyDetailView(
         return self.study_audit_service_class()
 
     def dispatch(self, request, *args, **kwargs):
+        unauthenticated_response = self.dispatch_authenticated(request)
+        if unauthenticated_response is not None:
+            return unauthenticated_response
         self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
         if self._study is None:
             raise Http404
@@ -286,6 +289,9 @@ class StudyRolesContextMixin(AuthenticateTemplateView):
         return self.study_directory_query_service_class()
 
     def dispatch(self, request, *args, **kwargs):
+        unauthenticated_response = self.dispatch_authenticated(request)
+        if unauthenticated_response is not None:
+            return unauthenticated_response
         self._study = Study.objects.filter(pk=kwargs["study_id"], deleted=False).first()
         if self._study is None:
             raise Http404

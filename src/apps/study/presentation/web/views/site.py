@@ -322,6 +322,9 @@ class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, Sit
         return self._get_studies().filter(pk=selected_study_id).first()
 
     def dispatch(self, request, *args, **kwargs):
+        unauthenticated_response = self.dispatch_authenticated(request)
+        if unauthenticated_response is not None:
+            return unauthenticated_response
         selected_study_id = self._get_selected_study_id()
         if selected_study_id is None:
             raise Http404

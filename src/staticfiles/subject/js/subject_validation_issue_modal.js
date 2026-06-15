@@ -199,15 +199,81 @@
     return out;
   }
 
-  function removeAcknowledgedIssues(issueIds) {
+  function promoteAcknowledgedIssuesToHistory(container, issues, remainingOpenIssues) {
+    if (!(container instanceof HTMLElement) || !Array.isArray(issues) || issues.length === 0) {
+      return;
+    }
+    const historySource = container.querySelector('[data-query-history-source]');
+    if (!(historySource instanceof HTMLElement)) {
+      return;
+    }
+    issues.forEach(function (issue) {
+      const issueId = String(issue.issue_id || '').trim();
+      if (!issueId) {
+        return;
+      }
+      const sourceNode = container.querySelector(`[data-validation-issue][data-issue-id="${issueId}"]`);
+      if (!(sourceNode instanceof HTMLElement)) {
+        return;
+      }
+
+      const historyNode = document.createElement('span');
+      historyNode.setAttribute('data-query-history', '');
+      historyNode.dataset.historyDataqueryId = `validation_issue_${issueId}`;
+      historyNode.dataset.historyStatus = String(sourceNode.dataset.issueStatus || '').trim();
+      historyNode.dataset.historyLabel = `Validation Issue #${issueId}`;
+      historyNode.dataset.historyOpenedAt = String(sourceNode.dataset.issueCreatedAt || '').trim();
+      historyNode.dataset.historyClosedAt = '';
+
+      const issueMessageNode = document.createElement('span');
+      issueMessageNode.setAttribute('data-query-history-message', '');
+      issueMessageNode.dataset.messageDataqueryId = `validation_issue_${issueId}`;
+      issueMessageNode.dataset.messageText = String(sourceNode.dataset.issueMessage || '').trim();
+      issueMessageNode.dataset.messageStatus = String(sourceNode.dataset.issueStatus || '').trim();
+      issueMessageNode.dataset.messageTone = String(sourceNode.dataset.issueSeverity || 'warning').trim().toLowerCase();
+      issueMessageNode.dataset.messageOpenedBy = '';
+      issueMessageNode.dataset.messageOpenedAt = String(sourceNode.dataset.issueCreatedAt || '').trim();
+      historyNode.appendChild(issueMessageNode);
+
+      if (String(issue.comment || '').trim()) {
+        const acknowledgementNode = document.createElement('span');
+        acknowledgementNode.setAttribute('data-query-history-message', '');
+        acknowledgementNode.dataset.messageDataqueryId = `validation_issue_${issueId}`;
+        acknowledgementNode.dataset.messageText = String(issue.comment || '').trim();
+        acknowledgementNode.dataset.messageStatus = remainingOpenIssues > 0 ? 'acknowledged' : 'resolved';
+        acknowledgementNode.dataset.messageTone = 'resolved';
+        acknowledgementNode.dataset.messageOpenedBy = '';
+        acknowledgementNode.dataset.messageOpenedAt = '';
+        historyNode.appendChild(acknowledgementNode);
+      }
+
+      historySource.insertBefore(historyNode, historySource.firstChild);
+    });
+
+    if (remainingOpenIssues <= 0) {
+      const historyTrigger = container.querySelector('[data-validation-issue-history-modal-trigger]');
+      if (historyTrigger instanceof HTMLButtonElement) {
+        historyTrigger.hidden = false;
+      }
+    }
+  }
+
+  function removeAcknowledgedIssues(issues) {
     if (!(activeTrigger instanceof HTMLElement)) {
       return;
     }
-    const idSet = new Set(issueIds.map(function (issueId) {
-      return String(issueId);
+    const issueList = Array.isArray(issues) ? issues : [];
+    const idSet = new Set(issueList.map(function (issue) {
+      return String(issue.issue_id);
     }));
     const container = activeTrigger.closest('[data-query-field-container]') || activeTrigger.closest('tr');
     const source = container ? container.querySelector('[data-validation-issue-source]') : null;
+    const remainingNodes = source
+      ? Array.from(source.querySelectorAll('[data-validation-issue]')).filter(function (node) {
+          return node instanceof HTMLElement && !idSet.has(String(node.dataset.issueId || ''));
+        })
+      : [];
+    promoteAcknowledgedIssuesToHistory(container, issueList, remainingNodes.length);
     if (source) {
       Array.from(source.querySelectorAll('[data-validation-issue]')).forEach(function (node) {
         if (node instanceof HTMLElement && idSet.has(String(node.dataset.issueId || ''))) {
@@ -225,7 +291,11 @@
       if (source) {
         source.remove();
       }
-      if (container instanceof HTMLElement && !container.querySelector('[data-query-thread-modal-trigger]')) {
+      if (
+        container instanceof HTMLElement &&
+        !container.querySelector('[data-query-thread-modal-trigger]') &&
+        !container.querySelector('[data-query-history-modal-trigger]:not([hidden])')
+      ) {
         container.classList.remove('subject-form-field--has-open-query');
       }
     }
@@ -268,7 +338,12 @@
           showNotification(normalizeErrorMessage(result), 'error');
           return;
         }
-        removeAcknowledgedIssues(result.data.acknowledged_issue_ids || []);
+        const acknowledgedIds = new Set((result.data.acknowledged_issue_ids || []).map(String));
+        removeAcknowledgedIssues(
+          issues.filter(function (issue) {
+            return acknowledgedIds.has(String(issue.issue_id));
+          })
+        );
         closeModal();
       })
       .catch(function () {
