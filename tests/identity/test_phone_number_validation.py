@@ -36,7 +36,6 @@ class IdentityPhoneNumberFormValidationTests(SimpleTestCase):
                 "phone_number": "123",
             },
             role_choices=(("user", "User"),),
-            permission_group_choices=(),
         )
 
         self.assertFalse(form.is_valid())
@@ -46,7 +45,6 @@ class IdentityPhoneNumberFormValidationTests(SimpleTestCase):
         form = IdentityUserDetailForm(
             data={"phone_number": "abcdef"},
             role_choices=(("user", "User"),),
-            permission_group_choices=(),
         )
 
         self.assertFalse(form.is_valid())

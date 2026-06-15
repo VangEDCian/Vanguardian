@@ -1,6 +1,7 @@
-{% load i18n shared_layout static %}
+{% load i18n shared_layout static user_permissions %}
 {% get_current_language as CURRENT_LANGUAGE %}
 {% require_authenticate_template_view %}
+{% get_user_permission_flags as ui_permissions %}
 <!DOCTYPE html>
 <html lang="{{ CURRENT_LANGUAGE }}" class="h-full">
     <head>
@@ -28,7 +29,7 @@
             <header class="top-nav">
                 <div class="top-nav__inner">
                     <nav class="top-nav__menu" aria-label="{% trans 'Main navigation' %}">
-                        {% if layout_nav_permissions.subjects %}
+                        {% if ui_permissions.SUBJECTS_VIEW_LIST %}
                             {% if shared_study_selected_id %}
                                 <a href="{% url 'subject:subject_list' study_id=shared_study_selected_id %}"
                                    class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
@@ -53,7 +54,7 @@
                                 </button>
                             {% endif %}
                         {% endif %}
-                        {% if layout_nav_permissions.queries %}
+                        {% if ui_permissions.QUERIES_VIEW %}
                             {% if shared_study_selected_id %}
                                 <a href="{% url 'reconcile:query_workbench' study_id=shared_study_selected_id %}"
                                    class="top-nav__item{% if layout_nav_key == 'QUERIES' %} is-active{% endif %}"
@@ -84,7 +85,7 @@
                                 </button>
                             {% endif %}
                         {% endif %}
-                        {% if layout_nav_permissions.sites %}
+                        {% if ui_permissions.SITES_VIEW_LIST %}
                             {% if shared_study_selected_id %}
                                 <a href="{% url 'study:site_list' study_id=shared_study_selected_id %}"
                                    class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}"
@@ -115,7 +116,7 @@
             </span>
             <span>{% trans "PROJECT" %}</span>
                         </button> {% endcomment %}
-                        {% if layout_nav_permissions.studies %}
+                        {% if ui_permissions.STUDIES_VIEW_LIST %}
                             <a href="{% url 'study:study_list' %}"
                                class="top-nav__item{% if layout_nav_key == 'STUDIES' %} is-active{% endif %}"
                                data-nav-item
@@ -127,7 +128,7 @@
                                 <span>{% trans "STUDIES" %}</span>
                             </a>
                         {% endif %}
-                        {% if layout_nav_permissions.users %}
+                        {% if ui_permissions.USERS_VIEW_LIST %}
                             <a href="{% url 'identity:users' %}"
                                class="top-nav__item{% if layout_nav_key == 'USERS' %} is-active{% endif %}"
                                data-nav-item
@@ -139,7 +140,7 @@
                                 <span>{% trans "USERS" %}</span>
                             </a>
                         {% endif %}
-                        {% if layout_nav_permissions.dashboard %}
+                        {% if ui_permissions.DASHBOARD_VIEW %}
                             <a href="{% url 'dashboard:main' %}"
                                class="top-nav__item{% if layout_nav_key == 'DASHBOARD' %} is-active{% endif %}"
                                data-nav-item

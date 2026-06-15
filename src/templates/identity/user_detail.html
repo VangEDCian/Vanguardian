@@ -162,18 +162,6 @@
                                 </div>
                             </div>
                         </div>
-                        {% if can_manage_permission_groups %}
-                            <div class="user-detail-inline-row">
-                                <div class="user-detail-inline-field user-detail-inline-field--full user-detail-inline-field--permission-groups">
-                                    <label class="user-detail-inline-field__label"
-                                           for="detail-permission-groups">{% trans 'Permission Groups' %}:</label>
-                                    <div class="user-detail-inline-field__control-wrap">
-                                        {% trans 'Select permission groups' as select_permission_groups_placeholder %}
-                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id='detail-permission-groups' select_name='permission_groups' select_options=detail_user.permission_group_options select_placeholder=select_permission_groups_placeholder %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endif %}
                     </div>
                 </section>
                 {% if can_update_detail %}
@@ -262,7 +250,7 @@
     {% elif can_restore_user %}
         {% trans "Restore User" as modal_title %}
         {% trans "Restore" as modal_confirm %}
-        {% blocktrans with username=detail_user.username asvar modal_message %}Restore <strong>{{ username }}</strong> and re-apply the last saved role, status, and permission groups?{% endblocktrans %}
+        {% blocktrans with username=detail_user.username asvar modal_message %}Restore <strong>{{ username }}</strong> and re-apply the last saved role and status?{% endblocktrans %}
         {% include "shared/components/modal-confirm.html" with modal_id="modal-restore-user" modal_variant="primary" modal_title=modal_title modal_message=modal_message modal_confirm_label=modal_confirm form_action=restore_url %}
     {% endif %}
 {% endblock %}

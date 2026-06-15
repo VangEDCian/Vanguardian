@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -23,6 +23,9 @@ class RoleAssignmentStatus(models.TextChoices):
 
 
 class User(AbstractUser):
+    groups = None
+    user_permissions = None
+
     is_staff = models.BooleanField(default=True)
     email = models.EmailField(blank=True, null=True, unique=True)
     deleted = models.BooleanField(default=False)
@@ -49,14 +52,6 @@ class User(AbstractUser):
         db_table = "identity_user"
         managed = True
         default_permissions = ()
-        permissions = (
-            ("view_user_list", "Can view user list"),
-            ("view_user_detail", "Can view user detail"),
-            ("create_user", "Can create user"),
-            ("update_user", "Can update user"),
-            ("delete_user", "Can delete user"),
-            ("restore_user", "Can restore user"),
-        )
         indexes = [
             models.Index(fields=["username"], name="identity_user_username_idx"),
             models.Index(fields=["email"], name="identity_user_email_idx"),
@@ -67,11 +62,37 @@ class User(AbstractUser):
         verbose_name_plural = "users"
 
 
+class IdentityPermission(models.Model):
+    app_label = models.CharField(max_length=64)
+    codename = models.CharField(max_length=100)
+    name = models.CharField(max_length=255)
+
+    @property
+    def permission_code(self):
+        if "." in self.codename and self.codename == self.codename.upper():
+            return self.codename
+        return f"{self.app_label}.{self.codename}"
+
+    class Meta:
+        db_table = "identity_permission"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["app_label", "codename"],
+                name="identity_permission_app_code_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["app_label", "codename"], name="identity_perm_app_code_idx"),
+            models.Index(fields=["codename"], name="identity_perm_code_idx"),
+        ]
+        verbose_name = "identity permission"
+        verbose_name_plural = "identity permissions"
+
+
 class Role(models.Model):
-    """
-    Role is a project-defined access bundle that can combine both direct
-    django permissions and permission groups.
-    """
+    """Role is a project-defined access bundle of identity permissions."""
 
     study_id = models.BigIntegerField()
     code = models.CharField(max_length=100, blank=True, default="")
@@ -85,14 +106,8 @@ class Role(models.Model):
     is_system_role = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     version_no = models.PositiveIntegerField(default=1)
-    groups = models.ManyToManyField(
-        Group,
-        through="RoleGroup",
-        related_name="identity_roles",
-        blank=True,
-    )
     permissions = models.ManyToManyField(
-        Permission,
+        IdentityPermission,
         through="RolePermission",
         related_name="identity_roles",
         blank=True,
@@ -124,33 +139,15 @@ class Role(models.Model):
         super().save(*args, **kwargs)
 
 
-class RoleGroup(models.Model):
-    role = models.ForeignKey(Role, on_delete=models.CASCADE)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE)
-
-    class Meta:
-        db_table = "identity_role_groups"
-        managed = True
-        unique_together = (("role", "group"),)
-        default_permissions = ()
-        permissions = ()
-        indexes = [
-            models.Index(fields=["role", "group"], name="identity_rg_role_group_idx"),
-        ]
-        verbose_name = "role group mapping"
-        verbose_name_plural = "role group mappings"
-
-
 class RolePermission(models.Model):
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
-    permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+    permission = models.ForeignKey(IdentityPermission, on_delete=models.CASCADE)
 
     class Meta:
         db_table = "identity_role_permissions"
         managed = True
         unique_together = (("role", "permission"),)
         default_permissions = ()
-        permissions = ()
         indexes = [
             models.Index(fields=["role", "permission"], name="identity_rp_role_perm_idx"),
         ]
@@ -167,7 +164,6 @@ class UserRole(models.Model):
         managed = True
         unique_together = (("user", "role"),)
         default_permissions = ()
-        permissions = ()
         verbose_name = "user role mapping"
         verbose_name_plural = "user role mappings"
 
@@ -197,7 +193,6 @@ class StudyMembership(models.Model):
         managed = True
         unique_together = (("user", "study_id"),)
         default_permissions = ()
-        permissions = ()
         indexes = [
             models.Index(fields=["user", "study_id"], name="study_mship_user_study_idx"),
             models.Index(fields=["study_id", "user"], name="study_mship_study_user_idx"),
@@ -229,10 +224,23 @@ class StudySiteMembership(models.Model):
 
     class Meta:
         db_table = "study_site_membership"
-        managed = False
+        managed = True
         unique_together = (("user", "study_id", "site_id"),)
         default_permissions = ()
-        permissions = ()
+        indexes = [
+            models.Index(
+                fields=["study_id", "site_id", "user_id"],
+                name="site_mship_study_site_user_idx",
+            ),
+            models.Index(
+                fields=["user_id", "study_id", "site_id"],
+                name="site_mship_usr_study_site_uq",
+            ),
+            models.Index(
+                fields=["user_id", "site_id", "status"],
+                name="site_mship_usr_scope_stat_idx",
+            ),
+        ]
         verbose_name = "study site membership"
         verbose_name_plural = "study site memberships"
 
@@ -259,7 +267,6 @@ class StudyMembershipRole(models.Model):
         managed = True
         unique_together = (("study_membership", "role"),)
         default_permissions = ()
-        permissions = ()
         indexes = [
             models.Index(fields=["study_membership", "status"], name="study_mship_role_status_idx"),
             models.Index(fields=["role", "status"], name="study_mship_role_stat_idx"),
@@ -298,7 +305,6 @@ class StudySiteMembershipRole(models.Model):
         managed = True
         unique_together = (("study_site_membership", "role"),)
         default_permissions = ()
-        permissions = ()
         indexes = [
             models.Index(fields=["study_site_membership", "status"], name="site_mship_role_status_idx"),
             models.Index(fields=["role", "status"], name="site_mship_role_stat_idx"),
@@ -327,7 +333,6 @@ class DelegationTask(models.Model):
         db_table = "identity_delegation_task"
         managed = True
         default_permissions = ()
-        permissions = ()
         verbose_name = "delegation task"
         verbose_name_plural = "delegation tasks"
 
@@ -348,7 +353,6 @@ class DelegationOfAuthority(models.Model):
         db_table = "identity_delegation_of_authority"
         managed = True
         default_permissions = ()
-        permissions = ()
         indexes = [
             models.Index(fields=["user", "study_site_id", "task_code", "status"], name="ident_doa_usr_scope_task_idx"),
         ]
@@ -368,7 +372,6 @@ class TrainingRequirement(models.Model):
         db_table = "identity_training_requirement"
         managed = True
         default_permissions = ()
-        permissions = ()
         indexes = [
             models.Index(fields=["study_id", "permission_code", "is_active"], name="identity_train_req_perm_idx"),
             models.Index(fields=["study_id", "task_code", "is_active"], name="identity_train_req_task_idx"),
@@ -389,7 +392,6 @@ class TrainingCompletion(models.Model):
         db_table = "identity_training_completion"
         managed = True
         default_permissions = ()
-        permissions = ()
         indexes = [
             models.Index(fields=["user", "study_id", "training_code"], name="identity_train_done_user_idx"),
         ]

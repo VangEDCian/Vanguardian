@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import RequestFactory, SimpleTestCase
 from django.urls import resolve, reverse
 
-from apps.identity.application.default_role_permissions import DEFAULT_EDC_ROLE_GROUPS
+from apps.identity.application.default_role_permissions import DEFAULT_EDC_ROLES
 from apps.reconcile.application import ReconcileDataQueryReadService
 from apps.reconcile.application.services.query_workbench import QueryWorkbenchReader
 from apps.reconcile.infrastructure.repositories.dataquery_read import DjangoReconcileDataQueryReadRepository
@@ -385,9 +385,9 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
     def test_query_nav_is_rendered_after_subjects(self):
         layout_source = Path("src/templates/shared/_layout.html").read_text()
 
-        subject_index = layout_source.index("layout_nav_permissions.subjects")
-        query_index = layout_source.index("layout_nav_permissions.queries")
-        sites_index = layout_source.index("layout_nav_permissions.sites")
+        subject_index = layout_source.index("ui_permissions.SUBJECTS_VIEW_LIST")
+        query_index = layout_source.index("ui_permissions.QUERIES_VIEW")
+        sites_index = layout_source.index("ui_permissions.SITES_VIEW_LIST")
         self.assertLess(subject_index, query_index)
         self.assertLess(query_index, sites_index)
 
@@ -417,7 +417,7 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
     def test_default_cra_and_data_manager_roles_can_cancel_queries(self):
         permissions_by_role = {
             str(role["role_code"]): set(role["permissions"])
-            for role in DEFAULT_EDC_ROLE_GROUPS
+            for role in DEFAULT_EDC_ROLES
         }
 
         self.assertIn("QUERY.CANCEL", permissions_by_role["CRA_MONITOR"])

@@ -1,10 +1,10 @@
 from apps.identity.infrastructure.persistence.models import (
     DelegationOfAuthority,
     DelegationTask,
+    IdentityPermission,
     MembershipStatus,
     Role,
     RoleAssignmentStatus,
-    RoleGroup,
     RolePermission,
     RoleScopeLevel,
     StudyMembership,
@@ -19,9 +19,9 @@ from apps.identity.infrastructure.persistence.models import (
 
 __all__ = [
     "User",
+    "IdentityPermission",
     "Role",
     "RoleScopeLevel",
-    "RoleGroup",
     "RolePermission",
     "DelegationOfAuthority",
     "DelegationTask",

@@ -7,13 +7,11 @@ class StudyRoleCreateForm(forms.Form):
     code = forms.CharField(max_length=100, required=False, label=_("Role Code"))
     description = forms.CharField(max_length=255, required=False, label=_("Description"))
     scope_level = forms.ChoiceField(label=_("Scope"))
-    groups = forms.MultipleChoiceField(required=False, label=_("Groups"))
     permissions = forms.MultipleChoiceField(required=False, label=_("Permissions"))
 
-    def __init__(self, *args, scope_choices=(), group_choices=(), permission_choices=(), **kwargs):
+    def __init__(self, *args, scope_choices=(), permission_choices=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["scope_level"].choices = scope_choices
-        self.fields["groups"].choices = group_choices
         self.fields["permissions"].choices = permission_choices
         if not self.is_bound and scope_choices:
             self.initial["scope_level"] = scope_choices[0][0]
@@ -33,6 +31,5 @@ class StudyRoleCreateForm(forms.Form):
             "code": self.cleaned_data.get("code", ""),
             "description": self.cleaned_data.get("description", ""),
             "scope_level": self.cleaned_data["scope_level"],
-            "group_ids": self.cleaned_data.get("groups", ()),
             "permission_ids": self.cleaned_data.get("permissions", ()),
         }

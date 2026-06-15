@@ -1,44 +1,44 @@
 permission,label,source
-AE.ENTER,Enter adverse events,DEFAULT_EDC_PERMISSION_LABELS
-AE.MEDICAL_ASSESS,Perform AE medical assessment,DEFAULT_EDC_PERMISSION_LABELS
-AE.VIEW,View adverse events,DEFAULT_EDC_PERMISSION_LABELS
-AUDIT_TRAIL.VIEW,View audit trail,DEFAULT_EDC_PERMISSION_LABELS
-CASEBOOK.SIGN,Sign casebook,DEFAULT_EDC_PERMISSION_LABELS
-CASEBOOK.VIEW,View casebook,DEFAULT_EDC_PERMISSION_LABELS
-CRF.ENTER,Enter CRF data,DEFAULT_EDC_PERMISSION_LABELS
-CRF.REOPEN,Reopen CRF data,DEFAULT_EDC_PERMISSION_LABELS
-CRF.SUBMIT,Submit CRF data,DEFAULT_EDC_PERMISSION_LABELS
-CRF.UPDATE,Update CRF data,DEFAULT_EDC_PERMISSION_LABELS
-CRF.VIEW,View CRF data,DEFAULT_EDC_PERMISSION_LABELS
-DATA.FREEZE,Freeze data,DEFAULT_EDC_PERMISSION_LABELS
-DATA.LOCK,Lock data,DEFAULT_EDC_PERMISSION_LABELS
-DATA.UNFREEZE,Unfreeze data,DEFAULT_EDC_PERMISSION_LABELS
-DATA.UNLOCK,Unlock data,DEFAULT_EDC_PERMISSION_LABELS
-DATA_EXPORT.RUN,Run data export,DEFAULT_EDC_PERMISSION_LABELS
-DELEGATION.MANAGE,Manage delegation,DEFAULT_EDC_PERMISSION_LABELS
-DELEGATION.VIEW,View delegation,DEFAULT_EDC_PERMISSION_LABELS
-QUERY.CANCEL,Cancel data queries,DEFAULT_EDC_PERMISSION_LABELS
-QUERY.CLOSE,Close data queries,DEFAULT_EDC_PERMISSION_LABELS
-QUERY.CREATE,Create data queries,DEFAULT_EDC_PERMISSION_LABELS
-QUERY.RESPOND,Respond to data queries,DEFAULT_EDC_PERMISSION_LABELS
-QUERY.RETURN,Return data queries,DEFAULT_EDC_PERMISSION_LABELS
-QUERY.VIEW,View data queries,DEFAULT_EDC_PERMISSION_LABELS
-SAE.REPORT,Report SAE,DEFAULT_EDC_PERMISSION_LABELS
-SDR.MARK,Mark SDR,DEFAULT_EDC_PERMISSION_LABELS
-SDV.MARK,Mark SDV,DEFAULT_EDC_PERMISSION_LABELS
-SDV.VIEW,View SDV,DEFAULT_EDC_PERMISSION_LABELS
-STUDY_CONFIG.MANAGE,Manage study configuration,DEFAULT_EDC_PERMISSION_LABELS
-STUDY_CONFIG.VIEW,View study configuration,DEFAULT_EDC_PERMISSION_LABELS
-SUBJECT.CREATE,Create subjects,DEFAULT_EDC_PERMISSION_LABELS
-SUBJECT.ENROLL,Enroll subjects,DEFAULT_EDC_PERMISSION_LABELS
-SUBJECT.RANDOMIZE,Randomize subjects,DEFAULT_EDC_PERMISSION_LABELS
-SUBJECT.SCREEN,Screen subjects,DEFAULT_EDC_PERMISSION_LABELS
-SUBJECT.UPDATE,Update subjects,DEFAULT_EDC_PERMISSION_LABELS
-SUBJECT.VIEW,View subjects,DEFAULT_EDC_PERMISSION_LABELS
-USER_ACCESS.MANAGE,Manage user access,DEFAULT_EDC_PERMISSION_LABELS
-USER_ACCESS.VIEW,View user access,DEFAULT_EDC_PERMISSION_LABELS
-VALIDATION_ISSUE.ACKNOWLEDGE,Acknowledge validation issues,DEFAULT_EDC_PERMISSION_LABELS
-VALIDATION_ISSUE.VIEW,View validation issues,DEFAULT_EDC_PERMISSION_LABELS
+edc.ae_enter,Enter adverse events,DEFAULT_EDC_PERMISSION_LABELS
+edc.ae_medical_assess,Perform AE medical assessment,DEFAULT_EDC_PERMISSION_LABELS
+edc.ae_view,View adverse events,DEFAULT_EDC_PERMISSION_LABELS
+edc.audit_trail_view,View audit trail,DEFAULT_EDC_PERMISSION_LABELS
+edc.casebook_sign,Sign casebook,DEFAULT_EDC_PERMISSION_LABELS
+edc.casebook_view,View casebook,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_enter,Enter CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_reopen,Reopen CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_submit,Submit CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_update,Update CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_view,View CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_freeze,Freeze data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_lock,Lock data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_unfreeze,Unfreeze data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_unlock,Unlock data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_export_run,Run data export,DEFAULT_EDC_PERMISSION_LABELS
+edc.delegation_manage,Manage delegation,DEFAULT_EDC_PERMISSION_LABELS
+edc.delegation_view,View delegation,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_cancel,Cancel data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_close,Close data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_create,Create data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_respond,Respond to data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_return,Return data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_view,View data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.sae_report,Report SAE,DEFAULT_EDC_PERMISSION_LABELS
+edc.sdr_mark,Mark SDR,DEFAULT_EDC_PERMISSION_LABELS
+edc.sdv_mark,Mark SDV,DEFAULT_EDC_PERMISSION_LABELS
+edc.sdv_view,View SDV,DEFAULT_EDC_PERMISSION_LABELS
+edc.study_config_manage,Manage study configuration,DEFAULT_EDC_PERMISSION_LABELS
+edc.study_config_view,View study configuration,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_create,Create subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_enroll,Enroll subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_randomize,Randomize subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_screen,Screen subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_update,Update subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_view,View subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.user_access_manage,Manage user access,DEFAULT_EDC_PERMISSION_LABELS
+edc.user_access_view,View user access,DEFAULT_EDC_PERMISSION_LABELS
+edc.validation_issue_acknowledge,Acknowledge validation issues,DEFAULT_EDC_PERMISSION_LABELS
+edc.validation_issue_view,View validation issues,DEFAULT_EDC_PERMISSION_LABELS
 dashboard.view_dashboard,Can view dashboard,DEFAULT_PERMISSION_LABELS; apps.dashboard.models.DashboardPermission.Meta.permissions
 identity.create_user,Can create user,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions
 identity.delete_user,Can delete user,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions

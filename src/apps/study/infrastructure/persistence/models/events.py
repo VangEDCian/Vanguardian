@@ -69,12 +69,6 @@ class EventDefinition(models.Model):
         db_table = "study_eventdefinition"
         managed = True
         default_permissions = ()
-        permissions = (
-            ("view_study_eventdefinition_list", "Can view study event definition list"),
-            ("create_study_eventdefinition", "Can create study event definition"),
-            ("update_study_eventdefinition", "Can update study event definition"),
-            ("delete_study_eventdefinition", "Can delete study event definition"),
-        )
         constraints = [
             models.UniqueConstraint(
                 fields=["study", "study_version", "code"],

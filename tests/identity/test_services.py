@@ -47,7 +47,6 @@ def _make_user(**kwargs):
     user.is_staff = defaults["is_staff"]
     user.is_superuser = defaults["is_superuser"]
     user.deleted = defaults["deleted"]
-    user.groups = MagicMock()
     return user
 
 
@@ -55,7 +54,7 @@ class DeleteIdentityUserServiceTests(SimpleTestCase):
     def test_marks_user_deleted_and_suffixes_unique_identifiers(self):
         user = _make_user(pk=7)
         repository = MagicMock()
-        repository.get_user_with_groups.return_value = user
+        repository.get_user.return_value = user
         repository.save_user.side_effect = lambda item: item
 
         service = DeleteIdentityUserService(repository=repository)
@@ -76,11 +75,10 @@ class DeleteIdentityUserServiceTests(SimpleTestCase):
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.deleted)
         repository.save_user.assert_called_once_with(user)
-        user.groups.set.assert_not_called()
 
     def test_raises_when_user_not_found(self):
         repository = MagicMock()
-        repository.get_user_with_groups.return_value = None
+        repository.get_user.return_value = None
 
         with self.assertRaises(IdentityUserNotFoundError):
             DeleteIdentityUserService.execute.__wrapped__(
@@ -103,17 +101,16 @@ class RestoreIdentityUserServiceTests(SimpleTestCase):
         deleted_event.before_data = (
             '{"username": "demo-user", "display_name": "Demo User", "first_name": "Demo", '
             '"last_name": "User", "email": "demo@example.com", "phone_number": "123", '
-            '"role_key": "staff", "is_active": true, "permission_groups": ["Investigators"]}'
+            '"role_key": "staff", "is_active": true}'
         )
 
         repository = MagicMock()
-        repository.get_user_with_groups.return_value = user
+        repository.get_user.return_value = user
         repository.get_latest_user_deleted_event.return_value = deleted_event
         repository.username_exists.return_value = False
         repository.email_exists.return_value = False
         repository.phone_number_exists.return_value = False
-        repository.list_groups_by_names.return_value = ["group-a"]
-        repository.reload_user_with_groups.return_value = user
+        repository.reload_user.return_value = user
 
         restored_user = RestoreIdentityUserService.execute.__wrapped__(
             RestoreIdentityUserService(repository=repository),
@@ -131,13 +128,12 @@ class RestoreIdentityUserServiceTests(SimpleTestCase):
         self.assertFalse(user.is_superuser)
         self.assertFalse(user.deleted)
         repository.save_user.assert_called_once_with(user)
-        user.groups.set.assert_called_once_with(["group-a"])
         self.assertIs(restored_user, user)
 
     def test_raises_when_restore_snapshot_missing(self):
         user = _make_user(pk=11, username="demo-user", is_active=False, deleted=True)
         repository = MagicMock()
-        repository.get_user_with_groups.return_value = user
+        repository.get_user.return_value = user
         repository.get_latest_user_deleted_event.return_value = None
 
         with self.assertRaises(IdentityUserRestoreDataNotFoundError):
@@ -195,8 +191,7 @@ class IdentityUserMembershipRoleServiceTests(SimpleTestCase):
         repository.email_exists.return_value = False
         repository.phone_number_exists.return_value = False
         repository.build_user.return_value = user
-        repository.reload_user_with_groups.return_value = user
-        repository.list_groups_by_ids.return_value = []
+        repository.reload_user.return_value = user
 
         CreateIdentityUserService.execute.__wrapped__(
             CreateIdentityUserService(repository=repository),
@@ -235,11 +230,10 @@ class IdentityUserMembershipRoleServiceTests(SimpleTestCase):
     def test_update_user_assigns_roles_through_membership_scopes(self):
         user = _make_user(pk=18)
         repository = MagicMock()
-        repository.get_user_with_groups.return_value = user
+        repository.get_user.return_value = user
         repository.email_exists.return_value = False
         repository.phone_number_exists.return_value = False
-        repository.reload_user_with_groups.return_value = user
-        repository.list_groups_by_ids.return_value = []
+        repository.reload_user.return_value = user
 
         UpdateIdentityUserDetailService.execute.__wrapped__(
             UpdateIdentityUserDetailService(repository=repository),

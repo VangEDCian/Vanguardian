@@ -139,14 +139,6 @@ class ReconcileDataQuery(models.Model):
         db_table = "reconcile_dataquery"
         managed = True
         default_permissions = ()
-        permissions = (
-            ("view_dataquery", "Can view data queries"),
-            ("answer_dataquery", "Can answer data queries"),
-            ("resolve_dataquery", "Can resolve data queries"),
-            ("close_dataquery", "Can close data queries"),
-            ("reopen_dataquery", "Can reopen data queries"),
-            ("view_internal_query_thread", "Can view internal query thread messages"),
-        )
         indexes = [
             models.Index(fields=["page_state"], name="recon_dq_page_state_idx"),
             models.Index(fields=["field_template"], name="recon_dq_field_tpl_idx"),

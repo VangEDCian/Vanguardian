@@ -1,5 +1,3 @@
-from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
@@ -13,6 +11,7 @@ from apps.identity.infrastructure.auth.authorization import (
 from apps.identity.models import (
     DelegationOfAuthority,
     DelegationTask,
+    IdentityPermission,
     MembershipStatus,
     Role,
     RoleAssignmentStatus,
@@ -31,13 +30,9 @@ from apps.study.models import Site, Study
 class AuthorizationServiceTests(TestCase):
     def setUp(self):
         self.now = timezone.now()
-        self.content_type, _ = ContentType.objects.get_or_create(
-            app_label="edc",
-            model="permissioncode",
-        )
         self.permissions = {
-            code: Permission.objects.get_or_create(
-                content_type=self.content_type,
+            code: IdentityPermission.objects.get_or_create(
+                app_label="edc",
                 codename=code,
                 defaults={"name": code},
             )[0]
@@ -160,14 +155,13 @@ class AuthorizationServiceTests(TestCase):
 
         self.assertEqual(self._can("CRF.UPDATE", self.study_a, self.hcm_a).deny_reason_code, "ROLE_NOT_ASSIGNED")
 
-    def test_permission_granted_through_group_resolves(self):
+    def test_permission_must_be_granted_directly_to_role(self):
         self._assign_site_role(
             self.user,
             self.study_a,
             self.hcm_a,
             "DATA_COORDINATOR",
-            [],
-            group_permissions=["CRF.UPDATE"],
+            ["CRF.UPDATE"],
         )
 
         self.assertTrue(self._can("CRF.UPDATE", self.study_a, self.hcm_a).is_allowed)
@@ -305,14 +299,10 @@ class AuthorizationServiceTests(TestCase):
             assigned_at=self.now,
         )
 
-    def _assign_site_role(self, user, study, site, role_code, permissions, group_permissions=None):
+    def _assign_site_role(self, user, study, site, role_code, permissions):
         self._study_membership(user, study)
         membership = self._site_membership(user, study, site)
         role = self._role(study, role_code, RoleScopeLevel.STUDY_SITE, permissions)
-        if group_permissions:
-            group = Group.objects.create(name=f"{role_code}-{study.pk}-{site.pk}")
-            group.permissions.add(*(self.permissions[permission_code] for permission_code in group_permissions))
-            role.groups.add(group)
         return StudySiteMembershipRole.objects.create(
             study_site_membership=membership,
             role=role,

@@ -23,7 +23,7 @@ class DeleteIdentityUserService:
 
     @transaction.atomic
     def execute(self, command: DeleteIdentityUserCommand) -> None:
-        user = self.repository.get_user_with_groups(user_id=command.user_id)
+        user = self.repository.get_user(user_id=command.user_id)
         if user is None:
             raise IdentityUserNotFoundError(command.user_id)
 
@@ -45,7 +45,7 @@ class RestoreIdentityUserService:
 
     @transaction.atomic
     def execute(self, command: RestoreIdentityUserCommand):
-        user = self.repository.get_user_with_groups(user_id=command.user_id)
+        user = self.repository.get_user(user_id=command.user_id)
         if user is None:
             raise IdentityUserNotFoundError(command.user_id)
 
@@ -71,14 +71,7 @@ class RestoreIdentityUserService:
         self._apply_role_flags(user, snapshot.get("role_key"))
         self.repository.save_user(user)
 
-        restored_group_names = [
-            group_name
-            for group_name in snapshot.get("permission_groups", [])
-            if group_name
-        ]
-        user.groups.set(self.repository.list_groups_by_names(restored_group_names))
-
-        return self.repository.reload_user_with_groups(user)
+        return self.repository.reload_user(user)
 
     def _load_deleted_snapshot(self, user_id):
         deleted_event = self.repository.get_latest_user_deleted_event(user_id=user_id)

@@ -323,7 +323,6 @@ class StudyRolesContextMixin(AuthenticateTemplateView):
         return StudyRoleCreateForm(
             data=data,
             scope_choices=self._choice_pairs(role_create_options["scope_options"]),
-            group_choices=self._choice_pairs(role_create_options["group_options"]),
             permission_choices=self._choice_pairs(role_create_options["permission_options"]),
         )
 
@@ -365,8 +364,6 @@ class StudyManageRolesView(StudyRolesContextMixin):
                 "skipped_rows": 0,
                 "created_roles": 0,
                 "updated_roles": 0,
-                "group_permission_links": 0,
-                "role_group_links": 0,
                 "role_permission_links": 0,
                 "issues": [str(_("Please select an Excel file to import."))],
             }
@@ -381,8 +378,6 @@ class StudyManageRolesView(StudyRolesContextMixin):
                 "skipped_rows": 0,
                 "created_roles": 0,
                 "updated_roles": 0,
-                "group_permission_links": 0,
-                "role_group_links": 0,
                 "role_permission_links": 0,
                 "issues": [str(exc)],
             }
@@ -403,10 +398,6 @@ class StudyRoleCreateView(StudyRolesContextMixin):
         context["role_create_scope_options"] = self._select_options(
             role_create_options["scope_options"],
             selected_values=[role_create_form["scope_level"].value()],
-        )
-        context["role_create_group_options"] = self._select_options(
-            role_create_options["group_options"],
-            selected_values=role_create_form["groups"].value() or (),
         )
         context["role_create_permission_options"] = self._select_options(
             role_create_options["permission_options"],

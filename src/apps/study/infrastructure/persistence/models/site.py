@@ -31,13 +31,6 @@ class Site(models.Model):
         managed = True
         ordering = ('id',)
         default_permissions = ()
-        permissions = (
-            ("view_site_list", "Can view site list"),
-            ("view_site_detail", "Can view site detail"),
-            ("create_site", "Can create site"),
-            ("update_site", "Can update site"),
-            ("delete_site", "Can delete site"),
-        )
         indexes = [
             models.Index(fields=["study", "code"], name="uq_study_site_study_code"),
             models.Index(fields=["deleted"], name="study_study_deleted_idx"),
@@ -68,42 +61,8 @@ class SiteMembership(models.Model):
 
     class Meta:
         db_table = "study_site_membership"
-        managed = True
+        managed = False
         default_permissions = ()
         ordering = ('site',)
-        permissions = (
-            ("view_site_membership_list", "Can view site membership list"),
-            ("view_site_membership_detail", "Can view site membership detail"),
-            ("create_site_membership", "Can create site membership"),
-            ("update_site_membership", "Can update site membership"),
-            ("delete_site_membership", "Can delete site membership"),
-
-            # other
-            ("view_site_membership_history", "Can view site membership audit history"),
-
-            # # filter
-            # ("filter_site_by_code", "Can filter studies by code"),
-            # ("filter_site_by_study", "Can filter studies by study"),
-            #
-            # # field
-            # ("view_site_field_code", "Can view field code"),
-            # ("view_site_field_name", "Can view field name"),
-            # ("view_site_field_investigator", "Can view field investigator"),
-            # ("view_site_field_study", "Can view field study"),
-        )
-        indexes = [
-            models.Index(
-                fields=["study_id", "site_id", "user_id"],
-                name="site_mship_study_site_user_idx",
-            ),
-            models.Index(
-                fields=["user_id", "study_id", "site_id"],
-                name="site_mship_usr_study_site_uq",
-            ),
-            models.Index(
-                fields=["user_id", "site_id", "status"],
-                name="site_mship_usr_scope_stat_idx",
-            ),
-        ]
         verbose_name = "site membership"
         verbose_name_plural = "sites membership"

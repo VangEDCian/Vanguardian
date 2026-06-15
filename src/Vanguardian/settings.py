@@ -117,6 +117,7 @@ TEMPLATES = [
             ],
             "libraries": {
                 "subject_field_validators": "apps.subject.templatetags.subject_field_validators",
+                "user_permissions": "apps.shared.templatetags.user_permissions",
             },
         },
     },

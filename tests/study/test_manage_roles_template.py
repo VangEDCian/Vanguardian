@@ -49,7 +49,6 @@ class StudyManageRolesTemplateTests(SimpleTestCase):
         template_source = template_path.read_text(encoding="utf-8")
 
         self.assertIn("Create Roles", template_source)
-        self.assertIn("role_create_group_options", template_source)
         self.assertIn("role_create_permission_options", template_source)
         self.assertIn("role_manage_url", template_source)
 
@@ -62,7 +61,6 @@ class StudyManageRolesTemplateTests(SimpleTestCase):
             "Role Name",
             "Scope",
             "Description",
-            "Groups",
             "Permissions",
         )
         positions = [template_source.index(label) for label in ordered_labels]

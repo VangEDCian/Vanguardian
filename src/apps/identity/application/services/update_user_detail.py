@@ -17,7 +17,7 @@ class UpdateIdentityUserDetailService:
 
     @transaction.atomic
     def execute(self, command: UpdateIdentityUserDetailCommand):
-        user = self.repository.get_user_with_groups(user_id=command.user_id)
+        user = self.repository.get_user(user_id=command.user_id)
         if user is None:
             raise IdentityUserNotFoundError(command.user_id)
 
@@ -55,10 +55,7 @@ class UpdateIdentityUserDetailService:
                 role_ids_by_site_id=command.site_role_ids_by_site_id,
             )
 
-        if command.can_manage_permissions:
-            user.groups.set(self._resolve_groups(command.permission_group_ids))
-
-        return self.repository.reload_user_with_groups(user)
+        return self.repository.reload_user(user)
 
     @staticmethod
     def _normalize_optional_identifier(value):
@@ -81,18 +78,5 @@ class UpdateIdentityUserDetailService:
 
         if self.repository.phone_number_exists(phone_number=phone_number, exclude_user_id=exclude_user_id):
             raise IdentityUserPhoneNumberAlreadyExistsError(phone_number)
-
-    def _resolve_groups(self, permission_group_ids):
-        normalized_group_ids = []
-        seen_group_ids = set()
-        for permission_group_id in permission_group_ids or ():
-            normalized_group_id = str(permission_group_id).strip()
-            if not normalized_group_id or normalized_group_id in seen_group_ids:
-                continue
-            seen_group_ids.add(normalized_group_id)
-            normalized_group_ids.append(normalized_group_id)
-
-        return self.repository.list_groups_by_ids(normalized_group_ids)
-
 
 __all__ = ["UpdateIdentityUserDetailService"]

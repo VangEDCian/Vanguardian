@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from django.contrib.auth.models import Permission
 from django.db.models import Q
 from django.utils import timezone
 
 from apps.identity.models import (
+    IdentityPermission,
     MembershipStatus,
     RoleAssignmentStatus,
     RoleScopeLevel,
@@ -35,12 +35,12 @@ class ContextualAuthorizationRepository:
         if not permission:
             return None
 
-        found_permission = Permission.objects.select_related("content_type").filter(codename=permission).first()
+        found_permission = IdentityPermission.objects.filter(codename=permission).first()
         if found_permission is None and "." in permission:
             app_label, codename = permission.split(".", 1)
             found_permission = (
-                Permission.objects.select_related("content_type")
-                .filter(content_type__app_label=app_label, codename=codename)
+                IdentityPermission.objects
+                .filter(app_label=app_label, codename=codename)
                 .first()
             )
         if found_permission is None:
@@ -169,12 +169,12 @@ class ContextualAuthorizationRepository:
         return RoleMatch(scope=RoleScopeLevel.GLOBAL, role_id=assignment.role_id)
 
     @staticmethod
-    def permission_code_for(permission: Permission) -> str:
-        return f"{permission.content_type.app_label}.{permission.codename}"
+    def permission_code_for(permission: IdentityPermission) -> str:
+        return permission.permission_code
 
     @staticmethod
     def _role_permission_q(permission_id: int):
-        return Q(role__permissions__id=permission_id) | Q(role__groups__permissions__id=permission_id)
+        return Q(role__permissions__id=permission_id)
 
     @staticmethod
     def _current_membership_window_q(prefix: str):

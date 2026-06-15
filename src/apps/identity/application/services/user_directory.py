@@ -122,9 +122,6 @@ class IdentityUserDirectoryQueryService:
         site_role_assignments = list(self.repository.list_site_membership_role_assignments_for_user(user))
         selected_study_role_ids = self._selected_study_role_ids(study_role_assignments)
         selected_site_role_ids = self._selected_site_role_ids(site_role_assignments)
-        permission_group_records = list(user.groups.order_by("name"))
-        permission_groups = [group.name for group in permission_group_records]
-        selected_permission_group_ids = [str(group.pk) for group in permission_group_records]
         accessible_study_ids = tuple(
             self.repository.list_accessible_studies_for_user(actor_user).values_list("pk", flat=True)
             if actor_user is not None
@@ -153,12 +150,6 @@ class IdentityUserDirectoryQueryService:
                 "email_value": user.email or "",
                 "phone_number": getattr(user, "phone_number", "") or "—",
                 "phone_number_value": getattr(user, "phone_number", "") or "",
-                "permission_groups": permission_groups,
-                "selected_permission_group_ids": selected_permission_group_ids,
-                "permission_group_options": self._build_permission_group_options(
-                    permission_group_records,
-                    actor_user=actor_user,
-                ),
                 "study_options": self._build_study_options(selected_study_ids, actor_user=actor_user),
                 "selected_study_ids": selected_study_ids,
                 "selected_study_role_ids": selected_study_role_ids,
@@ -362,21 +353,6 @@ class IdentityUserDirectoryQueryService:
         if user.is_staff:
             return "staff", _("Staff"), "staff"
         return "user", _("User"), "user"
-
-    def _build_permission_group_options(self, selected_permission_groups, *, actor_user=None):
-        selected_group_ids = {str(group.pk) for group in selected_permission_groups}
-        group_records = list(self.repository.list_permission_groups_manageable_by_user(actor_user))
-        if not group_records:
-            group_records = list(selected_permission_groups)
-
-        return [
-            {
-                "value": str(group.pk),
-                "label": group.name,
-                "selected": str(group.pk) in selected_group_ids,
-            }
-            for group in group_records
-        ]
 
     def _build_study_options(self, selected_study_ids, *, actor_user=None):
         selected_study_ids_set = {str(study_id) for study_id in selected_study_ids}

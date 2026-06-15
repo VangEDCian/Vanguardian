@@ -105,7 +105,6 @@ class IdentityUserCreateView(AuthenticateTemplateView):
             selected_study_ids = args[0].getlist("studies")
         return self.user_create_form_class(
             *args,
-            permission_group_choices=self._build_permission_group_choices(),
             study_choices=self._build_study_choices(),
             site_choices=self._build_site_choices(selected_study_ids=selected_study_ids or ()),
             **kwargs,
@@ -136,11 +135,6 @@ class IdentityUserCreateView(AuthenticateTemplateView):
         context["back_url"] = reverse("identity:users")
         context["create_url"] = reverse("identity:user_create")
         context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
-        context["can_manage_permission_groups"] = self._can_manage_permission_groups(self.request.user)
-        context["permission_group_options"] = self._build_select_options(
-            form.fields["permission_groups"].choices,
-            form["permission_groups"].value() or [],
-        )
         context["study_options"] = self._build_select_options(
             form.fields["studies"].choices,
             form["studies"].value() or [],
@@ -189,7 +183,6 @@ class IdentityUserCreateView(AuthenticateTemplateView):
                     site_ids=tuple(form.cleaned_data.get("sites", ())),
                     study_role_ids_by_study_id=self._extract_role_map_from_payload(request.POST, "study_roles"),
                     site_role_ids_by_site_id=self._extract_role_map_from_payload(request.POST, "site_roles"),
-                    permission_group_ids=tuple(form.cleaned_data.get("permission_groups", ())),
                     can_manage_permissions=self._can_manage_permissions(request.user),
                 )
             )
@@ -255,13 +248,6 @@ class IdentityUserCreateView(AuthenticateTemplateView):
             )
         ]
 
-    def _build_permission_group_choices(self):
-        return [
-            (str(group.pk), group.name)
-            for group in self.get_user_directory_query_service()
-            .repository.list_permission_groups_manageable_by_user(self.request.user)
-        ]
-
     def _can_manage_permissions(self, request_user):
         study_id = get_default_study_id(self.request)
         return user_can_access_permission(
@@ -272,14 +258,6 @@ class IdentityUserCreateView(AuthenticateTemplateView):
             request_user,
             "identity.update_user",
             study_id=study_id,
-        )
-
-    @staticmethod
-    def _can_manage_permission_groups(request_user):
-        return (
-            request_user.is_superuser
-            or request_user.has_perm("identity.create_user")
-            or request_user.has_perm("identity.update_user")
         )
 
     def _accessible_study_ids(self):
@@ -349,10 +327,6 @@ class IdentityUserDetailView(AuthenticateTemplateView):
             selected_study_ids = args[0].get("studies", ())
         return self.user_detail_form_class(
             *args,
-            permission_group_choices=[
-                (permission_group_option["value"], permission_group_option["label"])
-                for permission_group_option in detail_user["permission_group_options"]
-            ],
             study_choices=[
                 (study_option["value"], study_option["label"])
                 for study_option in detail_user["study_options"]
@@ -427,7 +401,6 @@ class IdentityUserDetailView(AuthenticateTemplateView):
             context["detail_user"] = self.detail_view_model["detail_user"]
             context["can_update_detail"] = self._can_update_detail(self.request.user)
             context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
-            context["can_manage_permission_groups"] = self._can_manage_permission_groups(self.request.user)
             context["can_delete_user"] = self._can_delete_user(self.request.user)
             context["can_restore_user"] = self._can_restore_user(self.request.user)
             context["delete_url"] = reverse("identity:user_delete", kwargs={"user_id": self.detail_view_model["detail_user"]["id"]})
@@ -458,7 +431,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
                 status=400,
             )
 
-        target_user = User.objects.prefetch_related("groups").filter(pk=self.kwargs["user_id"]).first()
+        target_user = User.objects.filter(pk=self.kwargs["user_id"]).first()
         if target_user is None:
             raise Http404
 
@@ -480,7 +453,6 @@ class IdentityUserDetailView(AuthenticateTemplateView):
                     site_ids=tuple(form.cleaned_data.get("sites", ())),
                     study_role_ids_by_study_id=self._extract_role_map_from_payload(payload, "study_roles"),
                     site_role_ids_by_site_id=self._extract_role_map_from_payload(payload, "site_roles"),
-                    permission_group_ids=self._permission_group_ids_for_update(form),
                     can_manage_permissions=self._can_manage_permissions(request.user),
                     new_password=new_password,
                 )
@@ -550,19 +522,6 @@ class IdentityUserDetailView(AuthenticateTemplateView):
             and request_user.pk != detail_user_id
             and not self.detail_view_model["detail_user"]["is_deleted"]
         )
-
-    @staticmethod
-    def _can_manage_permission_groups(request_user):
-        return (
-            request_user.is_superuser
-            or request_user.has_perm("identity.create_user")
-            or request_user.has_perm("identity.update_user")
-        )
-
-    def _permission_group_ids_for_update(self, form):
-        if self._can_manage_permission_groups(self.request.user):
-            return tuple(form.cleaned_data.get("permission_groups", ()))
-        return tuple(self.detail_view_model["detail_user"].get("selected_permission_group_ids", ()))
 
     @staticmethod
     def _parse_request_payload(request):
@@ -704,7 +663,7 @@ class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
         if request.user.pk == kwargs["user_id"]:
             raise PermissionDenied
 
-        target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()
+        target_user = User.objects.filter(pk=kwargs["user_id"]).first()
         if target_user is None:
             raise Http404
 
@@ -745,7 +704,7 @@ class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
         if request.user.pk == kwargs["user_id"]:
             raise PermissionDenied
 
-        target_user = User.objects.prefetch_related("groups").filter(pk=kwargs["user_id"]).first()
+        target_user = User.objects.filter(pk=kwargs["user_id"]).first()
         if target_user is None:
             raise Http404
 

@@ -90,7 +90,6 @@ class IdentityUserDetailForm(forms.Form):
     email = forms.EmailField(required=False)
     phone_number = forms.CharField(max_length=32, required=False)
     is_active = forms.BooleanField(required=False)
-    permission_groups = forms.MultipleChoiceField(required=False)
     studies = forms.MultipleChoiceField(required=False)
     sites = forms.MultipleChoiceField(required=False)
     new_password = forms.CharField(max_length=128, required=False)
@@ -100,7 +99,6 @@ class IdentityUserDetailForm(forms.Form):
         self,
         *args,
         role_choices=(),
-        permission_group_choices=(),
         study_choices=(),
         site_choices=(),
         **kwargs,
@@ -108,7 +106,6 @@ class IdentityUserDetailForm(forms.Form):
         _ = role_choices
         super().__init__(*args, **kwargs)
         self.phone_number_validator = PhoneNumberValidator()
-        self.fields["permission_groups"].choices = permission_group_choices
         self.fields["studies"].choices = study_choices
         self.fields["sites"].choices = site_choices
 
@@ -151,7 +148,6 @@ class IdentityUserCreateForm(forms.Form):
     last_name = forms.CharField(max_length=150, required=False)
     email = forms.EmailField(required=False)
     phone_number = forms.CharField(max_length=32, required=False)
-    permission_groups = forms.MultipleChoiceField(required=False)
     studies = forms.MultipleChoiceField(required=False)
     sites = forms.MultipleChoiceField(required=False)
 
@@ -159,7 +155,6 @@ class IdentityUserCreateForm(forms.Form):
         self,
         *args,
         role_choices=(),
-        permission_group_choices=(),
         study_choices=(),
         site_choices=(),
         **kwargs,
@@ -167,7 +162,6 @@ class IdentityUserCreateForm(forms.Form):
         _ = role_choices
         super().__init__(*args, **kwargs)
         self.phone_number_validator = PhoneNumberValidator()
-        self.fields["permission_groups"].choices = permission_group_choices
         self.fields["studies"].choices = study_choices
         self.fields["sites"].choices = site_choices
 

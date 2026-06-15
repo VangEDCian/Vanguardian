@@ -82,12 +82,6 @@ class SubjectEligibilityAssessment(models.Model):
         db_table = "study_subject_eligibility_assessment"
         managed = True
         default_permissions = ()
-        permissions = (
-            ("assess_subject_eligibility", "Can assess subject eligibility"),
-            ("finalize_subject_eligibility", "Can finalize subject eligibility"),
-            ("retract_subject_eligibility", "Can retract subject eligibility"),
-            ("override_subject_eligibility", "Can override subject eligibility"),
-        )
         constraints = [
             models.UniqueConstraint(
                 fields=["subject_id", "assessment_type", "assessment_no"],

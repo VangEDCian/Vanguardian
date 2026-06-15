@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from django.contrib.auth.models import Permission
 from django.utils import timezone
 
 from apps.audit.public import AuditContextAdapter
 from apps.identity.models import (
     DelegationOfAuthority,
     DelegationTask,
+    IdentityPermission,
     MembershipStatus,
     Role,
     RoleAssignmentStatus,
@@ -317,11 +317,7 @@ class EffectivePermissionResolver:
     def _collect_role_permissions(self, roles, permission_codes, role_codes):
         for role in roles:
             role_codes.add(role.code or role.name.upper().replace(" ", "_"))
-            direct_permissions = role.permissions.select_related("content_type")
-            group_permissions = Permission.objects.select_related("content_type").filter(
-                group__identity_roles=role,
-            )
-            for permission in list(direct_permissions) + list(group_permissions):
+            for permission in role.permissions.all():
                 permission_codes.add(permission_code_for(permission))
 
 
@@ -632,23 +628,23 @@ def permission_exists(permission_code: str):
 
 def get_permission_by_code(permission_code: str):
     normalized_code = normalize_permission_code(permission_code)
-    permission = Permission.objects.filter(codename=normalized_code).first()
+    permission = IdentityPermission.objects.filter(codename=normalized_code).first()
     if permission is not None:
         return permission
-    if "." not in permission_code:
+    if "." not in normalized_code:
         return None
-    app_label, codename = permission_code.split(".", 1)
-    return Permission.objects.filter(
-        content_type__app_label=app_label,
+    app_label, codename = normalized_code.split(".", 1)
+    return IdentityPermission.objects.filter(
+        app_label=app_label,
         codename=codename,
     ).first()
 
 
-def permission_code_for(permission: Permission):
+def permission_code_for(permission: IdentityPermission):
     codename = str(permission.codename).strip()
     if "." in codename and codename == codename.upper():
         return codename
-    return f"{permission.content_type.app_label}.{codename}"
+    return f"{permission.app_label}.{codename}"
 
 
 def normalize_permission_code(permission_code: str):

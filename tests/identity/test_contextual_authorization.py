@@ -1,13 +1,12 @@
 from types import SimpleNamespace
 
-from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from apps.identity.application.authorization import ContextualAuthorizationService
 from apps.identity.infrastructure.auth.contextual_authorization import PermissionLookup, RoleMatch
 from apps.identity.models import (
+    IdentityPermission,
     MembershipStatus,
     Role,
     RoleAssignmentStatus,
@@ -24,14 +23,13 @@ from apps.study.models import Site, Study
 class ContextualAuthorizationServiceTests(TestCase):
     def setUp(self):
         self.now = timezone.now()
-        content_type, _ = ContentType.objects.get_or_create(app_label="datacapture", model="pageentry")
-        self.permission = Permission.objects.get_or_create(
-            content_type=content_type,
+        self.permission = IdentityPermission.objects.get_or_create(
+            app_label="datacapture",
             codename="change_pageentry",
             defaults={"name": "Can change page entry"},
         )[0]
-        self.view_permission = Permission.objects.get_or_create(
-            content_type=content_type,
+        self.view_permission = IdentityPermission.objects.get_or_create(
+            app_label="datacapture",
             codename="view_pageentry",
             defaults={"name": "Can view page entry"},
         )[0]
@@ -45,14 +43,6 @@ class ContextualAuthorizationServiceTests(TestCase):
 
     def test_study_role_direct_permission_allows_study_action(self):
         self._assign_study_role(self.user, self.study_a, "DATA_MANAGER", [self.permission])
-
-        decision = self.service.can(self.user, "datacapture.change_pageentry", study_id=self.study_a.pk)
-
-        self.assertTrue(decision.allowed)
-        self.assertEqual(decision.matched_scope, RoleScopeLevel.STUDY)
-
-    def test_study_role_group_permission_allows_study_action(self):
-        self._assign_study_role(self.user, self.study_a, "DATA_MANAGER", [], group_permissions=[self.permission])
 
         decision = self.service.can(self.user, "datacapture.change_pageentry", study_id=self.study_a.pk)
 
@@ -141,41 +131,8 @@ class ContextualAuthorizationServiceTests(TestCase):
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.matched_scope, "GLOBAL")
 
-    def test_plain_user_permission_does_not_bypass_context(self):
-        self.user.user_permissions.add(self.permission)
-        self._study_membership(self.user, self.study_a)
-
-        decision = self.service.can(self.user, "datacapture.change_pageentry", study_id=self.study_a.pk)
-
-        self.assertFalse(decision.allowed)
-        self.assertEqual(decision.reason, "ROLE_NOT_ASSIGNED")
-
-    def test_plain_user_group_permission_does_not_bypass_context(self):
-        group = Group.objects.create(name="plain-user-group")
-        group.permissions.add(self.permission)
-        self.user.groups.add(group)
-        self._study_membership(self.user, self.study_a)
-
-        decision = self.service.can(self.user, "datacapture.change_pageentry", study_id=self.study_a.pk)
-
-        self.assertFalse(decision.allowed)
-        self.assertEqual(decision.reason, "ROLE_NOT_ASSIGNED")
-
     def test_site_role_direct_permission_allows_exact_site(self):
         self._assign_site_role(self.user, self.study_a, self.site_a, "SITE_COORDINATOR", [self.permission])
-
-        decision = self.service.can(
-            self.user,
-            "datacapture.change_pageentry",
-            study_id=self.study_a.pk,
-            study_site_id=self.site_a.pk,
-        )
-
-        self.assertTrue(decision.allowed)
-        self.assertEqual(decision.matched_scope, RoleScopeLevel.STUDY_SITE)
-
-    def test_site_role_group_permission_allows_exact_site(self):
-        self._assign_site_role(self.user, self.study_a, self.site_a, "SITE_COORDINATOR", [], group_permissions=[self.permission])
 
         decision = self.service.can(
             self.user,
@@ -263,17 +220,15 @@ class ContextualAuthorizationServiceTests(TestCase):
         self.assertFalse(decision.allowed)
         self.assertEqual(decision.reason, "INVALID_STUDY_SITE_CONTEXT")
 
-    def _assign_study_role(self, user, study, code, permissions, group_permissions=None):
+    def _assign_study_role(self, user, study, code, permissions):
         membership = self._study_membership(user, study)
         role = self._role(study, code, RoleScopeLevel.STUDY, permissions)
-        self._add_group_permissions(role, group_permissions or [])
         return StudyMembershipRole.objects.create(study_membership=membership, role=role, assigned_at=self.now)
 
-    def _assign_site_role(self, user, study, site, code, permissions, group_permissions=None):
+    def _assign_site_role(self, user, study, site, code, permissions):
         self._study_membership(user, study)
         membership = self._site_membership(user, study, site)
         role = self._role(study, code, RoleScopeLevel.STUDY_SITE, permissions)
-        self._add_group_permissions(role, group_permissions or [])
         return StudySiteMembershipRole.objects.create(study_site_membership=membership, role=role, assigned_at=self.now)
 
     def _role(self, study, code, scope_level, permissions):
@@ -286,13 +241,6 @@ class ContextualAuthorizationServiceTests(TestCase):
         )
         role.permissions.add(*permissions)
         return role
-
-    def _add_group_permissions(self, role, permissions):
-        if not permissions:
-            return
-        group = Group.objects.create(name=f"group-{role.pk}")
-        group.permissions.add(*permissions)
-        role.groups.add(group)
 
     def _study_membership(self, user, study):
         membership, _ = StudyMembership.objects.get_or_create(

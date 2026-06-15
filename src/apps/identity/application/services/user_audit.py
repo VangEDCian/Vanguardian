@@ -20,7 +20,6 @@ def serialize_identity_user_snapshot(user):
         "role_key": role_key,
         "role_label": role_label,
         "is_active": user.is_active,
-        "permission_groups": [group.name for group in user.groups.order_by("name")],
     }
 
 

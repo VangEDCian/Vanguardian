@@ -28,7 +28,7 @@ class RandomizationScheme(models.Model):
 
     status = models.CharField(
         max_length=32,
-        choices=RandomizationSchemeStatusChoice,
+        choices=RandomizationSchemeStatusChoice.choices,
         default=RandomizationSchemeStatusChoice.DRAFT,
     )
     effective_from = models.DateTimeField(null=True, blank=True)
@@ -134,7 +134,7 @@ class RandomizationSlot(models.Model):
 
     status = models.CharField(
         max_length=32,
-        choices=RandomizationSlotStatusChoice,
+        choices=RandomizationSlotStatusChoice.choices,
         default="available",
     )
     assigned_subject_id = models.BigIntegerField(null=True, blank=True)

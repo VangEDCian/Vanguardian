@@ -184,21 +184,6 @@
                                 </div>
                             </div>
                         </div>
-                        {% if can_manage_permission_groups %}
-                            <div class="user-detail-inline-row">
-                                <div class="user-detail-inline-field user-detail-inline-field--full user-detail-inline-field--permission-groups">
-                                    <label class="user-detail-inline-field__label"
-                                           for="{{ form.permission_groups.id_for_label }}">
-                                        {% trans 'Permission Groups' %}:
-                                    </label>
-                                    <div class="user-detail-inline-field__control-wrap">
-                                        {% trans 'Select permission groups' as select_permission_groups_placeholder %}
-                                        {% include 'shared/components/_old_select2_multiple_choice.html' with select_id=form.permission_groups.id_for_label select_name=form.permission_groups.html_name select_options=permission_group_options select_placeholder=select_permission_groups_placeholder %}
-                                        {% for error in form.permission_groups.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endif %}
                     </div>
                 </section>
             </div>

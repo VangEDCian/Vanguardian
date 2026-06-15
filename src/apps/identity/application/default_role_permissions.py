@@ -1,107 +1,12 @@
-DEFAULT_ROLE_GROUPS = ()
+from apps.identity.application import permissions as permission_registry
 
-DEFAULT_PERMISSION_LABELS = {
-    "dashboard.view_dashboard": "Can view dashboard",
-    "identity.create_user": "Can create user",
-    "identity.delete_user": "Can delete user",
-    "identity.restore_user": "Can restore user",
-    "identity.update_user": "Can update user",
-    "identity.view_user_detail": "Can view user detail",
-    "identity.view_user_list": "Can view user list",
-    "reconcile.answer_dataquery": "Can answer data queries",
-    "reconcile.close_dataquery": "Can close data queries",
-    "reconcile.reopen_dataquery": "Can reopen data queries",
-    "reconcile.resolve_dataquery": "Can resolve data queries",
-    "reconcile.view_dataquery": "Can view data queries",
-    "reconcile.view_internal_query_thread": "Can view internal query thread messages",
-    "site.create_site": "Can create site",
-    "site.create_site_membership": "Can create site membership",
-    "site.delete_site": "Can delete site",
-    "site.delete_site_membership": "Can delete site membership",
-    "site.update_site": "Can update site",
-    "site.update_site_membership": "Can update site membership",
-    "site.view_site_detail": "Can view site detail",
-    "site.view_site_list": "Can view site list",
-    "site.view_site_membership_detail": "Can view site membership detail",
-    "site.view_site_membership_list": "Can view site membership list",
-    "study.assess_subject_eligibility": "Can assess subject eligibility",
-    "study.change_study_status": "Can activate or deactivate a study",
-    "study.create_study": "Can create study",
-    "study.create_study_eventdefinition": "Can create/import study event definitions",
-    "study.delete_study": "Can delete study",
-    "study.finalize_subject_eligibility": "Can finalize subject eligibility",
-    "study.manage_crf_template": "Can manage CRF templates and field definitions",
-    "study.override_subject_eligibility": "Can override subject eligibility",
-    "study.retract_subject_eligibility": "Can retract subject eligibility",
-    "study.update_study": "Can update study",
-    "study.view_study_detail": "Can view study detail",
-    "study.view_study_list": "Can view study list",
-    "subject.create_subject": "Can create subject",
-    "subject.update_subject": "Can update subject and trigger workflow actions",
-    "subject.verify_form": "Can verify form / quality check",
-    "subject.view_subject_detail": "Can view subject detail and enter data",
-    "subject.view_subject_list": "Can view subject list",
-}
+DEFAULT_PERMISSION_LABELS = permission_registry.APP_PERMISSION_LABELS
+DEFAULT_EDC_PERMISSION_LABELS = permission_registry.EDC_PERMISSION_LABELS
 
-DEFAULT_PERMISSION_CONTENT_TYPES = {
-    "dashboard": "dashboardpermission",
-    "identity": "user",
-    "reconcile": "reconciledataquery",
-    "site": "site",
-    "study": "study",
-    "subject": "subject",
-}
-
-
-DEFAULT_EDC_PERMISSION_LABELS = {
-    "SUBJECT.VIEW": "View subjects",
-    "SUBJECT.CREATE": "Create subjects",
-    "SUBJECT.UPDATE": "Update subjects",
-    "SUBJECT.SCREEN": "Screen subjects",
-    "SUBJECT.ENROLL": "Enroll subjects",
-    "SUBJECT.RANDOMIZE": "Randomize subjects",
-    "CRF.VIEW": "View CRF data",
-    "CRF.ENTER": "Enter CRF data",
-    "CRF.UPDATE": "Update CRF data",
-    "CRF.SUBMIT": "Submit CRF data",
-    "CRF.REOPEN": "Reopen CRF data",
-    "VALIDATION_ISSUE.VIEW": "View validation issues",
-    "VALIDATION_ISSUE.ACKNOWLEDGE": "Acknowledge validation issues",
-    "QUERY.VIEW": "View data queries",
-    "QUERY.CREATE": "Create data queries",
-    "QUERY.RESPOND": "Respond to data queries",
-    "QUERY.CLOSE": "Close data queries",
-    "QUERY.RETURN": "Return data queries",
-    "QUERY.CANCEL": "Cancel data queries",
-    "SDV.VIEW": "View SDV",
-    "SDV.MARK": "Mark SDV",
-    "SDR.MARK": "Mark SDR",
-    "AE.VIEW": "View adverse events",
-    "AE.ENTER": "Enter adverse events",
-    "AE.MEDICAL_ASSESS": "Perform AE medical assessment",
-    "SAE.REPORT": "Report SAE",
-    "CASEBOOK.VIEW": "View casebook",
-    "CASEBOOK.SIGN": "Sign casebook",
-    "DATA.FREEZE": "Freeze data",
-    "DATA.UNFREEZE": "Unfreeze data",
-    "DATA.LOCK": "Lock data",
-    "DATA.UNLOCK": "Unlock data",
-    "STUDY_CONFIG.VIEW": "View study configuration",
-    "STUDY_CONFIG.MANAGE": "Manage study configuration",
-    "USER_ACCESS.VIEW": "View user access",
-    "USER_ACCESS.MANAGE": "Manage user access",
-    "DELEGATION.VIEW": "View delegation",
-    "DELEGATION.MANAGE": "Manage delegation",
-    "AUDIT_TRAIL.VIEW": "View audit trail",
-    "DATA_EXPORT.RUN": "Run data export",
-}
-
-
-DEFAULT_EDC_ROLE_GROUPS = (
+DEFAULT_EDC_ROLES = (
     {
         "role_code": "PI",
         "role_name": "PI",
-        "group_name": "PI",
         "scope_level": "STUDY_SITE",
         "permissions": (
             "SUBJECT.VIEW",
@@ -116,7 +21,6 @@ DEFAULT_EDC_ROLE_GROUPS = (
     {
         "role_code": "SITE_COORDINATOR",
         "role_name": "Site Coordinator",
-        "group_name": "Site Coordinator",
         "scope_level": "STUDY_SITE",
         "permissions": (
             "SUBJECT.VIEW",
@@ -135,7 +39,6 @@ DEFAULT_EDC_ROLE_GROUPS = (
     {
         "role_code": "CRA_MONITOR",
         "role_name": "CRA Monitor",
-        "group_name": "CRA Monitor",
         "scope_level": "STUDY_SITE",
         "permissions": (
             "SUBJECT.VIEW",
@@ -154,7 +57,6 @@ DEFAULT_EDC_ROLE_GROUPS = (
     {
         "role_code": "DATA_MANAGER",
         "role_name": "Data Manager",
-        "group_name": "Data Manager",
         "scope_level": "STUDY",
         "permissions": (
             "SUBJECT.VIEW",
@@ -175,7 +77,6 @@ DEFAULT_EDC_ROLE_GROUPS = (
     {
         "role_code": "STUDY_ADMIN",
         "role_name": "Study Admin",
-        "group_name": "Study Admin",
         "scope_level": "STUDY",
         "permissions": (
             "STUDY_CONFIG.VIEW",

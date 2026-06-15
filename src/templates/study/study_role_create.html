@@ -104,17 +104,6 @@
                         <div class="user-detail-inline-row">
                             <div class="user-detail-inline-field user-detail-inline-field--full">
                                 <label class="user-detail-inline-field__label"
-                                       for="{{ role_create_form.groups.id_for_label }}">{% trans "Groups" %}:</label>
-                                <div class="user-detail-inline-field__control-wrap">
-                                    {% trans "Select groups" as groups_placeholder %}
-                                    {% include "shared/components/_old_select2_multiple_choice.html" with select_id=role_create_form.groups.id_for_label select_name=role_create_form.groups.html_name select_options=role_create_group_options select_placeholder=groups_placeholder select_class="manage-roles-select" %}
-                                    {% for error in role_create_form.groups.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="user-detail-inline-row">
-                            <div class="user-detail-inline-field user-detail-inline-field--full">
-                                <label class="user-detail-inline-field__label"
                                        for="{{ role_create_form.permissions.id_for_label }}">{% trans "Permissions" %}:</label>
                                 <div class="user-detail-inline-field__control-wrap">
                                     {% trans "Select permissions" as permissions_placeholder %}

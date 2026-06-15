@@ -1,16 +1,14 @@
 import re
 from dataclasses import dataclass, field
 
-from django.contrib.auth.models import Group, Permission
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 from openpyxl import load_workbook
 
-from apps.identity.models import Role, RoleScopeLevel  # noqa: DDD022
+from apps.identity.models import IdentityPermission, Role, RoleScopeLevel  # noqa: DDD022
 
 _REQUIRED_COLUMNS = {
     "role_name",
-    "group_name",
     "permission",
 }
 
@@ -22,8 +20,6 @@ class RolePermissionImportResult:
     skipped_rows: int = 0
     created_roles: int = 0
     updated_roles: int = 0
-    group_permission_links: int = 0
-    role_group_links: int = 0
     role_permission_links: int = 0
     issues: list[str] = field(default_factory=list)
 
@@ -34,8 +30,6 @@ class RolePermissionImportResult:
             "skipped_rows": self.skipped_rows,
             "created_roles": self.created_roles,
             "updated_roles": self.updated_roles,
-            "group_permission_links": self.group_permission_links,
-            "role_group_links": self.role_group_links,
             "role_permission_links": self.role_permission_links,
             "issues": self.issues,
         }
@@ -48,19 +42,12 @@ class IdentityRolePermissionImportService:
                 {"value": RoleScopeLevel.STUDY, "label": _("Study")},
                 {"value": RoleScopeLevel.STUDY_SITE, "label": _("Study site")},
             ],
-            "group_options": [
-                {"value": str(group.pk), "label": group.name}
-                for group in Group.objects.order_by("name")
-            ],
             "permission_options": [
                 {
                     "value": str(permission.pk),
                     "label": f"{self.permission_code_for(permission)} - {permission.name}",
                 }
-                for permission in Permission.objects.select_related("content_type").order_by(
-                    "content_type__app_label",
-                    "codename",
-                )
+                for permission in IdentityPermission.objects.order_by("app_label", "codename")
             ],
         }
 
@@ -73,7 +60,6 @@ class IdentityRolePermissionImportService:
         code: str = "",
         description: str = "",
         scope_level: str = RoleScopeLevel.STUDY_SITE,
-        group_ids=(),
         permission_ids=(),
     ):
         normalized_name = str(name or "").strip()
@@ -92,9 +78,8 @@ class IdentityRolePermissionImportService:
         ).exists():
             raise ValueError(_("This role code already exists for the selected scope."))
 
-        groups = self._objects_by_ids(Group.objects.order_by("name"), group_ids)
         permissions = self._objects_by_ids(
-            Permission.objects.select_related("content_type").order_by("content_type__app_label", "codename"),
+            IdentityPermission.objects.order_by("app_label", "codename"),
             permission_ids,
         )
         role = Role.objects.create(
@@ -104,12 +89,10 @@ class IdentityRolePermissionImportService:
             description=str(description or "").strip()[:255],
             scope_level=normalized_scope,
         )
-        role.groups.set(groups)
         role.permissions.set(permissions)
         return {
             "id": role.pk,
             "name": role.name,
-            "group_count": len(groups),
             "permission_count": len(permissions),
         }
 
@@ -120,35 +103,19 @@ class IdentityRolePermissionImportService:
 
         for row_number, row in rows:
             role_name = row.get("role_name", "").strip()
-            group_name = row.get("group_name", "").strip()
             permission_key = row.get("permission", "").strip()
             description = row.get("description", "").strip()
             scope_level = self._normalize_scope_level(row.get("scope_level", ""))
 
-            if not role_name or not group_name or not permission_key:
+            if not role_name or not permission_key:
                 result.skipped_rows += 1
-                result.issues.append(f"Row {row_number}: missing role_name, group_name, or permission.")
+                result.issues.append(f"Row {row_number}: missing role_name or permission.")
                 continue
             if scope_level is None:
                 result.skipped_rows += 1
                 result.issues.append(f"Row {row_number}: invalid scope_level '{row.get('scope_level', '')}'.")
                 continue
-            if "." not in permission_key:
-                result.skipped_rows += 1
-                result.issues.append(f"Row {row_number}: invalid permission '{permission_key}'.")
-                continue
-
-            group = Group.objects.filter(name=group_name).first()
-            if group is None:
-                result.skipped_rows += 1
-                result.issues.append(f"Row {row_number}: group '{group_name}' does not exist.")
-                continue
-
-            app_label, codename = permission_key.split(".", 1)
-            permission = Permission.objects.filter(
-                content_type__app_label=app_label.strip(),
-                codename=codename.strip(),
-            ).first()
+            permission = self._permission_by_code(permission_key)
             if permission is None:
                 result.skipped_rows += 1
                 result.issues.append(f"Row {row_number}: permission '{permission_key}' does not exist.")
@@ -172,12 +139,6 @@ class IdentityRolePermissionImportService:
                     scope_level=scope_level,
                 )
 
-            if not role.groups.filter(pk=group.pk).exists():
-                role.groups.add(group)
-                result.role_group_links += 1
-            if not group.permissions.filter(pk=permission.pk).exists():
-                group.permissions.add(permission)
-                result.group_permission_links += 1
             if not role.permissions.filter(pk=permission.pk).exists():
                 role.permissions.add(permission)
                 result.role_permission_links += 1
@@ -191,16 +152,14 @@ class IdentityRolePermissionImportService:
                 "name": role.name,
                 "scope_level": role.scope_level,
                 "description": role.description,
-                "group_count": role.groups.count(),
                 "permission_count": role.permissions.count(),
-                "group_names": [group.name for group in role.groups.all()],
                 "permission_codes": [
                     self.permission_code_for(permission)
                     for permission in role.permissions.all()
                 ],
             }
             for role in Role.objects.filter(study_id=study_id)
-            .prefetch_related("groups", "permissions__content_type")
+            .prefetch_related("permissions")
             .order_by("name")
         ]
         return {"roles": roles, "role_count": len(roles)}
@@ -211,7 +170,7 @@ class IdentityRolePermissionImportService:
             return []
         objects = list(queryset.filter(pk__in=normalized_ids))
         if len(objects) != len(normalized_ids):
-            raise ValueError(_("One or more selected groups or permissions no longer exist."))
+            raise ValueError(_("One or more selected permissions no longer exist."))
         return objects
 
     def _read_rows(self, import_file):
@@ -263,8 +222,20 @@ class IdentityRolePermissionImportService:
         return None
 
     @staticmethod
-    def permission_code_for(permission: Permission) -> str:
-        return f"{permission.content_type.app_label}.{permission.codename}"
+    def permission_code_for(permission: IdentityPermission) -> str:
+        return permission.permission_code
+
+    @staticmethod
+    def _permission_by_code(permission_code: str):
+        normalized_code = str(permission_code or "").strip()
+        permission = IdentityPermission.objects.filter(codename=normalized_code).first()
+        if permission or "." not in normalized_code:
+            return permission
+        app_label, codename = normalized_code.split(".", 1)
+        return IdentityPermission.objects.filter(
+            app_label=app_label.strip(),
+            codename=codename.strip(),
+        ).first()
 
     @staticmethod
     def _normalize_ids(raw_ids):
@@ -273,7 +244,7 @@ class IdentityRolePermissionImportService:
             try:
                 normalized_id = int(raw_id)
             except (TypeError, ValueError):
-                raise ValueError(_("Invalid group or permission selection.")) from None
+                raise ValueError(_("Invalid permission selection.")) from None
             if normalized_id not in normalized_ids:
                 normalized_ids.append(normalized_id)
         return normalized_ids
