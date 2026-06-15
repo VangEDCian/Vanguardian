@@ -20,6 +20,8 @@ class SubjectTriggerWorkflowView(
     View,
 ):
     permission_required = "subject.update_subject"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
     service_class = SubjectWorkflowActionService
 

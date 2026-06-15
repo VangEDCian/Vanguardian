@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from apps.audit.public import build_audit_request_context
+from apps.shared.navigation import user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application import (
     CreateStudyService,
@@ -115,6 +116,7 @@ class StudyUpdateView(
     AuthenticateTemplateView
 ):
     permission_required = "study.update_study"
+    authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/study_form.html"
     layout_nav_key = "STUDIES"
@@ -167,24 +169,26 @@ class StudyUpdateView(
         context["back_url"] = reverse(
             "study:study_detail", kwargs={"study_id": self._study.pk}
         )
-        context["can_edit_code"] = user.has_perm("study.update_study_field_code")
+        context["can_edit_code"] = user_can_access_permission(
+            user, "study.update_study_field_code", study_id=self._study.pk
+        )
         context["show_is_active"] = False
 
         # Field-level update permissions
-        context["can_update_field_code"] = user.has_perm(
-            "study.update_study_field_code"
+        context["can_update_field_code"] = user_can_access_permission(
+            user, "study.update_study_field_code", study_id=self._study.pk
         )
-        context["can_update_field_name"] = user.has_perm(
-            "study.update_study_field_name"
+        context["can_update_field_name"] = user_can_access_permission(
+            user, "study.update_study_field_name", study_id=self._study.pk
         )
-        context["can_update_field_sponsor"] = user.has_perm(
-            "study.update_study_field_sponsor"
+        context["can_update_field_sponsor"] = user_can_access_permission(
+            user, "study.update_study_field_sponsor", study_id=self._study.pk
         )
-        context["can_update_field_dates"] = user.has_perm(
-            "study.update_study_field_dates"
+        context["can_update_field_dates"] = user_can_access_permission(
+            user, "study.update_study_field_dates", study_id=self._study.pk
         )
-        context["can_update_field_description"] = user.has_perm(
-            "study.update_study_field_description"
+        context["can_update_field_description"] = user_can_access_permission(
+            user, "study.update_study_field_description", study_id=self._study.pk
         )
         return context
 
@@ -197,7 +201,7 @@ class StudyUpdateView(
 
         code = (
             form.cleaned_data["code"]
-            if request.user.has_perm("study.update_study_field_code")
+            if user_can_access_permission(request.user, "study.update_study_field_code", study_id=self._study.pk)
             else self._study.code
         )
 
@@ -241,6 +245,7 @@ class StudyToggleStatusView(AuthenticateTemplateContextMixin, View):
     """POST-only endpoint. Flips the is_active flag of a study."""
 
     permission_required = "study.change_study_status"
+    authorization_scope = "STUDY"
     raise_exception = True
     toggle_study_status_service_class = ToggleStudyStatusService
     study_audit_service_class = StudyAuditService
@@ -273,6 +278,7 @@ class StudyToggleStatusView(AuthenticateTemplateContextMixin, View):
 
 class StudyDeleteView(AuthenticateTemplateContextMixin, View):
     permission_required = "study.delete_study"
+    authorization_scope = "STUDY"
     raise_exception = True
     delete_study_service_class = DeleteStudyService
     study_audit_service_class = StudyAuditService

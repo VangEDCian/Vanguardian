@@ -1,7 +1,9 @@
+from django.contrib.auth.models import Group
 from django.db.models import Q
 from django.utils import timezone
 
 from apps.audit.infrastructure.persistence.models import AuditEvent
+from apps.identity.application.authorization import ContextualAuthorizationService
 from apps.identity.infrastructure.sonic import SonicSearchAdapter
 from apps.identity.models import (
     Role,
@@ -37,7 +39,7 @@ class DjangoIdentityUserRepository:
 
     def list_users_accessible_to_user(self, user, *, order_by=()):
         queryset = self.list_users(order_by=order_by)
-        if user is None or user.is_superuser or user.has_perm("identity.view_user_list"):
+        if user is None or user.is_superuser:
             return queryset
 
         allowed_study_ids = self.list_study_memberships_for_user(user).values("study_id")
@@ -50,10 +52,24 @@ class DjangoIdentityUserRepository:
     def user_is_accessible_to_user(self, *, actor_user, target_user):
         if actor_user is None or target_user is None:
             return False
-        if actor_user.is_superuser or actor_user.has_perm("identity.view_user_detail"):
+        if actor_user.is_superuser:
             return True
 
         return self.list_users_accessible_to_user(actor_user).filter(pk=target_user.pk).exists()
+
+    def list_groups(self):
+        return Group.objects.order_by("name")
+
+    def list_permission_groups_manageable_by_user(self, user):
+        if user is None:
+            return Group.objects.none()
+        if (
+            user.is_superuser
+            or self._user_has_context_permission_anywhere(user, "identity.create_user")
+            or self._user_has_context_permission_anywhere(user, "identity.update_user")
+        ):
+            return self.list_groups()
+        return Group.objects.none()
 
     def get_user_for_detail(self, *, user_id, include_deleted=False):
         queryset = User.objects.filter(pk=user_id)
@@ -225,6 +241,33 @@ class DjangoIdentityUserRepository:
         allowed_study_ids = self.list_study_memberships_for_user(user).values_list("study_id", flat=True)
         allowed_site_ids = self.list_site_memberships_for_user(user).values_list("site_id", flat=True)
         return queryset.filter(Q(study_id__in=allowed_study_ids) | Q(pk__in=allowed_site_ids)).distinct()
+
+    def _user_has_context_permission_anywhere(self, user, permission_code: str) -> bool:
+        if user is None or not getattr(user, "pk", None):
+            return False
+        if getattr(user, "is_superuser", False):
+            return True
+
+        authorization = ContextualAuthorizationService()
+        study_memberships = list(
+            self.list_study_memberships_for_user(user).values_list("study_id", flat=True).distinct()
+        )
+        for study_id in study_memberships:
+            if authorization.can(user, permission_code, study_id=study_id).allowed:
+                return True
+
+        site_memberships = list(
+            self.list_site_memberships_for_user(user).values_list("study_id", "site_id").distinct()
+        )
+        for study_id, site_id in site_memberships:
+            if authorization.can(
+                user,
+                permission_code,
+                study_id=study_id,
+                study_site_id=site_id,
+            ).allowed:
+                return True
+        return False
 
     def set_user_study_memberships(self, *, user, study_ids, actor_user_id, role_ids_by_study_id=None):
         if user is None or not getattr(user, "pk", None):

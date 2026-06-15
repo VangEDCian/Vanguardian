@@ -7,6 +7,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.datacapture.public import get_page_state_contexts
+from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 from apps.reconcile.application import ReconcileDataQueryWriteService
 from apps.shared.navigation import user_can_access_permission
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
@@ -39,7 +40,10 @@ def _json_body(raw_body: bytes) -> dict:
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class QueryLifecycleActionAPIView(LoginRequiredMixin, SubjectAbstractVerifyStudy, View):
+class QueryLifecycleActionAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
+    permission_required = "reconcile.view_dataquery"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):

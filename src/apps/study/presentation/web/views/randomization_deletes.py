@@ -28,6 +28,7 @@ class StudyRandomizationSchemeDeleteView(
     View,
 ):
     permission_required = "study.update_study"
+    authorization_scope = "STUDY"
     raise_exception = True
     delete_service_class = DeleteRandomizationSchemeService
 
@@ -85,6 +86,7 @@ class StudyRandomizationArmDeleteView(
     View,
 ):
     permission_required = "study.update_study"
+    authorization_scope = "STUDY"
     raise_exception = True
     delete_service_class = DeleteRandomizationArmService
 

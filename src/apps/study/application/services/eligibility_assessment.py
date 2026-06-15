@@ -67,9 +67,9 @@ class EligibilityAssessmentService:
         return SubjectEligibilityWorkflowAdapter()
 
     def finalize(self, command: FinalizeEligibilityAssessmentCommand) -> EligibilityAssessmentResult:
-        self._require_permission(command.actor_id, "finalize_subject_eligibility")
+        self._require_permission(command.actor_id, command.study_id, "finalize_subject_eligibility")
         if command.force_result:
-            self._require_permission(command.actor_id, "override_subject_eligibility")
+            self._require_permission(command.actor_id, command.study_id, "override_subject_eligibility")
 
         subject_scope = self.subject_workflow_adapter.get_subject_scope(
             study_id=command.study_id,
@@ -167,7 +167,7 @@ class EligibilityAssessmentService:
         )
 
     def retract(self, command: RetractEligibilityAssessmentCommand) -> EligibilityAssessmentResult:
-        self._require_permission(command.actor_id, "retract_subject_eligibility")
+        self._require_permission(command.actor_id, command.study_id, "retract_subject_eligibility")
         if not command.reason_code or not command.reason_text:
             raise EligibilityAssessmentError("Reason code and reason text are required to retract eligibility.")
 
@@ -310,7 +310,7 @@ class EligibilityAssessmentService:
         )
 
     def enroll_subject(self, command: EnrollSubjectCommand) -> EligibilityAssessmentResult:
-        self._require_permission(command.actor_id, "finalize_subject_eligibility")
+        self._require_permission(command.actor_id, command.study_id, "finalize_subject_eligibility")
         assessment = self.repository.get_current_assessment(
             study_id=command.study_id,
             subject_id=command.subject_id,
@@ -588,8 +588,12 @@ class EligibilityAssessmentService:
             preferred_codes=["ENROLLMENT", "ELIGIBILITY_ASSESSMENT", "SCREENING"],
         )
 
-    def _require_permission(self, actor_id: int | None, permission_codename: str) -> None:
-        if not self.repository.actor_has_permission(actor_id=actor_id, permission_codename=permission_codename):
+    def _require_permission(self, actor_id: int | None, study_id: int, permission_codename: str) -> None:
+        if not self.repository.actor_has_permission(
+            actor_id=actor_id,
+            study_id=study_id,
+            permission_codename=permission_codename,
+        ):
             raise EligibilityAssessmentPermissionError(
                 f"Permission study.{permission_codename} is required.",
             )

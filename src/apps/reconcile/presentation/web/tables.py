@@ -20,6 +20,7 @@ class QueryWorkbenchTable(tables.Table):
     opened_at = tables.Column(verbose_name=_("Opened"))
     last_activity_at = tables.Column(verbose_name=_("Last Activity"))
     assigned_to_display = tables.Column(verbose_name=_("Assigned To"), orderable=False)
+    opened_by_display = tables.Column(verbose_name=_("Opened By"), orderable=False)
     actions = tables.TemplateColumn(
         template_name="reconcile/includes/query_workbench_actions_cell.html",
         verbose_name=_("Actions"),
@@ -75,6 +76,7 @@ class QueryWorkbenchTable(tables.Table):
             "opened_at",
             "last_activity_at",
             "assigned_to_display",
+            "opened_by_display",
             "actions",
         )
 

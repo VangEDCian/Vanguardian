@@ -42,6 +42,7 @@ from apps.shared.views.generic import AuthenticateTemplateContextMixin, Authenti
 
 class IdentityUsersView(AuthenticateTemplateView):
     permission_required = "identity.view_user_list"
+    require_study_context = False
     raise_exception = True
     template_name = "identity/users.html"
     layout_nav_key = "USERS"
@@ -87,6 +88,7 @@ class IdentityUsersView(AuthenticateTemplateView):
 
 class IdentityUserCreateView(AuthenticateTemplateView):
     permission_required = "identity.create_user"
+    require_study_context = False
     raise_exception = True
     template_name = "identity/user_create.html"
     layout_nav_key = "USERS"
@@ -135,6 +137,14 @@ class IdentityUserCreateView(AuthenticateTemplateView):
         context["back_url"] = reverse("identity:users")
         context["create_url"] = reverse("identity:user_create")
         context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
+        context["can_manage_permission_groups"] = self._can_manage_permission_groups(
+            self.request.user,
+            study_id=get_default_study_id(self.request),
+        )
+        context["permission_group_options"] = self._build_select_options(
+            form.fields["permission_groups"].choices,
+            form["permission_groups"].value() or [],
+        )
         context["study_options"] = self._build_select_options(
             form.fields["studies"].choices,
             form["studies"].value() or [],
@@ -260,6 +270,22 @@ class IdentityUserCreateView(AuthenticateTemplateView):
             study_id=study_id,
         )
 
+    @staticmethod
+    def _can_manage_permission_groups(request_user, study_id=None):
+        return (
+            request_user.is_superuser
+            or user_can_access_permission(
+                request_user,
+                "identity.create_user",
+                study_id=study_id,
+            )
+            or user_can_access_permission(
+                request_user,
+                "identity.update_user",
+                study_id=study_id,
+            )
+        )
+
     def _accessible_study_ids(self):
         return tuple(
             self.get_user_directory_query_service()
@@ -305,6 +331,7 @@ class IdentityUserCreateView(AuthenticateTemplateView):
 
 class IdentityUserDetailView(AuthenticateTemplateView):
     permission_required = "identity.view_user_detail"
+    require_study_context = False
     raise_exception = True
     template_name = "identity/user_detail.html"
     layout_nav_key = "USERS"
@@ -356,7 +383,11 @@ class IdentityUserDetailView(AuthenticateTemplateView):
 
     def dispatch(self, request, *args, **kwargs):
         self.include_deleted = self._include_deleted_users(request)
-        if self.include_deleted and not request.user.has_perm("identity.restore_user"):
+        if self.include_deleted and not user_can_access_permission(
+            request.user,
+            "identity.restore_user",
+            study_id=get_default_study_id(request),
+        ):
             raise PermissionDenied
 
         try:
@@ -401,6 +432,10 @@ class IdentityUserDetailView(AuthenticateTemplateView):
             context["detail_user"] = self.detail_view_model["detail_user"]
             context["can_update_detail"] = self._can_update_detail(self.request.user)
             context["can_manage_permissions"] = self._can_manage_permissions(self.request.user)
+            context["can_manage_permission_groups"] = self._can_manage_permission_groups(
+                self.request.user,
+                study_id=get_default_study_id(self.request),
+            )
             context["can_delete_user"] = self._can_delete_user(self.request.user)
             context["can_restore_user"] = self._can_restore_user(self.request.user)
             context["delete_url"] = reverse("identity:user_delete", kwargs={"user_id": self.detail_view_model["detail_user"]["id"]})
@@ -498,7 +533,11 @@ class IdentityUserDetailView(AuthenticateTemplateView):
     def _can_delete_user(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
         return (
-            request_user.has_perm("identity.delete_user")
+            user_can_access_permission(
+                request_user,
+                "identity.delete_user",
+                study_id=get_default_study_id(self.request),
+            )
             and request_user.pk != detail_user_id
             and not self.detail_view_model["detail_user"]["is_deleted"]
         )
@@ -506,7 +545,11 @@ class IdentityUserDetailView(AuthenticateTemplateView):
     def _can_restore_user(self, request_user):
         detail_user_id = self.detail_view_model["detail_user"]["id"]
         return (
-            request_user.has_perm("identity.restore_user")
+            user_can_access_permission(
+                request_user,
+                "identity.restore_user",
+                study_id=get_default_study_id(self.request),
+            )
             and request_user.pk != detail_user_id
             and self.detail_view_model["detail_user"]["is_deleted"]
         )
@@ -522,6 +565,30 @@ class IdentityUserDetailView(AuthenticateTemplateView):
             and request_user.pk != detail_user_id
             and not self.detail_view_model["detail_user"]["is_deleted"]
         )
+
+    @staticmethod
+    def _can_manage_permission_groups(request_user, study_id=None):
+        return (
+            request_user.is_superuser
+            or user_can_access_permission(
+                request_user,
+                "identity.create_user",
+                study_id=study_id,
+            )
+            or user_can_access_permission(
+                request_user,
+                "identity.update_user",
+                study_id=study_id,
+            )
+        )
+
+    def _permission_group_ids_for_update(self, form):
+        if self._can_manage_permission_groups(
+            self.request.user,
+            study_id=get_default_study_id(self.request),
+        ):
+            return tuple(form.cleaned_data.get("permission_groups", ()))
+        return tuple(self.detail_view_model["detail_user"].get("selected_permission_group_ids", ()))
 
     @staticmethod
     def _parse_request_payload(request):
@@ -557,6 +624,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
 
 class IdentityStudyOptionsApiView(AuthenticateTemplateContextMixin, View):
     permission_required = "study.view_study_list"
+    require_study_context = False
     raise_exception = True
     user_directory_query_service_class = IdentityUserDirectoryQueryService
 
@@ -591,6 +659,7 @@ class IdentityStudyOptionsApiView(AuthenticateTemplateContextMixin, View):
 
 class IdentityStudySiteOptionsApiView(AuthenticateTemplateContextMixin, View):
     permission_required = ("study.view_study_list", "site.view_site_list")
+    require_study_context = False
     raise_exception = True
     user_directory_query_service_class = IdentityUserDirectoryQueryService
 
@@ -643,6 +712,7 @@ def _normalize_study_ids_param(raw_value):
 
 class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
     permission_required = "identity.delete_user"
+    require_study_context = False
     raise_exception = True
     delete_user_service_class = DeleteIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService
@@ -684,6 +754,7 @@ class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
 
 class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
     permission_required = "identity.restore_user"
+    require_study_context = False
     raise_exception = True
     restore_user_service_class = RestoreIdentityUserService
     identity_user_audit_service_class = IdentityUserAuditService

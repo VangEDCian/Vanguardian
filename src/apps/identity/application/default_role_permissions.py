@@ -2,6 +2,14 @@ from apps.identity.application import permissions as permission_registry
 
 DEFAULT_PERMISSION_LABELS = permission_registry.APP_PERMISSION_LABELS
 DEFAULT_EDC_PERMISSION_LABELS = permission_registry.EDC_PERMISSION_LABELS
+DEFAULT_PERMISSION_CONTENT_TYPES = {
+    "dashboard": "dashboard",
+    "identity": "user",
+    "reconcile": "dataquery",
+    "site": "site",
+    "study": "study",
+    "subject": "subject",
+}
 
 DEFAULT_EDC_ROLES = (
     {
@@ -103,3 +111,35 @@ DEFAULT_EDC_ROLES = (
         ),
     },
 )
+
+
+def _to_legacy_role_group(role_definition):
+    scope_level = str(role_definition["scope_level"]).upper()
+    return {
+        "group_name": role_definition["role_name"],
+        "role_name": role_definition["role_name"],
+        "role_code": role_definition["role_code"],
+        "scope_level": scope_level,
+        "scope": scope_level,
+        "access_levels": (scope_level,),
+        "permissions": tuple(role_definition["permissions"]),
+    }
+
+
+DEFAULT_EDC_ROLE_GROUPS = tuple(
+    _to_legacy_role_group(role_definition)
+    for role_definition in DEFAULT_EDC_ROLES
+)
+
+# Backward-compatible aliases for historical migrations.
+DEFAULT_ROLE_GROUPS = DEFAULT_EDC_ROLE_GROUPS
+
+
+__all__ = [
+    "DEFAULT_EDC_PERMISSION_LABELS",
+    "DEFAULT_EDC_ROLE_GROUPS",
+    "DEFAULT_EDC_ROLES",
+    "DEFAULT_PERMISSION_CONTENT_TYPES",
+    "DEFAULT_PERMISSION_LABELS",
+    "DEFAULT_ROLE_GROUPS",
+]

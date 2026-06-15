@@ -30,6 +30,7 @@ class CrfFormBuilderView(
     AuthenticateTemplateView,
 ):
     permission_required = "study.manage_crf_template"
+    require_study_context = False
     raise_exception = True
     template_name = "crf/form_builder.html"
     layout_nav_key = "STUDIES"

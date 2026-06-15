@@ -216,6 +216,14 @@ def randomize_subject(**kwargs):
     return RandomizeSubject().execute(RandomizeSubjectCommand(**kwargs))
 
 
+def get_subject_site_id(*, study_id: int, subject_id: int) -> int | None:
+    return (
+        Subject.objects.filter(pk=subject_id, study_id=study_id, deleted=False)
+        .values_list("site_id", flat=True)
+        .first()
+    )
+
+
 class SubjectEligibilityWorkflowAdapter:
     def __init__(self, workflow_service=None):
         self.workflow_service = workflow_service or SubjectEligibilityWorkflowService()
@@ -264,6 +272,7 @@ __all__ = [
     "SubjectPeriodMilestone",
     "SubjectScopeSnapshot",
     "complete_subject_event_instance",
+    "get_subject_site_id",
     "mark_subject_event_instance_in_progress",
     "resync_subject_active_study_version",
     "resync_subject_event_instances",

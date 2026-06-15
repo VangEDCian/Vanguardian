@@ -7,6 +7,7 @@ from django.views.generic import TemplateView
 from django_tables2.views import RequestConfig
 
 from apps.reconcile.application.services.query_workbench import QUERY_WORKBENCH_BUCKETS, QueryWorkbenchReader
+from apps.identity.presentation.access import get_authorization_context
 from apps.reconcile.presentation.web.forms import QueryWorkbenchFilterForm
 from apps.reconcile.presentation.web.tables import QueryWorkbenchTable, ValidationIssueWorkbenchTable
 from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHandler
@@ -43,13 +44,22 @@ class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerify
         resolved_study_id = StudyDropdownHandler(request=request).build().selected_id
         if path_study_id and resolved_study_id:
             if path_study_id == resolved_study_id:
+                if not request.GET:
+                    return redirect(
+                        f"{request.path}?{urlencode({'status': 'open', 'assigned_to_me': 'on', 'opened_by_me': 'on'})}"
+                    )
                 return super().get(request, *args, **kwargs)
             return redirect(reverse("reconcile:query_workbench", kwargs={"study_id": resolved_study_id}))
         return redirect(get_default_authenticated_url(request))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        filter_form = QueryWorkbenchFilterForm(self.request.GET)
+        filter_params = self.request.GET.copy()
+        if not filter_params:
+            filter_params["status"] = "open"
+            filter_params["assigned_to_me"] = "on"
+            filter_params["opened_by_me"] = "on"
+        filter_form = QueryWorkbenchFilterForm(filter_params)
         filter_form.is_valid()
         cleaned = filter_form.cleaned_data
         bucket = self.request.GET.get("bucket", "all")
@@ -80,7 +90,7 @@ class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerify
         validation_issue_table = ValidationIssueWorkbenchTable(result.validation_issues)
         empty_text = (
             _("No data queries match the current filters.")
-            if self.request.GET
+            if filter_params
             else _("No data queries found for the selected study/site.")
         )
         table.empty_text = empty_text
@@ -176,6 +186,8 @@ class QueryWorkbenchView(AuthenticateTemplateContextMixin, SubjectAbstractVerify
 
 class QueryDetailView(AuthenticateTemplateContextMixin, SubjectAbstractVerifyStudy, TemplateView):
     permission_required = VIEW_QUERY_PERMISSION
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
     layout_nav_key = "QUERIES"
     layout_breadcrumb_label = _("DATA QUERIES")
@@ -184,7 +196,7 @@ class QueryDetailView(AuthenticateTemplateContextMixin, SubjectAbstractVerifyStu
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        selected_site_id = SiteDropdownHandler(request=self.request, study_id=self.get_study_id()).build().selected_id
+        selected_site_id = get_authorization_context(self.request).study_site_id
         can_view_internal_thread = user_can_access_permission(
             self.request.user,
             VIEW_INTERNAL_QUERY_THREAD_PERMISSION,

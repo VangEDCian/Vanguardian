@@ -1,3 +1,5 @@
+from django.shortcuts import redirect
+
 from apps.identity.application.authorization import AuthorizationContext
 from apps.identity.presentation.access import user_bypasses_context_permission, validate_required_context
 from apps.study.public import study_site_belongs_to_study
@@ -34,12 +36,27 @@ class AuthorizationContextMiddleware:
             require_study=metadata.get("require_study", True),
             require_site=metadata.get("require_site", False),
         )
+        if (
+            bad_context_response is not None
+            and request.authorization_context.is_valid
+            and (
+                (metadata.get("require_study", True) and request.authorization_context.study_id is None)
+                or (
+                    metadata.get("require_site", False)
+                    and request.authorization_context.study_site_id is None
+                )
+            )
+        ):
+            return redirect("/")
         if bad_context_response is not None:
             return bad_context_response
         return None
 
     def _resolve_context(self, request, view_kwargs) -> AuthorizationContext:
         route_values = self._route_values(view_kwargs)
+        derived_route_values = self._derive_route_values(request, route_values, view_kwargs)
+        if derived_route_values:
+            route_values.update(derived_route_values)
         if route_values:
             return self._context_from_values("route", route_values)
 
@@ -52,6 +69,53 @@ class AuthorizationContextMiddleware:
             return self._context_from_values("query", query_values)
 
         return AuthorizationContext(study_id=None, study_site_id=None, source="none", raw={})
+
+    def _derive_route_values(self, request, route_values: dict, view_kwargs) -> dict:
+        if not route_values.get("study_id") or route_values.get("study_site_id"):
+            return {}
+
+        study_id = route_values.get("study_id")
+        subject_id = view_kwargs.get("subject_id")
+        if subject_id is not None:
+            site_id = self._resolve_subject_site_id(study_id=study_id, subject_id=subject_id)
+            if site_id is not None:
+                return {"study_site_id": site_id}
+
+        query_id = view_kwargs.get("query_id")
+        if query_id is not None:
+            site_id = self._resolve_query_site_id(study_id=study_id, query_id=query_id)
+            if site_id is not None:
+                return {"study_site_id": site_id}
+
+        site_id = self._resolve_default_site_id(request=request, study_id=study_id)
+        if site_id is not None:
+            return {"study_site_id": site_id}
+
+        return {}
+
+    @staticmethod
+    def _resolve_subject_site_id(*, study_id: int, subject_id: int) -> int | None:
+        from apps.subject.public import get_subject_site_id
+
+        return get_subject_site_id(
+            study_id=int(study_id),
+            subject_id=int(subject_id),
+        )
+
+    @staticmethod
+    def _resolve_query_site_id(*, study_id: int, query_id: int) -> int | None:
+        from apps.reconcile.public import get_reconcile_query_site_id
+
+        return get_reconcile_query_site_id(
+            study_id=int(study_id),
+            dataquery_id=int(query_id),
+        )
+
+    @staticmethod
+    def _resolve_default_site_id(*, request, study_id: int) -> int | None:
+        from apps.shared.navigation import get_default_site_id
+
+        return get_default_site_id(request, study_id=int(study_id))
 
     def _context_from_values(self, source: str, values: dict) -> AuthorizationContext:
         raw = dict(values)

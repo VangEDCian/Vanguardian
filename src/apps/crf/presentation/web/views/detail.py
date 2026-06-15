@@ -8,6 +8,7 @@ from apps.shared.views import AuthenticateTemplateView
 
 class CrfFormDetailView(AuthenticateTemplateView):
     permission_required = "study.view_study_detail"
+    require_study_context = False
     raise_exception = True
     template_name = "crf/form_detail.html"
     layout_nav_key = "STUDIES"

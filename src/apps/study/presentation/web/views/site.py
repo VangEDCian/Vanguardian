@@ -146,6 +146,8 @@ class SiteDetailView(
     SiteAbstractVerifyStudy,
 ):
     permission_required = "site.view_site_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("SITES")
@@ -223,11 +225,13 @@ class SiteDetailView(
             self.request.user,
             "site.update_site",
             study_id=self.get_study_id(),
+            site_id=self.object.pk,
         )
         context["can_delete_site"] = user_can_access_permission(
             self.request.user,
             "site.delete_site",
             study_id=self.get_study_id(),
+            site_id=self.object.pk,
         )
         return context
 
@@ -241,10 +245,14 @@ class SiteDetailView(
         return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        if not user_can_access_permission(request.user, "site.update_site", study_id=self.get_study_id()):
-            raise PermissionDenied
-
         site = self.get_object()
+        if not user_can_access_permission(
+            request.user,
+            "site.update_site",
+            study_id=self.get_study_id(),
+            site_id=site.pk,
+        ):
+            raise PermissionDenied
         studies = StudySiteDirectoryQueryService.get_active_studies(
             request.user,
         )
@@ -290,6 +298,7 @@ class SiteDetailView(
 
 class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, SiteAbstractVerifyStudy):
     permission_required = "site.create_site"
+    authorization_scope = "STUDY"
     raise_exception = True
     layout_nav_key = "SITES"
     layout_breadcrumb_label = _("NEW SITE")
@@ -394,6 +403,8 @@ class SiteCreateView(SiteInvestigatorContextMixin, AuthenticateTemplateView, Sit
 
 class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractVerifyStudy):
     permission_required = "site.delete_site"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
     pk_url_kwarg = 'site_id'
     model = Site
@@ -405,7 +416,12 @@ class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractV
         site: Site | None = self.get_object()
         if not site:
             raise Http404
-        if not _user_has_study_access(request.user, self.get_study_id()):
+        if not user_can_access_permission(
+            request.user,
+            "site.delete_site",
+            study_id=self.get_study_id(),
+            site_id=site.pk,
+        ):
             raise PermissionDenied
 
         # snapshot before destroy
@@ -430,6 +446,8 @@ class SiteDeleteView(AuthenticateTemplateContextMixin, DetailView, SiteAbstractV
 
 class SiteMembershipOptionsApiView(SiteInvestigatorContextMixin, AuthenticateTemplateContextMixin, View):
     permission_required = "site.view_site_membership_list"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     @staticmethod

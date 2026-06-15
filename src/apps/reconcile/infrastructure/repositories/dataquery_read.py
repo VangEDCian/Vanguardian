@@ -990,9 +990,13 @@ class DjangoReconcileDataQueryReadRepository:
             queryset = queryset.filter(is_blocking=True)
         elif blocking == "no":
             queryset = queryset.filter(is_blocking=False)
-        if assigned_to_id is not None:
+        if assigned_to_id is not None and opened_by_id is not None:
+            queryset = queryset.filter(
+                Q(assigned_to_id=assigned_to_id) | Q(opened_by_id=opened_by_id)
+            )
+        elif assigned_to_id is not None:
             queryset = queryset.filter(assigned_to_id=assigned_to_id)
-        if opened_by_id is not None:
+        elif opened_by_id is not None:
             queryset = queryset.filter(opened_by_id=opened_by_id)
         if search:
             query = Q(question_text__icontains=search) | Q(resolution_note__icontains=search)

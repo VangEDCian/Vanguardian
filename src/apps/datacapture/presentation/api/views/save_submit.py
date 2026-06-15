@@ -1,4 +1,4 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from apps.datacapture.application import DataCaptureSaveSubmitPageService
 from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.application.services.page_entry_read import DataCapturePageEntryReadService
+from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 from apps.datacapture.presentation.api.mappers.save_submit import (
     delete_draft_page_command_from_post,
     save_page_command_from_post,
@@ -32,8 +33,10 @@ def _latest_active_entry_payload(*, subject_id: int, visit_id: int, crf_template
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class DataCaptureSaveAPIView(LoginRequiredMixin, PermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
+class DataCaptureSaveAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -67,8 +70,10 @@ class DataCaptureSaveAPIView(LoginRequiredMixin, PermissionRequiredMixin, Subjec
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class DataCaptureSubmitAPIView(LoginRequiredMixin, PermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
+class DataCaptureSubmitAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -101,8 +106,10 @@ class DataCaptureSubmitAPIView(LoginRequiredMixin, PermissionRequiredMixin, Subj
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class DataCaptureDeleteDraftAPIView(LoginRequiredMixin, PermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
+class DataCaptureDeleteDraftAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):

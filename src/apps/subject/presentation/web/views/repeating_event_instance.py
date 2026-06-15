@@ -19,6 +19,8 @@ class SubjectAddRepeatingEventInstanceView(
     View,
 ):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
     service_class = AddRepeatingSubjectEventInstanceService
 

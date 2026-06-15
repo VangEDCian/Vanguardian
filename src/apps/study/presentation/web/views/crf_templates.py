@@ -46,6 +46,7 @@ class StudyCrfTemplateListView(
     SingleTableMixin, FilterView, ListView,
 ):
     permission_required = "study.view_study_detail"
+    authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/crf_templates.html"
     layout_nav_key = "STUDIES"
@@ -236,6 +237,7 @@ class StudyCrfTemplateListView(
 
 class StudyCrfTemplateImportTemplateView(StudyCrfTemplateListView):
     permission_required = "study.manage_crf_template"
+    authorization_scope = "STUDY"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):
@@ -246,6 +248,7 @@ class StudyCrfTemplateImportTemplateView(StudyCrfTemplateListView):
 
 class StudyCrfTemplateFieldImportTemplateView(StudyCrfTemplateListView):
     permission_required = "study.manage_crf_template"
+    authorization_scope = "STUDY"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):
@@ -345,6 +348,7 @@ class StudyCrfTemplateFieldImportTemplateView(StudyCrfTemplateListView):
 
 class StudyCrfSectionLayoutConfigImportTemplateView(StudyCrfTemplateListView):
     permission_required = "study.manage_crf_template"
+    authorization_scope = "STUDY"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):
@@ -398,6 +402,7 @@ class StudyCrfSectionLayoutConfigImportTemplateView(StudyCrfTemplateListView):
 
 class StudyCrfValidationRuleImportTemplateView(StudyCrfTemplateListView):
     permission_required = "study.manage_crf_template"
+    authorization_scope = "STUDY"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):

@@ -1,6 +1,6 @@
 import json
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -36,6 +36,7 @@ from apps.subject.application import (
     SubjectFormVerificationRequestValidator,
     SubjectValidationError,
 )
+from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 from apps.subject.public import SubjectAbstractVerifyStudy
 from apps.shared.navigation import user_can_access_permission
 
@@ -215,11 +216,13 @@ def _review_context_status_and_submitted_entry(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationVerifyCheckedView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
+    ContextPermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
     permission_required = "subject.verify_form"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -302,11 +305,13 @@ class SubjectFormVerificationVerifyCheckedView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationReopenView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
+    ContextPermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
     permission_required = "subject.verify_form"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -334,11 +339,13 @@ class SubjectFormVerificationReopenView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationFinalizePageDataView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
+    ContextPermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
     permission_required = "subject.verify_form"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -374,11 +381,13 @@ class SubjectFormVerificationFinalizePageDataView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationLockPageView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
+    ContextPermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
     permission_required = "DATA.LOCK"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -404,11 +413,13 @@ class SubjectFormVerificationLockPageView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationQueryThreadView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
+    ContextPermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
     permission_required = "subject.verify_form"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -511,11 +522,13 @@ class SubjectFormVerificationQueryThreadView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationOpenQueryView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
+    ContextPermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
     permission_required = "subject.verify_form"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -575,11 +588,13 @@ class SubjectFormVerificationOpenQueryView(
 @method_decorator(csrf_exempt, name="dispatch")
 class SubjectValidationIssueAcknowledgeView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
+    ContextPermissionRequiredMixin,
     SubjectAbstractVerifyStudy,
     View,
 ):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):

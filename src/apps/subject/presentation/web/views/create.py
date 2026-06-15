@@ -14,6 +14,8 @@ class SubjectCreateView(
     SubjectAbstractVerifyStudy,
 ):
     permission_required = "subject.create_subject"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):

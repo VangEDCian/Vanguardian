@@ -9,6 +9,7 @@ from django_tables2 import SingleTableMixin
 
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.shared.views.generic import AuthenticateTemplateView
+from apps.shared.navigation import user_can_access_permission
 from apps.study.application import (
     EventDefinitionImportDependencyError,
     EventDefinitionImportFormatError,
@@ -52,6 +53,7 @@ class StudyEventDefinitionListView(
     SingleTableMixin, FilterView, ListView,
 ):
     permission_required = "study.view_study_detail"
+    authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/event_definitions.html"
     layout_nav_key = "STUDIES"
@@ -200,7 +202,11 @@ class StudyEventDefinitionListView(
         return context
 
     def post(self, request, *args, **kwargs):
-        if not request.user.has_perm("study.create_study_eventdefinition"):
+        if not user_can_access_permission(
+            request.user,
+            "study.create_study_eventdefinition",
+            study_id=self._study.pk,
+        ):
             raise PermissionDenied
 
         import_form = EventDefinitionImportTemplateForm(request.POST, request.FILES)
@@ -240,6 +246,7 @@ class StudyEventDefinitionListView(
 
 class StudyEventDefinitionCreateView(AuthenticateTemplateView):
     permission_required = "study.create_study_eventdefinition"
+    authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/event_definition_form.html"
     layout_nav_key = "STUDIES"
@@ -288,6 +295,7 @@ class StudyEventDefinitionCreateView(AuthenticateTemplateView):
 
 class StudyEventDefinitionImportTemplateView(StudyEventDefinitionListView):
     permission_required = "study.create_study_eventdefinition"
+    authorization_scope = "STUDY"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):
@@ -298,6 +306,7 @@ class StudyEventDefinitionImportTemplateView(StudyEventDefinitionListView):
 
 class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
     permission_required = "study.create_study_eventdefinition"
+    authorization_scope = "STUDY"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):
@@ -306,7 +315,11 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
         )
 
     def post(self, request, *args, **kwargs):
-        if not request.user.has_perm("study.create_study_eventdefinition"):
+        if not user_can_access_permission(
+            request.user,
+            "study.create_study_eventdefinition",
+            study_id=self._study.pk,
+        ):
             raise PermissionDenied
 
         binding_import_form = EventFormBindingImportTemplateForm(request.POST, request.FILES)
@@ -353,6 +366,7 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
 
 class StudyFactMappingImportTemplateView(StudyEventDefinitionListView):
     permission_required = "study.create_study_eventdefinition"
+    authorization_scope = "STUDY"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):
@@ -362,7 +376,11 @@ class StudyFactMappingImportTemplateView(StudyEventDefinitionListView):
         )
 
     def post(self, request, *args, **kwargs):
-        if not request.user.has_perm("study.create_study_eventdefinition"):
+        if not user_can_access_permission(
+            request.user,
+            "study.create_study_eventdefinition",
+            study_id=self._study.pk,
+        ):
             raise PermissionDenied
 
         fact_mapping_import_form = FactMappingImportTemplateForm(request.POST, request.FILES)

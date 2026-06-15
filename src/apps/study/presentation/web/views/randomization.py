@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
+from apps.shared.navigation import user_can_access_permission
 from apps.study.application import (
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,
@@ -75,6 +76,7 @@ class StudyRandomizationView(
     AuthenticateTemplateView,
 ):
     permission_required = "study.view_study_detail"
+    authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/randomization.html"
     layout_nav_key = "STUDIES"
@@ -150,8 +152,10 @@ class StudyRandomizationView(
                 study_id=self._study.pk,
             ),
         )
-        context["can_manage_randomization_import"] = self.request.user.has_perm(
+        context["can_manage_randomization_import"] = user_can_access_permission(
+            self.request.user,
             "study.update_study",
+            study_id=self._study.pk,
         )
         context["randomization_scheme_preview_url"] = reverse(
             "study:study_randomization_scheme_import_preview",
@@ -191,6 +195,7 @@ class StudyRandomizationImportBaseView(
     View,
 ):
     permission_required = "study.update_study"
+    authorization_scope = "STUDY"
     raise_exception = True
     import_form_class = RandomizationImportFileForm
     preview_title = _("Import Preview")

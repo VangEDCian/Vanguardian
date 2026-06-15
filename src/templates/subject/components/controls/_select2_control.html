@@ -14,7 +14,7 @@
        data-submitted-diff-control="select2"
        data-field-lookup-label-input
        data-field-lookup-key="{{ field.lookup_key }}"
-       data-field-lookup-url="/api/fields/values"
+       data-field-lookup-url="/api/fields/values?study_id={{ shared_study_selected_id }}&study_site_id={{ shared_site_selected_id }}"
        list="field-lookup-options-{{ field.id }}"
        autocomplete="off"
        {% if field.style %}style="{{ field.style }}"{% endif %}

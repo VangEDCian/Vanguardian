@@ -203,6 +203,21 @@ def get_reconcile_query_action_scope(*, dataquery_id: int) -> dict[str, object] 
     return ReconcileDataQueryWriteService().query_action_scope(dataquery_id=dataquery_id)
 
 
+def get_reconcile_query_site_id(*, study_id: int, dataquery_id: int) -> int | None:
+    from apps.datacapture.public import get_page_state_contexts
+
+    scope = get_reconcile_query_action_scope(dataquery_id=dataquery_id)
+    if scope is None:
+        return None
+    page_state_id = scope.get("page_state_id")
+    if page_state_id is None:
+        return None
+    page_context = get_page_state_contexts(page_state_ids=[int(page_state_id)]).get(int(page_state_id))
+    if page_context is None or int(getattr(page_context, "study_id", 0) or 0) != int(study_id):
+        return None
+    return getattr(page_context, "site_id", None)
+
+
 def cancel_reconcile_query(
     *,
     dataquery_id: int,
@@ -226,6 +241,7 @@ __all__ = [
     "create_data_queries_for_page_change_reasons",
     "create_reconcile_records_for_validation_failures",
     "get_reconcile_query_action_scope",
+    "get_reconcile_query_site_id",
     "has_open_reconcile_validation_issue_for_page_field",
     "has_verified_reconcile_query_for_page_field",
     "list_open_reconcile_validation_issues_by_fields",

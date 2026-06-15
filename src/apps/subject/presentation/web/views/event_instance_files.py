@@ -119,6 +119,8 @@ class SubjectEventInstanceFileImportView(
     View,
 ):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
@@ -185,6 +187,8 @@ class SubjectEventInstanceFilePreviewView(
     TemplateView,
 ):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
     template_name = "subject/subject_eventinstance_files_preview2.html"
     layout_nav_key = "SUBJECTS"
@@ -244,6 +248,8 @@ class SubjectEventInstanceFileContentView(
     View,
 ):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
 
     def get(self, request, *args, **kwargs):

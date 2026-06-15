@@ -1,12 +1,16 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.views import View
 
 from apps.crf.application.services import CrfFieldLookupQueryService
+from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 
 
-class CrfFieldLookupValuesAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class CrfFieldLookupValuesAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, View):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_study_context = False
+    require_site_context = True
     raise_exception = True
 
     def get(self, request, *args, **kwargs):

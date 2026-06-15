@@ -21,6 +21,7 @@ from apps.datacapture.public import (
     get_verified_field_template_ids_for_subject_visit_crf,
 )
 from apps.reconcile.public import list_open_reconcile_validation_issues_by_fields
+from apps.shared.navigation import user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
 from apps.subject.application.services.form_verification_navigation import (
@@ -49,6 +50,8 @@ class SubjectDetailView(
     SubjectAbstractVerifyStudy,
 ):
     permission_required = "subject.view_subject_detail"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
     raise_exception = True
     layout_nav_key = "SUBJECTS"
     template_name = "subject/subject_detail.html"
@@ -572,7 +575,12 @@ class SubjectDetailView(
                 if (
                     is_form_verification_mode
                     and form_verification_user_can_review
-                    and self.request.user.has_perm(VERIFY_FORM_PERMISSION)
+                    and user_can_access_permission(
+                        self.request.user,
+                        VERIFY_FORM_PERMISSION,
+                        study_id=self.get_study_id(),
+                        site_id=subject.site_id,
+                    )
                 ):
                     if form_verification_show_actions:
                         form_verification_open_query_url = reverse(
@@ -626,7 +634,12 @@ class SubjectDetailView(
                 if (
                     is_form_verification_mode
                     and normalized_page_status == DataCapturePageState.FINALIZED
-                    and self.request.user.has_perm("DATA.LOCK")
+                    and user_can_access_permission(
+                        self.request.user,
+                        "DATA.LOCK",
+                        study_id=self.get_study_id(),
+                        site_id=subject.site_id,
+                    )
                 ):
                     form_verification_lock_page_url = reverse(
                         "subject:subject_form_verification_lock_page",

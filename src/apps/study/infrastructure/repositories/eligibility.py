@@ -17,13 +17,19 @@ class DjangoEligibilityAssessmentRepository:
     def now(self):
         return timezone.now()
 
-    def actor_has_permission(self, *, actor_id: int | None, permission_codename: str) -> bool:
+    def actor_has_permission(self, *, actor_id: int | None, study_id: int, permission_codename: str) -> bool:
         if actor_id is None:
             return True
         user = get_user_model().objects.filter(pk=actor_id, is_active=True).first()
         if user is None:
             return False
-        return user.has_perm(f"study.{permission_codename}")
+        from apps.identity.application.authorization import ContextualAuthorizationService
+
+        return ContextualAuthorizationService().can(
+            user,
+            f"study.{permission_codename}",
+            study_id=study_id,
+        ).allowed
 
     def list_active_eligibility_conditions(self, *, study_id: int, study_version: str, rule_code: str | None = None):
         queryset = ConditionDefinition.objects.filter(

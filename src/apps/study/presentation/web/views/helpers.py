@@ -1,4 +1,5 @@
 from apps.identity.infrastructure.persistence.models import StudyMembership
+from apps.shared.navigation import user_can_access_permission
 
 
 def _user_has_study_access(user, study_id):
@@ -12,8 +13,8 @@ def _user_has_study_access(user, study_id):
     return StudyMembership.objects.filter(user=user, study_id=study_id, deleted=False).exists()
 
 
-def _can_change_study_status(user):
-    return user.has_perm("study.change_study_status")
+def _can_change_study_status(user, study_id):
+    return user_can_access_permission(user, "study.change_study_status", study_id=study_id)
 
 
 def _serialize_study_snapshot(study):

@@ -11,7 +11,7 @@ from apps.identity.public import (
     get_role_permission_summary_for_study,
     import_role_permissions_for_study,
 )
-from apps.shared.navigation import get_default_study_id
+from apps.shared.navigation import get_default_study_id, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateView
 from apps.study.application import (
     StudyAuditService,
@@ -38,6 +38,8 @@ class StudyListView(
     AuthenticateTemplateView
 ):
     permission_required = "study.view_study_list"
+    authorization_scope = "STUDY"
+    require_study_context = False
     raise_exception = True
     template_name = "study/studies.html"
     layout_nav_key = "STUDIES"
@@ -65,9 +67,10 @@ class StudyListView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
-        can_search = user.has_perm("study.search_study_by_name")
-        can_filter_code = user.has_perm("study.filter_study_by_code")
-        can_filter_status = user.has_perm("study.filter_study_by_status")
+        study_id = get_default_study_id(self.request)
+        can_search = user_can_access_permission(user, "study.search_study_by_name", study_id=study_id)
+        can_filter_code = user_can_access_permission(user, "study.filter_study_by_code", study_id=study_id)
+        can_filter_status = user_can_access_permission(user, "study.filter_study_by_status", study_id=study_id)
 
         context.update(
             self.get_study_directory_query_service().list_studies(
@@ -94,6 +97,7 @@ class StudyDetailView(
     AuthenticateTemplateView
 ):
     permission_required = "study.view_study_detail"
+    authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/study_detail.html"
     layout_nav_key = "STUDIES"
@@ -149,12 +153,12 @@ class StudyDetailView(
         study_id = self._detail_view_model["detail_study"]["id"]
 
         user = self.request.user
-        can_toggle_status = _can_change_study_status(user)
-        can_update_field_name = user.has_perm("study.update_study_field_name")
-        can_update_field_sponsor = user.has_perm("study.update_study_field_sponsor")
-        can_update_field_dates = user.has_perm("study.update_study_field_dates")
-        can_update_field_description = user.has_perm(
-            "study.update_study_field_description"
+        can_toggle_status = _can_change_study_status(user, study_id)
+        can_update_field_name = user_can_access_permission(user, "study.update_study_field_name", study_id=study_id)
+        can_update_field_sponsor = user_can_access_permission(user, "study.update_study_field_sponsor", study_id=study_id)
+        can_update_field_dates = user_can_access_permission(user, "study.update_study_field_dates", study_id=study_id)
+        can_update_field_description = user_can_access_permission(
+            user, "study.update_study_field_description", study_id=study_id
         )
         can_update_detail = any((
             can_update_field_name,
@@ -183,20 +187,20 @@ class StudyDetailView(
         )
         context["can_toggle_status"] = can_toggle_status
         context["can_update_detail"] = can_update_detail
-        context["can_delete_study"] = user.has_perm("study.delete_study")
+        context["can_delete_study"] = user_can_access_permission(user, "study.delete_study", study_id=study_id)
         context["delete_url"] = reverse(
             "study:study_delete", kwargs={"study_id": study_id}
         )
 
         # Field-level view permissions
-        context["can_view_field_code"] = user.has_perm("study.view_study_field_code")
-        context["can_view_field_name"] = user.has_perm("study.view_study_field_name")
-        context["can_view_field_sponsor"] = user.has_perm(
-            "study.view_study_field_sponsor"
+        context["can_view_field_code"] = user_can_access_permission(user, "study.view_study_field_code", study_id=study_id)
+        context["can_view_field_name"] = user_can_access_permission(user, "study.view_study_field_name", study_id=study_id)
+        context["can_view_field_sponsor"] = user_can_access_permission(
+            user, "study.view_study_field_sponsor", study_id=study_id
         )
-        context["can_view_field_dates"] = user.has_perm("study.view_study_field_dates")
-        context["can_view_field_description"] = user.has_perm(
-            "study.view_study_field_description"
+        context["can_view_field_dates"] = user_can_access_permission(user, "study.view_study_field_dates", study_id=study_id)
+        context["can_view_field_description"] = user_can_access_permission(
+            user, "study.view_study_field_description", study_id=study_id
         )
         context["can_update_field_code"] = False
         context["can_update_field_name"] = can_update_field_name
@@ -220,22 +224,22 @@ class StudyDetailView(
             study_id=self._study.pk,
             code=self._study.code,
             name=form.cleaned_data["name"]
-            if request.user.has_perm("study.update_study_field_name")
+            if user_can_access_permission(request.user, "study.update_study_field_name", study_id=self._study.pk)
             else self._study.name,
             sponsor=form.cleaned_data["sponsor"]
-            if request.user.has_perm("study.update_study_field_sponsor")
+            if user_can_access_permission(request.user, "study.update_study_field_sponsor", study_id=self._study.pk)
             else self._study.sponsor,
             description=form.cleaned_data["description"]
-            if request.user.has_perm("study.update_study_field_description")
+            if user_can_access_permission(request.user, "study.update_study_field_description", study_id=self._study.pk)
             else self._study.description,
             start_date=form.cleaned_data.get("start_date")
-            if request.user.has_perm("study.update_study_field_dates")
+            if user_can_access_permission(request.user, "study.update_study_field_dates", study_id=self._study.pk)
             else self._study.start_date,
             end_date=form.cleaned_data.get("end_date")
-            if request.user.has_perm("study.update_study_field_dates")
+            if user_can_access_permission(request.user, "study.update_study_field_dates", study_id=self._study.pk)
             else self._study.end_date,
             is_active=form.cleaned_data.get("is_active", False)
-            if _can_change_study_status(request.user)
+            if _can_change_study_status(request.user, self._study.pk)
             else self._study.is_active,
             actor_user_id=request.user.pk,
         )
@@ -261,16 +265,17 @@ class StudyDetailView(
 
     def _can_update_detail(self, request_user):
         return any((
-            request_user.has_perm("study.update_study_field_name"),
-            request_user.has_perm("study.update_study_field_sponsor"),
-            request_user.has_perm("study.update_study_field_dates"),
-            request_user.has_perm("study.update_study_field_description"),
-            _can_change_study_status(request_user),
+            user_can_access_permission(request_user, "study.update_study_field_name", study_id=self._study.pk),
+            user_can_access_permission(request_user, "study.update_study_field_sponsor", study_id=self._study.pk),
+            user_can_access_permission(request_user, "study.update_study_field_dates", study_id=self._study.pk),
+            user_can_access_permission(request_user, "study.update_study_field_description", study_id=self._study.pk),
+            _can_change_study_status(request_user, self._study.pk),
         ))
 
 
 class StudyRolesContextMixin(AuthenticateTemplateView):
     permission_required = "study.view_study_detail"
+    authorization_scope = "STUDY"
     raise_exception = True
     layout_nav_key = "STUDIES"
     study_directory_query_service_class = StudyDirectoryQueryService
