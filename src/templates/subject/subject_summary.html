@@ -1,0 +1,56 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ subject_summary.title }} | {% trans "Subject Summary | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'subject/css/subject_summary.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ subject_summary.back_url }}"
+       class="dashboard-breadcrumb__back">{% trans "Subjects" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel subject-summary-screen">
+        <header class="subject-summary-screen__hero">
+            <div>
+                <p class="subject-summary-screen__eyebrow">{% trans "Subject Summary" %}</p>
+                <h1 class="subject-summary-screen__title">{{ subject_summary.title }}</h1>
+                {% if subject_summary.screening_code or subject_summary.subject_code %}
+                    <p class="subject-summary-screen__meta">
+                        {% if subject_summary.screening_code %}
+                            <span>{% trans "Screening" %}: {{ subject_summary.screening_code }}</span>
+                        {% endif %}
+                        {% if subject_summary.subject_code %}
+                            <span>{% trans "Subject" %}: {{ subject_summary.subject_code }}</span>
+                        {% endif %}
+                    </p>
+                {% endif %}
+            </div>
+            <span class="subject-summary-screen__stage">{{ subject_summary.subtitle }}</span>
+        </header>
+        <div class="subject-summary-screen__sections">
+            {% for section in subject_summary.sections %}
+                <section class="subject-summary-card">
+                    <h2 class="subject-summary-card__title">{{ section.title }}</h2>
+                    <dl class="subject-summary-card__grid">
+                        {% for item in section.items %}
+                            <div class="subject-summary-card__row">
+                                <dt class="subject-summary-card__label">{{ item.label }}</dt>
+                                <dd class="subject-summary-card__value">
+                                    {% if item.is_temporal %}
+                                        {{ item.value|date:"DATETIME_FORMAT" }}
+                                    {% else %}
+                                        {{ item.value }}
+                                    {% endif %}
+                                </dd>
+                            </div>
+                        {% endfor %}
+                    </dl>
+                </section>
+            {% endfor %}
+        </div>
+    </section>
+{% endblock %}

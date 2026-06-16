@@ -1,5 +1,6 @@
 {% load i18n static subject_list_tags %}
 {% url 'subject:subject_detail' study_id=record.study_id subject_id=record.pk as subject_detail_base_url %}
+{% url 'subject:subject_summary' study_id=record.study_id subject_id=record.pk as subject_summary_url %}
 {% url 'subject:subject_resync_stage' study_id=record.study_id subject_id=record.pk as subject_resync_stage_url %}
 {% subject_workflow_action_event_id table record.pk as workflow_action_event_id %}
 {% subject_can_update_subject table perms as can_update_subject %}
@@ -18,9 +19,12 @@
               style="--icon-url: url('{% static 'images/table/ellipsis-vertical-svgrepo-com.svg' %}')"></span>
     </button>
     <div class="crf-template-actions__menu" data-dropdown-menu hidden>
+        <a href="{{ subject_summary_url }}?next={{ request.get_full_path|urlencode }}"
+           class="crf-template-actions__item"
+           data-dropdown-option>{% trans "Subject Summary" %}</a>
         <a href="{{ subject_detail_base_url }}?mode=viewonly"
            class="crf-template-actions__item"
-           data-dropdown-option>{% trans "View Detail" %}</a>
+           data-dropdown-option>{% trans "View Form Detail" %}</a>
         {% if record.pk in table.verify_eligible_subject_ids %}
             <button type="button"
                     class="crf-template-actions__item"

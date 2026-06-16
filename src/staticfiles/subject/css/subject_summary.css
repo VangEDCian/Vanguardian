@@ -1,0 +1,127 @@
+.subject-summary-screen {
+  min-height: calc(100vh - 150px);
+  background: linear-gradient(180deg, #f7faf8 0%, #f2f5f8 100%);
+}
+
+.subject-summary-screen__hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  padding: 24px 28px;
+  border-bottom: 1px solid #d9e2e8;
+  background: linear-gradient(135deg, #fef8ef 0%, #eef5fb 100%);
+}
+
+.subject-summary-screen__eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c5a12;
+}
+
+.subject-summary-screen__title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
+  color: #173042;
+}
+
+.subject-summary-screen__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 12px 0 0;
+  color: #496170;
+  font-size: 14px;
+}
+
+.subject-summary-screen__stage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #173042;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.subject-summary-screen__sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  padding: 24px 28px 28px;
+}
+
+.subject-summary-card {
+  border: 1px solid #d9e2e8;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(23, 48, 66, 0.06);
+  overflow: hidden;
+}
+
+.subject-summary-card__title {
+  margin: 0;
+  padding: 16px 18px;
+  border-bottom: 1px solid #edf2f5;
+  font-size: 16px;
+  color: #173042;
+}
+
+.subject-summary-card__grid {
+  margin: 0;
+  padding: 8px 18px 14px;
+}
+
+.subject-summary-card__row {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf2f5;
+}
+
+.subject-summary-card__row:last-child {
+  border-bottom: 0;
+}
+
+.subject-summary-card__label {
+  margin: 0;
+  color: #6c8290;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subject-summary-card__value {
+  margin: 0;
+  color: #173042;
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .subject-summary-screen__hero {
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .subject-summary-screen__sections {
+    padding: 20px;
+    grid-template-columns: 1fr;
+  }
+
+  .subject-summary-card__row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}

@@ -50,6 +50,27 @@ class SubjectResyncStageViewTests(SimpleTestCase):
 
 
 class SubjectListActionsCellTemplateTests(SimpleTestCase):
+    def test_actions_cell_renders_subject_summary_link(self):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": {"subject": {"update_subject": True}},
+                "record": SimpleNamespace(pk=20, study_id=1),
+                "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={},
+                ),
+            },
+        )
+
+        self.assertIn("Subject Summary", rendered)
+        self.assertIn(
+            reverse("subject:subject_summary", kwargs={"study_id": 1, "subject_id": 20}),
+            rendered,
+        )
+
     def test_actions_cell_renders_resync_stage_post_action_when_permitted(self):
         rendered = render_to_string(
             "subject/includes/subject_list_actions_cell.html",

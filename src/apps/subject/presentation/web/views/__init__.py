@@ -17,6 +17,7 @@ from apps.subject.presentation.web.views.repeating_event_instance import (
     SubjectAddRepeatingEventInstanceView,
 )
 from apps.subject.presentation.web.views.resync_stage import SubjectResyncStageView
+from apps.subject.presentation.web.views.summary import SubjectSummaryView
 from apps.subject.presentation.web.views.trigger_workflow import SubjectTriggerWorkflowView
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "SubjectDetailView",
     "SubjectListView",
     "SubjectResyncStageView",
+    "SubjectSummaryView",
     "SubjectTriggerWorkflowView",
 ]
 

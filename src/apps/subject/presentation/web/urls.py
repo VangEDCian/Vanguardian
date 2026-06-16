@@ -9,6 +9,7 @@ from apps.subject.presentation.web.views import (
     SubjectEventInstanceFilePreviewView,
     SubjectListView,
     SubjectResyncStageView,
+    SubjectSummaryView,
     SubjectTriggerWorkflowView,
 )
 from apps.subject.presentation.web.views.verification_verify_checked import (
@@ -38,6 +39,11 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/<int:subject_id>/resync-stage/",
         SubjectResyncStageView.as_view(),
         name="subject_resync_stage",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/summary/",
+        SubjectSummaryView.as_view(),
+        name="subject_summary",
     ),
     path(
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/verify-checked/",
