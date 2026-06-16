@@ -15,12 +15,23 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from django.conf import settings
+from django.http import HttpResponse
 from django.urls import include, path
 
 from apps.shared.navigation import redirect_to_default_application_page
 
+
+def robots_txt(_request):
+    if getattr(settings, "SEARCH_ENGINE_INDEXING_ENABLED", False):
+        content = "User-agent: *\nAllow: /\n"
+    else:
+        content = "User-agent: *\nDisallow: /\n"
+    return HttpResponse(content, content_type="text/plain; charset=utf-8")
+
 urlpatterns = [
     path("i18n/", include("django.conf.urls.i18n")),
+    path("robots.txt", robots_txt),
     path("", redirect_to_default_application_page),
     path("api/", include("apps.crf.presentation.api.urls")),
     path("crf/", include("apps.crf.presentation.web.urls")),

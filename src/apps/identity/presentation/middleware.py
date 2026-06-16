@@ -75,6 +75,10 @@ class AuthorizationContextMiddleware:
             return {}
 
         study_id = route_values.get("study_id")
+        try:
+            int(study_id)
+        except (TypeError, ValueError):
+            return {}
         subject_id = view_kwargs.get("subject_id")
         if subject_id is not None:
             site_id = self._resolve_subject_site_id(study_id=study_id, subject_id=subject_id)

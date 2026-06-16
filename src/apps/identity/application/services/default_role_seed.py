@@ -1,4 +1,5 @@
 from django.db import OperationalError, ProgrammingError, transaction
+from django.db.models.signals import post_migrate
 
 from apps.identity.application.default_role_permissions import (
     DEFAULT_EDC_PERMISSION_LABELS,
@@ -23,6 +24,13 @@ def seed_default_role_permissions(*, using, **kwargs):
                 )
     except (OperationalError, ProgrammingError):
         return
+
+
+def register_default_role_seed():
+    post_migrate.connect(
+        seed_default_role_permissions,
+        dispatch_uid="identity.seed_default_role_permissions",
+    )
 
 
 def _ensure_edc_permissions(*, using):

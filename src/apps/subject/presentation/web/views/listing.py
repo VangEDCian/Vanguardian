@@ -1,4 +1,4 @@
-from django.db.models import Count, OuterRef, Q, Subquery
+from django.db.models import Count, Q
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -7,17 +7,16 @@ from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 from django_tables2.views import RequestConfig
 
-from apps.core.choices import EventDefinitionTypeChoices, EventInstanceStatusChoices
 from apps.reconcile.models import ReconcileDataQueryStatusChoices, ReconcileValidationIssueStatusChoices
 from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHandler
 from apps.shared.navigation import get_default_authenticated_url, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
+from apps.subject.application.services.subject_list_query import build_current_visit_subquery
 from apps.subject.application.services.subject_list_verify_form_visibility import (
     VERIFY_FORM_PERMISSION,
     SubjectListVerifyFormVisibilityService,
 )
 from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
-from apps.subject.models import SubjectEventInstance
 from apps.subject.presentation.web.forms import SubjectsToolbarForm
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
 from apps.subject.presentation.web.tables import SubjectListTable
@@ -42,19 +41,6 @@ class SubjectListView(
     filterset_class = SubjectsToolbarForm
     paginate_by = 25
     workflow_action_service_class = SubjectWorkflowActionService
-
-    @staticmethod
-    def current_visit_subquery() -> Subquery:
-        return Subquery(
-            SubjectEventInstance.objects.filter(
-                subject_id=OuterRef("pk"),
-                deleted=False,
-                status=EventInstanceStatusChoices.OPEN,
-                event_definition__event_type=EventDefinitionTypeChoices.VISIT_BASED,
-            )
-            .order_by("-id")
-            .values("event_definition__name")[:1]
-        )
 
     @staticmethod
     def _get_resolved_study_id(request):
@@ -92,7 +78,7 @@ class SubjectListView(
                     ),
                     distinct=True,
                 ),
-                current_visit=SubjectListView.current_visit_subquery(),
+                current_visit=build_current_visit_subquery(),
             )
             .select_related("site", "study", "enrollment", "randomization", "randomization__arm")
             .order_by("current_sequence", "id")

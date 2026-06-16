@@ -1,9 +1,14 @@
 from django.test import TestCase
 
+from apps.identity.application.services.default_role_seed import seed_default_role_permissions
 from apps.identity.models import IdentityPermission, Role
 
 
 class DefaultRolePermissionSeedTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        seed_default_role_permissions(using="default")
+
     def test_seed_creates_matrix_edc_roles_and_permissions(self):
         self.assertEqual(Role.objects.filter(study_id=1).count(), 5)
         self.assertTrue(

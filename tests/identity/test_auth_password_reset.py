@@ -30,12 +30,12 @@ class IdentityResetPasswordConfirmViewTests(SimpleTestCase):
 
         with patch(
             "django.contrib.auth.views.PasswordResetConfirmView.form_valid",
-            return_value=HttpResponseRedirect("/itsnotasignin/"),
+            return_value=HttpResponseRedirect("/login/"),
         ):
             response = view.form_valid(form)
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "/itsnotasignin/")
+        self.assertEqual(response.url, "/login/")
         self.assertEqual(request.session[PASSWORD_RESET_BYPASS_SESSION_KEY], ["22"])
         self.assertTrue(request.session.modified)
         audit_service.record_user_reset_password.assert_called_once()
@@ -46,7 +46,7 @@ class IdentityLoginViewTests(SimpleTestCase):
         self.factory = RequestFactory()
 
     def test_allows_login_without_first_login_when_bypass_marker_exists(self):
-        request = self.factory.post("/itsnotasignin/", data={"username": "demo"})
+        request = self.factory.post("/login/", data={"username": "demo"})
         request.session = _Session({PASSWORD_RESET_BYPASS_SESSION_KEY: ["15"]})
 
         view = IdentityLoginView()

@@ -59,7 +59,7 @@
         data-field-template-id="{{ field.id|default:'' }}"
         data-field-label="{{ field.label|escape }}"
         data-field-key="{{ field.field_key|escape }}"
-        data-field-value="{{ field.display_value|default:field.value|default:'—'|escape }}"
+        data-field-value="{{ field.display_value|default:'—'|escape }}"
         {% if field.active_query_id or not field.has_query_history %}hidden{% endif %}
         title="{% trans 'Query History' %}"
         aria-label="{% trans 'Query History' %}">
@@ -105,7 +105,7 @@
         data-field-template-id="{{ field.id|default:'' }}"
         data-field-label="{{ field.label|escape }}"
         data-field-key="{{ field.field_key|escape }}"
-        data-field-value="{{ field.display_value|default:field.value|default:'—'|escape }}"
+        data-field-value="{{ field.display_value|default:'—'|escape }}"
         {% if field.validation_issue_count or not field.has_validation_issue_history %}hidden{% endif %}
         title="{% trans 'Validation Issue History' %}"
         aria-label="{% trans 'Validation Issue History' %}">

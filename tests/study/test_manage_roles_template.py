@@ -17,7 +17,7 @@ class StudyManageRolesTemplateTests(SimpleTestCase):
         template_source = template_path.read_text(encoding="utf-8")
 
         self.assertIn('data-modal-open="modal-import-role-permission"', template_source)
-        self.assertIn("Import Role Permission", template_source)
+        self.assertIn("Import Roles", template_source)
         self.assertIn("_role_permission_import_modal.html", template_source)
 
     def test_role_permission_import_modal_has_template_download_and_actions(self):
@@ -28,7 +28,7 @@ class StudyManageRolesTemplateTests(SimpleTestCase):
         self.assertIn('enctype="multipart/form-data"', template_source)
         self.assertIn('name="import_file"', template_source)
         self.assertIn('accept=".xlsx,.xlsm"', template_source)
-        self.assertIn("role_permissions_import_template.xlsx", template_source)
+        self.assertIn("roles_import_template.xlsx", template_source)
         self.assertIn("scope_level", template_source)
         self.assertIn("Download Template", template_source)
         self.assertIn("Import File", template_source)

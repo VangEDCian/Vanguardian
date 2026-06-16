@@ -13,7 +13,7 @@ from apps.identity.public import (
 
 
 class AuthenticateTemplateContextMixin(LoginRequiredMixin, ContextMixin):
-    login_url = "/itsnotasignin/"
+    login_url = "/login/"
     redirect_field_name = "next"
 
     layout_nav_key = ""
