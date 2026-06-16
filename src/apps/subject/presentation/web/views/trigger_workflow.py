@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib import messages
+from django.core.exceptions import DisallowedHost
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -82,12 +83,17 @@ class SubjectTriggerWorkflowView(
 
     def _resolve_next_url(self, request, *, study_id: int, subject_id: int) -> str:
         next_url = (request.POST.get("next") or "").strip()
-        if next_url and url_has_allowed_host_and_scheme(
-            next_url,
-            allowed_hosts={request.get_host()},
-            require_https=request.is_secure(),
-        ):
-            return next_url
+        if next_url:
+            try:
+                current_host = request.get_host()
+            except DisallowedHost:
+                current_host = ""
+            if current_host and url_has_allowed_host_and_scheme(
+                next_url,
+                allowed_hosts={current_host},
+                require_https=request.is_secure(),
+            ):
+                return next_url
         return reverse(
             "subject:subject_detail",
             kwargs={"study_id": study_id, "subject_id": subject_id},

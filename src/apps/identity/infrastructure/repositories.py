@@ -2,7 +2,6 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.audit.infrastructure.persistence.models import AuditEvent
-from apps.identity.application.authorization import ContextualAuthorizationService
 from apps.identity.infrastructure.sonic import SonicSearchAdapter
 from apps.identity.models import (
     Role,
@@ -226,33 +225,6 @@ class DjangoIdentityUserRepository:
         allowed_study_ids = self.list_study_memberships_for_user(user).values_list("study_id", flat=True)
         allowed_site_ids = self.list_site_memberships_for_user(user).values_list("site_id", flat=True)
         return queryset.filter(Q(study_id__in=allowed_study_ids) | Q(pk__in=allowed_site_ids)).distinct()
-
-    def _user_has_context_permission_anywhere(self, user, permission_code: str) -> bool:
-        if user is None or not getattr(user, "pk", None):
-            return False
-        if getattr(user, "is_superuser", False):
-            return True
-
-        authorization = ContextualAuthorizationService()
-        study_memberships = list(
-            self.list_study_memberships_for_user(user).values_list("study_id", flat=True).distinct()
-        )
-        for study_id in study_memberships:
-            if authorization.can(user, permission_code, study_id=study_id).allowed:
-                return True
-
-        site_memberships = list(
-            self.list_site_memberships_for_user(user).values_list("study_id", "site_id").distinct()
-        )
-        for study_id, site_id in site_memberships:
-            if authorization.can(
-                user,
-                permission_code,
-                study_id=study_id,
-                study_site_id=site_id,
-            ).allowed:
-                return True
-        return False
 
     def set_user_study_memberships(self, *, user, study_ids, actor_user_id, role_ids_by_study_id=None):
         if user is None or not getattr(user, "pk", None):

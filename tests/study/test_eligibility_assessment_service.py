@@ -33,7 +33,7 @@ class _FakeRepository:
     def now(self):
         return self.fixed_now
 
-    def actor_has_permission(self, *, actor_id, permission_codename):
+    def actor_has_permission(self, *, actor_id, study_id, permission_codename):
         return permission_codename in self.permissions
 
     def list_active_eligibility_conditions(self, *, study_id, study_version, rule_code=None):

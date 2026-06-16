@@ -1,5 +1,34 @@
+from django.conf import settings
 from django.contrib import messages
 from django.utils.translation import gettext as _
+
+
+class SearchEngineControlMiddleware:
+    AUTH_PATH_PREFIXES = (
+        "/login/",
+        "/itsnotasignin/",
+        "/forgot-password/",
+        "/reset-password/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        if getattr(settings, "SEARCH_ENGINE_INDEXING_ENABLED", False):
+            return response
+
+        response.headers.setdefault(
+            "X-Robots-Tag",
+            getattr(settings, "SEARCH_ENGINE_ROBOTS_POLICY", "noindex, nofollow, noarchive"),
+        )
+
+        if any(request.path_info.startswith(prefix) for prefix in self.AUTH_PATH_PREFIXES):
+            response.headers.setdefault("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate")
+
+        return response
 
 
 class TemplateMutationFeedbackMiddleware:

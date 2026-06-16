@@ -10,7 +10,7 @@ DataCaptureSaveAPIView,/api/studies/<int:study_id>/subjects/<int:subject_id>/eve
 DataCaptureSubmitAPIView,/api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/submit/,subject.view_subject_detail
 DataCaptureDeleteDraftAPIView,/api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/delete-draft/,subject.view_subject_detail
 QueryLifecycleActionAPIView,/api/studies/<int:study_id>/queries/<int:query_id>/<str:action>/,action answer: QUERY.RESPOND; action cancel: QUERY.CANCEL; action close: QUERY.CLOSE; action reopen: QUERY.RETURN; action request_clarification: QUERY.RETURN; action resolve: QUERY.CLOSE
-IdentityLoginView,/itsnotasignin/,NO_EXPLICIT_PERMISSION_REQUIRED
+IdentityLoginView,/login/,NO_EXPLICIT_PERMISSION_REQUIRED
 IdentityLogoutView,/logout/,NO_EXPLICIT_PERMISSION_REQUIRED
 CurrentUserProfileView,/admin/user/me/profile/,NO_EXPLICIT_PERMISSION_REQUIRED
 CurrentUserChangePasswordView,/admin/user/me/change-password/,NO_EXPLICIT_PERMISSION_REQUIRED

@@ -1,5 +1,6 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
+from django.views.generic import RedirectView
 
 from apps.identity.presentation.web.views import (
     CurrentUserChangePasswordView,
@@ -23,7 +24,12 @@ app_name = "identity"
 
 
 urlpatterns = [
-    path("itsnotasignin/", IdentityLoginView.as_view(), name="login"),
+    path("login/", IdentityLoginView.as_view(), name="login"),
+    path(
+        "itsnotasignin/",
+        RedirectView.as_view(url="/login/", permanent=True, query_string=True),
+        name="legacy_login",
+    ),
     path("logout/", IdentityLogoutView.as_view(), name="logout"),
     path(
         "admin/user/me/profile/",

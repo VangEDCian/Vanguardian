@@ -24,6 +24,15 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ("127.0.0.1", "localhost")),
     CSRF_TRUSTED_ORIGINS=(list, ()),
+    SECURE_PROXY_SSL_HEADER_ENABLED=(bool, True),
+    USE_X_FORWARDED_HOST=(bool, True),
+    SECURE_SSL_REDIRECT=(bool, False),
+    SESSION_COOKIE_SECURE=(bool, False),
+    CSRF_COOKIE_SECURE=(bool, False),
+    SECURE_HSTS_SECONDS=(int, 0),
+    SECURE_HSTS_INCLUDE_SUBDOMAINS=(bool, False),
+    SECURE_HSTS_PRELOAD=(bool, False),
+    SEARCH_ENGINE_INDEXING_ENABLED=(bool, False),
     EMAIL_PORT=(int, 587),
     EMAIL_TIMEOUT=(float, 10.0),
     EMAIL_USE_TLS=(bool, False),
@@ -32,7 +41,13 @@ env = environ.Env(
     SONIC_PORT=(int, 1491),
     SONIC_SEARCH_LIMIT=(int, 200),
 )
-ENV_FILE = BASE_DIR / ".env"
+ENV_FILE = Path(
+    env(
+        "VANGUARDIAN_ENV_FILE",
+        cast=str,
+        default=str(BASE_DIR / ".env"),
+    )
+)
 if ENV_FILE.exists():
     environ.Env.read_env(ENV_FILE)
 
@@ -47,6 +62,24 @@ DEBUG = env("DEBUG", cast=bool)
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS", cast=list)
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS", cast=list, default=[])
+SECURE_PROXY_SSL_HEADER_ENABLED = env("SECURE_PROXY_SSL_HEADER_ENABLED", cast=bool, default=True)
+USE_X_FORWARDED_HOST = env("USE_X_FORWARDED_HOST", cast=bool, default=SECURE_PROXY_SSL_HEADER_ENABLED)
+SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT", cast=bool, default=not DEBUG)
+SESSION_COOKIE_SECURE = env("SESSION_COOKIE_SECURE", cast=bool, default=SECURE_SSL_REDIRECT)
+CSRF_COOKIE_SECURE = env("CSRF_COOKIE_SECURE", cast=bool, default=SECURE_SSL_REDIRECT)
+SECURE_HSTS_SECONDS = env("SECURE_HSTS_SECONDS", cast=int, default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env("SECURE_HSTS_INCLUDE_SUBDOMAINS", cast=bool, default=False)
+SECURE_HSTS_PRELOAD = env("SECURE_HSTS_PRELOAD", cast=bool, default=False)
+SECURE_REFERRER_POLICY = env("SECURE_REFERRER_POLICY", cast=str, default="same-origin")
+SEARCH_ENGINE_INDEXING_ENABLED = env("SEARCH_ENGINE_INDEXING_ENABLED", cast=bool, default=False)
+SEARCH_ENGINE_ROBOTS_POLICY = env(
+    "SEARCH_ENGINE_ROBOTS_POLICY",
+    cast=str,
+    default="noindex, nofollow, noarchive, nosnippet, noimageindex",
+)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+if SECURE_PROXY_SSL_HEADER_ENABLED:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
@@ -85,6 +118,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "Vanguardian.middleware.SearchEngineControlMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -253,9 +287,9 @@ AUTH_USER_MODEL = "identity.User"
 AUTHENTICATION_BACKENDS = [
     "apps.identity.infrastructure.auth.backends.IdentifierBackend",
 ]
-LOGIN_URL = "/itsnotasignin/"
+LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/itsnotasignin/"
+LOGOUT_REDIRECT_URL = "/login/"
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
     cast=str,
