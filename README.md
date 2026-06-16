@@ -15,7 +15,7 @@ From a product perspective, Vanguardian aims to reduce data fragmentation, impro
 The steps below reflect the current recommended local development flow for this repository.
 
 ### 1. Prepare the environment
- 
+
 Requirements:
 
 - Python `3.14+`
