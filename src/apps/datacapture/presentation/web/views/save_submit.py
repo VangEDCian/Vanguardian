@@ -6,11 +6,11 @@ from django.views.decorators.csrf import csrf_exempt
 
 from apps.datacapture.application import DataCaptureSaveSubmitPageService
 from apps.datacapture.application.exceptions import DataCaptureValidationError
-from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 from apps.datacapture.presentation.web.mappers.save_submit import (
     save_page_command_from_post,
     submit_page_command_from_post,
 )
+from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 from apps.subject.public import SubjectAbstractVerifyStudy
 
 

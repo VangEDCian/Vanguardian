@@ -13,14 +13,15 @@ from apps.datacapture.domain import DataCapturePageState
 from apps.datacapture.public import (
     finalize_page_data_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
-    get_page_state_contexts,
     get_page_entry_for_subject_visit_crf,
+    get_page_state_contexts,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
     lock_page_for_subject_visit_crf,
     merge_form_verification_checked_fields_into_page_state_final_data,
     reopen_verified_form_verification_page_state,
 )
+from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 from apps.reconcile.public import (
     acknowledge_reconcile_validation_issues,
     cancel_reconcile_dataquery,
@@ -28,17 +29,16 @@ from apps.reconcile.public import (
     close_reconcile_query,
     open_reconcile_query,
     reopen_reconcile_query,
+    reply_to_reconcile_query,
     request_clarification_reconcile_query,
     resolve_reconcile_query,
-    reply_to_reconcile_query,
 )
+from apps.shared.navigation import user_can_access_permission
 from apps.subject.application import (
     SubjectFormVerificationRequestValidator,
     SubjectValidationError,
 )
-from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 from apps.subject.public import SubjectAbstractVerifyStudy
-from apps.shared.navigation import user_can_access_permission
 
 SELF_REVIEW_ERROR = "Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."
 STALE_REVIEW_ERROR = "Dữ liệu đã bị thao tác, vui lòng reload lại trang để tiếp tục"

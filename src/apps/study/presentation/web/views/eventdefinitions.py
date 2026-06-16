@@ -7,9 +7,9 @@ from django.views.generic import ListView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
+from apps.shared.navigation import user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.shared.views.generic import AuthenticateTemplateView
-from apps.shared.navigation import user_can_access_permission
 from apps.study.application import (
     EventDefinitionImportDependencyError,
     EventDefinitionImportFormatError,

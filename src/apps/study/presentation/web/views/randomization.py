@@ -7,8 +7,8 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
-from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.shared.navigation import user_can_access_permission
+from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application import (
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,

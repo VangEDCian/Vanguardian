@@ -6,8 +6,8 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView
 from django_tables2.views import RequestConfig
 
-from apps.reconcile.application.services.query_workbench import QUERY_WORKBENCH_BUCKETS, QueryWorkbenchReader
 from apps.identity.presentation.access import get_authorization_context
+from apps.reconcile.application.services.query_workbench import QUERY_WORKBENCH_BUCKETS, QueryWorkbenchReader
 from apps.reconcile.presentation.web.forms import QueryWorkbenchFilterForm
 from apps.reconcile.presentation.web.tables import QueryWorkbenchTable, ValidationIssueWorkbenchTable
 from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHandler
