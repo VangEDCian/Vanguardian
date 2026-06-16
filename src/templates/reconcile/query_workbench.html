@@ -1,0 +1,69 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% load render_table from django_tables2 %}
+{% block title %}
+    {% trans "Data Queries | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'reconcile/css/query_workbench.css' %}">
+{% endblock %}
+{% block dashboard_content %}
+    <section class="query-workbench">
+        <section class="entity-table-panel">
+            <form method="get" class="entity-table__toolbar query-workbench__toolbar">
+                <div class="query-workbench__toolbar-main">
+                    {% include "shared/components/_entity_table_toolbar_icon.html" %}
+                    {% for field in filter_form %}
+                        {% if field.name != "search" and field.name != "assigned_to_me" and field.name != "opened_by_me" %}
+                            <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
+                            {{ field }}
+                        {% endif %}
+                    {% endfor %}
+                    {{ filter_form.search }}
+                </div>
+                <div class="query-workbench__toolbar-user-filters">
+                    <div class="query-workbench__toolbar-checkbox">
+                        {{ filter_form.assigned_to_me }}
+                        <label for="{{ filter_form.assigned_to_me.id_for_label }}">
+                            {{ filter_form.assigned_to_me.label }}
+                        </label>
+                    </div>
+                    <div class="query-workbench__toolbar-checkbox">
+                        {{ filter_form.opened_by_me }}
+                        <label for="{{ filter_form.opened_by_me.id_for_label }}">
+                            {{ filter_form.opened_by_me.label }}
+                        </label>
+                    </div>
+                </div>
+            </form>
+            {% if show_validation_issues %}
+                {% render_table validation_issue_table %}
+            {% else %}
+                {% render_table table %}
+            {% endif %}
+        </section>
+        {% include "reconcile/includes/query_action_modal.html" %}
+    </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'reconcile/js/query_actions.js' %}"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var toolbarForm = document.querySelector(".query-workbench__toolbar");
+            if (!toolbarForm) {
+                return;
+            }
+
+            toolbarForm
+                .querySelectorAll(".query-workbench__toolbar-checkbox input[type='checkbox']")
+                .forEach(function (checkbox) {
+                    checkbox.addEventListener("change", function () {
+                        toolbarForm.submit();
+                    });
+                });
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,4 @@
+from apps.governance.infrastructure.repositories.lock_read import DjangoGovernanceLockReadRepository
+from apps.governance.infrastructure.repositories.lock_write import DjangoGovernanceLockWriteRepository
+
+__all__ = ["DjangoGovernanceLockReadRepository", "DjangoGovernanceLockWriteRepository"]

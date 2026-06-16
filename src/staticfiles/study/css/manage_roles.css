@@ -1,0 +1,136 @@
+.manage-roles-create-form {
+  margin: 0 16px 16px;
+  padding: 14px;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.manage-roles-create-form--page {
+  margin-top: 16px;
+}
+
+.manage-roles-create-form__header {
+  margin-bottom: 12px;
+  color: #1e2b36;
+  font-size: 13px;
+}
+
+.manage-roles-form-errors {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: #c2410c;
+  font-size: 13px;
+}
+
+.manage-roles-create-form__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.manage-roles-create-form__field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.manage-roles-create-form__field--wide {
+  grid-column: span 2;
+}
+
+.manage-roles-create-form__field label {
+  color: #435466;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.manage-roles-create-form__field .old-textbox,
+.manage-roles-create-form__select {
+  width: 100%;
+  max-width: none;
+  height: 36px;
+}
+
+.manage-roles-create-form__select {
+  border: 1px solid #cbd5df;
+  border-radius: 4px;
+  background: #fff;
+  color: #1e2b36;
+  font-size: 13px;
+  padding: 0 8px;
+}
+
+.manage-roles-create-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.manage-roles-create-form__footer {
+  margin: 14px -14px -14px;
+}
+
+.manage-roles-add-button {
+  margin-left: auto;
+}
+
+.manage-roles-select + .select2-container {
+  width: 100% !important;
+}
+
+.manage-roles-import-result {
+  margin: 12px 16px;
+  padding: 12px 14px;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  background: #f9fbfd;
+  color: #435466;
+  font-size: 13px;
+}
+
+.manage-roles-import-result strong {
+  color: #1e2b36;
+}
+
+.manage-roles-import-result ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.manage-roles-import-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.manage-roles-import-form input[type="file"] {
+  max-width: 360px;
+  padding: 5px 8px;
+  border: 1px solid #cbd5df;
+  border-radius: 4px;
+  background: #fff;
+  color: #1e2b36;
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .manage-roles-create-form__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .manage-roles-create-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .manage-roles-create-form__field--wide {
+    grid-column: span 1;
+  }
+}

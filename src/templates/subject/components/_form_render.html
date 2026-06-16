@@ -1,0 +1,28 @@
+{% load i18n %}
+<section class="subject-form-panel">
+    <header class="subject-form__title">
+        {% if focused_form and focused_form.title %}
+            {{ focused_form.title }}
+            {% if focused_page_status %}
+                <span class="subject-form__title-status subject-form__title-status--danger">({{ focused_page_status|upper }})</span>
+            {% endif %}
+        {% else %}
+            {% trans "Form" %}
+        {% endif %}
+    </header>
+    {% if form_render_sections %}
+        {% for section in form_render_sections %}
+            {% if forloop.first and forloop.last %}
+                {% include "subject/components/_section_render.html" with section=section hide_section_title=True can_add_repeat_sections=can_add_repeat_sections %}
+            {% else %}
+                {% include "subject/components/_section_render.html" with section=section hide_section_title=False can_add_repeat_sections=can_add_repeat_sections %}
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <div class="subject-form-panel__placeholder">
+            {% blocktrans with template_name=focused_form.title event_name=focused_event.name %}
+                Rendering CRF template: <strong>{{ template_name }}</strong> under event <strong>{{ event_name }}</strong>. No field template/UI config found.
+            {% endblocktrans %}
+        </div>
+    {% endif %}
+</section>

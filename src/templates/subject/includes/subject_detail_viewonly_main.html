@@ -1,0 +1,94 @@
+{% load i18n subject_form_tags subject_field_display %}
+{% if form_verification_review %}
+    <div class="subject-detail-viewonly">
+        {% with h=form_verification_review.header %}
+            <header class="subject-detail-viewonly__header"
+                    aria-label="{% trans 'Submitted form metadata' %}">
+                <dl class="subject-detail-viewonly__meta">
+                    <div class="subject-detail-viewonly__meta-row">
+                        <dt>{% trans "Event Name" %}</dt>
+                        <dd>
+                            {{ h.event_name }}
+                        </dd>
+                    </div>
+                    <div class="subject-detail-viewonly__meta-row">
+                        <dt>{% trans "Event Start Date" %}</dt>
+                        <dd>
+                            {{ h.event_start_date }}
+                        </dd>
+                    </div>
+                    <div class="subject-detail-viewonly__meta-row">
+                        <dt>{% trans "Form Name" %}</dt>
+                        <dd>
+                            {{ h.form_name }}
+                        </dd>
+                    </div>
+                    <div class="subject-detail-viewonly__meta-row">
+                        <dt>{% trans "Page Status" %}</dt>
+                        <dd>
+                            {{ h.form_status|subject_form_status_label }}
+                        </dd>
+                    </div>
+                    <div class="subject-detail-viewonly__meta-row">
+                        <dt>{% trans "Form Version" %}</dt>
+                        <dd>
+                            {{ h.form_version }}
+                        </dd>
+                    </div>
+                    <div class="subject-detail-viewonly__meta-row">
+                        <dt>{% trans "Last Modified" %}</dt>
+                        <dd>
+                            {{ h.last_modified }}
+                        </dd>
+                    </div>
+                </dl>
+            </header>
+        {% endwith %}
+        <div class="subject-detail-viewonly__table-wrap">
+            <table class="entity-table subject-detail-viewonly__table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Brief Description" %}</th>
+                        <th scope="col">{% trans "Value" %}</th>
+                        <th scope="col">{% trans "Field Verification" %}</th>
+                        <th scope="col">{% trans "Entered By" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in form_verification_review.rows %}
+                        <tr>
+                            <td>
+                                {% if row.is_repeatable_group_item %}
+                                    <div class="subject-form-verification-review__field-context">
+                                        <span>{{ row.section_title }}</span>
+                                        <span>{% trans "Group Item" %} {{ row.group_item_label }}</span>
+                                    </div>
+                                {% endif %}
+                                <span class="subject-form-verification-review__field-label">{{ row.brief_description }}</span>
+                            </td>
+                            <td>{% subject_field_review_display_value row LANGUAGE_CODE %}</td>
+                            <td>
+                                {% if row.is_checked %}
+                                    {% trans "Verified" %}
+                                {% else %}
+                                    {% trans "Not Verified" %}
+                                {% endif %}
+                            </td>
+                            <td>{{ row.modified_by }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="subject-detail-viewonly__empty">
+                                {% trans "No submitted field data is available for this form." %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% elif focused_form %}
+    <div class="subject-detail-screen__empty">{% trans "No submitted page data is available for this form." %}</div>
+{% else %}
+    <div class="subject-detail-screen__empty">{% trans "No submitted forms are available to view." %}</div>
+{% endif %}

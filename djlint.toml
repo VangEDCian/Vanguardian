@@ -1,0 +1,4 @@
+# Metadata tags are centralized in templates/shared/_metadata.html.
+# djlint does not resolve Django includes, so H030/H031 would false-positive
+# on layouts that correctly include the shared metadata partial.
+ignore = "T002,T003,H030,H031"

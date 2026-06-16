@@ -1,9 +1,10 @@
 {% extends "shared/_blank_layout.html" %}
 {% load i18n %}
-
-{% block title %}{% trans "Access Denied | Vanguardian" %}{% endblock %}
+{% block title %}
+    {% trans "Access Denied | Vanguardian" %}
+{% endblock %}
 {% block extra_css %}
-<style>
+    <style>
   .access-denied {
     display: grid;
     justify-items: center;
@@ -38,13 +39,14 @@
   .access-denied__logout:hover {
     color: #9e2830;
   }
-</style>
+    </style>
 {% endblock %}
-
 {% block content %}
-<section class="access-denied">
-  <h1 class="access-denied__message">403</h1>
-  <small>{% trans "You do not have access to this system." %}<br>{% trans "Please contact the administrator for support." %}</small>
-  <a href="{% url 'identity:logout' %}" class="access-denied__logout">{% trans "Logout" %}</a>
-</section>
+    <section class="access-denied">
+        <h1 class="access-denied__message">403</h1>
+        <small>{% trans "You do not have access to this system." %}
+            <br>
+        {% trans "Please contact the administrator for support." %}</small>
+        <a href="{% url 'identity:logout' %}" class="access-denied__logout">{% trans "Logout" %}</a>
+    </section>
 {% endblock %}

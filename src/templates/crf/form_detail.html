@@ -1,0 +1,67 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ page_title }} | {% trans "CRF Form Detail | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet" href="{% static 'shared/css/components/user-detail.css' %}">
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        <div class="user-detail-form">
+            <div class="user-detail-form__content">
+                {% include "study/components/_study_detail_tabs.html" with study_active_tab="crf_templates" %}
+
+                <section class="user-detail-section">
+                    <h2 class="user-detail-section__title">{% trans "FORM DETAIL" %}</h2>
+                    <div class="user-detail-section__body">
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label">{% trans "Code" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">{{ template.code }}</div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label">{% trans "Version" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">{{ template.version }}</div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label">{% trans "Name" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">{{ template.name }}</div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label">{% trans "Status" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">
+                                    {% if template.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-detail-inline-row">
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label">{% trans "Sections" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">{{ sections_total }}</div>
+                            </div>
+                            <div class="user-detail-inline-field">
+                                <label class="user-detail-inline-field__label">{% trans "Fields" %}:</label>
+                                <div class="user-detail-inline-field__control-wrap">{{ fields_total }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="user-detail-section">
+                    <h2 class="user-detail-section__title">{% trans "ACTIONS" %}</h2>
+                    <div class="user-detail-section__body">
+                        <div class="flex gap-3 pt-3">
+                            <a class="entity-table__footer-button entity-table__footer-button--primary" href="{% url 'crf:form_builder' form_id=template.id %}">{% trans "Open Form Builder" %}</a>
+                            <a class="entity-table__footer-button entity-table__footer-button--secondary" href="{% url 'study:study_crf_templates' study_id=detail_study.id %}">{% trans "Back to CRF Forms" %}</a>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </section>
+{% endblock %}

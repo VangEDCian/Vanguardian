@@ -1,0 +1,167 @@
+from django.db import transaction
+
+from apps.shared.application.services.soft_delete import build_soft_deleted_unique_value
+from apps.study.application.commands.site_data import (
+    CreateSiteCommand,
+    CreateSiteMembershipCommand,
+    DeleteSiteCommand,
+    DeleteSiteMembershipCommand,
+    SiteCodeAlreadyExistsError,
+    SiteMembershipAlreadyExistsError,
+    SiteMembershipNotFoundError,
+    SiteNotFoundError,
+    UpdateSiteCommand,
+)
+from apps.study.infrastructure.repositories import DjangoStudyCommandRepository
+from apps.study.infrastructure.sonic import SonicStudySiteAdapter
+
+
+class CreateSiteService:
+    repository_class = DjangoStudyCommandRepository
+    sonic_adapter_class = SonicStudySiteAdapter
+
+    def __init__(self, repository=None, sonic_adapter=None):
+        self.repository = repository or self.repository_class()
+        self.sonic_adapter = sonic_adapter or self.sonic_adapter_class()
+
+    @transaction.atomic
+    def execute(self, command: CreateSiteCommand):
+        self._validate_code_unique(command.study_id, command.code)
+
+        investigator_id = command.investigator_id
+        investigator_label = self._resolve_investigator_label(investigator_id=investigator_id)
+
+        site = self.repository.create_site(
+            code=command.code.strip(),
+            name=command.name.strip(),
+            investigator_id=investigator_id,
+            study_id=command.study_id,
+            is_active=command.is_active,
+            actor_user_id=command.actor_user_id,
+        )
+        self.sonic_adapter.index_site(
+            site_id=site.pk,
+            code=site.code,
+            name=command.name.strip(),
+            investigator=investigator_label,
+        )
+        return site
+
+    def _validate_code_unique(self, study_id, code):
+        if self.repository.site_code_exists(study_id=study_id, code=code):
+            raise SiteCodeAlreadyExistsError(code)
+
+    def _resolve_investigator_label(self, *, investigator_id):
+        if investigator_id is None:
+            return ""
+        investigator = self.repository.get_user(user_id=investigator_id)
+        if investigator is None:
+            return ""
+        full_name = f"{investigator.first_name or ''} {investigator.last_name or ''}".strip()
+        if full_name:
+            return full_name
+        return investigator.display_name or investigator.username
+
+
+class DeleteSiteService:
+    repository_class = DjangoStudyCommandRepository
+    sonic_adapter_class = SonicStudySiteAdapter
+
+    def __init__(self, repository=None, sonic_adapter=None):
+        self.repository = repository or self.repository_class()
+        self.sonic_adapter = sonic_adapter or self.sonic_adapter_class()
+
+    @transaction.atomic
+    def execute(self, command: DeleteSiteCommand):
+        site = self.repository.get_site(site_id=command.site_id)
+        if site is None:
+            raise SiteNotFoundError(command.site_id)
+
+        site.code = build_soft_deleted_unique_value(site.code)
+        site.deleted = True
+        site.is_active = False
+        self.repository.touch_site(site, actor_user_id=command.actor_user_id)
+        deleted_site = self.repository.save_site(site)
+        self.sonic_adapter.remove_site(site_id=deleted_site.pk)
+        return deleted_site
+
+
+class CreateSiteMembershipService:
+    repository_class = DjangoStudyCommandRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    @transaction.atomic
+    def execute(self, command: CreateSiteMembershipCommand):
+        if not self.repository.site_exists(site_id=command.site_id):
+            raise SiteNotFoundError(command.site_id)
+
+        if self.repository.site_membership_exists(site_id=command.site_id, user_id=command.user_id):
+            raise SiteMembershipAlreadyExistsError(
+                f"User {command.user_id} is already a member of site {command.site_id}.",
+            )
+
+        return self.repository.create_site_membership(
+            site_id=command.site_id,
+            study_id=command.study_id,
+            user_id=command.user_id,
+            actor_user_id=command.actor_user_id,
+        )
+
+
+class DeleteSiteMembershipService:
+    repository_class = DjangoStudyCommandRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    @transaction.atomic
+    def execute(self, command: DeleteSiteMembershipCommand):
+        membership = self.repository.get_site_membership(membership_id=command.membership_id)
+        if membership is None:
+            raise SiteMembershipNotFoundError(command.membership_id)
+
+        membership.deleted = True
+        self.repository.touch_site_membership(membership, actor_user_id=command.actor_user_id)
+        return self.repository.save_site_membership(membership)
+
+
+class UpdateSiteService:
+    repository_class = DjangoStudyCommandRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    @transaction.atomic
+    def execute(self, command: UpdateSiteCommand):
+        site = self.repository.get_site(site_id=command.site_id)
+        if site is None:
+            raise SiteNotFoundError(command.site_id)
+
+        investigator_id = command.investigator_id
+        if investigator_id and not self.repository.site_membership_exists(
+            site_id=command.site_id,
+            user_id=investigator_id,
+        ):
+            self.repository.create_site_membership(
+                site_id=command.site_id,
+                study_id=site.study_id,
+                user_id=investigator_id,
+                actor_user_id=command.actor_user_id,
+            )
+
+        site.name = command.name.strip()
+        site.investigator_id = investigator_id
+        site.is_active = command.is_active
+        self.repository.touch_site(site, actor_user_id=command.actor_user_id)
+        return self.repository.save_site(site)
+
+
+__all__ = [
+    "CreateSiteMembershipService",
+    "CreateSiteService",
+    "DeleteSiteMembershipService",
+    "DeleteSiteService",
+    "UpdateSiteService",
+]

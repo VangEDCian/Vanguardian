@@ -1,3 +1,3 @@
-from apps.shared.views.generic import AuthenticateTemplateView
+from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 
-__all__ = ["AuthenticateTemplateView"]
+__all__ = ["AuthenticateTemplateContextMixin", "AuthenticateTemplateView"]

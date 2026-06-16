@@ -1,0 +1,15 @@
+{% load i18n %}
+<div class="modal-backdrop session-guard" id="session-guard-modal" role="presentation" data-session-guard-modal>
+    <section class="modal modal--warning" role="alertdialog" aria-modal="true" aria-labelledby="session-guard-title" aria-describedby="session-guard-message">
+        <div class="modal__header">
+            <div class="modal__icon" aria-hidden="true">!</div>
+            <h2 class="modal__title" id="session-guard-title">{% trans "Your session has ended" %}</h2>
+        </div>
+        <div class="modal__body">
+            <p class="modal__message" id="session-guard-message">{% trans "This account was signed in from another device. Please sign in again to continue here." %}</p>
+        </div>
+        <div class="modal__footer">
+            <a class="session-guard__button" href="{% url 'identity:login' %}" data-session-guard-login>{% trans "Sign in again" %}</a>
+        </div>
+    </section>
+</div>

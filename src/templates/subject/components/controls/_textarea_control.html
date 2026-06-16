@@ -1,0 +1,12 @@
+{% load subject_form_tags %}
+{% subject_textarea_control_i18n as textarea_control_i18n %}
+{% subject_control_tabindex field 0 as control_tabindex %}
+<textarea class="{{ textarea_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
+          tabindex="{{ control_tabindex }}"
+          data-submitted-diff-textarea
+          data-submitted-diff-control="textarea"
+          {% if field.style %}style="{{ field.style }}"{% endif %}
+          rows="{{ textarea_rows|default:'3' }}"
+          readonly
+          {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+          placeholder="{{ field.placeholder_text|default:textarea_control_i18n.placeholder }}">{{ field.value }}</textarea>

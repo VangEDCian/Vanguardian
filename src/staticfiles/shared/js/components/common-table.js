@@ -8,14 +8,44 @@
     row.classList.toggle("is-selected", checkbox.checked);
   }
 
+  function resolveClickElement(target) {
+    if (target instanceof Element) {
+      return target;
+    }
+    if (target instanceof Text && target.parentElement) {
+      return target.parentElement;
+    }
+    return null;
+  }
+
   function isInteractiveTarget(target) {
+    const el = resolveClickElement(target);
+    if (!el) {
+      return false;
+    }
     return Boolean(
-      target.closest("a, button, input, label, select, textarea")
+      el.closest("[data-dropdown]") ||
+        el.closest("a, button, input, label, select, textarea"),
     );
   }
 
+  function getDetailHref(row) {
+    const explicitHref =
+      row.getAttribute("data-detail-href") || row.dataset.detailHref || "";
+    if (explicitHref) {
+      return explicitHref;
+    }
+
+    const firstLink = row.querySelector("a[href]");
+    if (firstLink instanceof HTMLAnchorElement) {
+      return firstLink.href;
+    }
+
+    return "";
+  }
+
   tables.forEach((table) => {
-    const enableDetailClick = table.dataset.enableDetailClick === "true";
+    const enableDetailClick = table.dataset.enableDetailClick !== "false";
     const sortHeaders = Array.from(table.querySelectorAll("[data-sort-header]"));
     const rows = Array.from(table.querySelectorAll("[data-selectable-row]"));
 
@@ -50,8 +80,6 @@
         return;
       }
 
-      const detailHref = row.dataset.detailHref || "";
-
       syncRowSelection(row, checkbox);
 
       checkbox.addEventListener("change", () => {
@@ -59,8 +87,8 @@
       });
 
       row.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) {
+        const target = resolveClickElement(event.target);
+        if (!target) {
           return;
         }
 
@@ -79,6 +107,7 @@
           return;
         }
 
+        const detailHref = getDetailHref(row);
         if (enableDetailClick && detailHref) {
           window.location.href = detailHref;
         }

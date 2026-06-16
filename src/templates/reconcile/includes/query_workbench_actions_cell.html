@@ -1,0 +1,86 @@
+{% load i18n static %}
+<div class="crf-template-actions" data-dropdown>
+    <button type="button"
+            class="crf-template-actions__trigger"
+            data-dropdown-trigger
+            aria-expanded="false"
+            aria-label="{% trans 'Open actions menu' %}">
+        <span class="crf-template-actions__value" data-dropdown-value>{% trans "Actions" %}</span>
+        <span class="svg-icon crf-template-actions__icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/table/ellipsis-vertical-svgrepo-com.svg' %}')"></span>
+    </button>
+    <div class="crf-template-actions__menu" data-dropdown-menu hidden>
+        <a href="{{ record.detail_url }}"
+           class="crf-template-actions__item"
+           data-dropdown-option>{% trans "View" %}</a>
+        {% with status=record.status|lower %}
+            {% if can_answer_dataquery and status == "open" or can_answer_dataquery and status == "answered" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='answer' as answer_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="answer"
+                        data-query-action-url="{{ answer_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Answer" %}</button>
+            {% endif %}
+            {% if can_cancel_dataquery and status == "open" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='cancel' as cancel_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="cancel"
+                        data-query-action-url="{{ cancel_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Cancel" %}</button>
+            {% endif %}
+            {% if can_reopen_dataquery and status == "answered" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='request_clarification' as request_clarification_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="request_clarification"
+                        data-query-action-url="{{ request_clarification_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Request Clarification" %}</button>
+            {% endif %}
+            {% if can_resolve_dataquery and status == "answered" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='resolve' as resolve_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="resolve"
+                        data-query-action-url="{{ resolve_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Resolve" %}</button>
+            {% endif %}
+            {% if can_close_dataquery and status == "resolved" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='close' as close_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="close"
+                        data-query-action-url="{{ close_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Close" %}</button>
+            {% endif %}
+            {% if can_reopen_dataquery and status == "resolved" or can_reopen_dataquery and status == "closed" %}
+                {% url 'reconcile_api:query_action' study_id=record.study_id query_id=record.query_id action='reopen' as reopen_url %}
+                <button type="button"
+                        class="crf-template-actions__item"
+                        data-dropdown-option
+                        data-query-action-trigger
+                        data-query-action="reopen"
+                        data-query-action-url="{{ reopen_url }}"
+                        data-query-id="{{ record.query_id }}"
+                        data-query-label="DQ-{{ record.query_id }}">{% trans "Reopen" %}</button>
+            {% endif %}
+        {% endwith %}
+    </div>
+</div>

@@ -1,0 +1,42 @@
+.subject-form-flat-field__control textarea[data-submitted-diff-control="textarea"] {
+  width: 100%;
+  min-height: 32px;
+  padding: 8px 10px;
+  border: 1px solid #b4b4b4;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #222222;
+  font-size: 14px;
+  resize: none;
+}
+
+.subject-form-field-card__control textarea[data-submitted-diff-control="textarea"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #b7c6d2;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #4f5f6d;
+  font-size: 13px;
+  resize: none;
+}
+
+.subject-form-table-row__cell--response textarea[data-submitted-diff-control="textarea"] {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #b4b4b4;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #222222;
+  font-size: 14px;
+  resize: none;
+}
+
+textarea[data-submitted-diff-control="textarea"].is-changed-from-submitted-textarea {
+  padding-right: 26px;
+  background-image: url("/static/images/fields/triangle-svgrepo-com.svg");
+  background-repeat: no-repeat;
+  background-size: 10px 10px;
+  background-position: right 8px top 8px;
+}

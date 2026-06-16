@@ -1,0 +1,222 @@
+.subject-form-table-section {
+  margin: 0;
+}
+
+.subject-form-table-section__title {
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  background-color: rgb(232, 244, 253);
+  border-bottom: 1px solid rgb(179, 217, 240);
+  color: rgb(21, 101, 192);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.subject-form-table-section__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.subject-form-table-section__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.subject-form-table-section__head {
+  padding: 6px 12px;
+  border-bottom: 1px solid #d6dee6;
+  border-right: 1px solid #d6dee6;
+  background: #f5f9fd;
+  color: #505861;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.subject-form-table-section__head:last-child {
+  border-right: 0;
+}
+
+.subject-form-table-section__head--index {
+  width: 40px;
+}
+
+.subject-form-table-section__head--criterion {
+  width: auto;
+}
+
+.subject-form-table-section__head--response {
+  width: 239px;
+  text-align: center;
+}
+
+.subject-form-table-section--exclusion .subject-form-table-section__title,
+.subject-form-table-section--exclusion_criteria .subject-form-table-section__title {
+  background: #fff3dc;
+  color: #d15718;
+}
+
+.subject-form-table-section--conclusion .subject-form-table-section__title,
+.subject-form-table-section--eligibility_conclusion .subject-form-table-section__title {
+  background: #eef4f7;
+  color: #25556f;
+}
+
+.subject-form-repeat-table-section {
+  margin: 1rem;
+}
+
+.subject-form-repeat-table-section__title {
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  background-color: rgb(232, 244, 253);
+  border-bottom: 1px solid rgb(179, 217, 240);
+  color: rgb(21, 101, 192);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.subject-form-repeat-table-section__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.subject-form-repeat-table-section__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.subject-form-repeat-table-section__actions-col {
+  width: 44px;
+}
+
+.subject-form-repeat-table-section__head {
+  /* padding: 0.5rem 0.5rem;
+  border: 1px solid #d6dee6;
+  background: #f8fafc;
+  color: #1f2933;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle; */
+  padding: 6px 12px;
+  border: 1px solid #d6dee6;
+  background: #f5f9fd;
+  color: #505861;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.subject-form-repeat-table-section__head--index {
+  width: 56px;
+}
+
+.subject-form-repeat-table-section__head--actions {
+  width: 44px;
+  text-align: center;
+}
+
+.subject-form-repeat-table-section__required {
+  color: #d32f2f;
+}
+
+.subject-form-repeat-table-row__index,
+.subject-form-repeat-table-row__cell,
+.subject-form-repeat-table-row__actions,
+.subject-form-repeat-table-row__empty {
+  border: 1px solid #d6dee6;
+}
+
+.subject-form-repeat-table-row__index {
+  padding: 8px 10px;
+  color: #1f2933;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.subject-form-repeat-table-row__cell {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.subject-form-repeat-table-row__actions {
+  padding: 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.subject-form-repeat-table-row__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.subject-form-repeat-table-row__delete:hover,
+.subject-form-repeat-table-row__delete:focus-visible {
+  border-color: #fecaca;
+  background: #fef2f2;
+  outline: none;
+}
+
+.subject-form-repeat-table-row__delete img {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.subject-form-repeat-table-row__cell>*{
+  font-size: 14px;
+}
+
+.subject-form-repeat-table-row__cell .subject-date-text__input,
+.subject-form-repeat-table-row__input,
+.subject-form-repeat-table-row__textarea {
+  width: calc(100% - 46px);
+  min-width: 0;
+  border: none;
+}
+
+.subject-form-repeat-table-row__input:focus-visible,
+.subject-form-repeat-table-row__textarea:focus-visible {
+  outline: none;
+}
+
+.subject-form-repeat-table-row__input {
+  min-height: 32px;
+  padding: 5px 8px;
+}
+
+.subject-form-repeat-table-row__textarea {
+  min-height: 64px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.subject-form-repeat-table-row__choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.subject-form-repeat-table-row__empty,
+.subject-form-repeat-table-row__unsupported {
+  padding: 10px;
+  color: #64748b;
+  font-size: 13px;
+}

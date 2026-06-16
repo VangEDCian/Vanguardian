@@ -1,0 +1,33 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ form_title }} | {% trans "Event Definitions | Vanguardian" %}
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">{% trans "Event Definitions" %}</a>
+    <span aria-hidden="true">›</span>
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'study/css/event_definitions.css' %}">
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="event_definitions" %}
+        <div class="entity-table__toolbar">
+            <div class="entity-table__summary">
+                <strong>{{ form_title }}</strong>
+            </div>
+        </div>
+        <section class="event-definitions-form-placeholder">
+            <p class="event-definitions-form-placeholder__text">
+                {% trans "The event definition create form will be implemented here." %}
+            </p>
+        </section>
+        <div class="entity-table__footer entity-table__footer--actions">
+            <a href="{{ back_url }}"
+               class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Back" %}</a>
+        </div>
+    </section>
+{% endblock %}

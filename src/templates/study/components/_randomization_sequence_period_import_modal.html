@@ -1,0 +1,55 @@
+{% load i18n static %}
+<div class="modal-backdrop"
+     id="modal-import-randomization-sequence-periods"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-import-randomization-sequence-periods-title">
+    <div class="modal modal--info modal--randomization-import">
+        <form method="post"
+              enctype="multipart/form-data"
+              action="{{ randomization_sequence_period_commit_url }}"
+              data-randomization-import-form>
+            {% csrf_token %}
+            <div class="modal__header modal__header--left">
+                <div class="modal__icon" aria-hidden="true">i</div>
+                <h2 class="modal__title" id="modal-import-randomization-sequence-periods-title">
+                    {% trans "Import Sequence Periods" %}
+                </h2>
+            </div>
+            <div class="modal__body modal__body--left modal__body--scrollable">
+                <div class="randomization-import-form">
+                    <div class="randomization-import-form__field">
+                        <label for="randomization-sequence-period-import-file"
+                               class="randomization-import-form__label">{% trans "Import File" %}</label>
+                        <input type="file"
+                               id="randomization-sequence-period-import-file"
+                               name="import_file"
+                               accept=".xlsx,.xls,.csv"
+                               required
+                               data-randomization-import-input
+                               data-import-kind="sequence-period"
+                               data-preview-url="{{ randomization_sequence_period_preview_url }}"
+                               data-commit-url="{{ randomization_sequence_period_commit_url }}"
+                               data-preview-title="{% trans 'Randomization Sequence Period Preview' %}">
+                        <p class="randomization-import-form__help">{% trans "Accepted formats: .xlsx, .xls, .csv" %}</p>
+                        <p class="randomization-import-form__help">
+                            {% trans "Use the sequence period template to define scheme, arm, period, treatment, event range, washout days, transition rule, and display order." %}
+                        </p>
+                        <a href="{% static 'study/templates/randomization_sequence_periods_template.xlsx' %}"
+                           class="randomization-import-form__template-link"
+                           download>{% trans "Download Template" %}</a>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer modal__footer--end">
+                <button type="button"
+                        class="modal__cancel"
+                        data-modal-close="modal-import-randomization-sequence-periods">{% trans "Cancel" %}</button>
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans "Import File" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

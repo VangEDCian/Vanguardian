@@ -1,0 +1,110 @@
+permission,label,source
+edc.ae_enter,Enter adverse events,DEFAULT_EDC_PERMISSION_LABELS
+edc.ae_medical_assess,Perform AE medical assessment,DEFAULT_EDC_PERMISSION_LABELS
+edc.ae_view,View adverse events,DEFAULT_EDC_PERMISSION_LABELS
+edc.audit_trail_view,View audit trail,DEFAULT_EDC_PERMISSION_LABELS
+edc.casebook_sign,Sign casebook,DEFAULT_EDC_PERMISSION_LABELS
+edc.casebook_view,View casebook,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_enter,Enter CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_reopen,Reopen CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_submit,Submit CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_update,Update CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.crf_view,View CRF data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_freeze,Freeze data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_lock,Lock data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_unfreeze,Unfreeze data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_unlock,Unlock data,DEFAULT_EDC_PERMISSION_LABELS
+edc.data_export_run,Run data export,DEFAULT_EDC_PERMISSION_LABELS
+edc.delegation_manage,Manage delegation,DEFAULT_EDC_PERMISSION_LABELS
+edc.delegation_view,View delegation,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_cancel,Cancel data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_close,Close data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_create,Create data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_respond,Respond to data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_return,Return data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.query_view,View data queries,DEFAULT_EDC_PERMISSION_LABELS
+edc.sae_report,Report SAE,DEFAULT_EDC_PERMISSION_LABELS
+edc.sdr_mark,Mark SDR,DEFAULT_EDC_PERMISSION_LABELS
+edc.sdv_mark,Mark SDV,DEFAULT_EDC_PERMISSION_LABELS
+edc.sdv_view,View SDV,DEFAULT_EDC_PERMISSION_LABELS
+edc.study_config_manage,Manage study configuration,DEFAULT_EDC_PERMISSION_LABELS
+edc.study_config_view,View study configuration,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_create,Create subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_enroll,Enroll subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_randomize,Randomize subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_screen,Screen subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_update,Update subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.subject_view,View subjects,DEFAULT_EDC_PERMISSION_LABELS
+edc.user_access_manage,Manage user access,DEFAULT_EDC_PERMISSION_LABELS
+edc.user_access_view,View user access,DEFAULT_EDC_PERMISSION_LABELS
+edc.validation_issue_acknowledge,Acknowledge validation issues,DEFAULT_EDC_PERMISSION_LABELS
+edc.validation_issue_view,View validation issues,DEFAULT_EDC_PERMISSION_LABELS
+dashboard.view_dashboard,Can view dashboard,DEFAULT_PERMISSION_LABELS; apps.dashboard.models.DashboardPermission.Meta.permissions
+identity.create_user,Can create user,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions
+identity.delete_user,Can delete user,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions
+identity.restore_user,Can restore user,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions
+identity.update_user,Can update user,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions
+identity.view_user_detail,Can view user detail,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions
+identity.view_user_list,Can view user list,DEFAULT_PERMISSION_LABELS; apps.identity.infrastructure.persistence.models.User.Meta.permissions
+reconcile.answer_dataquery,Can answer data queries,DEFAULT_PERMISSION_LABELS; apps.reconcile.infrastructure.persistence.models.ReconcileDataQuery.Meta.permissions
+reconcile.close_dataquery,Can close data queries,DEFAULT_PERMISSION_LABELS; apps.reconcile.infrastructure.persistence.models.ReconcileDataQuery.Meta.permissions
+reconcile.reopen_dataquery,Can reopen data queries,DEFAULT_PERMISSION_LABELS; apps.reconcile.infrastructure.persistence.models.ReconcileDataQuery.Meta.permissions
+reconcile.resolve_dataquery,Can resolve data queries,DEFAULT_PERMISSION_LABELS; apps.reconcile.infrastructure.persistence.models.ReconcileDataQuery.Meta.permissions
+reconcile.view_dataquery,Can view data queries,DEFAULT_PERMISSION_LABELS; apps.reconcile.infrastructure.persistence.models.ReconcileDataQuery.Meta.permissions
+reconcile.view_internal_query_thread,Can view internal query thread messages,DEFAULT_PERMISSION_LABELS; apps.reconcile.infrastructure.persistence.models.ReconcileDataQuery.Meta.permissions
+site.create_site,Can create site,DEFAULT_PERMISSION_LABELS
+site.create_site_membership,Can create site membership,DEFAULT_PERMISSION_LABELS
+site.delete_site,Can delete site,DEFAULT_PERMISSION_LABELS
+site.delete_site_membership,Can delete site membership,DEFAULT_PERMISSION_LABELS
+site.update_site,Can update site,DEFAULT_PERMISSION_LABELS
+site.update_site_membership,Can update site membership,DEFAULT_PERMISSION_LABELS
+site.view_site_detail,Can view site detail,DEFAULT_PERMISSION_LABELS
+site.view_site_list,Can view site list,DEFAULT_PERMISSION_LABELS
+site.view_site_membership_detail,Can view site membership detail,DEFAULT_PERMISSION_LABELS
+site.view_site_membership_list,Can view site membership list,DEFAULT_PERMISSION_LABELS
+study.assess_subject_eligibility,Can assess subject eligibility,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.eligibility.SubjectEligibilityAssessment.Meta.permissions
+study.change_study_status,Can activate or deactivate a study,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.create_site,Can create site,apps.study.infrastructure.persistence.models.site.Site.Meta.permissions
+study.create_site_membership,Can create site membership,apps.study.infrastructure.persistence.models.site.SiteMembership.Meta.permissions
+study.create_study,Can create study,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.create_study_eventdefinition,Can create/import study event definitions,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.events.EventDefinition.Meta.permissions
+study.delete_site,Can delete site,apps.study.infrastructure.persistence.models.site.Site.Meta.permissions
+study.delete_site_membership,Can delete site membership,apps.study.infrastructure.persistence.models.site.SiteMembership.Meta.permissions
+study.delete_study,Can delete study,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.delete_study_eventdefinition,Can delete study event definition,apps.study.infrastructure.persistence.models.events.EventDefinition.Meta.permissions
+study.filter_study_by_code,Can filter studies by code,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.filter_study_by_status,Can filter studies by status,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.finalize_subject_eligibility,Can finalize subject eligibility,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.eligibility.SubjectEligibilityAssessment.Meta.permissions
+study.manage_crf_template,Can manage CRF templates and field definitions,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.override_subject_eligibility,Can override subject eligibility,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.eligibility.SubjectEligibilityAssessment.Meta.permissions
+study.retract_subject_eligibility,Can retract subject eligibility,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.eligibility.SubjectEligibilityAssessment.Meta.permissions
+study.search_study_by_name,Can search studies by name,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.update_site,Can update site,apps.study.infrastructure.persistence.models.site.Site.Meta.permissions
+study.update_site_membership,Can update site membership,apps.study.infrastructure.persistence.models.site.SiteMembership.Meta.permissions
+study.update_study,Can update study,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.update_study_eventdefinition,Can update study event definition,apps.study.infrastructure.persistence.models.events.EventDefinition.Meta.permissions
+study.update_study_field_code,Can update study code field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.update_study_field_dates,Can update study start/end date fields,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.update_study_field_description,Can update study description field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.update_study_field_name,Can update study name field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.update_study_field_sponsor,Can update study sponsor field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_site_detail,Can view site detail,apps.study.infrastructure.persistence.models.site.Site.Meta.permissions
+study.view_site_list,Can view site list,apps.study.infrastructure.persistence.models.site.Site.Meta.permissions
+study.view_site_membership_detail,Can view site membership detail,apps.study.infrastructure.persistence.models.site.SiteMembership.Meta.permissions
+study.view_site_membership_history,Can view site membership audit history,apps.study.infrastructure.persistence.models.site.SiteMembership.Meta.permissions
+study.view_site_membership_list,Can view site membership list,apps.study.infrastructure.persistence.models.site.SiteMembership.Meta.permissions
+study.view_study_detail,Can view study detail,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_study_eventdefinition_list,Can view study event definition list,apps.study.infrastructure.persistence.models.events.EventDefinition.Meta.permissions
+study.view_study_field_code,Can view study code field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_study_field_dates,Can view study start/end date fields,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_study_field_description,Can view study description field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_study_field_name,Can view study name field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_study_field_sponsor,Can view study sponsor field,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_study_history,Can view study audit history,apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+study.view_study_list,Can view study list,DEFAULT_PERMISSION_LABELS; apps.study.infrastructure.persistence.models.study.Study.Meta.permissions
+subject.create_subject,Can create subject,DEFAULT_PERMISSION_LABELS; apps.subject.infrastructure.persistence.models.Subject.Meta.permissions
+subject.delete_subject,Can delete subject,apps.subject.infrastructure.persistence.models.Subject.Meta.permissions
+subject.update_subject,Can update subject and trigger workflow actions,DEFAULT_PERMISSION_LABELS; apps.subject.infrastructure.persistence.models.Subject.Meta.permissions
+subject.verify_form,Can verify form / quality check,DEFAULT_PERMISSION_LABELS; apps.subject.infrastructure.persistence.models.Subject.Meta.permissions
+subject.view_subject_detail,Can view subject detail and enter data,DEFAULT_PERMISSION_LABELS; apps.subject.infrastructure.persistence.models.Subject.Meta.permissions
+subject.view_subject_list,Can view subject list,DEFAULT_PERMISSION_LABELS; apps.subject.infrastructure.persistence.models.Subject.Meta.permissions

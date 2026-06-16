@@ -6,4 +6,3 @@ class IdentityConfig(AppConfig):
     name = "apps.identity"
     label = "identity"
     verbose_name = "Identity"
-

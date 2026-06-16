@@ -1,0 +1,83 @@
+{% load i18n static %}
+<div class="modal-backdrop{% if role_permission_import_modal_open %} is-open{% endif %}"
+     id="modal-import-role-permission"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-import-role-permission-title">
+    <div class="modal modal--info modal--crf-template-import">
+        <form method="post"
+              enctype="multipart/form-data"
+              action="{{ role_manage_url }}">
+            {% csrf_token %}
+            <input type="hidden" name="manage_roles_action" value="import_roles">
+            <div class="modal__header modal__header--left">
+                <div class="modal__icon" aria-hidden="true">i</div>
+                <h2 class="modal__title" id="modal-import-role-permission-title">
+                    {% trans "Import Roles" %}
+                </h2>
+            </div>
+            <div class="modal__body modal__body--left modal__body--scrollable">
+                <div class="crf-template-import-form">
+                    <div class="crf-template-import-form__field">
+                        <label for="role-permission-import-file"
+                               class="crf-template-import-form__label">{% trans "Import File" %}</label>
+                        <input id="role-permission-import-file"
+                               type="file"
+                               name="import_file"
+                               accept=".xlsx,.xlsm"
+                               required>
+                        <p class="crf-template-import-form__help">{% trans "Accepted formats: .xlsx, .xlsm" %}</p>
+                        <p class="crf-template-import-form__help">
+                            {% trans "Required columns: role_name, permission. Optional columns: description, scope_level." %}
+                        </p>
+                        <p class="crf-template-import-form__help">
+                            {% trans "This import no longer uses group-based mapping." %}
+                        </p>
+                        <a href="{% static 'study/templates/roles_import_template.xlsx' %}"
+                           class="crf-template-import-form__template-link"
+                           download>{% trans "Download Template" %}</a>
+                    </div>
+                </div>
+                {% if role_permission_import_result %}
+                    <section class="crf-template-import-result">
+                        <div class="crf-template-import-result__summary">
+                            <div class="crf-template-import-result__metric">
+                                <strong>{{ role_permission_import_result.total_rows }}</strong>
+                                <span>{% trans "Rows Parsed" %}</span>
+                            </div>
+                            <div class="crf-template-import-result__metric">
+                                <strong>{{ role_permission_import_result.created_roles }}</strong>
+                                <span>{% trans "Created" %}</span>
+                            </div>
+                            <div class="crf-template-import-result__metric">
+                                <strong>{{ role_permission_import_result.updated_roles }}</strong>
+                                <span>{% trans "Updated" %}</span>
+                            </div>
+                            <div class="crf-template-import-result__metric">
+                                <strong>{{ role_permission_import_result.skipped_rows }}</strong>
+                                <span>{% trans "Skipped" %}</span>
+                            </div>
+                        </div>
+                        {% if role_permission_import_result.issues %}
+                            <div class="crf-template-import-alert crf-template-import-alert--error">
+                                <strong>{% trans "Skipped Rows" %}</strong>
+                                <ul>
+                                    {% for issue in role_permission_import_result.issues|slice:":20" %}<li>{{ issue }}</li>{% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </section>
+                {% endif %}
+            </div>
+            <div class="modal__footer modal__footer--end">
+                <button type="button"
+                        class="modal__cancel"
+                        data-modal-close="modal-import-role-permission">{% trans "Cancel" %}</button>
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans "Import File" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

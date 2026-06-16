@@ -1,0 +1,38 @@
+{% load subject_form_tags subject_field_validators %}
+{% subject_datetime_text_control_i18n as datetime_control_i18n %}
+{% subject_date_validator_attrs field as datetime_validator_attrs %}
+{% subject_date_input_value field as date_input_value %}
+{% subject_time_input_value field as time_input_value %}
+<div class="subject-date-text subject-date-text--datetime{% if field.classes %} {{ field.classes }}{% endif %}"
+     data-dateandtime-control
+     data-dateandtime-kind="datetime"
+     data-dateandtime-locale="{{ datetime_control_i18n.locale }}"
+     {% if field.style %}style="{{ field.style }}"{% endif %}>
+    <input type="hidden"
+           data-date-text-composite-input
+           data-date-text-kind="datetime"
+           data-dateandtime-hidden
+           tabindex="{% subject_control_tabindex field 0 %}"
+           value="{{ field.value|default:'' }}">
+    <input class="subject-date-text__input subject-date-text__input--date"
+           type="date"
+           lang="{{ datetime_control_i18n.locale }}"
+           tabindex="{% subject_control_tabindex field 1 %}"
+           data-dateandtime-input
+           data-dateandtime-date
+           data-dateandtime-kind="datetime"
+           {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+           {{ datetime_validator_attrs }}
+           value="{{ date_input_value }}"
+           aria-label="{{ field.label|default:field.field_key|default:datetime_control_i18n.label }}">
+    <input class="subject-date-text__input subject-date-text__input--time"
+           type="time"
+           lang="{{ datetime_control_i18n.locale }}"
+           tabindex="{% subject_control_tabindex field 2 %}"
+           data-dateandtime-input
+           data-dateandtime-time
+           data-dateandtime-kind="datetime"
+           {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+           value="{{ time_input_value }}"
+           aria-label="{{ datetime_control_i18n.time_label }}">
+</div>

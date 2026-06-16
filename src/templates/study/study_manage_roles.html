@@ -1,0 +1,70 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ detail_study.code }} | {% trans "Manage Roles | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}">
+    <link rel="stylesheet" href="{% static 'study/css/crf_templates.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'study/css/manage_roles.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="manage_roles" %}
+        <div class="entity-table__toolbar">
+            <div class="entity-table__summary">
+                {% blocktrans count total=role_permission_summary.role_count %}{{ total }} role{% plural %}{{ total }} roles{% endblocktrans %}
+            </div>
+        </div>
+        <div class="entity-table__scroller">
+            <table class="entity-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Role" %}</th>
+                        <th>{% trans "Scope" %}</th>
+                        <th>{% trans "Description" %}</th>
+                        <th>{% trans "Permissions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in role_permission_summary.roles %}
+                        <tr>
+                            <td class="entity-table__primary">{{ role.name }}</td>
+                            <td>{{ role.scope_level }}</td>
+                            <td>{{ role.description|default:"-" }}</td>
+                            <td>
+                                {% if role.permission_codes %}
+                                    {{ role.permission_codes|join:", " }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="entity-table__empty">{% trans "No roles have been imported for this study." %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="entity-table__footer entity-table__footer--actions">
+            <a href="{{ role_create_url }}"
+               class="entity-table__footer-button entity-table__footer-button--primary">
+                {% trans "Create New Role" %}
+            </a>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    data-modal-open="modal-import-role-permission">
+                {% trans "Import Roles" %}
+            </button>
+        </div>
+    </section>
+    {% include "study/components/_role_permission_import_modal.html" %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% load i18n %}
+<nav class="entity-detail-tabs"
+     data-horizontal-drag-scroll
+     aria-label="{% trans 'Study sections' %}">
+    <a href="{% url 'study:study_detail' study_id=detail_study.id %}"
+       class="entity-detail-tabs__item{% if study_active_tab == 'settings' %} is-active{% endif %}"
+       draggable="false">
+        <span class="entity-detail-tabs__label">{% trans "Study settings" %}</span>
+    </a>
+    <a href="{% url 'study:study_crf_templates' study_id=detail_study.id %}"
+       class="entity-detail-tabs__item{% if study_active_tab == 'crf_templates' %} is-active{% endif %}"
+       draggable="false">
+        <span class="entity-detail-tabs__label">{% trans "Data collection case report forms" %}</span>
+    </a>
+    <a href="{% url 'study:study_event_definitions' study_id=detail_study.id %}"
+       class="entity-detail-tabs__item{% if study_active_tab == 'event_definitions' %} is-active{% endif %}"
+       draggable="false">
+        <span class="entity-detail-tabs__label">{% trans "Event definitions" %}</span>
+    </a>
+    <a href="{% url 'study:study_randomization' study_id=detail_study.id %}"
+       class="entity-detail-tabs__item{% if study_active_tab == 'randomization' %} is-active{% endif %}"
+       draggable="false">
+        <span class="entity-detail-tabs__label">{% trans "Randomization" %}</span>
+    </a>
+    <a href="{% url 'study:study_manage_roles' study_id=detail_study.id %}"
+       class="entity-detail-tabs__item{% if study_active_tab == 'manage_roles' %} is-active{% endif %}"
+       draggable="false">
+        <span class="entity-detail-tabs__label">{% trans "Manage Roles" %}</span>
+    </a>
+</nav>

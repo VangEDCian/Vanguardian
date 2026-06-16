@@ -1,0 +1,26 @@
+{% load subject_form_tags %}
+{% subject_checkbox_control_i18n as checkbox_control_i18n %}
+<div class="{{ choice_list_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
+     data-submitted-diff-control="checkbox"
+     {% if field.style %}style="{{ field.style }}"{% endif %}>
+    {% for option in field.options %}
+        <label>
+            <input type="checkbox"
+                   name="{{ field.field_key }}"
+                   value="{{ option.value }}"
+                   tabindex="{% subject_control_tabindex field forloop.counter0 %}"
+                   disabled
+                   {% if option.value in field.selected_values %}checked{% elif field.is_checked and forloop.first %}checked{% endif %} />
+            <span class="subject-form-choice-option-label">{{ option.label|default:field.label }}</span>
+        </label>
+    {% empty %}
+        <label>
+            <input type="checkbox"
+                   name="{{ field.field_key }}"
+                   tabindex="{% subject_control_tabindex field 0 %}"
+                   disabled
+                   {% if field.is_checked %}checked{% endif %} />
+            <span class="subject-form-choice-option-label">{{ field.label|default:checkbox_control_i18n.default_label }}</span>
+        </label>
+    {% endfor %}
+</div>

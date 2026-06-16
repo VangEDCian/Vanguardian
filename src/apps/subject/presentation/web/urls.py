@@ -1,0 +1,107 @@
+from django.urls import path
+
+from apps.subject.presentation.web.views import (
+    SubjectAddRepeatingEventInstanceView,
+    SubjectCreateView,
+    SubjectDetailView,
+    SubjectEventInstanceFileContentView,
+    SubjectEventInstanceFileImportView,
+    SubjectEventInstanceFilePreviewView,
+    SubjectListView,
+    SubjectResyncStageView,
+    SubjectTriggerWorkflowView,
+)
+from apps.subject.presentation.web.views.verification_verify_checked import (
+    SubjectFormVerificationFinalizePageDataView,
+    SubjectFormVerificationLockPageView,
+    SubjectFormVerificationOpenQueryView,
+    SubjectFormVerificationQueryThreadView,
+    SubjectFormVerificationReopenView,
+    SubjectFormVerificationVerifyCheckedView,
+    SubjectValidationIssueAcknowledgeView,
+)
+
+app_name = "subject"
+
+urlpatterns = [
+    path(
+        "studies/<int:study_id>/subjects/",
+        SubjectListView.as_view(),
+        name="subject_list",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/create/",
+        SubjectCreateView.as_view(),
+        name="subject_create",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/resync-stage/",
+        SubjectResyncStageView.as_view(),
+        name="subject_resync_stage",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/verify-checked/",
+        SubjectFormVerificationVerifyCheckedView.as_view(),
+        name="subject_form_verification_verify_checked",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/reopen/",
+        SubjectFormVerificationReopenView.as_view(),
+        name="subject_form_verification_reopen",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/finalize-page-data/",
+        SubjectFormVerificationFinalizePageDataView.as_view(),
+        name="subject_form_verification_finalize_page_data",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/lock-page/",
+        SubjectFormVerificationLockPageView.as_view(),
+        name="subject_form_verification_lock_page",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/query-thread/",
+        SubjectFormVerificationQueryThreadView.as_view(),
+        name="subject_form_verification_query_thread",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/open-query/",
+        SubjectFormVerificationOpenQueryView.as_view(),
+        name="subject_form_verification_open_query",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/validation-issues/acknowledge/",
+        SubjectValidationIssueAcknowledgeView.as_view(),
+        name="subject_validation_issue_acknowledge",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/event-definitions/<int:event_definition_id>/add-another/",
+        SubjectAddRepeatingEventInstanceView.as_view(),
+        name="subject_eventinstance_add_another",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/trigger-workflow/",
+        SubjectTriggerWorkflowView.as_view(),
+        name="subject_eventinstance_trigger_workflow",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/",
+        SubjectDetailView.as_view(),
+        name="subject_detail",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/files/import/",
+        SubjectEventInstanceFileImportView.as_view(),
+        name="subject_eventinstance_file_import",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/files/",
+        SubjectEventInstanceFilePreviewView.as_view(),
+        name="subject_eventinstance_file_preview",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:event_instance_id>/files/<int:file_id>/content/",
+        SubjectEventInstanceFileContentView.as_view(),
+        name="subject_eventinstance_file_content",
+    ),
+]

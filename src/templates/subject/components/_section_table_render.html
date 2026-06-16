@@ -1,0 +1,37 @@
+{% load i18n subject_form_tags %}
+<div class="subject-form-table-section subject-form-table-section--response-{{ section.table_layout.response_direction }}{% if section.code_class %} subject-form-table-section--{{ section.code_class }}{% endif %}{% if section.layout_css_class %} {{ section.layout_css_class }}{% endif %}">
+    {% if not hide_section_title and section.show_section_header %}
+        <header class="subject-form-table-section__title">{{ section.title }}</header>
+    {% endif %}
+    <div class="subject-form-table-section__table-wrap">
+        <table class="subject-form-table-section__table">
+            <colgroup>
+                {% for column in section.table_layout.columns %}
+                    <col{% if column.width %} style="width: {{ column.width }};"{% endif %} />
+                {% endfor %}
+            </colgroup>
+            {% if section.table_layout.show_table_header %}
+                <thead>
+                    <tr>
+                        {% for column in section.table_layout.columns %}
+                            <th class="subject-form-table-section__head{% if column.header_class %} {{ column.header_class }}{% endif %}">
+                                {{ column.label }}
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+            {% endif %}
+            <tbody>
+                {% for field in section.fields|sort_fields_by_display_order %}
+                    {% include "subject/components/_field_table_row_render.html" with field=field section=section %}
+                {% empty %}
+                    <tr>
+                        <td colspan="{{ section.table_layout.columns|length }}" class="subject-form-table-row__empty">
+                            {% trans "No criteria configured." %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

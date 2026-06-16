@@ -2,7 +2,6 @@ from django.urls import path
 
 from apps.dashboard.presentation.web.views import DashboardMainView
 
-
 app_name = "dashboard"
 
 

@@ -1,0 +1,2 @@
+role_name,group_name,scope_level,description,permission
+Site Coordinator,Site Coordinator,STUDY_SITE,Input/edit/data; Query response,subject.view_subject_list

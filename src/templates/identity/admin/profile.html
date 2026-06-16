@@ -1,0 +1,118 @@
+{% extends "shared/_layout_admin.html" %}
+{% load i18n static %}
+{% block title %}
+    {% trans "Personal Information | Vanguardian" %}
+{% endblock %}
+{% block admin_content %}
+    <form method="post"
+          action="{% url 'identity:current_user_profile' %}"
+          class="admin-account-form admin-account-form--profile"
+          novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="admin-account-alert admin-account-alert--error">
+                {{ form.non_field_errors|striptags }}
+            </div>
+        {% endif %}
+        <section class="admin-content-panel admin-profile-card">
+            <div class="admin-avatar admin-avatar--hero" aria-hidden="true">
+                <img src="{% static 'images/navigation/user.svg' %}" alt="" width="37" height="37">
+            </div>
+            <div class="admin-profile-card__content">
+                <h2>{{ profile_summary.display_name }}</h2>
+                <p>{{ profile_summary.role_label }}</p>
+                <div class="admin-profile-card__meta">
+                    <span class="admin-status-pill">{{ profile_summary.status_label }}</span>
+                    <span>{% trans "Account" %}: {{ profile_summary.username }}</span>
+                </div>
+            </div>
+        </section>
+        <section class="admin-content-panel">
+            <h2 class="admin-section-title">
+                <span class="admin-nav-icon admin-nav-icon--user" aria-hidden="true"></span>
+                <span>{% trans "Personal Information" %}</span>
+            </h2>
+            <div class="admin-account-form__grid">
+                <div class="admin-account-field">
+                    <label for="{{ form.first_name.id_for_label }}">{% trans "First Name" %}</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                        <p class="admin-account-field__error">{{ form.first_name.errors|striptags }}</p>
+                    {% endif %}
+                </div>
+                <div class="admin-account-field">
+                    <label for="{{ form.last_name.id_for_label }}">{% trans "Last Name" %}</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                        <p class="admin-account-field__error">{{ form.last_name.errors|striptags }}</p>
+                    {% endif %}
+                </div>
+                <div class="admin-account-field">
+                    <label for="{{ form.email.id_for_label }}">{% trans "Email" %}</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <p class="admin-account-field__error">{{ form.email.errors|striptags }}</p>
+                    {% endif %}
+                </div>
+                <div class="admin-account-field">
+                    <label for="{{ form.phone_number.id_for_label }}">{% trans "Phone Number" %}</label>
+                    {{ form.phone_number }}
+                    {% if form.phone_number.errors %}
+                        <p class="admin-account-field__error">{{ form.phone_number.errors|striptags }}</p>
+                    {% endif %}
+                </div>
+                <div class="admin-account-field admin-account-field--full">
+                    <label for="{{ form.display_name.id_for_label }}">{% trans "Display Name" %}</label>
+                    {{ form.display_name }}
+                    {% if form.display_name.errors %}
+                        <p class="admin-account-field__error">{{ form.display_name.errors|striptags }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+        <section class="admin-content-panel">
+            <h2 class="admin-section-title">
+                <span class="admin-nav-icon admin-nav-icon--briefcase" aria-hidden="true"></span>
+                <span>{% trans "System Information" %}</span>
+            </h2>
+            <div class="admin-account-form__grid">
+                <div class="admin-account-field">
+                    <label>{% trans "Role" %}</label>
+                    <input class="admin-account-field__input"
+                           type="text"
+                           value="{{ profile_summary.role_label }}"
+                           readonly>
+                </div>
+                <div class="admin-account-field">
+                    <label>{% trans "Status" %}</label>
+                    <span class="admin-boolean-value{% if not profile_summary.is_active %} admin-boolean-value--inactive{% endif %}">
+                        <img src="{% if profile_summary.is_active %}{% static 'images/status/activate.svg' %}{% else %}{% static 'images/status/deactivate.svg' %}{% endif %}"
+                             alt=""
+                             width="13"
+                             height="13">
+                        <span>{{ profile_summary.status_label }}</span>
+                    </span>
+                </div>
+                <div class="admin-account-field">
+                    <label>{% trans "Username" %}</label>
+                    <input class="admin-account-field__input"
+                           type="text"
+                           value="{{ profile_summary.username }}"
+                           readonly>
+                </div>
+                <div class="admin-account-field">
+                    <label>{% trans "Joined Date" %}</label>
+                    <input class="admin-account-field__input"
+                           type="text"
+                           value="{{ profile_summary.date_joined|date:'d/m/Y' }}"
+                           readonly>
+                </div>
+            </div>
+        </section>
+        <footer class="admin-action-bar">
+            <button type="submit" class="admin-account-button admin-account-button--primary">
+                {% trans "Save Changes" %}
+            </button>
+        </footer>
+    </form>
+{% endblock %}

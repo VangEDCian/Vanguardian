@@ -10,14 +10,15 @@ class IdentityLoginAuditService:
     def __init__(self, audit_context_adapter=None):
         self.audit_context_adapter = audit_context_adapter or self.audit_context_adapter_class()
 
-    def record_login_succeeded(self, *, request, user, identifier):
+    def record_login_succeeded(self, *, user, identifier, actor_user_id=None, ip_address=None, user_agent=None):
         self.audit_context_adapter.record_event(
             action=AuditEventAction.IDENTITY_LOGIN_SUCCEEDED,
             object_type=AuditEventObjectType.IDENTITY_USER,
             object_id=str(user.pk),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             user_id=user.pk,
-            actor_user_id=user.pk,
             before_data={},
             after_data={
                 "identifier": identifier,
@@ -25,7 +26,7 @@ class IdentityLoginAuditService:
             },
         )
 
-    def record_login_failed(self, *, request, identifier, form_errors):
+    def record_login_failed(self, *, identifier, form_errors, actor_user_id=None, ip_address=None, user_agent=None):
         if not identifier:
             return
 
@@ -33,7 +34,9 @@ class IdentityLoginAuditService:
             action=AuditEventAction.IDENTITY_LOGIN_FAILED,
             object_type=AuditEventObjectType.IDENTITY_LOGIN_ATTEMPT,
             object_id=self._build_failed_attempt_object_id(identifier),
-            request=request,
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
             before_data={},
             after_data={
                 "identifier": identifier,

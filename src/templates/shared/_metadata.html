@@ -1,0 +1,13 @@
+{% load i18n %}
+<meta charset="{{ metadata_charset|default:'utf-8' }}">
+<meta name="viewport"
+      content="{{ metadata_viewport|default:'width=device-width, initial-scale=1' }}">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="keywords"
+      content="{{ metadata_keywords|default:'edc, vanguard, vanguardian' }}">
+{% if metadata_description %}
+    <meta name="description" content="{{ metadata_description }}">
+{% else %}
+    <meta name="description"
+          content="{% trans 'This is a modern EDC platform for clinical research data management and auditability.' %}">
+{% endif %}

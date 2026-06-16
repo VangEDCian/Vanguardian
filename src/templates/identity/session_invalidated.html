@@ -1,0 +1,30 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" class="h-full">
+    <head>
+        {% trans "Session ended notification." as metadata_description %}
+        {% include "shared/_metadata.html" with metadata_description=metadata_description metadata_keywords="session,authentication,vanguardian" %}
+        <title>{% trans "Session ended | Vanguardian" %}</title>
+        <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
+        <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'shared/css/components/modal.css' %}">
+        <link rel="stylesheet" href="{% static 'identity/css/session_guard.css' %}">
+    </head>
+    <body class="session-invalidated-page">
+        <div class="modal-backdrop is-open" role="presentation">
+            <section class="modal modal--warning" role="alertdialog" aria-modal="true" aria-labelledby="session-invalidated-title" aria-describedby="session-invalidated-message">
+                <div class="modal__header">
+                    <div class="modal__icon" aria-hidden="true">!</div>
+                    <h1 class="modal__title" id="session-invalidated-title">{% trans "Your session has ended" %}</h1>
+                </div>
+                <div class="modal__body">
+                    <p class="modal__message" id="session-invalidated-message">{% trans "This account was signed in from another device. Please sign in again to continue here." %}</p>
+                </div>
+                <div class="modal__footer">
+                    <a class="session-guard__button" href="{{ login_url }}">{% trans "Sign in again" %}</a>
+                </div>
+            </section>
+        </div>
+    </body>
+</html>

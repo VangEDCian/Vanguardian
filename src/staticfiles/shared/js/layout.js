@@ -6,10 +6,9 @@
 
   const navItems = Array.from(shell.querySelectorAll("[data-nav-item]"));
   const breadcrumbActive = shell.querySelector("[data-breadcrumb-active]");
-  const breadcrumbStudy = shell.querySelector("[data-breadcrumb-study]");
-  const breadcrumbSite = shell.querySelector("[data-breadcrumb-site]");
 
   const dropdowns = Array.from(shell.querySelectorAll("[data-dropdown]"));
+  const horizontalDragScrollAreas = Array.from(shell.querySelectorAll("[data-horizontal-drag-scroll]"));
   const avatarMenu = shell.querySelector("[data-avatar-menu]");
   const avatarTrigger = avatarMenu?.querySelector("[data-avatar-trigger]");
   const avatarPanel = avatarMenu?.querySelector("[data-avatar-panel]");
@@ -55,6 +54,7 @@
     const trigger = dropdown.querySelector("[data-dropdown-trigger]");
     const menu = dropdown.querySelector("[data-dropdown-menu]");
     const valueNode = dropdown.querySelector("[data-dropdown-value]");
+    const inputNode = dropdown.querySelector("[data-dropdown-input]");
     const options = Array.from(dropdown.querySelectorAll("[data-dropdown-option]"));
 
     if (!trigger || !menu || !valueNode) {
@@ -72,18 +72,57 @@
     options.forEach((option) => {
       option.addEventListener("click", () => {
         valueNode.textContent = option.textContent || "";
+        if (inputNode) {
+          inputNode.value = option.value || "";
+        }
         trigger.setAttribute("aria-expanded", "false");
         menu.hidden = true;
-
-        // 0=study, 1=site
-        if (index === 0 && breadcrumbStudy) {
-          breadcrumbStudy.textContent = option.textContent || "";
-        }
-        if (index === 1 && breadcrumbSite) {
-          breadcrumbSite.textContent = option.textContent || "";
+        if (option.hasAttribute("data-dropdown-auto-submit")) {
+          option.form?.submit();
         }
       });
     });
+  });
+
+
+  horizontalDragScrollAreas.forEach((area) => {
+    let isDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    area.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      isDragging = true;
+      startX = event.pageX;
+      startScrollLeft = area.scrollLeft;
+      area.classList.add("is-dragging");
+    });
+
+    area.addEventListener("mousemove", (event) => {
+      if (!isDragging) {
+        return;
+      }
+      event.preventDefault();
+      const deltaX = event.pageX - startX;
+      area.scrollLeft = startScrollLeft - deltaX;
+    });
+
+    ["mouseleave", "mouseup"].forEach((eventName) => {
+      area.addEventListener(eventName, () => {
+        isDragging = false;
+        area.classList.remove("is-dragging");
+      });
+    });
+
+    area.addEventListener("wheel", (event) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+        return;
+      }
+      event.preventDefault();
+      area.scrollLeft += event.deltaY;
+    }, { passive: false });
   });
 
   if (avatarTrigger && avatarPanel) {
@@ -117,5 +156,35 @@
       closeAllDropdowns();
       closeAvatarMenu();
     }
+  });
+})();
+
+
+(function () {
+  const setCookie = (name, value, days = null) => {
+    let expires = "";
+    if (days) {
+      const date = new Date();
+      date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+      expires = "; expires=" + date.toUTCString();
+    }
+    // encodeURIComponent handles special characters like semicolons or spaces
+    document.cookie = encodeURIComponent(name) + "=" + encodeURIComponent(value) + expires + "; path=/; SameSite=Lax";
+  }
+
+  const cookiesKeyStudy = document.getElementById('idx-comment-select---cookies-key--study').value;
+  document.querySelectorAll('.common-select--study button[data-dropdown-option]').forEach((node, index) => {
+    node.addEventListener('click', (event) => {
+      setCookie(cookiesKeyStudy, node.getAttribute("value"));
+      window.location.reload();
+    })
+  });
+
+  const cookiesKeySite = document.getElementById('idx-comment-select---cookies-key--site').value;
+  document.querySelectorAll('.common-select--site button[data-dropdown-option]').forEach((node, index) => {
+    node.addEventListener('click', (event) => {
+      setCookie(cookiesKeySite, node.getAttribute("value"));
+      window.location.reload();
+    })
   });
 })();

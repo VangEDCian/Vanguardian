@@ -15,7 +15,6 @@ from pathlib import Path
 import environ
 from django.utils.translation import gettext_lazy as _
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,6 +24,13 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ("127.0.0.1", "localhost")),
     CSRF_TRUSTED_ORIGINS=(list, ()),
+    EMAIL_PORT=(int, 587),
+    EMAIL_TIMEOUT=(float, 10.0),
+    EMAIL_USE_TLS=(bool, False),
+    EMAIL_USE_STARTTLS=(bool, True),
+    SONIC_ENABLED=(bool, False),
+    SONIC_PORT=(int, 1491),
+    SONIC_SEARCH_LIMIT=(int, 200),
 )
 ENV_FILE = BASE_DIR / ".env"
 if ENV_FILE.exists():
@@ -53,6 +59,12 @@ X_INSTALLED_APPS = [
     "apps.audit.apps.AuditConfig",
     "apps.identity.apps.IdentityConfig",
     "apps.dashboard.apps.DashboardConfig",
+    "apps.study.apps.StudyConfig",
+    "apps.crf.apps.CrfConfig",
+    "apps.subject.apps.SubjectConfig",
+    "apps.datacapture.apps.DatacaptureConfig",
+    "apps.reconcile.apps.ReconcileConfig",
+    "apps.governance.apps.GovernanceConfig",
 ]
 
 INSTALLED_APPS = [
@@ -62,10 +74,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.forms",
     "rest_framework",
     "django_filters",
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    "django_tables2",
+    "parler",
 ] + X_INSTALLED_APPS
 
 MIDDLEWARE = [
@@ -75,8 +90,12 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.identity.infrastructure.auth.middleware.SingleActiveSessionMiddleware",
+    "apps.identity.infrastructure.auth.middleware.CheckFirstLoginMiddleware",
+    "apps.identity.presentation.middleware.AuthorizationContextMiddleware",
     "apps.identity.infrastructure.auth.middleware.MembershipAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "Vanguardian.middleware.TemplateMutationFeedbackMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -96,9 +115,14 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.shared.context_processors.shared_select_options",
             ],
+            "libraries": {
+                "subject_field_validators": "apps.subject.templatetags.subject_field_validators",
+                "user_permissions": "apps.shared.templatetags.user_permissions",
+            },
         },
     },
 ]
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 
 WSGI_APPLICATION = "Vanguardian.wsgi.application"
 ASGI_APPLICATION = "Vanguardian.asgi.application"
@@ -106,15 +130,29 @@ ASGI_APPLICATION = "Vanguardian.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-__DEFAULT_DB_URL = "sqlite:///" + str(BASE_DIR / "db.sqlite3")
+_default_sqlite_url = f"sqlite:///{(BASE_DIR / 'db.sqlite3')}"
 
 DATABASES = {
-    "default": env.db(
-        default=__DEFAULT_DB_URL,
-    ),
+    "default": env.db("DATABASE_URL", default=_default_sqlite_url),
 }
 
-_cache_url = env("CACHE_URL", default="locmemcache://")
+DATABASE_DISABLE_CONSTRAINTS = env(
+    "DATABASE_DISABLE_CONSTRAINTS",
+    cast=bool,
+    default=not DEBUG,
+)
+DATABASE_DISABLE_FOREIGN_KEY_CONSTRAINTS = env(
+    "DATABASE_DISABLE_FOREIGN_KEY_CONSTRAINTS",
+    cast=bool,
+    default=DATABASE_DISABLE_CONSTRAINTS,
+)
+if DATABASE_DISABLE_FOREIGN_KEY_CONSTRAINTS:
+    for database_config in DATABASES.values():
+        if database_config.get("ENGINE") == "django.db.backends.mysql":
+            database_config["ENGINE"] = "Vanguardian.db.backends.mysql_no_constraints"
+
+_raw_cache_url = env("CACHE_URL", default="")
+_cache_url = (_raw_cache_url or "").strip() or "locmemcache://"
 if _cache_url.startswith("memcache://"):
     # django-environ maps memcache:// to the legacy MemcachedCache backend,
     # which is removed in Django 6. Use the supported backend explicitly.
@@ -129,23 +167,45 @@ else:
         "default": environ.Env.cache_url_config(_cache_url),
     }
 
+STUDY_SUBJECT_CODE_GENERATION_MODE = env(
+    "STUDY_SUBJECT_CODE_GENERATION_MODE",
+    cast=str,
+    default="screening_code_incremental",
+)
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": "apps.identity.infrastructure.auth.password_validation.PasswordPolicyValidator",
     },
 ]
+
+IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS = env("IDENTITY_LOGIN_RATE_LIMIT_MAX_ATTEMPTS", cast=int, default=5)
+IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_WINDOW_SECONDS", cast=int, default=15 * 60)
+IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS = env("IDENTITY_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS", cast=int, default=15 * 60)
+AUTHZ_ALLOW_GLOBAL_ROLE_FOR_STUDY_CONTEXT = env(
+    "AUTHZ_ALLOW_GLOBAL_ROLE_FOR_STUDY_CONTEXT",
+    cast=bool,
+    default=False,
+)
+AUTHZ_SUPERUSER_BYPASS_EDC_CONTEXT = env(
+    "AUTHZ_SUPERUSER_BYPASS_EDC_CONTEXT",
+    cast=bool,
+    default=False,
+)
+
+SONIC_ENABLED = env("SONIC_ENABLED", cast=bool, default=False)
+if SONIC_ENABLED:
+    SONIC_HOST = env("SONIC_HOST", cast=str, default="127.0.0.1").strip() or "127.0.0.1"
+    SONIC_PORT = env("SONIC_PORT", cast=int, default=1491)
+    SONIC_PASSWORD = env("SONIC_PASSWORD", cast=str, default="SecretPassword")
+    SONIC_COLLECTION = env("SONIC_COLLECTION", cast=str, default="vanguardian").strip() or "vanguardian"
+    SONIC_BUCKET_STUDIES = env("SONIC_BUCKET_STUDIES", cast=str, default="studies").strip() or "studies"
+    SONIC_BUCKET_SITES = env("SONIC_BUCKET_SITES", cast=str, default="sites").strip() or "sites"
+    SONIC_LANGUAGE = env("SONIC_LANGUAGE", cast=str, default="eng").strip() or "eng"
+    SONIC_SEARCH_LIMIT = env("SONIC_SEARCH_LIMIT", cast=int, default=200)
 
 
 # Internationalization
@@ -158,11 +218,22 @@ LANGUAGES = [
     ("en", _("English")),
 ]
 
+PARLER_DEFAULT_LANGUAGE_CODE = LANGUAGE_CODE
+PARLER_LANGUAGES = {
+    None: tuple({"code": code} for code, _label in LANGUAGES),
+    "default": {
+        "fallbacks": [PARLER_DEFAULT_LANGUAGE_CODE],
+        "hide_untranslated": False,
+    },
+}
+
 LOCALE_PATHS = [
     BASE_DIR / "locale",
 ]
 
-TIME_ZONE = 'Asia/Ho_Chi_Minh'
+FORMAT_MODULE_PATH = "apps.shared.formats"
+
+TIME_ZONE = "Asia/Ho_Chi_Minh"
 
 USE_I18N = True
 
@@ -173,16 +244,56 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [
-    BASE_DIR / "staticfiles",
-]
+STATICFILES_DIRS = [BASE_DIR / "staticfiles"]
+if (BASE_DIR / "node_modules").exists():
+    STATICFILES_DIRS.append(BASE_DIR / "node_modules")
 STATIC_ROOT = BASE_DIR.parent / "static"
 
 AUTH_USER_MODEL = "identity.User"
 AUTHENTICATION_BACKENDS = [
     "apps.identity.infrastructure.auth.backends.IdentifierBackend",
 ]
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/dashboard/"
-LOGOUT_REDIRECT_URL = "/login/"
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+LOGIN_URL = "/itsnotasignin/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/itsnotasignin/"
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    cast=str,
+    default="apps.identity.infrastructure.email_backend.AioSmtpEmailBackend",
+)
+EMAIL_HOST = (env("EMAIL_HOST", cast=str, default="localhost") or "localhost").strip()
+EMAIL_PORT = env("EMAIL_PORT", cast=int)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", cast=str, default="").strip()
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", cast=str, default="")
+EMAIL_USE_TLS = env("EMAIL_USE_TLS", cast=bool)
+EMAIL_USE_STARTTLS = env("EMAIL_USE_STARTTLS", cast=bool, default=True)
+EMAIL_TIMEOUT = env("EMAIL_TIMEOUT", cast=float)
+if EMAIL_USE_TLS:
+    EMAIL_USE_STARTTLS = False
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", cast=str, default="")
+
+#
+# Django Tables 2
+#
+DJANGO_TABLES2_TEMPLATE = "shared/components/_common_tables2.html"
+DJANGO_TABLES2_TABLE_ATTRS = {
+    "class": "entity-table",
+    "data-common-table": "true",
+}
+
+
+DISABLE_APP_MIGRATIONS = env("DISABLE_APP_MIGRATIONS", cast=bool, default=False)
+
+if DISABLE_APP_MIGRATIONS:
+    # Keep django.contrib migrations active (contenttypes/auth/sessions/...)
+    # and disable only project app migrations when needed.
+    MIGRATION_MODULES = {
+        "shared": None,
+        "audit": None,
+        "identity": None,
+        "dashboard": None,
+        "study": None,
+        "crf": None,
+        "subject": None,
+        "reconcile": None,
+    }

@@ -1,71 +1,26 @@
 {% extends "shared/_layout.html" %}
 {% load i18n static %}
-
-{% block title %}{% trans "Users | Vanguardian" %}{% endblock %}
-
+{% block title %}
+    {% trans "Users | Vanguardian" %}
+{% endblock %}
 {% block extra_css %}
-  {{ block.super }}
-  <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}">
 {% endblock %}
-
 {% block extra_js %}
-  {{ block.super }}
-  <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+    {{ block.super }}
+    <script src="{% static 'shared/js/components/common-table.js' %}"></script>
 {% endblock %}
-
 {% block dashboard_content %}
-<section class="entity-table-panel">
-  <div class="entity-table__toolbar">
-    <span class="entity-table__toolbar-icon" aria-hidden="true">
-      <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
-    </span>
-    <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
-    <form method="get" class="entity-table__filter">
-      {% if user_search_query %}
-      <input type="hidden" name="q" value="{{ user_search_query }}">
-      {% endif %}
-      {% if users_table_sort_key %}
-      <input type="hidden" name="sort" value="{{ users_table_sort_key }}">
-      {% endif %}
-      {% if users_table_sort_direction %}
-      <input type="hidden" name="direction" value="{{ users_table_sort_direction }}">
-      {% endif %}
-      <label for="user-filter" class="entity-table__filter-label">{% trans "Filter:" %}</label>
-      {% trans "Filter users" as filter_users_aria_label %}
-      {% include "shared/components/_common_select.html" with select_mode="dropdown" select_id="user-filter" select_name="filter" select_wrapper_class="common-select--filter" select_display_text=user_selected_filter_label select_options=users_filters select_aria_label=filter_users_aria_label %}
-    </form>
-    <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
-    <div class="entity-table__summary">
-      {% trans "Total Users" %}: <strong>{{ users_total }}</strong>
-    </div>
-
-    <form method="get" class="entity-table__search">
-      {% if user_selected_filter %}
-      <input type="hidden" name="filter" value="{{ user_selected_filter }}">
-      {% endif %}
-      {% if users_table_sort_key %}
-      <input type="hidden" name="sort" value="{{ users_table_sort_key }}">
-      {% endif %}
-      {% if users_table_sort_direction %}
-      <input type="hidden" name="direction" value="{{ users_table_sort_direction }}">
-      {% endif %}
-      <span class="entity-table__search-icon" aria-hidden="true">
-        <span class="svg-icon" style="--icon-url: url('{% static 'images/table/search.svg' %}')"></span>
-      </span>
-      <input
-        type="search"
-        name="q"
-        value="{{ user_search_query }}"
-        placeholder="{% trans 'Search users...' %}"
-        aria-label="{% trans 'Search users' %}"
-      >
-    </form>
-  </div>
-
-  {% include "shared/components/_common_table.html" with headers=users_table_headers rows=users_table_rows empty_text=users_empty_text sortable_columns=users_table_sortable_columns sort_key=users_table_sort_key sort_direction=users_table_sort_direction sort_params=users_table_sort_params enable_detail_click=True %}
-
-  <div class="entity-table__footer">
-    <button type="button" class="entity-table__footer-button">{% trans "Add New User" %}</button>
-  </div>
-</section>
+    <section class="entity-table-panel">
+        {% include "shared/components/_entity_table_toolbar.html" with toolbar=users_table_toolbar %}
+        {% include "shared/components/_common_table.html" with headers=users_table_headers rows=users_table_rows empty_text=users_empty_text sortable_columns=users_table_sortable_columns sort_key=users_table_sort_key sort_direction=users_table_sort_direction sort_params=users_table_sort_params enable_detail_click=True %}
+        <div class="entity-table__footer">
+            {% if can_create_user %}
+                <a href="{% url 'identity:user_create' %}"
+                   class="entity-table__footer-button">{% trans "Add New User" %}</a>
+            {% endif %}
+        </div>
+    </section>
 {% endblock %}

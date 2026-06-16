@@ -1,0 +1,224 @@
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+from django.test import SimpleTestCase
+
+from apps.core.choices import (
+    DataCaptureFieldReviewStatusChoices,
+    DataCaptureFieldReviewTypeChoices,
+    DataCapturePageStateStatusChoices,
+)
+from apps.datacapture.infrastructure.repositories.page_capture import DjangoDataCapturePageRepository
+
+
+class _ReviewQuery:
+    def __init__(self, *, rows=None, first_row=None, values=None):
+        self.rows = rows or []
+        self.first_row = first_row
+        self.values = values or []
+        self.updated_with = None
+
+    def only(self, *args):
+        return self.rows
+
+    def values_list(self, *args, **kwargs):
+        return self.values
+
+    def first(self):
+        return self.first_row
+
+    def update(self, **kwargs):
+        self.updated_with = kwargs
+        return 1
+
+
+class DataCaptureFieldReviewRepositoryTests(SimpleTestCase):
+    def test_payload_values_by_field_repeat_maps_repeat_suffixes_to_field_template(self):
+        repository = DjangoDataCapturePageRepository()
+        field_model = MagicMock()
+        field_model.objects.filter.return_value = _ReviewQuery(
+            rows=[
+                SimpleNamespace(pk=11, field_key="AETERM"),
+                SimpleNamespace(pk=12, field_key="AESTDTC"),
+            ],
+        )
+
+        with patch(
+            "apps.datacapture.infrastructure.repositories.page_capture.CrfFieldTemplate",
+            field_model,
+        ):
+            result = repository._payload_values_by_field_repeat(
+                crf_template_id=5,
+                payload={
+                    "AETERM": "Headache",
+                    "AETERM__repeat_2": "Nausea",
+                    "AESTDTC__repeat_2__year": "2026",
+                    "AESTDTC__repeat_2__month": "5",
+                    "AESTDTC__repeat_2__day": "21",
+                    "_field_lookup_labels": {"AETERM": "ignored"},
+                },
+            )
+
+        self.assertEqual(result[(11, 1)], "Headache")
+        self.assertEqual(result[(11, 2)], "Nausea")
+        self.assertEqual(result[(12, 2)], "2026-05-21")
+
+    def test_changed_field_mapping_keeps_repeat_and_date_keys_for_verified_reason_checks(self):
+        repository = DjangoDataCapturePageRepository()
+        field_model = MagicMock()
+        field_model.objects.filter.return_value = _ReviewQuery(
+            rows=[
+                SimpleNamespace(id=11, field_key="AETERM"),
+                SimpleNamespace(id=12, field_key="AESTDTC"),
+            ],
+        )
+
+        with patch(
+            "apps.datacapture.infrastructure.repositories.page_capture.CrfFieldTemplate",
+            field_model,
+        ):
+            result = repository._map_changed_field_keys_by_template_id(
+                crf_template_id=5,
+                changed_field_keys=[
+                    "AETERM__repeat_2",
+                    "AESTDTC__repeat_3__day",
+                    "field_11__repeat_4",
+                ],
+            )
+
+        self.assertEqual(result[11], ["AETERM__repeat_2", "field_11__repeat_4"])
+        self.assertEqual(result[12], ["AESTDTC__repeat_3__day"])
+
+    def test_field_entry_values_store_typed_columns(self):
+        repository = DjangoDataCapturePageRepository()
+
+        number_values = repository._field_entry_values(raw_value="12.345", data_type="DECIMAL")
+        date_values = repository._field_entry_values(raw_value="2026-05-21 08:30:00", data_type="DATETIME")
+        bool_values = repository._field_entry_values(raw_value="yes", data_type="BOOLEAN")
+        json_values = repository._field_entry_values(raw_value=["A", "B"], data_type="CODELIST")
+
+        self.assertEqual(str(number_values["value_number"]), "12.345")
+        self.assertEqual(str(date_values["value_date"]), "2026-05-21")
+        self.assertIs(bool_values["value_bool"], True)
+        self.assertEqual(json_values["value_json"], '["A", "B"]')
+
+    def test_ensure_field_reviews_replaces_stale_record(self):
+        repository = DjangoDataCapturePageRepository()
+        stale_review = SimpleNamespace(
+            id=7,
+            field_template_id=2,
+            deleted=False,
+            status=DataCaptureFieldReviewStatusChoices.STALE,
+        )
+        stale_query = _ReviewQuery(rows=[stale_review])
+        mark_deleted_query = _ReviewQuery()
+        active_query = _ReviewQuery(values=[])
+        field_review_model = MagicMock()
+        field_review_model.objects.filter.side_effect = [
+            stale_query,
+            mark_deleted_query,
+            active_query,
+        ]
+
+        with patch(
+            "apps.datacapture.infrastructure.repositories.page_capture.DataCaptureFieldReview",
+            field_review_model,
+        ):
+            count = repository.ensure_field_reviews_for_page(
+                page_state_id=1,
+                field_template_ids=(2,),
+                data_version=3,
+                actor_user_id=4,
+            )
+
+        self.assertEqual(count, 1)
+        self.assertEqual(mark_deleted_query.updated_with["deleted"], True)
+        field_review_model.objects.bulk_create.assert_called_once()
+
+    def test_verify_field_review_replaces_stale_record(self):
+        repository = DjangoDataCapturePageRepository()
+        stale_review = SimpleNamespace(
+            pk=7,
+            deleted=False,
+            status=DataCaptureFieldReviewStatusChoices.STALE,
+            reviewed_at=None,
+        )
+        new_review = SimpleNamespace(
+            pk=8,
+            status=DataCaptureFieldReviewStatusChoices.NOT_REVIEWED,
+            reviewed_at=None,
+        )
+        stale_query = _ReviewQuery(first_row=stale_review)
+        mark_deleted_query = _ReviewQuery()
+        verify_query = _ReviewQuery()
+        field_review_model = MagicMock()
+        field_review_model.objects.filter.side_effect = [
+            stale_query,
+            mark_deleted_query,
+            verify_query,
+        ]
+        field_review_model.objects.create.return_value = new_review
+
+        with patch(
+            "apps.datacapture.infrastructure.repositories.page_capture.DataCaptureFieldReview",
+            field_review_model,
+        ):
+            repository.verify_field_review(
+                page_state_id=1,
+                field_template_id=2,
+                data_version=3,
+                value_snapshot="value",
+                actor_user_id=4,
+            )
+
+        self.assertEqual(mark_deleted_query.updated_with["deleted"], True)
+        field_review_model.objects.create.assert_called_once()
+        self.assertEqual(verify_query.updated_with["deleted"], False)
+        self.assertEqual(
+            verify_query.updated_with["status"],
+            DataCaptureFieldReviewStatusChoices.VERIFIED,
+        )
+        self.assertEqual(verify_query.updated_with["data_version"], 3)
+        self.assertEqual(verify_query.updated_with["value_snapshot"], "value")
+
+    def test_reopen_verified_page_state_marks_verified_field_reviews_stale(self):
+        repository = DjangoDataCapturePageRepository()
+        page_state = SimpleNamespace(
+            pk=12,
+            status=DataCapturePageStateStatusChoices.VERIFIED,
+            refresh_from_db=lambda: None,
+        )
+        page_lookup_query = _ReviewQuery(first_row=page_state)
+        page_update_query = _ReviewQuery()
+        field_review_query = _ReviewQuery()
+        page_state_model = MagicMock()
+        page_state_model.objects.filter.side_effect = [page_lookup_query, page_update_query]
+        field_review_model = MagicMock()
+        field_review_model.objects.filter.return_value = field_review_query
+
+        with (
+            patch(
+                "apps.datacapture.infrastructure.repositories.page_capture.DataCapturePageState",
+                page_state_model,
+            ),
+            patch(
+                "apps.datacapture.infrastructure.repositories.page_capture.DataCaptureFieldReview",
+                field_review_model,
+            ),
+            patch.object(repository, "_record_page_state_transition"),
+        ):
+            page_status = repository.reopen_verified_page_state(
+                page_state_id=12,
+                reason_text="Need correction",
+                actor_user_id=4,
+            )
+
+        self.assertEqual(page_status, DataCapturePageStateStatusChoices.CORRECTION_REQUIRED.value)
+        _, filter_kwargs = field_review_model.objects.filter.call_args
+        self.assertEqual(filter_kwargs["page_state_id"], 12)
+        self.assertEqual(filter_kwargs["review_type"], DataCaptureFieldReviewTypeChoices.DATA_REVIEW)
+        self.assertEqual(filter_kwargs["deleted"], False)
+        self.assertEqual(filter_kwargs["status"], DataCaptureFieldReviewStatusChoices.VERIFIED)
+        self.assertEqual(field_review_query.updated_with["status"], DataCaptureFieldReviewStatusChoices.STALE)
+        self.assertEqual(field_review_query.updated_with["reason_code"], "reopen_form")
+        self.assertEqual(field_review_query.updated_with["reason_text"], "Need correction")

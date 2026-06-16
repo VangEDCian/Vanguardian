@@ -1,0 +1,23 @@
+{% load subject_form_tags subject_field_validators %}
+{% subject_time_control_i18n as time_control_i18n %}
+{% subject_time_validator_attrs field as time_validator_attrs %}
+{% subject_time_input_value field as time_input_value %}
+<div class="subject-date-text"
+     data-dateandtime-control
+     data-dateandtime-kind="time">
+    <input class="subject-date-text__input subject-date-text__input--time"
+           type="time"
+           name="{{ field.field_key }}"
+           tabindex="{% subject_control_tabindex field 0 %}"
+           data-dateandtime-input
+           data-dateandtime-time
+           data-dateandtime-kind="time"
+           data-submitted-diff-input
+           data-submitted-diff-control="time"
+           data-standalone-time-input
+           {% if field.style %}style="{{ field.style }}"{% endif %}
+           {% if is_page_edit_locked %}disabled aria-disabled="true"{% endif %}
+           {{ time_validator_attrs }}
+           value="{{ time_input_value }}"
+           aria-label="{{ field.label|default:field.field_key|default:time_control_i18n.time_label }}" />
+</div>

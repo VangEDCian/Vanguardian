@@ -1,0 +1,112 @@
+.subject-detail-viewonly {
+  color: #1f2a33;
+  font-size: 14px;
+}
+
+.subject-detail-viewonly__header {
+  margin-bottom: 14px;
+  border-bottom: 1px solid #d6dde4;
+}
+
+.subject-detail-viewonly__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+  padding: 1rem;
+}
+
+.subject-detail-viewonly__meta-row {
+  display: grid;
+  grid-template-columns: minmax(121px, max-content) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.subject-detail-viewonly__meta dt {
+  margin: 0;
+  color: #5b6976;
+  font-weight: 500;
+}
+
+.subject-detail-viewonly__meta dt::after {
+  content: ":";
+}
+
+.subject-detail-viewonly__meta dd {
+  margin: 0;
+  word-break: break-word;
+  font-weight: 700;
+}
+
+.subject-detail-viewonly__table-wrap {
+  overflow-x: auto;
+}
+
+.subject-detail-viewonly__table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.subject-detail-viewonly__table thead th {
+  padding: 0.5rem;
+  background: #fff;
+  color: #1e2a34;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  border-right: none;
+  text-transform: capitalize;
+}
+
+.subject-detail-viewonly__table tbody td {
+  padding: 0.5rem;
+  background: transparent;
+  color: #1f2a33;
+  font-size: 14px;
+  vertical-align: middle;
+  border: none;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-wrap: wrap;
+  cursor: auto;
+}
+
+.subject-detail-viewonly__table thead tr > th:nth-child(1),
+.subject-detail-viewonly__table tbody tr > td:nth-child(1) {
+  width: 100%;
+}
+
+.subject-detail-viewonly__table thead tr > th:nth-child(2),
+.subject-detail-viewonly__table tbody tr > td:nth-child(2) {
+  min-width: 231px;
+  text-align: center;
+}
+
+.subject-detail-viewonly__table thead tr > th:nth-child(n+3),
+.subject-detail-viewonly__table tbody tr > td:nth-child(n+3) {
+  min-width: 131px;
+  text-align: center;
+}
+
+.subject-detail-viewonly__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.subject-detail-viewonly__table tbody tr:hover {
+  background-color: #d2d8de;
+}
+
+.subject-detail-viewonly__empty {
+  padding: 12px;
+  text-align: center;
+  color: #5b6976;
+}
+
+@media (max-width: 760px) {
+  .subject-detail-viewonly__meta {
+    grid-template-columns: 1fr;
+  }
+}

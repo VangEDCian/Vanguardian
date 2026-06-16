@@ -1,0 +1,32 @@
+{% load shared_layout %}
+{% load static %}
+{% load i18n %}
+{% shared_locale_format "DATE_FORMAT" as resolved_picker_date_format %}
+{% include "shared/components/_common_flatpickr_assets.html" %}
+<div class="common-flatpickr">
+    <input type="text"
+           {% if picker_id %}id="{{ picker_id }}"{% endif %}
+           {% if picker_name %}name="{{ picker_name }}"{% endif %}
+           value="{{ picker_value|default:'' }}"
+           class="common-flatpickr__input old-textbox{% if picker_class %} {{ picker_class }}{% endif %}"
+           data-flatpickr-kind="date"
+           data-flatpickr-date-format="{% if picker_date_format %}{{ picker_date_format }}{% else %}{{ resolved_picker_date_format }}{% endif %}"
+           {% if picker_placeholder %}placeholder="{{ picker_placeholder }}"{% endif %}
+           {% if picker_autocomplete %}autocomplete="{{ picker_autocomplete }}"{% endif %}
+           {% if picker_keyboard_input|default:'' != '' %}data-flatpickr-allow-input="{{ picker_keyboard_input }}"{% elif picker_allow_input|default:'' != '' %}data-flatpickr-allow-input="{{ picker_allow_input }}"{% endif %}
+           {% if picker_min %}data-flatpickr-min-date="{{ picker_min }}"{% endif %}
+           {% if picker_max %}data-flatpickr-max-date="{{ picker_max }}"{% endif %}
+           {% if picker_readonly %}readonly{% endif %}
+           {% if picker_disabled %}disabled{% endif %}
+           {% if picker_required %}required{% endif %}>
+    <button type="button"
+            class="common-flatpickr__trigger"
+            data-flatpickr-open
+            {% if picker_id %}data-flatpickr-target="{{ picker_id }}"{% endif %}
+            aria-label="{% trans 'Open calendar' %}"
+            {% if picker_disabled %}disabled{% endif %}>
+        <span class="svg-icon common-flatpickr__icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/shared/calendar.svg' %}')"></span>
+    </button>
+</div>

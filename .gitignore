@@ -70,6 +70,22 @@ docker-compose.override.yml
 # agents
 .agents/
 .codex
+AGENTS.md
 AGENT.md
 
 *.dbml
+.github/AGENTS.md
+node_modules
+.well-known/
+
+test-results/
+seeders/
+
+migrations/
+!migrations/__init__.py
+
+# Added by code-review-graph
+.code-review-graph/
+.claude
+
+protected_uploads

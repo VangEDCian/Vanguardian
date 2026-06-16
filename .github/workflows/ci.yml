@@ -27,6 +27,7 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
+    environment: ci
 
     steps:
       - name: Checkout repository
@@ -55,3 +56,52 @@ jobs:
       - name: Unit test
         run: |
           python manage.py test
+
+  trigger_infrastructure_workflow:
+    name: Trigger Infrastructure Workflow
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'develop')
+
+    steps:
+      - name: Dispatch Infrastructure workflow
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.INFRASTRUCTURE_WORKFLOW_TOKEN }}
+          script: |
+            const sourceRef = context.ref.replace('refs/heads/', '');
+            const environment = sourceRef === 'main' ? 'nng31-production' : 'nng31-staging';
+            const tag = `${environment}-${context.sha.slice(0, 12)}`;
+
+            const workflowIdFromVar = '${{ vars.INFRASTRUCTURE_WORKFLOW_ID }}'.trim();
+            const invalidWorkflowIds = new Set([
+              '',
+              'workflow_dispatch',
+              '/dispatches',
+              'actions/workflows/workflow_dispatch/dispatches',
+              'deploy-vanguard-infra.yml',
+              'build-vanguardian-staging-dispatch.yml',
+            ]);
+            const workflow_id = invalidWorkflowIds.has(workflowIdFromVar)
+              ? 'build-vanguardian-dispatch.yml'
+              : workflowIdFromVar;
+            const configuredRef = '${{ vars.INFRASTRUCTURE_WORKFLOW_REF }}'.trim();
+            const dispatchRef = configuredRef || 'main';
+            const dispatchInputs = {
+              environment,
+              tag,
+              source_ref: sourceRef,
+              source_sha: context.sha,
+            };
+
+            console.log(`Dispatching Infrastructure workflow_id=${workflow_id}, ref=${dispatchRef}, environment=${environment}, tag=${tag}`);
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'VangEDCian',
+              repo: 'Infrastructure',
+              workflow_id,
+              ref: dispatchRef,
+              inputs: dispatchInputs,
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28',
+              },
+            });

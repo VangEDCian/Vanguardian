@@ -1,0 +1,104 @@
+{% load i18n static subject_form_tags %}
+<div class="subject-form-repeat-table-section{% if section.code_class %} subject-form-repeat-table-section--{{ section.code_class }}{% endif %}{% if section.layout_css_class %} {{ section.layout_css_class }}{% endif %}">
+    {% if not hide_section_title and section.show_section_header %}
+        <header class="subject-form-repeat-table-section__title">{{ section.title }}</header>
+    {% endif %}
+    <div class="subject-form-repeat-table-section__table-wrap">
+        <table class="subject-form-repeat-table-section__table">
+            <colgroup>
+                {% if section.repeat_table_layout.show_row_number %}
+                    <col style="width: {{ section.repeat_table_layout.row_number_width }};" />
+                {% endif %}
+                {% for field in section.fields|sort_fields_by_display_order %}
+                    <col />
+                {% endfor %}
+                {% if can_add_repeat_sections %}
+                    <col class="subject-form-repeat-table-section__actions-col" />
+                {% endif %}
+            </colgroup>
+            {% if section.repeat_table_layout.show_table_header %}
+                <thead>
+                    <tr>
+                        {% if section.repeat_table_layout.show_row_number %}
+                            <th class="subject-form-repeat-table-section__head subject-form-repeat-table-section__head--index">
+                                {{ section.repeat_table_layout.row_number_label }}
+                            </th>
+                        {% endif %}
+                        {% for field in section.fields|sort_fields_by_display_order %}
+                            <th class="subject-form-repeat-table-section__head">
+                                {{ field.label }}
+                                {% if field.is_required %}
+                                    <span class="subject-form-repeat-table-section__required">*</span>
+                                {% endif %}
+                            </th>
+                        {% endfor %}
+                        {% if can_add_repeat_sections %}
+                            <th class="subject-form-repeat-table-section__head subject-form-repeat-table-section__head--actions">
+                                {% comment %} <span class="sr-only">{% trans "Actions" %}</span> {% endcomment %}
+                            </th>
+                        {% endif %}
+                    </tr>
+                </thead>
+            {% endif %}
+            <tbody data-repeat-table-body>
+                {% for row in section.repeat_table_rows %}
+                    <tr class="subject-form-repeat-table-row"
+                        data-repeat-table-row
+                        data-repeat-instance-index="{{ row.repeat_instance_index }}">
+                        {% if section.repeat_table_layout.show_row_number %}
+                            <td class="subject-form-repeat-table-row__index">{{ row.repeat_instance_index }}</td>
+                        {% endif %}
+                        {% for field in row.fields|sort_fields_by_display_order %}
+                            <td class="subject-form-repeat-table-row__cell{% if field.active_query_id or field.validation_issue_count or field.has_query_history or field.has_validation_issue_history %} subject-form-field--has-open-query{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
+                                data-field-key="{{ field.field_key }}"
+                                data-repeat-base-field-key="{{ field.repeat_base_field_key|default:field.field_key }}"
+                                data-field-id="{{ field.id|default:'' }}"
+                                data-query-field-container
+                                data-field-control-type="{{ field.control_type|default:'' }}"
+                                data-visible-when="{{ field.behavior_visible_when|default:''|escape }}"
+                                data-readonly-when="{{ field.behavior_readonly_when|default:''|escape }}"
+                                data-required-when="{{ field.behavior_required_when|default:''|escape }}"
+                                data-default-value="{{ field.behavior_default_value|default:''|escape }}"
+                                data-default-value-expr="{{ field.behavior_default_value_expr|default:''|escape }}">
+                                {% subject_control_template field.control_type as control_template %}
+                                {% if control_template %}
+                                    {% include control_template with field=field input_class="subject-form-repeat-table-row__input" textarea_class="subject-form-repeat-table-row__textarea" choice_list_class="subject-form-repeat-table-row__choice-list" readonly_input_class="subject-form-repeat-table-row__input subject-form-repeat-table-row__input--readonly" %}
+                                    {% include "subject/components/_field_query_indicator.html" with field=field %}
+                                    <p class="subject-form-field__error"
+                                       data-field-error
+                                       hidden></p>
+                                {% else %}
+                                    <div class="subject-form-repeat-table-row__unsupported">
+                                        {% trans 'Unsupported control type:' %} {{ field.raw_control_type|default:'N/A' }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        {% if can_add_repeat_sections %}
+                            <td class="subject-form-repeat-table-row__actions">
+                                <button type="button"
+                                        class="subject-form-repeat-table-row__delete"
+                                        data-repeat-table-row-delete
+                                        title="{% trans 'Delete row' %}"
+                                        aria-label="{% trans 'Delete row' %}">
+                                    <img src="{% static 'images/datacapture/delete.svg' %}"
+                                         alt=""
+                                         width="18"
+                                         height="18"
+                                         aria-hidden="true">
+                                </button>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td {% if can_add_repeat_sections %}{% if section.repeat_table_layout.show_row_number %}colspan="{{ section.fields|length|add:2 }}"{% else %}colspan="{{ section.fields|length|add:1 }}"{% endif %}{% else %}{% if section.repeat_table_layout.show_row_number %}colspan="{{ section.fields|length|add:1 }}"{% else %}colspan="{{ section.fields|length }}"{% endif %}{% endif %}
+                            class="subject-form-repeat-table-row__empty">
+                            {% trans "No fields configured." %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,71 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ field_form_title }} | {% trans "CRF | Vanguardian" %}
+{% endblock %}
+{% block dashboard_content %}
+    <section class="section-card">
+        <h1 class="text-2xl font-semibold mb-2">{{ field_form_title }}</h1>
+        <p class="text-sm text-slate-500 mb-4">{% trans "Update the full field aggregate in one transaction." %}</p>
+        <form method="post" action="{{ field_form_action }}" class="grid gap-4">
+            {% csrf_token %}
+            {% if field_form.errors %}
+                <div class="text-sm text-red-600">{{ field_form.errors }}</div>
+            {% endif %}
+            <div class="kv-grid">
+                <div class="kv-item">{{ field_form.field_key.label_tag }}{{ field_form.field_key }}</div>
+                <div class="kv-item">{{ field_form.data_type.label_tag }}{{ field_form.data_type }}</div>
+                <div class="kv-item">{{ field_form.is_active.label_tag }}{{ field_form.is_active }}</div>
+                <div class="kv-item">{{ field_form.label_en.label_tag }}{{ field_form.label_en }}</div>
+                <div class="kv-item">{{ field_form.label_vi.label_tag }}{{ field_form.label_vi }}</div>
+                <div class="kv-item">{{ field_form.display_order.label_tag }}{{ field_form.display_order }}</div>
+                <div class="kv-item">{{ field_form.section_template_id.label_tag }}{{ field_form.section_template_id }}</div>
+            </div>
+            <div class="kv-grid">
+                <div class="kv-item">
+                    {{ field_form.sdtm.label_tag }}
+                    <div data-sdtm-editor>
+                        <input type="text"
+                               class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-slate-500 focus:outline-none"
+                               placeholder="{% trans 'VS + VSORRES + result' %}"
+                               data-sdtm-composite>
+                        <div hidden>
+                            {{ field_form.sdtm }}
+                        </div>
+                    </div>
+                    <div class="text-sm text-red-600">{{ field_form.sdtm.errors }}</div>
+                </div>
+                <div class="kv-item">{{ field_form.unit.label_tag }}{{ field_form.unit }}</div>
+                <div class="kv-item">{{ field_form.range_min.label_tag }}{{ field_form.range_min }}</div>
+                <div class="kv-item">{{ field_form.range_max.label_tag }}{{ field_form.range_max }}</div>
+                <div class="kv-item">{{ field_form.precision.label_tag }}{{ field_form.precision }}</div>
+                <div class="kv-item">{{ field_form.data_semantic.label_tag }}{{ field_form.data_semantic }}</div>
+                <div class="kv-item">{{ field_form.comments.label_tag }}{{ field_form.comments }}</div>
+                <div class="kv-item">{{ field_form.allowed_missing_values.label_tag }}{{ field_form.allowed_missing_values }}</div>
+                <div class="kv-item">{{ field_form.codelist.label_tag }}{{ field_form.codelist }}</div>
+                <div class="kv-item">{{ field_form.text_min_length.label_tag }}{{ field_form.text_min_length }}</div>
+                <div class="kv-item">{{ field_form.text_max_length.label_tag }}{{ field_form.text_max_length }}</div>
+                <div class="kv-item">{{ field_form.pattern.label_tag }}{{ field_form.pattern }}</div>
+                <div class="kv-item">{{ field_form.pattern_err_msg.label_tag }}{{ field_form.pattern_err_msg }}</div>
+            </div>
+            <div class="kv-grid">
+                <div class="kv-item">{{ field_form.control_type.label_tag }}{{ field_form.control_type }}</div>
+                <div class="kv-item">{{ field_form.layout.label_tag }}{{ field_form.layout }}</div>
+                <div class="kv-item">{{ field_form.text.label_tag }}{{ field_form.text }}</div>
+                <div class="kv-item">{{ field_form.behavior.label_tag }}{{ field_form.behavior }}</div>
+                <div class="kv-item">{{ field_form.options.label_tag }}{{ field_form.options }}</div>
+                <div class="kv-item">{{ field_form.style.label_tag }}{{ field_form.style }}</div>
+            </div>
+            <div class="kv-grid">
+                <div class="kv-item">{{ field_form.validation_rules_json.label_tag }}{{ field_form.validation_rules_json }}</div>
+            </div>
+            <div class="flex gap-3">
+                <button type="submit" class="entity-table__footer-button entity-table__footer-button--primary">{{ field_form_title }}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'crf/js/field_form.js' %}"></script>
+{% endblock %}

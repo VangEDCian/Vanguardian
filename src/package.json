@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "build:tailwind": "node scripts/build-tailwind.mjs"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.2.4",
+    "beautiful-mermaid": "^1.1.3",
+    "flatpickr": "^4.6.13",
+    "tailwindcss": "^4.2.4"
+  }
+}

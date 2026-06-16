@@ -7,8 +7,8 @@ From a product perspective, Vanguardian aims to reduce data fragmentation, impro
 ## Implementation Principles
 
 - The default architecture is a modular monolith, and each bounded context must keep clear ownership and boundaries.
-- Business schema changes do not use Django migrations as the source of truth; schema updates must go through `db/dbdiagram.dbml` and `db/migrations/*.sql`.
-- Read `src/AGENT.md` before extending domain logic or project structure.
+- Production business schema changes do not use Django migrations as the source of truth; production schema updates must go through `db/dbdiagram.dbml` and `db/migrations/*.sql`.
+- Development environments may use Django migrations for local schema iteration and day-to-day manipulation, but release-ready business schema changes must be reconciled back to the production DB-first flow.
 
 ## Local Setup
 
@@ -25,11 +25,9 @@ Requirements:
 Create a virtual environment and install dependencies:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
-```
+``` 
 
 ### 2. Create the environment file
 
@@ -54,7 +52,9 @@ If you need the messaging service used by the current local stack, also start `m
 docker compose -f docker/docker-compose.yml up -d mariadb memcached mosquitto
 ```
 
-### 4. Initialize the database with the DB-first flow
+### 4. Initialize the database with the production-aligned DB-first flow
+
+For day-to-day development, Django migrations may be used against a local database to iterate quickly. Use the DB-first flow below when validating a production-like database or preparing release-ready business schema changes.
 
 Create Django foundation tables first:
 
@@ -68,14 +68,8 @@ Apply all business SQL migrations from `db/migrations/` to MariaDB:
 ```bash
 for file in db/migrations/*.sql; do
   docker exec -i vanguardian-mariadb \
-    mariadb -uvanguardian -pvanguardian vanguardian < "$file"
+    mariadb -uvanguardian -pvanguardian vanguardian < "$file" > /dev/null
 done
-```
-
-Mark the `identity` app migration state without letting Django create the schema itself:
-
-```bash
-python manage.py migrate identity --fake
 ```
 
 Run the remaining framework-managed migrations:

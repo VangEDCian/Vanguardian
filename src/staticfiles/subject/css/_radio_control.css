@@ -1,0 +1,113 @@
+.subject-form-flat-field__control [data-submitted-diff-control="radio"] {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.subject-form-flat-field__control [data-submitted-diff-control="radio"] > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #20262d;
+}
+
+.subject-form-radio-clear {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.35rem 0.65rem;
+}
+
+.subject-form-radio-clear:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.subject-form-radio-clear:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.subject-form-flat-field__control .is-changed-from-submitted-choice-list[data-submitted-diff-control="radio"] {
+  position: relative;
+  padding-right: 18px;
+}
+
+.subject-form-flat-field__control .is-changed-from-submitted-choice-list[data-submitted-diff-control="radio"]::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-50%);
+  background: url("/static/images/fields/triangle-svgrepo-com.svg") center/contain no-repeat;
+}
+
+.subject-form-field-card__control [data-submitted-diff-control="radio"] {
+  display: grid;
+  gap: 8px;
+}
+
+.subject-form-field-card__control [data-submitted-diff-control="radio"] label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #223543;
+  font-size: 13px;
+}
+
+.subject-form-table-row__cell--response [data-submitted-diff-control="radio"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 28px;
+  min-height: 100%;
+}
+
+.subject-form-table-row__cell--response [data-submitted-diff-control="radio"] > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f252b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subject-form-table-row__cell--response .subject-form-table-row__choice-list--vertical[data-submitted-diff-control="radio"] {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.subject-form-radio-option-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.subject-form-radio-option-label.is-changed-from-submitted::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  background: url("/static/images/fields/triangle-svgrepo-com.svg") center/contain no-repeat;
+}
+
+@media (max-width: 1200px) {
+  .subject-form-table-row__cell--response [data-submitted-diff-control="radio"] {
+    justify-content: flex-start;
+    gap: 18px;
+  }
+}

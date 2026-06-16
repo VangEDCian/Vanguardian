@@ -1,0 +1,357 @@
+import json
+
+from django.test import SimpleTestCase
+
+from apps.core.form_data_document import (
+    FORM_DATA_FORMAT,
+    FieldTemplateSnapshot,
+    FormDataNormalizationError,
+    FormTemplateSnapshot,
+    SectionTemplateSnapshot,
+    build_field_path,
+    extract_repeat_counts_by_section,
+    flatten_form_data_for_export,
+    get_field_value,
+    iter_field_values,
+    normalize_form_data,
+    prune_empty_form_data_groups,
+    set_field_value,
+)
+from apps.datacapture.infrastructure.repositories.page_capture import DjangoDataCapturePageRepository
+
+
+def _snapshot():
+    return FormTemplateSnapshot(
+        form_code="FORM_A",
+        form_version="1.0",
+        sections=[
+            SectionTemplateSnapshot(
+                section_code="PRESENCE",
+                is_repeatable=False,
+                fields=[
+                    FieldTemplateSnapshot(
+                        field_key="HAS_ANY_MEDICAL_HISTORY",
+                        section_code="PRESENCE",
+                    )
+                ],
+            ),
+            SectionTemplateSnapshot(
+                section_code="ENTRIES",
+                is_repeatable=True,
+                fields=[
+                    FieldTemplateSnapshot(
+                        field_key="MEDICAL_HISTORY_TERM",
+                        section_code="ENTRIES",
+                    )
+                ],
+            ),
+        ],
+    )
+
+
+def _indexed_key_snapshot():
+    return FormTemplateSnapshot(
+        form_code="ELIGIBILITY",
+        form_version="1.0",
+        sections=[
+            SectionTemplateSnapshot(
+                section_code="INCLUSION",
+                is_repeatable=False,
+                fields=[
+                    FieldTemplateSnapshot(
+                        field_key="INCL_01",
+                        section_code="INCLUSION",
+                    )
+                ],
+            )
+        ],
+    )
+
+
+class _StorageRepository(DjangoDataCapturePageRepository):
+    def get_form_template_snapshot(self, *, crf_template_id: int):
+        return _snapshot()
+
+
+class _IndexedKeyStorageRepository(DjangoDataCapturePageRepository):
+    def get_form_template_snapshot(self, *, crf_template_id: int):
+        return _indexed_key_snapshot()
+
+
+class FormDataDocumentTests(SimpleTestCase):
+    def test_normalize_none_returns_empty_canonical_doc(self):
+        doc = normalize_form_data(None, template_snapshot=_snapshot(), entry_version=1)
+
+        self.assertEqual(doc["format"], FORM_DATA_FORMAT)
+        self.assertNotIn("form_code", doc)
+        self.assertNotIn("form_version", doc)
+        self.assertNotIn("entry_version", doc)
+        self.assertEqual(doc["groups"], {})
+
+    def test_normalize_canonical_preserves_semantic_values(self):
+        raw = {
+            "format": FORM_DATA_FORMAT,
+            "form_code": "FORM_A",
+            "form_version": "1.0",
+            "entry_version": "v1",
+            "groups": {"PRESENCE": {"kind": "single", "items": {"HAS_ANY_MEDICAL_HISTORY": True}}},
+        }
+
+        doc = normalize_form_data(raw, template_snapshot=_snapshot())
+
+        self.assertEqual(doc["groups"]["PRESENCE"]["items"]["HAS_ANY_MEDICAL_HISTORY"], True)
+        self.assertNotIn("form_code", doc)
+
+    def test_normalize_can_include_metadata_for_report_context(self):
+        doc = normalize_form_data(
+            None,
+            template_snapshot=_snapshot(),
+            entry_version=1,
+            include_metadata=True,
+        )
+
+        self.assertEqual(doc["form_code"], "FORM_A")
+        self.assertEqual(doc["form_version"], "1.0")
+        self.assertEqual(doc["entry_version"], "1")
+
+    def test_legacy_non_repeatable_field_maps_to_single_group(self):
+        doc = normalize_form_data(
+            {"HAS_ANY_MEDICAL_HISTORY": True},
+            template_snapshot=_snapshot(),
+            strict=True,
+        )
+
+        self.assertEqual(
+            doc["groups"]["PRESENCE"],
+            {"kind": "single", "items": {"HAS_ANY_MEDICAL_HISTORY": True}},
+        )
+
+    def test_legacy_repeatable_field_creates_stable_first_row(self):
+        doc = normalize_form_data(
+            {"MEDICAL_HISTORY_TERM": "Dị ứng penicillin"},
+            template_snapshot=_snapshot(),
+            strict=True,
+        )
+
+        self.assertEqual(doc["groups"]["ENTRIES"]["kind"], "repeatable")
+        self.assertEqual(
+            doc["groups"]["ENTRIES"]["rows"][0],
+            {
+                "row_key": "row_001",
+                "row_no": 1,
+                "items": {"MEDICAL_HISTORY_TERM": "Dị ứng penicillin"},
+            },
+        )
+
+    def test_legacy_unmapped_field_raises_in_strict_mode(self):
+        with self.assertRaises(FormDataNormalizationError) as ctx:
+            normalize_form_data({"UNKNOWN_FIELD": "x"}, template_snapshot=_snapshot(), strict=True)
+
+        self.assertEqual(ctx.exception.unmapped_fields, ("UNKNOWN_FIELD",))
+
+    def test_legacy_indexed_field_key_from_template_does_not_persist_conversion_warning(self):
+        repository = _IndexedKeyStorageRepository()
+
+        with self.assertNoLogs("apps.core.form_data_document", level="WARNING"):
+            stored = repository.normalize_form_data_json_for_storage(
+                crf_template_id=1,
+                data=json.dumps({"INCL_01": "1"}),
+                strict=True,
+            )
+
+        stored_doc = json.loads(stored)
+        self.assertNotIn("_meta", stored_doc)
+        self.assertEqual(stored_doc["groups"]["INCLUSION"]["items"], {"INCL_01": "1"})
+
+    def test_get_field_value_reads_single_group(self):
+        doc = normalize_form_data({"HAS_ANY_MEDICAL_HISTORY": True}, template_snapshot=_snapshot())
+
+        value = get_field_value(doc, section_code="PRESENCE", field_key="HAS_ANY_MEDICAL_HISTORY")
+
+        self.assertIs(value, True)
+
+    def test_get_field_value_reads_repeatable_group_by_row_key(self):
+        doc = normalize_form_data({"MEDICAL_HISTORY_TERM__repeat_2": "Asthma"}, template_snapshot=_snapshot())
+
+        value = get_field_value(
+            doc,
+            section_code="ENTRIES",
+            field_key="MEDICAL_HISTORY_TERM",
+            row_key="row_002",
+        )
+
+        self.assertEqual(value, "Asthma")
+
+    def test_set_field_value_writes_single_group(self):
+        doc = set_field_value({}, section_code="PRESENCE", field_key="HAS_ANY_MEDICAL_HISTORY", value=False)
+
+        self.assertIs(doc["groups"]["PRESENCE"]["items"]["HAS_ANY_MEDICAL_HISTORY"], False)
+
+    def test_set_field_value_writes_repeatable_group(self):
+        doc = set_field_value(
+            {},
+            section_code="ENTRIES",
+            field_key="MEDICAL_HISTORY_TERM",
+            value="Asthma",
+            row_no=2,
+        )
+
+        self.assertEqual(doc["groups"]["ENTRIES"]["rows"][0]["row_key"], "row_002")
+        self.assertEqual(doc["groups"]["ENTRIES"]["rows"][0]["items"]["MEDICAL_HISTORY_TERM"], "Asthma")
+
+    def test_iter_field_values_returns_canonical_path(self):
+        doc = normalize_form_data({"MEDICAL_HISTORY_TERM": "Asthma"}, template_snapshot=_snapshot())
+
+        refs = list(iter_field_values(doc))
+
+        self.assertEqual(refs[0].path, "groups.ENTRIES.rows[row_001].items.MEDICAL_HISTORY_TERM")
+
+    def test_flatten_form_data_for_export_preserves_single_value(self):
+        doc = normalize_form_data({"HAS_ANY_MEDICAL_HISTORY": True}, template_snapshot=_snapshot())
+
+        self.assertEqual(flatten_form_data_for_export(doc), {"HAS_ANY_MEDICAL_HISTORY": True})
+
+    def test_flatten_form_data_for_export_keeps_repeat_row_context(self):
+        doc = normalize_form_data({"MEDICAL_HISTORY_TERM": "Asthma"}, template_snapshot=_snapshot())
+
+        self.assertEqual(flatten_form_data_for_export(doc), {"ENTRIES[1].MEDICAL_HISTORY_TERM": "Asthma"})
+
+    def test_extract_repeat_counts_by_section_skips_empty_repeat_rows(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "ENTRIES": {
+                        "kind": "repeatable",
+                        "rows": [
+                            {"row_key": "row_001", "row_no": 1, "items": {"MEDICAL_HISTORY_TERM": "Asthma"}},
+                            {"row_key": "row_002", "row_no": 2, "items": {}},
+                            {"row_key": "row_003", "row_no": 3, "items": {"MEDICAL_HISTORY_TERM": ""}},
+                        ],
+                    }
+                },
+            }
+        )
+
+        self.assertEqual(extract_repeat_counts_by_section(doc), {"ENTRIES": 1})
+
+    def test_prune_empty_form_data_groups_removes_single_group_without_entered_values(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "PRESENCE": {
+                        "kind": "single",
+                        "items": {
+                            "HAS_ANY_MEDICAL_HISTORY": "",
+                            "COMMENTS": None,
+                            "CHECKED": [],
+                        },
+                    },
+                    "ENTRIES": {
+                        "kind": "repeatable",
+                        "rows": [
+                            {"row_key": "row_001", "row_no": 1, "items": {"MEDICAL_HISTORY_TERM": "Asthma"}},
+                        ],
+                    },
+                },
+            }
+        )
+
+        pruned = prune_empty_form_data_groups(doc)
+
+        self.assertNotIn("PRESENCE", pruned["groups"])
+        self.assertIn("ENTRIES", pruned["groups"])
+
+    def test_prune_empty_form_data_groups_removes_empty_repeat_rows_and_group(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "ENTRIES": {
+                        "kind": "repeatable",
+                        "rows": [
+                            {"row_key": "row_001", "row_no": 1, "items": {"MEDICAL_HISTORY_TERM": ""}},
+                            {"row_key": "row_002", "row_no": 2, "items": {"MEDICAL_HISTORY_TERM": None}},
+                        ],
+                    }
+                },
+            }
+        )
+
+        pruned = prune_empty_form_data_groups(doc)
+
+        self.assertNotIn("ENTRIES", pruned["groups"])
+
+    def test_prune_empty_form_data_groups_keeps_false_and_zero_values(self):
+        doc = normalize_form_data(
+            {
+                "format": FORM_DATA_FORMAT,
+                "groups": {
+                    "PRESENCE": {
+                        "kind": "single",
+                        "items": {
+                            "HAS_ANY_MEDICAL_HISTORY": False,
+                            "COUNT": 0,
+                        },
+                    }
+                },
+            }
+        )
+
+        pruned = prune_empty_form_data_groups(doc)
+
+        self.assertIn("PRESENCE", pruned["groups"])
+
+    def test_storage_normalization_prunes_empty_groups_before_persisting_pageentry_data(self):
+        repository = _StorageRepository()
+        stored = repository.normalize_form_data_json_for_storage(
+            crf_template_id=1,
+            data=json.dumps(
+                {
+                    "format": FORM_DATA_FORMAT,
+                    "groups": {
+                        "PRESENCE": {
+                            "kind": "single",
+                            "items": {"HAS_ANY_MEDICAL_HISTORY": ""},
+                        }
+                    },
+                }
+            ),
+            strict=True,
+        )
+
+        self.assertEqual(json.loads(stored)["groups"], {})
+
+    def test_storage_normalization_strips_legacy_conversion_warnings_from_canonical_data(self):
+        repository = _StorageRepository()
+        stored = repository.normalize_form_data_json_for_storage(
+            crf_template_id=1,
+            data=json.dumps(
+                {
+                    "_meta": {
+                        "legacy_conversion_warnings": [
+                            "suspicious indexed legacy key detected at INCL_01",
+                        ]
+                    },
+                    "format": FORM_DATA_FORMAT,
+                    "groups": {
+                        "PRESENCE": {
+                            "kind": "single",
+                            "items": {"HAS_ANY_MEDICAL_HISTORY": "1"},
+                        }
+                    },
+                }
+            ),
+            strict=True,
+        )
+
+        stored_doc = json.loads(stored)
+        self.assertNotIn("_meta", stored_doc)
+        self.assertEqual(stored_doc["groups"]["PRESENCE"]["items"], {"HAS_ANY_MEDICAL_HISTORY": "1"})
+
+    def test_build_field_path_uses_row_key_for_repeatable_fields(self):
+        self.assertEqual(
+            build_field_path("ENTRIES", "MEDICAL_HISTORY_TERM", row_key="row_001"),
+            "groups.ENTRIES.rows[row_001].items.MEDICAL_HISTORY_TERM",
+        )

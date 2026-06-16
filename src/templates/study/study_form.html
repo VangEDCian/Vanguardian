@@ -1,0 +1,146 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static shared_layout %}
+{% block title %}
+    {{ form_title }} | {% trans "Studies | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_textbox.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/user-detail.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+    <span aria-hidden="true">›</span>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        <div class="entity-table__toolbar">
+            <div class="entity-table__summary">
+                <strong>{{ form_title }}</strong>
+            </div>
+        </div>
+        <form method="post"
+              class="user-detail-form"
+              data-date-range-sync
+              data-date-range-start-id="{{ form.start_date.id_for_label }}"
+              data-date-range-end-id="{{ form.end_date.id_for_label }}">
+            {% csrf_token %}
+            <div class="user-detail-form__content">
+                <section class="user-detail-section">
+                    <h2 class="user-detail-section__title">{% trans "STUDY INFO" %}</h2>
+                    <div class="user-detail-section__body">
+                        <div class="user-detail-inline-row">
+                            {% if can_update_field_code %}
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label"
+                                           for="{{ form.code.id_for_label }}">{{ form.code.label }}:</label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.code.id_for_label textbox_name=form.code.html_name textbox_value=form.code.value textbox_readonly=can_edit_code|yesno:",readonly" textbox_class=form.code.errors|yesno:"old-textbox--error," %}
+                                        {% for error in form.code.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if can_update_field_name %}
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label"
+                                           for="{{ form.name.id_for_label }}">{{ form.name.label }}:</label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.name.id_for_label textbox_name=form.name.html_name textbox_value=form.name.value textbox_class=form.name.errors|yesno:"old-textbox--error," %}
+                                        {% for error in form.name.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="user-detail-inline-row">
+                            {% if can_update_field_sponsor %}
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label"
+                                           for="{{ form.sponsor.id_for_label }}">{{ form.sponsor.label }}:</label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        {% include 'shared/components/_old_textbox.html' with textbox_id=form.sponsor.id_for_label textbox_name=form.sponsor.html_name textbox_value=form.sponsor.value textbox_class=form.sponsor.errors|yesno:"old-textbox--error," %}
+                                        {% for error in form.sponsor.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if show_is_active %}
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label"
+                                           for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}:</label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        <div class="user-detail-inline-field__display">
+                                            <input type="checkbox"
+                                                   id="{{ form.is_active.id_for_label }}"
+                                                   name="{{ form.is_active.html_name }}"
+                                                   style="width:16px;
+                                                          height:16px;
+                                                          accent-color:#2196c4;
+                                                          cursor:pointer"
+                                                   {% if form.is_active.value %}checked{% endif %}>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% if can_update_field_dates %}
+                            <div class="user-detail-inline-row">
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label"
+                                           for="{{ form.start_date.id_for_label }}">
+                                        {{ form.start_date.label }}:
+                                    </label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        {% include 'shared/components/_common_date.html' with picker_id=form.start_date.id_for_label picker_name=form.start_date.html_name picker_value=form.start_date.value|shared_picker_value:'DATE_FORMAT' picker_class=form.start_date.errors|yesno:"old-textbox--error," picker_min=start_date_min %}
+                                        {% for error in form.start_date.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                    </div>
+                                </div>
+                                <div class="user-detail-inline-field">
+                                    <label class="user-detail-inline-field__label"
+                                           for="{{ form.end_date.id_for_label }}">{{ form.end_date.label }}:</label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        {% include 'shared/components/_common_date.html' with picker_id=form.end_date.id_for_label picker_name=form.end_date.html_name picker_value=form.end_date.value|shared_picker_value:'DATE_FORMAT' picker_class=form.end_date.errors|yesno:"old-textbox--error," %}
+                                        {% for error in form.end_date.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if can_update_field_description %}
+                            <div class="user-detail-inline-row">
+                                <div class="user-detail-inline-field user-detail-inline-field--full">
+                                    <label class="user-detail-inline-field__label"
+                                           for="{{ form.description.id_for_label }}">
+                                        {{ form.description.label }}:
+                                    </label>
+                                    <div class="user-detail-inline-field__control-wrap">
+                                        <textarea id="{{ form.description.id_for_label }}"
+                                                  name="{{ form.description.html_name }}"
+                                                  class="old-textbox{% if form.description.errors %} old-textbox--error{% endif %}"
+                                                  rows="5"
+                                                  style="width:100%;
+                                                         resize:vertical">{{ form.description.value|default:'' }}</textarea>
+                                        {% for error in form.description.errors %}
+                                            <span class="user-detail-field__error">{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </section>
+            </div>
+            <div class="entity-table__footer entity-table__footer--actions">
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans "Save" %}
+                </button>
+                <a href="{{ back_url }}"
+                   class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Cancel" %}</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'study/js/date_range_sync.js' %}"></script>
+{% endblock %}

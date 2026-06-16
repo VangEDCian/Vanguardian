@@ -1,0 +1,93 @@
+.subject-date-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.subject-date-picker.label_hidden .subject-date-picker__label{
+  display: none;
+}
+
+.subject-date-picker__part {
+  display: grid;
+  gap: 4px;
+}
+
+.subject-date-picker__label {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: #6b7280;
+}
+
+.subject-date-picker__input {
+  height: 29.5px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 4px 8px;
+  font-size: 14px;
+  color: #1f2937;
+  outline: none;
+}
+
+.subject-date-picker__input:focus {
+  border-color: #38bdf8;
+}
+
+.subject-date-picker__input--day {
+  width: 56px;
+  text-align: center;
+}
+
+.subject-date-picker__input--month {
+  width: 96px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.subject-date-picker__input--year {
+  width: 80px;
+  text-align: center;
+}
+
+.subject-date-picker__input--time {
+  width: 88px;
+  text-align: center;
+}
+
+.subject-date-text {
+  width: 100%;
+}
+
+.subject-date-text--datetime {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.subject-date-text__input {
+  width: 100%;
+  max-width: 190px;
+  height: 29.5px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 4px 8px;
+  font-size: 14px;
+  color: #1f2937;
+  outline: none;
+}
+
+.subject-date-text__input:focus {
+  border-color: #38bdf8;
+}
+
+.subject-date-text__input--date {
+  max-width: 190px;
+}
+
+.subject-date-text__input--time {
+  max-width: 120px;
+}
