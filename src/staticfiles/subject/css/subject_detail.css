@@ -614,6 +614,10 @@
   vertical-align: middle;
 }
 
+.subject-form-query-indicator[hidden] {
+  display: none;
+}
+
 .subject-form-query-indicator>.svg-icon {
   width: 1.15rem;
   height: 1.15rem;

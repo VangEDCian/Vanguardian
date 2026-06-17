@@ -622,6 +622,12 @@ class SubjectValidationIssueAcknowledgeView(
                 "ok": True,
                 "acknowledged_issue_ids": result["acknowledged_issue_ids"],
                 "acknowledged_count": result["acknowledged_count"],
+                "page_status": get_page_state_status_for_subject_visit_crf(
+                    subject_id=int(kwargs["subject_id"]),
+                    visit_id=int(kwargs["visit_id"]),
+                    crf_template_id=int(kwargs["crf_template_id"]),
+                )
+                or "",
             }
         )
 

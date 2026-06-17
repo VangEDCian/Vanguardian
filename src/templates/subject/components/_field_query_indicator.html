@@ -39,6 +39,7 @@
               data-history-dataquery-id="{{ history.dataquery_id|default:'' }}"
               data-history-status="{{ history.status|default:''|escape }}"
               data-history-label="{{ history.label|escape }}"
+              data-history-value="{{ history.value_snapshot|default:''|escape }}"
               data-history-opened-at="{{ history.opened_at|escape }}"
               data-history-closed-at="{{ history.closed_at|escape }}">
             {% for message in history.messages %}
@@ -53,21 +54,22 @@
         </span>
     {% endfor %}
 </span>
-<button type="button"
-        class="subject-form-query-indicator"
-        data-query-history-modal-trigger
-        data-field-template-id="{{ field.id|default:'' }}"
-        data-field-label="{{ field.label|escape }}"
-        data-field-key="{{ field.field_key|escape }}"
-        data-field-value="{{ field.display_value|default:'—'|escape }}"
-        {% if field.active_query_id or not field.has_query_history %}hidden{% endif %}
-        title="{% trans 'Query History' %}"
-        aria-label="{% trans 'Query History' %}">
-    <span class="svg-icon"
-          aria-hidden="true"
-          style="--icon-url: url('{% static 'images/datacapture/message.svg' %}')"></span>
-    <span class="subject-form-query-indicator__sr-only">{% trans "Query History" %}</span>
-</button>
+{% if field.has_query_history and not field.active_query_id %}
+    <button type="button"
+            class="subject-form-query-indicator"
+            data-query-history-modal-trigger
+            data-field-template-id="{{ field.id|default:'' }}"
+            data-field-label="{{ field.label|escape }}"
+            data-field-key="{{ field.field_key|escape }}"
+            data-field-value="{{ field.display_value|default:'—'|escape }}"
+            title="{% trans 'Query History' %}"
+            aria-label="{% trans 'Query History' %}">
+        <span class="svg-icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/datacapture/message.svg' %}')"></span>
+        <span class="subject-form-query-indicator__sr-only">{% trans "Query History" %}</span>
+    </button>
+{% endif %}
 {% if field.validation_issue_count %}
     <button type="button"
             class="subject-form-query-indicator"
@@ -91,6 +93,7 @@
                   data-issue-id="{{ issue.id|default:'' }}"
                   data-issue-rule-id="{{ issue.rule_id|default:'' }}"
                   data-issue-message="{{ issue.message|escape }}"
+                  data-issue-failed-value="{{ issue.failed_value_display|default:''|escape }}"
                   data-issue-mode="{{ issue.mode|escape }}"
                   data-issue-severity="{{ issue.severity|escape }}"
                   data-issue-status="{{ issue.status|escape }}"
@@ -98,19 +101,20 @@
         {% endfor %}
     </span>
 {% endif %}
-<button type="button"
-        class="subject-form-query-indicator"
-        data-query-history-modal-trigger
-        data-validation-issue-history-modal-trigger
-        data-field-template-id="{{ field.id|default:'' }}"
-        data-field-label="{{ field.label|escape }}"
-        data-field-key="{{ field.field_key|escape }}"
-        data-field-value="{{ field.display_value|default:'—'|escape }}"
-        {% if field.validation_issue_count or not field.has_validation_issue_history %}hidden{% endif %}
-        title="{% trans 'Validation Issue History' %}"
-        aria-label="{% trans 'Validation Issue History' %}">
-    <span class="svg-icon"
-          aria-hidden="true"
-          style="--icon-url: url('{% static 'images/datacapture/warning.svg' %}')"></span>
-    <span class="subject-form-query-indicator__sr-only">{% trans "Validation Issue History" %}</span>
-</button>
+{% if field.has_validation_issue_history and not field.validation_issue_count %}
+    <button type="button"
+            class="subject-form-query-indicator"
+            data-query-history-modal-trigger
+            data-validation-issue-history-modal-trigger
+            data-field-template-id="{{ field.id|default:'' }}"
+            data-field-label="{{ field.label|escape }}"
+            data-field-key="{{ field.field_key|escape }}"
+            data-field-value="{{ field.display_value|default:'—'|escape }}"
+            title="{% trans 'Validation Issue History' %}"
+            aria-label="{% trans 'Validation Issue History' %}">
+        <span class="svg-icon"
+              aria-hidden="true"
+              style="--icon-url: url('{% static 'images/datacapture/warning.svg' %}')"></span>
+        <span class="subject-form-query-indicator__sr-only">{% trans "Validation Issue History" %}</span>
+    </button>
+{% endif %}

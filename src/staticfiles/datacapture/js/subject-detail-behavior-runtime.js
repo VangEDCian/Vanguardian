@@ -1,6 +1,6 @@
 (function () {
   function getFieldContainers() {
-    return Array.from(document.querySelectorAll('[data-field-key]'));
+    return Array.from(document.querySelectorAll('[data-query-field-container][data-field-key]'));
   }
 
   if (!getFieldContainers().length) {
@@ -11,7 +11,7 @@
   const lockStatuses = new Set(['finalized', 'locked']);
   const touchedFields = new Set();
   let isApplying = false;
-  let pendingFrame = null;
+  let pendingApplyTimeout = null;
 
   function normalizeStatus(value) {
     return String(value ?? '').trim().toLowerCase();
@@ -233,6 +233,31 @@
         return;
       }
       control.name = fieldKey;
+    });
+  }
+
+  function bindControlListeners(container) {
+    const fieldKey = String(container.dataset.fieldKey || '').trim();
+    if (!fieldKey) {
+      return;
+    }
+    getFieldControls(container).forEach((control) => {
+      if (control.dataset.behaviorRuntimeBound === '1') {
+        return;
+      }
+      control.dataset.behaviorRuntimeBound = '1';
+      ['input', 'change'].forEach((eventName) => {
+        control.addEventListener(eventName, (event) => {
+          if (event.isTrusted) {
+            touchedFields.add(fieldKey);
+          }
+          window.setTimeout(() => {
+            syncCompositeControlValue(container);
+            recomputeExpressionFields();
+          }, 0);
+          scheduleApplyAll();
+        });
+      });
     });
   }
 
@@ -483,7 +508,12 @@
     });
     setRequiredIndicator(container, required);
 
-    if (!visible || !editable || touchedFields.has(fieldKey)) {
+    if (!visible || !editable) {
+      return;
+    }
+
+    const shouldRespectTouchedState = !defaultValueExpr;
+    if (shouldRespectTouchedState && touchedFields.has(fieldKey)) {
       return;
     }
 
@@ -511,6 +541,35 @@
     }
   }
 
+  function recomputeExpressionFields() {
+    const state = buildState();
+    getFieldContainers().forEach((container) => {
+      const fieldKey = String(container.dataset.fieldKey || '').trim();
+      const defaultValueExpr = String(container.dataset.defaultValueExpr || '').trim();
+      if (!fieldKey || !defaultValueExpr) {
+        return;
+      }
+
+      const visibleWhen = String(container.dataset.visibleWhen || '').trim();
+      const visible = toBoolean(evalExpr(visibleWhen, state, true), true);
+      if (!visible || !isEditablePage()) {
+        return;
+      }
+
+      const nextValue = evalExpr(defaultValueExpr, state, '');
+      if (nextValue == null || nextValue === '' || hasSameValue(container, nextValue)) {
+        return;
+      }
+
+      if (setContainerValue(container, nextValue)) {
+        getFieldControls(container).forEach((control) => {
+          control.dispatchEvent(new Event('input', { bubbles: true }));
+          control.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      }
+    });
+  }
+
   function applyAllBehaviors() {
     if (isApplying) {
       return;
@@ -520,22 +579,24 @@
       getFieldContainers().forEach((container) => {
         ensureInputNames(container);
         syncCompositeControlValue(container);
+        bindControlListeners(container);
       });
       const state = buildState();
       getFieldContainers().forEach((container) => applyBehavior(container, state));
+      recomputeExpressionFields();
     } finally {
       isApplying = false;
     }
   }
 
   function scheduleApplyAll() {
-    if (pendingFrame) {
-      window.cancelAnimationFrame(pendingFrame);
+    if (pendingApplyTimeout !== null) {
+      window.clearTimeout(pendingApplyTimeout);
     }
-    pendingFrame = window.requestAnimationFrame(() => {
-      pendingFrame = null;
+    pendingApplyTimeout = window.setTimeout(() => {
+      pendingApplyTimeout = null;
       applyAllBehaviors();
-    });
+    }, 0);
   }
 
   document.addEventListener(
@@ -544,6 +605,12 @@
       const container = event.target.closest('[data-field-key]');
       if (container && event.isTrusted) {
         touchedFields.add(String(container.dataset.fieldKey || '').trim());
+      }
+      if (container) {
+        window.setTimeout(() => {
+          syncCompositeControlValue(container);
+          recomputeExpressionFields();
+        }, 0);
       }
       scheduleApplyAll();
     },
@@ -556,6 +623,12 @@
       const container = event.target.closest('[data-field-key]');
       if (container && event.isTrusted) {
         touchedFields.add(String(container.dataset.fieldKey || '').trim());
+      }
+      if (container) {
+        window.setTimeout(() => {
+          syncCompositeControlValue(container);
+          recomputeExpressionFields();
+        }, 0);
       }
       scheduleApplyAll();
     },

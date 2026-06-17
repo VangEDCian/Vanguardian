@@ -276,6 +276,25 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         self.assertEqual(repository.acknowledged_validation_issues[0]["page_state_id"], 11)
         self.assertEqual(repository.acknowledged_validation_issues[0]["items"], [{"issue_id": 701, "comment": "Reviewed warning."}])
 
+    def test_correct_resolved_validation_issues_marks_changed_valid_fields_corrected(self):
+        repository = _ReconcileRepositoryStub()
+
+        result = ReconcileDataQueryWriteService(repository=repository).correct_resolved_validation_issues(
+            page_state_id=11,
+            crf_template_id=31,
+            changed_field_keys=["field_1"],
+            values_by_field_key={"field_1": "19"},
+            failures=[],
+            actor_user_id=99,
+        )
+
+        self.assertEqual(result, {"corrected_issue_ids": [701], "corrected_count": 1})
+        self.assertEqual(repository.corrected_validation_issues[0]["issue_id"], 701)
+        self.assertEqual(
+            repository.corrected_validation_issues[0]["correction_comment"],
+            "Cập nhật dữ liệu từ 8 thành 19",
+        )
+
 
 class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
     def test_create_manual_open_query_persists_current_page_entry_field_context(self):
@@ -659,6 +678,28 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
         self.assertEqual(issue.updated_with["acknowledgement_comment"], "Reviewed warning.")
         self.assertEqual(issue.updated_with["resolved_at"], "now")
 
+    def test_mark_validation_issue_corrected_sets_corrected_status_and_comment(self):
+        repository = DjangoReconcileDataQueryWriteRepository()
+        issue = _UpdateQuery()
+        with patch(
+            "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.filter",
+            return_value=issue,
+        ):
+            corrected = repository.mark_validation_issue_corrected(
+                issue_id=701,
+                page_state_id=23,
+                actor_user_id=7,
+                correction_comment="Cập nhật dữ liệu từ 8 thành 19",
+                now="now",
+            )
+
+        self.assertIs(corrected, True)
+        self.assertEqual(issue.updated_with["status"], ReconcileValidationIssueStatusChoices.CORRECTED)
+        self.assertEqual(issue.updated_with["acknowledged_by"], 7)
+        self.assertEqual(issue.updated_with["acknowledged_at"], "now")
+        self.assertEqual(issue.updated_with["acknowledgement_comment"], "Cập nhật dữ liệu từ 8 thành 19")
+        self.assertEqual(issue.updated_with["resolved_at"], "now")
+
 
 class _ReconcileRepositoryStub:
     def __init__(self):
@@ -666,6 +707,7 @@ class _ReconcileRepositoryStub:
         self.created_soft_issues = []
         self.created_validation_queries = []
         self.acknowledged_validation_issues = []
+        self.corrected_validation_issues = []
         self.answered_calls = []
 
     def list_field_key_to_id(self, *, crf_template_id):
@@ -729,6 +771,13 @@ class _ReconcileRepositoryStub:
     def acknowledge_validation_issues(self, **kwargs):
         self.acknowledged_validation_issues.append(kwargs)
         return [int(item["issue_id"]) for item in kwargs["items"]]
+
+    def list_active_validation_issues_by_page_state_and_field_templates(self, **kwargs):
+        return [{"id": 701, "rule_id": 201, "field_template_id": 1, "failed_value": "8"}]
+
+    def mark_validation_issue_corrected(self, **kwargs):
+        self.corrected_validation_issues.append(kwargs)
+        return True
 
 
 class _ReplyRepositoryStub:

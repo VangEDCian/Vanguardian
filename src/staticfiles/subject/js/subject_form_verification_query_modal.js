@@ -303,6 +303,7 @@
     historyNode.setAttribute('data-query-history', '');
     historyNode.dataset.historyDataqueryId = dataqueryId;
     historyNode.dataset.historyLabel = `Query #${dataqueryId}`;
+    historyNode.dataset.historyValue = String(trigger.dataset.fieldValue || '').trim();
     historyNode.dataset.historyClosedAt = String(closedAt || '');
 
     Array.from(messageSource.querySelectorAll('[data-query-message]'))
@@ -326,6 +327,7 @@
     const historyTrigger = row.querySelector('[data-query-history-modal-trigger]');
     if (historyTrigger instanceof HTMLButtonElement) {
       historyTrigger.hidden = false;
+      historyTrigger.style.removeProperty('display');
     }
   }
 
@@ -379,11 +381,13 @@
     if (!(sourceNode instanceof HTMLElement) || !historyListNode) {
       return;
     }
+    const priorContext = activeHistoryContext || {};
     activeHistoryContext = {
+      trigger: priorContext.trigger,
       sourceNode: sourceNode,
       dataqueryId: String(sourceNode.dataset.historyDataqueryId || '').trim(),
       status: String(sourceNode.dataset.historyStatus || '').trim().toLowerCase(),
-      fieldTemplateId: activeHistoryContext ? activeHistoryContext.fieldTemplateId : '',
+      fieldTemplateId: priorContext.fieldTemplateId || '',
     };
     Array.from(historyListNode.querySelectorAll('[data-query-history-item]')).forEach(function (node) {
       node.setAttribute(
@@ -394,6 +398,9 @@
       );
     });
     clearHistoryMessages();
+    const historyValue = String(sourceNode.dataset.historyValue || '').trim();
+    const fallbackValue = String(priorContext.trigger?.dataset?.fieldValue || '').trim();
+    setText(historyValueNode, historyValue || fallbackValue || '-');
     Array.from(sourceNode.querySelectorAll('[data-query-history-message]')).slice(0, 10).forEach(function (node) {
       appendHistoryMessage({
         text: node.dataset.messageText,

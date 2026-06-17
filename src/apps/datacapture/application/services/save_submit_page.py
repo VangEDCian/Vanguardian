@@ -393,6 +393,34 @@ class DataCaptureSaveSubmitPageService:
             actor_user_id=actor_user_id,
         )
 
+    def _correct_resolved_validation_issues(
+        self,
+        *,
+        page_state_id: int,
+        crf_template_id: int,
+        changed_field_keys: list[str],
+        candidate_payload: dict,
+        validation_result: FieldValidationCheckResult,
+        actor_user_id: int | None,
+    ) -> None:
+        if not changed_field_keys or not candidate_payload:
+            return
+        values_by_field_key = {
+            field_key: candidate_payload.get(field_key)
+            for field_key in changed_field_keys
+            if field_key in candidate_payload
+        }
+        if not values_by_field_key:
+            return
+        self.reconcile_data_query_write_service.correct_resolved_validation_issues(
+            page_state_id=page_state_id,
+            crf_template_id=crf_template_id,
+            changed_field_keys=changed_field_keys,
+            values_by_field_key=values_by_field_key,
+            failures=list(validation_result.failures),
+            actor_user_id=actor_user_id,
+        )
+
     @transaction.atomic
     def save(self, command: SavePageCommand) -> SavePageResult:
         self._assert_capture_not_locked(
@@ -656,6 +684,14 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=command.crf_template_id,
             changed_field_keys=changed_field_keys,
             candidate_payload=candidate_payload,
+            actor_user_id=command.actor_user_id,
+        )
+        self._correct_resolved_validation_issues(
+            page_state_id=page_state.pk,
+            crf_template_id=command.crf_template_id,
+            changed_field_keys=changed_field_keys,
+            candidate_payload=candidate_payload,
+            validation_result=validation_result,
             actor_user_id=command.actor_user_id,
         )
         self._create_validation_failure_reconcile_records(

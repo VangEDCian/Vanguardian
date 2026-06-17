@@ -4,7 +4,8 @@
         {% if focused_form and focused_form.title %}
             {{ focused_form.title }}
             {% if focused_page_status %}
-                <span class="subject-form__title-status subject-form__title-status--danger">({{ focused_page_status|upper }})</span>
+                <span class="subject-form__title-status subject-form__title-status--danger"
+                      data-page-status-label>({{ focused_page_status|upper }})</span>
             {% endif %}
         {% else %}
             {% trans "Form" %}

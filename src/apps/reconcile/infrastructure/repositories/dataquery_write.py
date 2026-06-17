@@ -293,6 +293,75 @@ class DjangoReconcileDataQueryWriteRepository:
         return acknowledged_issue_ids
 
     @classmethod
+    def list_active_validation_issues_by_page_state_and_field_templates(
+        cls,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> list[dict[str, object]]:
+        if not field_template_ids:
+            return []
+        rows = (
+            ReconcileValidationIssue.objects.filter(
+                form_instance_id=page_state_id,
+                status__in=cls.ACTIVE_VALIDATION_ISSUE_STATUSES,
+            )
+            .filter(
+                Q(field_instance__field_template_id__in=field_template_ids)
+                | Q(field_instance_id__isnull=True, rule__field_template_id__in=field_template_ids)
+            )
+            .values(
+                "id",
+                "rule_id",
+                "field_instance__field_template_id",
+                "rule__field_template_id",
+                "failed_value",
+            )
+        )
+        out: list[dict[str, object]] = []
+        seen_ids: set[int] = set()
+        for row in rows:
+            issue_id = int(row["id"])
+            if issue_id in seen_ids:
+                continue
+            seen_ids.add(issue_id)
+            field_template_id = row["field_instance__field_template_id"] or row["rule__field_template_id"]
+            if field_template_id is None:
+                continue
+            out.append(
+                {
+                    "id": issue_id,
+                    "rule_id": int(row["rule_id"]) if row["rule_id"] is not None else None,
+                    "field_template_id": int(field_template_id),
+                    "failed_value": row["failed_value"],
+                }
+            )
+        return out
+
+    @classmethod
+    def mark_validation_issue_corrected(
+        cls,
+        *,
+        issue_id: int,
+        page_state_id: int,
+        actor_user_id: int | None,
+        correction_comment: str,
+        now: datetime,
+    ) -> bool:
+        updated = ReconcileValidationIssue.objects.filter(
+            id=issue_id,
+            form_instance_id=page_state_id,
+            status__in=cls.ACTIVE_VALIDATION_ISSUE_STATUSES,
+        ).update(
+            status=ReconcileValidationIssueStatusChoices.CORRECTED,
+            acknowledged_by=actor_user_id,
+            acknowledged_at=now,
+            acknowledgement_comment=str(correction_comment or "").strip(),
+            resolved_at=now,
+        )
+        return updated > 0
+
+    @classmethod
     def has_open_query_for_page_field(
         cls,
         *,

@@ -32,6 +32,7 @@ class _ReconcileDataQueryWriteService:
     def __init__(self):
         self.update_value_thread_calls = []
         self.validation_failure_record_calls = []
+        self.correct_resolved_validation_issue_calls = []
 
     def add_update_value_threads_for_changed_fields(self, **kwargs):
         self.update_value_thread_calls.append(kwargs)
@@ -40,6 +41,10 @@ class _ReconcileDataQueryWriteService:
     def create_validation_failure_records(self, **kwargs):
         self.validation_failure_record_calls.append(kwargs)
         return {"soft_issue_count": 1, "query_count": 0}
+
+    def correct_resolved_validation_issues(self, **kwargs):
+        self.correct_resolved_validation_issue_calls.append(kwargs)
+        return {"corrected_issue_ids": [1], "corrected_count": 1}
 
 
 class _SubmitReasonRepository:
@@ -339,29 +344,39 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
         )
 
         self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
+
+    def test_submit_corrects_resolved_validation_issues_for_changed_fields(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            changed_verified_field_keys=[],
+        )
+        reconcile_service = _ReconcileDataQueryWriteService()
+        service = _service(repository, reconcile_data_query_write_service=reconcile_service)
+        service.page_entry_state_events = SimpleNamespace(dispatch=lambda *args, **kwargs: None)
+
+        _submit_without_transaction(
+            service,
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(len(reconcile_service.correct_resolved_validation_issue_calls), 1)
+        self.assertEqual(
+            reconcile_service.correct_resolved_validation_issue_calls[0]["changed_field_keys"],
+            ["field_1"],
+        )
+        self.assertEqual(
+            reconcile_service.correct_resolved_validation_issue_calls[0]["values_by_field_key"],
+            {"field_1": "new"},
+        )
         self.assertEqual(
             repository.submit_page_state_calls[-1]["target_status"],
             DataCapturePageStateStatusChoices.SUBMITTED,
-        )
-        self.assertEqual(
-            reconcile_data_query_write_service.validation_failure_record_calls,
-            [
-                {
-                    "page_state_id": 11,
-                    "failures": [
-                        {
-                            "rule_id": 101,
-                            "field_template_id": 1,
-                            "field_key": "field_1",
-                            "mode": "SOFT",
-                            "severity": "warning",
-                            "message": "Value should match expected.",
-                            "failed_value": "new",
-                        }
-                    ],
-                    "actor_user_id": 1,
-                }
-            ],
         )
 
     def test_submit_stops_checking_field_validation_rules_after_first_failure(self):

@@ -76,6 +76,7 @@ class DjangoReconcileDataQueryReadRepository:
                 "severity",
                 "status",
                 "message",
+                "failed_value",
                 "created_at",
             )
         )
@@ -98,6 +99,7 @@ class DjangoReconcileDataQueryReadRepository:
                     "severity": row["severity"],
                     "status": row["status"],
                     "message": row["message"],
+                    "failed_value": row["failed_value"],
                     "created_at": row["created_at"],
                 }
             )
@@ -131,6 +133,7 @@ class DjangoReconcileDataQueryReadRepository:
                 "severity",
                 "status",
                 "message",
+                "failed_value",
                 "created_at",
                 "acknowledged_by",
                 "acknowledged_at",
@@ -157,6 +160,7 @@ class DjangoReconcileDataQueryReadRepository:
                     "severity": row["severity"],
                     "status": row["status"],
                     "message": row["message"],
+                    "failed_value": row["failed_value"],
                     "created_at": row["created_at"],
                     "acknowledged_by": row["acknowledged_by"],
                     "acknowledged_at": row["acknowledged_at"],
@@ -179,6 +183,30 @@ class DjangoReconcileDataQueryReadRepository:
             .exists()
         )
 
+    def list_field_template_ids_with_validation_issues(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        if not field_template_ids:
+            return set()
+        rows = (
+            ReconcileValidationIssue.objects.filter(form_instance_id=page_state_id)
+            .filter(
+                Q(field_instance__field_template_id__in=field_template_ids)
+                | Q(field_instance_id__isnull=True, rule__field_template_id__in=field_template_ids)
+            )
+            .annotate(resolved_field_template_id=Coalesce("field_instance__field_template_id", "rule__field_template_id"))
+            .values_list("resolved_field_template_id", flat=True)
+            .distinct()
+        )
+        return {
+            int(field_template_id)
+            for field_template_id in rows
+            if field_template_id is not None
+        }
+
     def list_field_template_ids_with_verified_queries(
         self,
         *,
@@ -192,6 +220,26 @@ class DjangoReconcileDataQueryReadRepository:
                 page_state_id=page_state_id,
                 deleted=False,
                 status="verified",
+                field_template_id__isnull=False,
+                field_template_id__in=field_template_ids,
+            )
+            .values_list("field_template_id", flat=True)
+            .distinct()
+        )
+        return {int(field_template_id) for field_template_id in rows}
+
+    def list_field_template_ids_with_queries(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        if not field_template_ids:
+            return set()
+        rows = (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
                 field_template_id__isnull=False,
                 field_template_id__in=field_template_ids,
             )

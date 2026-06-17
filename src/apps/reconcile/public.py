@@ -60,6 +60,17 @@ def has_open_reconcile_validation_issue_for_page_field(*, page_state_id: int, fi
     )
 
 
+def list_field_template_ids_with_reconcile_validation_issues(
+    *,
+    page_state_id: int,
+    field_template_ids: tuple[int, ...],
+) -> set[int]:
+    return ReconcileDataQueryReadService().list_field_template_ids_with_validation_issues(
+        page_state_id=page_state_id,
+        field_template_ids=field_template_ids,
+    )
+
+
 def acknowledge_reconcile_validation_issues(
     *,
     page_state_id: int,
@@ -94,6 +105,17 @@ def has_verified_reconcile_query_for_page_field(*, page_state_id: int, field_tem
     return ReconcileDataQueryReadService().has_verified_query_for_page_field(
         page_state_id=page_state_id,
         field_template_id=field_template_id,
+    )
+
+
+def list_field_template_ids_with_reconcile_queries(
+    *,
+    page_state_id: int,
+    field_template_ids: tuple[int, ...],
+) -> set[int]:
+    return ReconcileDataQueryReadService().list_field_template_ids_with_queries(
+        page_state_id=page_state_id,
+        field_template_ids=field_template_ids,
     )
 
 
@@ -242,6 +264,8 @@ __all__ = [
     "create_reconcile_records_for_validation_failures",
     "get_reconcile_query_action_scope",
     "get_reconcile_query_site_id",
+    "list_field_template_ids_with_reconcile_queries",
+    "list_field_template_ids_with_reconcile_validation_issues",
     "has_open_reconcile_validation_issue_for_page_field",
     "has_verified_reconcile_query_for_page_field",
     "list_open_reconcile_validation_issues_by_fields",

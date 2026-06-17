@@ -345,7 +345,11 @@ class FormFieldReviewTableService:
             if query_key is not None
             else (False if is_repeatable_group_item else field_template_id in verified_query_field_template_ids)
         )
-        validation_issues = validation_issues_by_field.get(field_template_id, [])
+        validation_issues = self._format_validation_issues(
+            validation_issues_by_field.get(field_template_id, []),
+            control_norm=control_norm,
+            label_by_value=label_by_value,
+        )
         validation_issue_count = len(validation_issues)
         closed_query_histories = self._format_closed_query_histories(
             closed_query_histories_by_field_path.get(query_key, [])
@@ -353,7 +357,11 @@ class FormFieldReviewTableService:
             else ([] if is_repeatable_group_item else closed_query_histories_by_field.get(field_template_id, [])),
         )
         closed_query_histories.extend(
-            self._format_validation_issue_histories(validation_issue_histories_by_field.get(field_template_id, []))
+            self._format_validation_issue_histories(
+                validation_issue_histories_by_field.get(field_template_id, []),
+                control_norm=control_norm,
+                label_by_value=label_by_value,
+            )
         )
         return {
             "field_template_id": field_template_id,
@@ -828,8 +836,31 @@ class FormFieldReviewTableService:
             )
         return out
 
-    @classmethod
-    def _format_validation_issue_histories(cls, issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _format_validation_issues(
+        self,
+        issues: list[dict[str, Any]],
+        *,
+        control_norm: str,
+        label_by_value: dict[str, str],
+    ) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for issue in issues:
+            normalized = dict(issue)
+            normalized["failed_value_display"] = self._resolve_display_value(
+                raw_value=issue.get("failed_value"),
+                control_norm=control_norm,
+                label_by_value=label_by_value,
+            )
+            out.append(normalized)
+        return out
+
+    def _format_validation_issue_histories(
+        self,
+        issues: list[dict[str, Any]],
+        *,
+        control_norm: str,
+        label_by_value: dict[str, str],
+    ) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for issue in issues:
             issue_id = issue.get("id")
@@ -838,6 +869,11 @@ class FormFieldReviewTableService:
             acknowledged_at = issue.get("acknowledged_at")
             resolved_at = issue.get("resolved_at")
             response_at = acknowledged_at or resolved_at
+            failed_value_display = self._resolve_display_value(
+                raw_value=issue.get("failed_value"),
+                control_norm=control_norm,
+                label_by_value=label_by_value,
+            )
             messages = [
                 {
                     "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
@@ -874,9 +910,10 @@ class FormFieldReviewTableService:
                     "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
                     "label": f"Validation Issue #{issue_id}" if issue_id else "Validation Issue",
                     "question_text": str(issue.get("message") or "").strip(),
-                    "opened_at": cls._format_datetime(created_at),
-                    "closed_at": cls._format_datetime(response_at),
-                    "messages": cls._format_query_messages(messages),
+                    "opened_at": self._format_datetime(created_at),
+                    "closed_at": self._format_datetime(response_at),
+                    "value_snapshot": failed_value_display,
+                    "messages": self._format_query_messages(messages),
                 },
             )
         return out

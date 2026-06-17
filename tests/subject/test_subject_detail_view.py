@@ -5,9 +5,28 @@ from django.test import SimpleTestCase
 
 from apps.core.form_data_document import REPEAT_COUNTS_EXPORT_META_KEY
 from apps.subject.presentation.web.views import SubjectDetailView
+from apps.subject.presentation.web.views.detail import _field_has_reconcile_records
 
 
 class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
+    def test_field_history_flags_require_matching_reconcile_records_for_same_field(self):
+        result = _field_has_reconcile_records(
+            field_template_id=12,
+            query_field_template_ids_with_records={11, 14},
+            validation_issue_field_template_ids_with_records={13, 15},
+        )
+
+        self.assertEqual(result, (False, False))
+
+    def test_field_history_flags_detect_query_and_validation_issue_records_per_field(self):
+        result = _field_has_reconcile_records(
+            field_template_id=12,
+            query_field_template_ids_with_records={12, 14},
+            validation_issue_field_template_ids_with_records={12, 15},
+        )
+
+        self.assertEqual(result, (True, True))
+
     def test_parse_choice_options_supports_json_value_label_list(self):
         raw_options = '[{"value":"M","label":"Male"},{"value":"F","label":"Female"}]'
 
@@ -315,6 +334,83 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertIn('data-range-max="120.25"', rendered)
         self.assertIn('data-precision="2"', rendered)
         self.assertIn('inputmode="decimal"', rendered)
+
+    def test_field_query_indicator_hides_history_icons_while_current_items_exist(self):
+        rendered = render_to_string(
+            "subject/components/_field_query_indicator.html",
+            {
+                "field": {
+                    "id": 1,
+                    "field_key": "AGE",
+                    "label": "Age",
+                    "value": "-1",
+                    "display_value": "-1",
+                    "active_query_id": 99,
+                    "has_query_history": True,
+                    "query_messages": [],
+                    "closed_query_histories": [],
+                    "validation_issue_count": 1,
+                    "validation_issues": [
+                        {
+                            "id": 7,
+                            "message": "Out of range",
+                            "severity": "major",
+                            "status": "OPEN",
+                            "created_at": "2026-06-17 12:00",
+                        }
+                    ],
+                    "has_validation_issue_history": True,
+                }
+            },
+        )
+
+        self.assertIn('title="Current Query"', rendered)
+        self.assertIn('title="Validation Issue"', rendered)
+        self.assertNotIn('title="Query History"', rendered)
+        self.assertNotIn('title="Validation Issue History"', rendered)
+
+    def test_field_query_indicator_preserves_validation_issue_failed_value_snapshot(self):
+        rendered = render_to_string(
+            "subject/components/_field_query_indicator.html",
+            {
+                "field": {
+                    "id": 1,
+                    "field_key": "AGE",
+                    "label": "Age",
+                    "value": "19",
+                    "display_value": "19",
+                    "active_query_id": None,
+                    "has_query_history": False,
+                    "query_messages": [],
+                    "closed_query_histories": [
+                        {
+                            "dataquery_id": "validation_issue_7",
+                            "status": "ACKNOWLEDGED",
+                            "label": "Validation Issue #7",
+                            "value_snapshot": "8",
+                            "opened_at": "2026-06-17 12:00",
+                            "closed_at": "2026-06-17 12:05",
+                            "messages": [],
+                        }
+                    ],
+                    "validation_issue_count": 1,
+                    "validation_issues": [
+                        {
+                            "id": 7,
+                            "message": "Out of range",
+                            "failed_value_display": "8",
+                            "severity": "major",
+                            "status": "OPEN",
+                            "created_at": "2026-06-17 12:00",
+                        }
+                    ],
+                    "has_validation_issue_history": True,
+                }
+            },
+        )
+
+        self.assertIn('data-issue-failed-value="8"', rendered)
+        self.assertIn('data-history-value="8"', rendered)
 
 
 class SubjectDetailPageEntryFooterTests(SimpleTestCase):
@@ -673,6 +769,47 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         )
 
         self.assertLess(rendered.index('data-field-key="FIRST"'), rendered.index('data-field-key="SECOND"'))
+
+    def test_validation_issue_field_uses_separate_state_class_from_open_query(self):
+        rendered = render_to_string(
+            "subject/components/_section_render.html",
+            {
+                "hide_section_title": False,
+                "section": {
+                    "id": "7",
+                    "title": "Demographics",
+                    "layout_type": "grid",
+                    "show_section_header": True,
+                    "fields": [
+                        {
+                            "id": 11,
+                            "field_key": "DOB",
+                            "label": "Date of Birth",
+                            "control_type": "date",
+                            "value": "2028-02-01",
+                            "display_value": "01/02/2028",
+                            "date_day": "01",
+                            "date_month": "02",
+                            "date_year": "2028",
+                            "validation_issue_count": 1,
+                            "validation_issues": [
+                                {
+                                    "id": 501,
+                                    "message": "DOB is in the future.",
+                                    "mode": "SOFT",
+                                    "severity": "WARNING",
+                                    "status": "open",
+                                }
+                            ],
+                        },
+                    ],
+                },
+            },
+        )
+
+        self.assertIn("subject-form-field--has-validation-issue", rendered)
+        self.assertNotIn("subject-form-field--has-open-query", rendered)
+        self.assertIn("data-validation-issue-modal-trigger", rendered)
 
     def test_table_section_render_sorts_fields_by_display_order(self):
         rendered = render_to_string(

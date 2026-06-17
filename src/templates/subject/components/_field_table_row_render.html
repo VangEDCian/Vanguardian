@@ -1,5 +1,5 @@
 {% load i18n subject_form_tags %}
-<tr class="subject-form-table-row{% if field.active_query_id or field.validation_issue_count or field.has_query_history or field.has_validation_issue_history %} subject-form-field--has-open-query{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
+<tr class="subject-form-table-row{% if field.active_query_id or field.has_query_history %} subject-form-field--has-open-query{% endif %}{% if field.validation_issue_count or field.has_validation_issue_history %} subject-form-field--has-validation-issue{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
     data-field-key="{{ field.field_key }}"
     data-repeat-base-field-key="{{ field.repeat_base_field_key|default:field.field_key }}"
     data-field-id="{{ field.id|default:'' }}"

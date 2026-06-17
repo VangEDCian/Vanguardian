@@ -658,8 +658,12 @@
 
   function rewriteClonedSectionFields(section, repeatIndex) {
     section.classList.remove('subject-form-field--has-open-query');
+    section.classList.remove('subject-form-field--has-validation-issue');
     section.querySelectorAll('.subject-form-field--has-open-query').forEach((node) => {
       node.classList.remove('subject-form-field--has-open-query');
+    });
+    section.querySelectorAll('.subject-form-field--has-validation-issue').forEach((node) => {
+      node.classList.remove('subject-form-field--has-validation-issue');
     });
     section.querySelectorAll('[data-query-thread-modal-trigger], [data-query-thread-badge]').forEach((node) => {
       node.remove();

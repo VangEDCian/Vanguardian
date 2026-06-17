@@ -10,6 +10,8 @@
   const listNode = modal.querySelector('[data-validation-issue-modal-list]');
   const submitButton = modal.querySelector('[data-validation-issue-modal-submit]');
   const closeButton = modal.querySelector('[data-validation-issue-modal-close]');
+  const formRoot = document.querySelector('[data-datacapture-form-root]');
+  const pageStatusLabel = document.querySelector('[data-page-status-label]');
   const acknowledgeUrl = String(modal.dataset.acknowledgeUrl || '').trim();
   const languageCode = String(modal.dataset.languageCode || '').trim().toLowerCase();
   const titleEnPrefix = String(modal.dataset.titleEnPrefix || 'Validation issues for field').trim();
@@ -104,6 +106,12 @@
         item.textContent = String(value);
         meta.appendChild(item);
       });
+    const failedValue = String(sourceNode.dataset.issueFailedValue || '').trim();
+    if (failedValue) {
+      const item = document.createElement('span');
+      item.textContent = `Failed value: ${failedValue}`;
+      meta.appendChild(item);
+    }
     if (meta.childNodes.length > 0) {
       contentCell.appendChild(meta);
     }
@@ -141,9 +149,11 @@
     activeTrigger = trigger;
     setText(titleNode, `${titlePrefix} ${titleField}`.trim());
     setText(briefNode, fieldLabel || fieldKey || '-');
-    setText(valueNode, fieldValue || '-');
+    const issues = sourceItems(trigger);
+    const firstFailedValue = issues.length > 0 ? String(issues[0].dataset.issueFailedValue || '').trim() : '';
+    setText(valueNode, firstFailedValue || fieldValue || '-');
     clearRows();
-    sourceItems(trigger).forEach(function (sourceNode) {
+    issues.forEach(function (sourceNode) {
       listNode?.appendChild(buildRow(sourceNode));
     });
     setSubmitEnabled(!!acknowledgeUrl && !!listNode?.querySelector('[data-validation-issue-modal-row]'));
@@ -169,6 +179,25 @@
       return 'Server error.';
     }
     return 'Request failed.';
+  }
+
+  function normalizePageStatus(value) {
+    return String(value || '').trim();
+  }
+
+  function updatePageStatus(pageStatus) {
+    const normalizedStatus = normalizePageStatus(pageStatus);
+    if (formRoot instanceof HTMLElement) {
+      formRoot.dataset.pageStatus = normalizedStatus.toLowerCase();
+    }
+    if (!(pageStatusLabel instanceof HTMLElement)) {
+      return;
+    }
+    if (!normalizedStatus) {
+      pageStatusLabel.remove();
+      return;
+    }
+    pageStatusLabel.textContent = `(${normalizedStatus.toUpperCase()})`;
   }
 
   function selectedAcknowledgements() {
@@ -222,6 +251,7 @@
       historyNode.dataset.historyDataqueryId = `validation_issue_${issueId}`;
       historyNode.dataset.historyStatus = String(sourceNode.dataset.issueStatus || '').trim();
       historyNode.dataset.historyLabel = `Validation Issue #${issueId}`;
+      historyNode.dataset.historyValue = String(sourceNode.dataset.issueFailedValue || '').trim();
       historyNode.dataset.historyOpenedAt = String(sourceNode.dataset.issueCreatedAt || '').trim();
       historyNode.dataset.historyClosedAt = '';
 
@@ -254,6 +284,7 @@
       const historyTrigger = container.querySelector('[data-validation-issue-history-modal-trigger]');
       if (historyTrigger instanceof HTMLButtonElement) {
         historyTrigger.hidden = false;
+        historyTrigger.style.removeProperty('display');
       }
     }
   }
@@ -293,10 +324,9 @@
       }
       if (
         container instanceof HTMLElement &&
-        !container.querySelector('[data-query-thread-modal-trigger]') &&
-        !container.querySelector('[data-query-history-modal-trigger]:not([hidden])')
+        !container.querySelector('[data-validation-issue-history-modal-trigger]:not([hidden])')
       ) {
-        container.classList.remove('subject-form-field--has-open-query');
+        container.classList.remove('subject-form-field--has-validation-issue');
       }
     }
   }
@@ -344,6 +374,7 @@
             return acknowledgedIds.has(String(issue.issue_id));
           })
         );
+        updatePageStatus(result.data.page_status);
         closeModal();
       })
       .catch(function () {

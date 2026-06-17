@@ -50,6 +50,28 @@ class ReconcileDataQueryReadService:
             field_template_id=field_template_id,
         )
 
+    def list_field_template_ids_with_queries(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        return self.repository.list_field_template_ids_with_queries(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
+    def list_field_template_ids_with_validation_issues(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        return self.repository.list_field_template_ids_with_validation_issues(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
     def list_field_template_ids_with_verified_queries(
         self,
         *,

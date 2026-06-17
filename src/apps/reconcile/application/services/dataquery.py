@@ -183,6 +183,83 @@ class ReconcileDataQueryWriteService:
             "acknowledged_count": len(acknowledged_issue_ids),
         }
 
+    def correct_resolved_validation_issues(
+        self,
+        *,
+        page_state_id: int,
+        crf_template_id: int,
+        changed_field_keys: list[str],
+        values_by_field_key: dict[str, object],
+        failures: list[object],
+        actor_user_id: int | None,
+    ) -> dict[str, object]:
+        if not changed_field_keys or not values_by_field_key:
+            return {"corrected_issue_ids": [], "corrected_count": 0}
+
+        field_key_to_id = self.repository.list_field_key_to_id(crf_template_id=crf_template_id)
+        field_id_to_value: dict[int, object] = {}
+        for raw_field_key in changed_field_keys:
+            field_key = self._canonical_field_key(raw_field_key)
+            field_template_id = self._resolve_field_template_id(
+                canonical_field_key=field_key,
+                field_key_to_id=field_key_to_id,
+            )
+            if field_template_id is None or field_key not in values_by_field_key:
+                continue
+            field_id_to_value[field_template_id] = values_by_field_key[field_key]
+
+        if not field_id_to_value:
+            return {"corrected_issue_ids": [], "corrected_count": 0}
+
+        active_issues = self.repository.list_active_validation_issues_by_page_state_and_field_templates(
+            page_state_id=page_state_id,
+            field_template_ids=tuple(field_id_to_value),
+        )
+        if not active_issues:
+            return {"corrected_issue_ids": [], "corrected_count": 0}
+
+        active_failure_signatures = {
+            (item.field_template_id, item.rule_id)
+            for item in (self._normalize_validation_failure(failure) for failure in failures)
+            if item.mode == "SOFT" and item.field_template_id is not None and item.rule_id is not None
+        }
+        field_contexts = self.repository.list_field_thread_value_contexts(
+            crf_template_id=crf_template_id,
+            field_template_ids=tuple(field_id_to_value),
+        )
+        now: datetime = timezone.now()
+        corrected_issue_ids: list[int] = []
+        for issue in active_issues:
+            field_template_id = self._to_int_or_none(issue.get("field_template_id"))
+            rule_id = self._to_int_or_none(issue.get("rule_id"))
+            issue_id = self._to_int_or_none(issue.get("id"))
+            if field_template_id is None or issue_id is None:
+                continue
+            if rule_id is not None and (field_template_id, rule_id) in active_failure_signatures:
+                continue
+            old_value = self._format_thread_value(
+                issue.get("failed_value"),
+                field_contexts.get(field_template_id),
+            ) or "—"
+            new_value = self._format_thread_value(
+                field_id_to_value.get(field_template_id),
+                field_contexts.get(field_template_id),
+            ) or "—"
+            correction_comment = f"Cập nhật dữ liệu từ {old_value} thành {new_value}"
+            corrected = self.repository.mark_validation_issue_corrected(
+                issue_id=issue_id,
+                page_state_id=page_state_id,
+                actor_user_id=actor_user_id,
+                correction_comment=correction_comment,
+                now=now,
+            )
+            if corrected:
+                corrected_issue_ids.append(issue_id)
+        return {
+            "corrected_issue_ids": corrected_issue_ids,
+            "corrected_count": len(corrected_issue_ids),
+        }
+
     def create_change_reason_data_queries(
         self,
         *,

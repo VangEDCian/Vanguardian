@@ -49,7 +49,7 @@
                             <td class="subject-form-repeat-table-row__index">{{ row.repeat_instance_index }}</td>
                         {% endif %}
                         {% for field in row.fields|sort_fields_by_display_order %}
-                            <td class="subject-form-repeat-table-row__cell{% if field.active_query_id or field.validation_issue_count or field.has_query_history or field.has_validation_issue_history %} subject-form-field--has-open-query{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
+                            <td class="subject-form-repeat-table-row__cell{% if field.active_query_id or field.has_query_history %} subject-form-field--has-open-query{% endif %}{% if field.validation_issue_count or field.has_validation_issue_history %} subject-form-field--has-validation-issue{% endif %}{% if field.classes %} {{ field.classes }}{% endif %}"
                                 data-field-key="{{ field.field_key }}"
                                 data-repeat-base-field-key="{{ field.repeat_base_field_key|default:field.field_key }}"
                                 data-field-id="{{ field.id|default:'' }}"

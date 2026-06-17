@@ -284,11 +284,40 @@
   textarea,
   .subject-date-picker__input,
   .subject-date-text__input
+),
+.subject-form-field--has-validation-issue :is(
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="url"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  select,
+  textarea,
+  .subject-date-picker__input,
+  .subject-date-text__input
 ) {
   color: #c62828;
 }
 
 .subject-form-field--has-open-query :is(
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="url"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  textarea,
+  .subject-date-picker__input,
+  .subject-date-text__input
+)::placeholder,
+.subject-form-field--has-validation-issue :is(
   input[type="text"],
   input[type="number"],
   input[type="email"],
@@ -307,6 +336,10 @@
 }
 
 .subject-form-field--has-open-query :is(
+  input[type="radio"]:checked + .subject-form-radio-option-label,
+  input[type="checkbox"]:checked + .subject-form-choice-option-label
+),
+.subject-form-field--has-validation-issue :is(
   input[type="radio"]:checked + .subject-form-radio-option-label,
   input[type="checkbox"]:checked + .subject-form-choice-option-label
 ) {

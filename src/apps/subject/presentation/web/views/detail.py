@@ -20,7 +20,11 @@ from apps.datacapture.public import (
     get_page_state_status_for_subject_visit_crf,
     get_verified_field_template_ids_for_subject_visit_crf,
 )
-from apps.reconcile.public import list_open_reconcile_validation_issues_by_fields
+from apps.reconcile.public import (
+    list_field_template_ids_with_reconcile_queries,
+    list_field_template_ids_with_reconcile_validation_issues,
+    list_open_reconcile_validation_issues_by_fields,
+)
 from apps.shared.navigation import user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
@@ -40,18 +44,17 @@ def _same_user_id(left, right) -> bool:
         return int(left) == int(right)
     except (TypeError, ValueError):
         return False
-
-
-def _split_closed_field_review_histories(histories):
-    query_histories = []
-    validation_issue_histories = []
-    for history in histories or []:
-        dataquery_id = str(history.get("dataquery_id") or "").strip().lower()
-        if dataquery_id.startswith("validation_issue_"):
-            validation_issue_histories.append(history)
-            continue
-        query_histories.append(history)
-    return query_histories, validation_issue_histories
+def _field_has_reconcile_records(
+    *,
+    field_template_id: int,
+    query_field_template_ids_with_records: set[int],
+    validation_issue_field_template_ids_with_records: set[int],
+) -> tuple[bool, bool]:
+    normalized_field_template_id = int(field_template_id)
+    return (
+        normalized_field_template_id in query_field_template_ids_with_records,
+        normalized_field_template_id in validation_issue_field_template_ids_with_records,
+    )
 
 
 class SubjectDetailView(
@@ -433,6 +436,8 @@ class SubjectDetailView(
         form_verification_has_submitted_entry = False
         field_query_state_by_id = {}
         field_validation_issue_state_by_id = {}
+        query_field_template_ids_with_records: set[int] = set()
+        validation_issue_field_template_ids_with_records: set[int] = set()
         if focused_form and focused_event and focused_form_fields and not is_submitted_readonly_mode:
             try:
                 visit_pk = int(focused_event["id"])
@@ -460,6 +465,18 @@ class SubjectDetailView(
                         int(field["id"])
                         for field in focused_form_fields
                         if str(field.get("id") or "").isdigit()
+                    )
+                    query_field_template_ids_with_records = (
+                        list_field_template_ids_with_reconcile_queries(
+                            page_state_id=int(page_state_pk),
+                            field_template_ids=field_template_ids,
+                        )
+                    )
+                    validation_issue_field_template_ids_with_records = (
+                        list_field_template_ids_with_reconcile_validation_issues(
+                            page_state_id=int(page_state_pk),
+                            field_template_ids=field_template_ids,
+                        )
                     )
                     open_validation_issues_by_field = list_open_reconcile_validation_issues_by_fields(
                         page_state_id=int(page_state_pk),
@@ -498,13 +515,14 @@ class SubjectDetailView(
                         if not str(field_template_id or "").isdigit():
                             continue
                         closed_query_histories = row.get("closed_query_histories") or []
-                        query_histories, validation_issue_histories = _split_closed_field_review_histories(
-                            closed_query_histories
+                        has_query_records, has_validation_issue_records = _field_has_reconcile_records(
+                            field_template_id=int(field_template_id),
+                            query_field_template_ids_with_records=query_field_template_ids_with_records,
+                            validation_issue_field_template_ids_with_records=validation_issue_field_template_ids_with_records,
                         )
                         if (
-                            not row.get("active_query_id")
-                            and not closed_query_histories
-                            and not validation_issue_histories
+                            not has_query_records
+                            and not has_validation_issue_records
                         ):
                             continue
                         field_query_state_by_id[int(field_template_id)] = {
@@ -514,8 +532,8 @@ class SubjectDetailView(
                             "query_thread_badge_count": row.get("query_thread_badge_count"),
                             "query_messages": row.get("query_messages"),
                             "closed_query_histories": closed_query_histories,
-                            "has_query_history": bool(query_histories),
-                            "has_validation_issue_history": bool(validation_issue_histories),
+                            "has_query_history": has_query_records,
+                            "has_validation_issue_history": has_validation_issue_records,
                         }
                     if field_query_state_by_id:
                         form_verification_query_thread_url = reverse(
@@ -527,7 +545,6 @@ class SubjectDetailView(
                                 "crf_template_id": template_pk,
                             },
                         )
-
         form_render_sections = self._build_form_render_sections(
             focused_form_fields,
             entry_payload_map=focused_entry_values,
