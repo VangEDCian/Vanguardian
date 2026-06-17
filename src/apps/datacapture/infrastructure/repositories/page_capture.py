@@ -187,6 +187,111 @@ class DjangoDataCapturePageRepository:
             output[field_key] = rules
         return output
 
+    @classmethod
+    def _build_validation_form_rows(cls, payload_map: dict[str, object]) -> list[dict[str, object]]:
+        row_map: dict[int, dict[str, object]] = {}
+        for raw_key, value in (payload_map or {}).items():
+            normalized_key = str(raw_key or "").strip()
+            if not normalized_key or normalized_key == "__form_verification__":
+                continue
+            base_key = cls._field_alias_base_key(normalized_key)
+            repeat_match = cls.REPEAT_KEY_RE.match(base_key)
+            repeat_index = int(repeat_match.group("repeat_index")) if repeat_match else 1
+            field_key = repeat_match.group("base") if repeat_match else base_key
+            row_map.setdefault(repeat_index, {})[field_key] = value
+        return [row_map[idx] for idx in sorted(row_map)]
+
+    def get_form_repeatability_by_codes(self, *, form_codes: tuple[str, ...]) -> dict[str, bool]:
+        normalized_codes = tuple(str(code or "").strip() for code in form_codes if str(code or "").strip())
+        if not normalized_codes:
+            return {}
+        rows = (
+            CrfSectionTemplate.objects.filter(
+                crf_template__code__in=normalized_codes,
+                deleted=False,
+                crf_template__deleted=False,
+            )
+            .values("crf_template__code")
+            .annotate(has_repeatable=Max("is_repeatable"))
+        )
+        return {
+            str(row["crf_template__code"]): bool(row["has_repeatable"])
+            for row in rows
+            if str(row.get("crf_template__code") or "").strip()
+        }
+
+    def get_subject_cross_form_validation_context(
+        self,
+        *,
+        subject_id: int,
+        form_codes: tuple[str, ...] = (),
+        exclude_visit_id: int | None = None,
+        exclude_crf_template_id: int | None = None,
+    ) -> dict[str, dict[str, object]]:
+        normalized_codes = tuple(str(code or "").strip() for code in form_codes if str(code or "").strip())
+        repeatability_by_code = self.get_form_repeatability_by_codes(form_codes=normalized_codes)
+        context: dict[str, dict[str, object]] = {
+            form_code: {
+                "is_repeatable": bool(repeatability_by_code.get(form_code)),
+                "rows": [],
+            }
+            for form_code in normalized_codes
+        }
+        if not normalized_codes:
+            return context
+        page_states = (
+            DataCapturePageState.objects.select_related("crf_template", "current_entry")
+            .filter(
+                subject_id=subject_id,
+                deleted=False,
+                crf_template__code__in=normalized_codes,
+                crf_template__deleted=False,
+            )
+        )
+        if exclude_visit_id is not None and exclude_crf_template_id is not None:
+            page_states = page_states.exclude(
+                visit_id=exclude_visit_id,
+                crf_template_id=exclude_crf_template_id,
+            )
+        page_states = page_states.only(
+            "id",
+            "visit_id",
+            "crf_template_id",
+            "crf_template__code",
+            "final_data",
+            "current_entry_id",
+            "current_entry__data",
+        ).order_by("crf_template__code", "visit_id", "id")
+
+        for page_state in page_states:
+            form_code = str(getattr(getattr(page_state, "crf_template", None), "code", "") or "").strip()
+            if not form_code:
+                continue
+            raw_payload = ""
+            current_entry = getattr(page_state, "current_entry", None)
+            if current_entry is not None and str(getattr(current_entry, "data", "") or "").strip():
+                raw_payload = current_entry.data
+            elif str(page_state.final_data or "").strip():
+                raw_payload = page_state.final_data
+            if not raw_payload:
+                continue
+            parsed_payload = self._load_json_map(raw_payload)
+            if not parsed_payload:
+                continue
+            flattened_payload = flatten_form_data_for_export(
+                normalize_form_data(parsed_payload, strict=False),
+                repeat_strategy="legacy_repeat_suffix",
+            )
+            context.setdefault(
+                form_code,
+                {
+                    "is_repeatable": bool(repeatability_by_code.get(form_code)),
+                    "rows": [],
+                },
+            )
+            context[form_code]["rows"].extend(self._build_validation_form_rows(flattened_payload))
+        return context
+
     @staticmethod
     def _load_json_map(raw_payload: str | None) -> dict:
         try:

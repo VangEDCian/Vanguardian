@@ -773,6 +773,7 @@ class SubjectDetailRenderingMixin:
                     "date_year": date_year,
                     "date_time": date_time,
                     "closed_query_histories": [],
+                    "validation_issue_histories": [],
                     "has_query_history": False,
                     "has_validation_issue_history": False,
                     **query_state_by_id.get(query_state_key, {}),

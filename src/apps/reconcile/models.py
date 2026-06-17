@@ -9,6 +9,10 @@ from apps.reconcile.infrastructure.persistence.models import (
     ReconcileQueryThreadSourceChoices,
     ReconcileQueryThreadVisibilityChoices,
     ReconcileValidationIssue,
+    ReconcileValidationRun,
+    ReconcileValidationRunSourceChoices,
+    ReconcileValidationIssueSnapshot,
+    ReconcileValidationIssueSnapshotResultChoices,
     ReconcileValidationIssueStatusChoices,
 )
 
@@ -23,5 +27,9 @@ __all__ = [
     "ReconcileQueryThreadSourceChoices",
     "ReconcileQueryThreadVisibilityChoices",
     "ReconcileValidationIssue",
+    "ReconcileValidationRun",
+    "ReconcileValidationRunSourceChoices",
+    "ReconcileValidationIssueSnapshot",
+    "ReconcileValidationIssueSnapshotResultChoices",
     "ReconcileValidationIssueStatusChoices",
 ]

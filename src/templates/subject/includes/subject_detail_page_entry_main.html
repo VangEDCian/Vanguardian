@@ -185,10 +185,18 @@
                         </table>
                     </section>
                     <section class="subject-form-verification-query-modal__section">
+                        <h4 class="subject-form-verification-query-modal__subtitle">{% trans "History" %}</h4>
+                        <div class="subject-form-verification-query-modal__messages"
+                             data-validation-issue-history-list>
+                            <p class="subject-form-verification-query-modal__empty"
+                               data-validation-issue-history-empty>{% trans "No validation issue history." %}</p>
+                        </div>
+                    </section>
+                    <section class="subject-form-verification-query-modal__section">
                         <div class="subject-form-verification-query-modal__actions">
                             <button type="button"
                                     class="entity-table__footer-button entity-table__footer-button--primary"
-                                    data-validation-issue-modal-submit>{% trans "Submit" %}</button>
+                                    data-validation-issue-modal-submit>{% trans "Acknowledge" %}</button>
                             <button type="button"
                                     class="entity-table__footer-button entity-table__footer-button--secondary"
                                     data-validation-issue-modal-close>{% trans "Close" %}</button>

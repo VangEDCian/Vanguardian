@@ -237,19 +237,23 @@ class DataCaptureSaveSubmitPageService:
         return self.field_validation_rules_service.check_field_validation_rules(
             crf_template_id=command.crf_template_id,
             payload_data=command.data,
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
         )
 
     def _create_validation_failure_reconcile_records(
         self,
         *,
         page_state_id: int,
+        crf_template_id: int,
         validation_result: FieldValidationCheckResult,
         actor_user_id: int | None,
+        evaluated_values_json: dict | None = None,
+        data_version: int | None = None,
     ) -> None:
-        if not validation_result.failures:
-            return
         self.reconcile_data_query_write_service.create_validation_failure_records(
             page_state_id=page_state_id,
+            crf_template_id=crf_template_id,
             failures=[
                 {
                     "rule_id": failure.rule_id,
@@ -263,6 +267,8 @@ class DataCaptureSaveSubmitPageService:
                 for failure in validation_result.failures
             ],
             actor_user_id=actor_user_id,
+            evaluated_values_json=evaluated_values_json,
+            data_version=data_version,
         )
 
     def _submit_noop_identical_submitted(self, command: SubmitPageCommand, latest) -> SubmitPageResult:
@@ -296,8 +302,11 @@ class DataCaptureSaveSubmitPageService:
         )
         self._create_validation_failure_reconcile_records(
             page_state_id=page_state.pk,
+            crf_template_id=command.crf_template_id,
             validation_result=validation_result,
             actor_user_id=command.actor_user_id,
+            evaluated_values_json=_load_payload_map(command.data),
+            data_version=int(page_state.data_version or started_page_state.data_version or 0),
         )
         self._complete_visit_if_all_forms_submitted(
             subject_id=command.subject_id,
@@ -686,18 +695,13 @@ class DataCaptureSaveSubmitPageService:
             candidate_payload=candidate_payload,
             actor_user_id=command.actor_user_id,
         )
-        self._correct_resolved_validation_issues(
-            page_state_id=page_state.pk,
-            crf_template_id=command.crf_template_id,
-            changed_field_keys=changed_field_keys,
-            candidate_payload=candidate_payload,
-            validation_result=validation_result,
-            actor_user_id=command.actor_user_id,
-        )
         self._create_validation_failure_reconcile_records(
             page_state_id=page_state.pk,
+            crf_template_id=command.crf_template_id,
             validation_result=validation_result,
             actor_user_id=command.actor_user_id,
+            evaluated_values_json=_load_payload_map(command.data),
+            data_version=int(page_state.data_version or started_page_state.data_version or 0),
         )
         if plan.superseded_entry_state_change is not None:
             for superseded_entry_id in superseded_entry_ids:

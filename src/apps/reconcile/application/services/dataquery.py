@@ -5,6 +5,7 @@ from datetime import datetime
 from django.utils import timezone
 
 from apps.reconcile.infrastructure.repositories import DjangoReconcileDataQueryWriteRepository
+from apps.reconcile.models import ReconcileValidationRunSourceChoices
 
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
 _QUERY_THREAD_COMMENT = "comment"
@@ -92,13 +93,44 @@ class ReconcileDataQueryWriteService:
         self,
         *,
         page_state_id: int,
+        crf_template_id: int | None = None,
         failures: list[object],
         actor_user_id: int | None,
+        evaluated_values_json: dict[str, object] | None = None,
+        data_version: int | None = None,
+        related_audit_event_id: int | None = None,
     ) -> dict[str, int]:
         normalized_failures = [self._normalize_validation_failure(item) for item in failures]
         soft_failures = [item for item in normalized_failures if item.mode == "SOFT"]
         query_failures = [item for item in normalized_failures if item.mode == "QUERY"]
         now: datetime = timezone.now()
+        normalized_evaluated_values_json = (
+            dict(evaluated_values_json) if isinstance(evaluated_values_json, dict) else {}
+        )
+        field_key_to_id = (
+            self.repository.list_field_key_to_id(crf_template_id=crf_template_id)
+            if crf_template_id is not None
+            else {}
+        )
+        evaluated_values_by_field_template_id: dict[int, object] = {}
+        for raw_field_key, value in normalized_evaluated_values_json.items():
+            canonical_field_key = self._canonical_field_key(str(raw_field_key or ""))
+            field_template_id = self._resolve_field_template_id(
+                canonical_field_key=canonical_field_key,
+                field_key_to_id=field_key_to_id,
+            )
+            if field_template_id is None:
+                continue
+            evaluated_values_by_field_template_id[int(field_template_id)] = value
+        normalized_data_version = int(data_version) if data_version is not None else 0
+        validation_run = self.repository.create_validation_run(
+            page_state_id=page_state_id,
+            source=ReconcileValidationRunSourceChoices.SUBMIT_FOR_REVIEW,
+            data_version=normalized_data_version,
+            actor_user_id=actor_user_id,
+            now=now,
+            related_audit_event_id=related_audit_event_id,
+        )
 
         soft_issue_count = self.repository.bulk_create_soft_validation_issues(
             page_state_id=page_state_id,
@@ -115,6 +147,10 @@ class ReconcileDataQueryWriteService:
             ],
             actor_user_id=actor_user_id,
             now=now,
+            validation_run_id=int(validation_run.pk),
+            evaluated_values_by_field_template_id=evaluated_values_by_field_template_id,
+            data_version=normalized_data_version,
+            related_audit_event_id=related_audit_event_id,
         )
 
         query_count = 0
@@ -172,11 +208,22 @@ class ReconcileDataQueryWriteService:
             normalized_issues.append({"issue_id": issue_id, "comment": comment})
         if not normalized_issues:
             return {"acknowledged_issue_ids": [], "acknowledged_count": 0}
+        now = timezone.now()
+        page_state_data_version = self.repository.get_page_state_data_version(page_state_id=page_state_id)
+        validation_run = self.repository.create_validation_run(
+            page_state_id=page_state_id,
+            source=ReconcileValidationRunSourceChoices.VALIDATION_ISSUE_ACKNOWLEDGEMENT,
+            data_version=page_state_data_version,
+            actor_user_id=actor_user_id,
+            now=now,
+            related_audit_event_id=None,
+        )
         acknowledged_issue_ids = self.repository.acknowledge_validation_issues(
             page_state_id=page_state_id,
             items=normalized_issues,
             actor_user_id=actor_user_id,
-            now=timezone.now(),
+            now=now,
+            validation_run_id=int(validation_run.pk),
         )
         return {
             "acknowledged_issue_ids": acknowledged_issue_ids,

@@ -356,12 +356,10 @@ class FormFieldReviewTableService:
             if query_key is not None
             else ([] if is_repeatable_group_item else closed_query_histories_by_field.get(field_template_id, [])),
         )
-        closed_query_histories.extend(
-            self._format_validation_issue_histories(
-                validation_issue_histories_by_field.get(field_template_id, []),
-                control_norm=control_norm,
-                label_by_value=label_by_value,
-            )
+        validation_issue_histories = self._format_validation_issue_histories(
+            validation_issue_histories_by_field.get(field_template_id, []),
+            control_norm=control_norm,
+            label_by_value=label_by_value,
         )
         return {
             "field_template_id": field_template_id,
@@ -414,6 +412,7 @@ class FormFieldReviewTableService:
                 else ([] if is_repeatable_group_item else query_messages_by_field.get(field_template_id, [])),
             ),
             "closed_query_histories": closed_query_histories,
+            "validation_issue_histories": validation_issue_histories,
             "modified_by": modified_by_display,
             "is_checked": is_checked,
         }
@@ -861,62 +860,66 @@ class FormFieldReviewTableService:
         control_norm: str,
         label_by_value: dict[str, str],
     ) -> list[dict[str, Any]]:
-        out: list[dict[str, Any]] = []
+        formatted_items: list[tuple[datetime | None, int, dict[str, Any]]] = []
         for issue in issues:
-            issue_id = issue.get("id")
-            status = str(issue.get("status") or "").strip()
+            issue_id = issue.get("validation_issue_id")
+            snapshot_id = issue.get("id")
+            result = str(issue.get("result") or "").strip().upper()
             created_at = issue.get("created_at")
-            acknowledged_at = issue.get("acknowledged_at")
-            resolved_at = issue.get("resolved_at")
-            response_at = acknowledged_at or resolved_at
-            failed_value_display = self._resolve_display_value(
-                raw_value=issue.get("failed_value"),
+            evaluated_value_display = self._resolve_display_value(
+                raw_value=issue.get("evaluated_value"),
                 control_norm=control_norm,
                 label_by_value=label_by_value,
             )
+            result_label = result or "SNAPSHOT"
+            tone = "resolved" if result == "PASS" else "warning"
             messages = [
                 {
-                    "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
+                    "dataquery_id": (
+                        f"validation_issue_{issue_id}_snapshot_{snapshot_id}"
+                        if issue_id and snapshot_id
+                        else "validation_issue_snapshot"
+                    ),
                     "text": str(issue.get("message") or "").strip(),
-                    "status": status,
+                    "status": result_label,
+                    "tone": tone,
                     "created_at": created_at,
                     "opened_by_id": None,
                 }
             ]
-            answer_text = str(issue.get("acknowledgement_comment") or "").strip()
-            if answer_text and (acknowledged_at is not None or resolved_at is not None):
-                messages.append(
+            formatted_items.append(
+                (
+                    created_at if isinstance(created_at, datetime) else None,
+                    int(snapshot_id or 0),
                     {
-                        "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
-                        "text": answer_text,
-                        "status": "resolved",
-                        "created_at": response_at,
-                        "opened_by_id": issue.get("acknowledged_by"),
-                    }
+                        "dataquery_id": (
+                            f"validation_issue_{issue_id}_snapshot_{snapshot_id}"
+                            if issue_id and snapshot_id
+                            else "validation_issue_snapshot"
+                        ),
+                        "status": result_label,
+                        "label": (
+                            f"Validation Issue #{issue_id} {result_label}"
+                            if issue_id
+                            else f"Validation Issue {result_label}"
+                        ),
+                        "question_text": str(issue.get("message") or "").strip(),
+                        "opened_at": self._format_datetime(created_at),
+                        "closed_at": self._format_datetime(created_at),
+                        "value_snapshot": evaluated_value_display,
+                        "messages": self._format_query_messages(messages),
+                    },
                 )
-            elif status in {"OPEN", "ACKNOWLEDGEMENT_REQUIRED"}:
-                messages.append(
-                    {
-                        "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
-                        "text": "đang chờ trả lời",
-                        "status": "warning",
-                        "tone": "warning",
-                        "created_at": None,
-                        "opened_by_id": None,
-                    }
-                )
-            out.append(
-                {
-                    "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
-                    "label": f"Validation Issue #{issue_id}" if issue_id else "Validation Issue",
-                    "question_text": str(issue.get("message") or "").strip(),
-                    "opened_at": self._format_datetime(created_at),
-                    "closed_at": self._format_datetime(response_at),
-                    "value_snapshot": failed_value_display,
-                    "messages": self._format_query_messages(messages),
-                },
             )
-        return out
+        formatted_items.sort(
+            key=lambda item: (
+                item[0] is not None,
+                item[0] or datetime.min,
+                item[1],
+            ),
+            reverse=True,
+        )
+        return [item[2] for item in formatted_items]
 
     @staticmethod
     def _normalize_control_type(control_type: object) -> str:

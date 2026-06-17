@@ -12,7 +12,7 @@ from apps.core.form_data_document import (
     normalize_form_data,
 )
 from apps.crf.models import CrfFieldTemplate
-from apps.datacapture.models import DataCaptureFieldEntry, DataCapturePageEntry
+from apps.datacapture.models import DataCaptureFieldEntry, DataCapturePageEntry, DataCapturePageState
 from apps.reconcile.models import (
     ReconcileDataQuery,
     ReconcileDataQuerySeverityChoices,
@@ -23,6 +23,10 @@ from apps.reconcile.models import (
     ReconcileQueryThreadSourceChoices,
     ReconcileQueryThreadVisibilityChoices,
     ReconcileValidationIssue,
+    ReconcileValidationRun,
+    ReconcileValidationRunSourceChoices,
+    ReconcileValidationIssueSnapshot,
+    ReconcileValidationIssueSnapshotResultChoices,
     ReconcileValidationIssueStatusChoices,
 )
 
@@ -41,6 +45,13 @@ class DjangoReconcileDataQueryWriteRepository:
         ReconcileValidationIssueStatusChoices.QUERY_CREATED,
         ReconcileValidationIssueStatusChoices.CLOSED,
         ReconcileValidationIssueStatusChoices.WAIVED,
+    )
+    REUSABLE_VALIDATION_ISSUE_STATUSES = (
+        ReconcileValidationIssueStatusChoices.OPEN,
+        ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+        ReconcileValidationIssueStatusChoices.ACKNOWLEDGED,
+        ReconcileValidationIssueStatusChoices.CORRECTED,
+        ReconcileValidationIssueStatusChoices.QUERY_CREATED,
     )
 
     @staticmethod
@@ -182,27 +193,108 @@ class DjangoReconcileDataQueryWriteRepository:
             return Q(field_instance_id=field_instance_id)
         return Q(field_instance_id__isnull=True)
 
-    @classmethod
-    def _has_acknowledged_validation_issue_for_same_value(
-        cls,
+    @staticmethod
+    def _validation_issue_signature(
         *,
-        rule_id: int,
-        form_instance_id: int,
+        rule_id: int | None,
         field_template_id: int | None,
         field_instance_id: int | None,
-        failed_value: object,
-    ) -> bool:
-        expected_value_key = cls._validation_issue_value_key(failed_value)
-        issues = ReconcileValidationIssue.objects.filter(
-            cls._validation_issue_field_identity_filter(
-                field_template_id=field_template_id,
-                field_instance_id=field_instance_id,
-            ),
-            rule_id=rule_id,
-            form_instance_id=form_instance_id,
-            status=ReconcileValidationIssueStatusChoices.ACKNOWLEDGED,
-        ).only("failed_value")
-        return any(cls._validation_issue_value_key(issue.failed_value) == expected_value_key for issue in issues)
+    ) -> tuple[int | None, str]:
+        _ = field_instance_id
+        return (rule_id, f"field_template:{int(field_template_id) if field_template_id is not None else 'none'}")
+
+    @classmethod
+    def _reusable_validation_issue_queryset(cls, *, form_instance_id: int):
+        return (
+            ReconcileValidationIssue.objects.filter(
+                form_instance_id=form_instance_id,
+                status__in=cls.REUSABLE_VALIDATION_ISSUE_STATUSES,
+            )
+            .select_related("rule", "field_instance")
+            .order_by("created_at", "id")
+        )
+
+    @classmethod
+    def _list_reusable_validation_issues_by_signature(
+        cls,
+        *,
+        form_instance_id: int,
+    ) -> dict[tuple[int | None, str], ReconcileValidationIssue]:
+        issues_by_signature: dict[tuple[int | None, str], ReconcileValidationIssue] = {}
+        for issue in cls._reusable_validation_issue_queryset(form_instance_id=form_instance_id):
+            resolved_rule_id = int(issue.rule_id) if issue.rule_id is not None else None
+            resolved_field_template_id = (
+                int(getattr(issue.field_instance, "field_template_id", 0) or 0) or None
+            )
+            if resolved_field_template_id is None:
+                resolved_field_template_id = int(getattr(issue.rule, "field_template_id", 0) or 0) or None
+            signature = cls._validation_issue_signature(
+                rule_id=resolved_rule_id,
+                field_template_id=resolved_field_template_id,
+                field_instance_id=int(issue.field_instance_id) if issue.field_instance_id is not None else None,
+            )
+            issues_by_signature.setdefault(signature, issue)
+        return issues_by_signature
+
+    @staticmethod
+    def _create_validation_issue_snapshot(
+        *,
+        validation_issue_id: int,
+        validation_run_id: int,
+        result: str,
+        evaluated_values_json: object,
+        message: str,
+        severity: str,
+        data_version: int,
+        created_at: datetime,
+        related_audit_event_id: int | None,
+    ) -> None:
+        ReconcileValidationIssueSnapshot.objects.create(
+            validation_issue_id=validation_issue_id,
+            validation_run_id=validation_run_id,
+            result=result,
+            evaluated_values_json=evaluated_values_json,
+            message=message,
+            severity=severity,
+            data_version=data_version,
+            created_at=created_at,
+            related_audit_event_id=related_audit_event_id,
+        )
+
+    @staticmethod
+    def create_validation_run(
+        *,
+        page_state_id: int,
+        source: str,
+        data_version: int,
+        actor_user_id: int | None,
+        now: datetime,
+        related_audit_event_id: int | None = None,
+    ) -> ReconcileValidationRun:
+        return ReconcileValidationRun.objects.create(
+            created_at=now,
+            form_instance_id=page_state_id,
+            source=source,
+            data_version=int(data_version),
+            triggered_by=actor_user_id,
+            related_audit_event_id=related_audit_event_id,
+        )
+
+    @staticmethod
+    def get_page_state_data_version(*, page_state_id: int) -> int:
+        return int(
+            DataCapturePageState.objects.filter(pk=page_state_id).values_list("data_version", flat=True).first() or 0
+        )
+
+    @staticmethod
+    def _resolve_snapshot_value_for_field(
+        *,
+        field_template_id: int | None,
+        evaluated_values_by_field_template_id: dict[int, object],
+    ) -> object:
+        if field_template_id is None:
+            return None
+        return evaluated_values_by_field_template_id.get(int(field_template_id))
 
     @classmethod
     def bulk_create_soft_validation_issues(
@@ -212,9 +304,23 @@ class DjangoReconcileDataQueryWriteRepository:
         items: list[dict[str, object]],
         actor_user_id: int | None,
         now: datetime,
+        validation_run_id: int,
+        evaluated_values_by_field_template_id: dict[int, object] | None = None,
+        data_version: int | None = None,
+        related_audit_event_id: int | None = None,
     ) -> int:
         _ = actor_user_id
-        created_count = 0
+        normalized_validation_run_id = int(validation_run_id)
+        normalized_evaluated_values_by_field_template_id = (
+            dict(evaluated_values_by_field_template_id)
+            if isinstance(evaluated_values_by_field_template_id, dict)
+            else {}
+        )
+        normalized_data_version = int(data_version) if data_version is not None else 0
+        issues_by_signature = cls._list_reusable_validation_issues_by_signature(
+            form_instance_id=page_state_id,
+        )
+        failing_signatures: set[tuple[int | None, str]] = set()
         for item in items:
             rule_id = item.get("rule_id")
             if rule_id is None:
@@ -225,41 +331,98 @@ class DjangoReconcileDataQueryWriteRepository:
                 page_state_id=page_state_id,
                 field_template_id=normalized_field_template_id,
             )
-            unresolved_issue = ReconcileValidationIssue.objects.filter(
-                cls._validation_issue_field_identity_filter(
-                    field_template_id=normalized_field_template_id,
-                    field_instance_id=field_instance_id,
-                ),
+            signature = cls._validation_issue_signature(
                 rule_id=int(rule_id),
-                form_instance_id=page_state_id,
-            ).exclude(status__in=cls.TERMINAL_VALIDATION_ISSUE_STATUSES)
-            if unresolved_issue.exists():
-                continue
-            if cls._has_acknowledged_validation_issue_for_same_value(
-                rule_id=int(rule_id),
-                form_instance_id=page_state_id,
                 field_template_id=normalized_field_template_id,
                 field_instance_id=field_instance_id,
-                failed_value=item.get("failed_value"),
-            ):
-                continue
-            ReconcileValidationIssue.objects.create(
-                created_at=now,
-                rule_id=int(rule_id),
-                form_instance_id=page_state_id,
-                field_instance_id=field_instance_id,
-                mode=str(item.get("mode") or "SOFT").strip() or "SOFT",
-                severity=str(item.get("severity") or "").strip(),
-                status=ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
-                message=str(item.get("message") or "").strip() or "Validation warning requires acknowledgement.",
-                failed_value=item.get("failed_value"),
-                acknowledged_by=None,
-                acknowledged_at=None,
-                acknowledgement_comment=None,
-                resolved_at=None,
             )
-            created_count += 1
-        return created_count
+            snapshot_value = cls._resolve_snapshot_value_for_field(
+                field_template_id=normalized_field_template_id,
+                evaluated_values_by_field_template_id=normalized_evaluated_values_by_field_template_id,
+            )
+            issue = issues_by_signature.get(signature)
+            failing_signatures.add(signature)
+            if issue is None:
+                issue = ReconcileValidationIssue.objects.create(
+                    created_at=now,
+                    rule_id=int(rule_id),
+                    form_instance_id=page_state_id,
+                    field_instance_id=field_instance_id,
+                    mode=str(item.get("mode") or "SOFT").strip() or "SOFT",
+                    severity=str(item.get("severity") or "").strip(),
+                    status=ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+                    message=str(item.get("message") or "").strip() or "Validation warning requires acknowledgement.",
+                    failed_value=item.get("failed_value"),
+                    acknowledged_by=None,
+                    acknowledged_at=None,
+                    acknowledgement_comment=None,
+                    resolved_at=None,
+                )
+                issues_by_signature[signature] = issue
+            else:
+                issue.mode = str(item.get("mode") or issue.mode or "SOFT").strip() or "SOFT"
+                issue.severity = str(item.get("severity") or issue.severity or "").strip()
+                issue.status = ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED
+                issue.message = (
+                    str(item.get("message") or "").strip()
+                    or issue.message
+                    or "Validation warning requires acknowledgement."
+                )
+                issue.failed_value = item.get("failed_value")
+                issue.field_instance_id = field_instance_id
+                issue.resolved_at = None
+                issue.save(
+                    update_fields=[
+                        "mode",
+                        "severity",
+                        "status",
+                        "message",
+                        "failed_value",
+                        "field_instance",
+                        "resolved_at",
+                    ]
+                )
+            cls._create_validation_issue_snapshot(
+                validation_issue_id=int(issue.pk),
+                validation_run_id=normalized_validation_run_id,
+                result=ReconcileValidationIssueSnapshotResultChoices.FAIL,
+                evaluated_values_json=snapshot_value,
+                message=str(item.get("message") or "").strip() or issue.message,
+                severity=str(item.get("severity") or "").strip() or issue.severity,
+                data_version=normalized_data_version,
+                created_at=now,
+                related_audit_event_id=related_audit_event_id,
+            )
+
+        for signature, issue in issues_by_signature.items():
+            if signature in failing_signatures:
+                continue
+            if issue.status not in cls.ACTIVE_VALIDATION_ISSUE_STATUSES:
+                continue
+            resolved_field_template_id = None
+            if issue.field_instance_id is not None:
+                resolved_field_template_id = int(getattr(issue.field_instance, "field_template_id", 0) or 0) or None
+            if resolved_field_template_id is None:
+                resolved_field_template_id = int(getattr(issue.rule, "field_template_id", 0) or 0) or None
+            cls._create_validation_issue_snapshot(
+                validation_issue_id=int(issue.pk),
+                validation_run_id=normalized_validation_run_id,
+                result=ReconcileValidationIssueSnapshotResultChoices.PASS,
+                evaluated_values_json=cls._resolve_snapshot_value_for_field(
+                    field_template_id=resolved_field_template_id,
+                    evaluated_values_by_field_template_id=normalized_evaluated_values_by_field_template_id,
+                ),
+                message=str(issue.message or "").strip(),
+                severity=str(issue.severity or "").strip(),
+                data_version=normalized_data_version,
+                created_at=now,
+                related_audit_event_id=related_audit_event_id,
+            )
+            if issue.status != ReconcileValidationIssueStatusChoices.CORRECTED:
+                issue.status = ReconcileValidationIssueStatusChoices.CORRECTED
+                issue.resolved_at = now
+                issue.save(update_fields=["status", "resolved_at"])
+        return len(failing_signatures)
 
     @classmethod
     def acknowledge_validation_issues(
@@ -269,6 +432,7 @@ class DjangoReconcileDataQueryWriteRepository:
         items: list[dict[str, object]],
         actor_user_id: int | None,
         now: datetime,
+        validation_run_id: int,
     ) -> list[int]:
         acknowledged_issue_ids: list[int] = []
         for item in items:
@@ -277,19 +441,44 @@ class DjangoReconcileDataQueryWriteRepository:
                 normalized_issue_id = int(issue_id)
             except (TypeError, ValueError):
                 continue
-            updated = ReconcileValidationIssue.objects.filter(
-                id=normalized_issue_id,
-                form_instance_id=page_state_id,
-                status__in=cls.ACTIVE_VALIDATION_ISSUE_STATUSES,
-            ).update(
-                status=ReconcileValidationIssueStatusChoices.ACKNOWLEDGED,
-                acknowledged_by=actor_user_id,
-                acknowledged_at=now,
-                acknowledgement_comment=str(item.get("comment") or "").strip(),
-                resolved_at=now,
+            issue = (
+                ReconcileValidationIssue.objects.select_related("form_instance")
+                .filter(
+                    id=normalized_issue_id,
+                    form_instance_id=page_state_id,
+                    status__in=cls.ACTIVE_VALIDATION_ISSUE_STATUSES,
+                )
+                .first()
             )
-            if updated:
-                acknowledged_issue_ids.append(normalized_issue_id)
+            if issue is None:
+                continue
+            acknowledgement_comment = str(item.get("comment") or "").strip()
+            issue.status = ReconcileValidationIssueStatusChoices.ACKNOWLEDGED
+            issue.acknowledged_by = actor_user_id
+            issue.acknowledged_at = now
+            issue.acknowledgement_comment = acknowledgement_comment
+            issue.resolved_at = now
+            issue.save(
+                update_fields=[
+                    "status",
+                    "acknowledged_by",
+                    "acknowledged_at",
+                    "acknowledgement_comment",
+                    "resolved_at",
+                ]
+            )
+            cls._create_validation_issue_snapshot(
+                validation_issue_id=int(issue.pk),
+                validation_run_id=int(validation_run_id),
+                result=ReconcileValidationIssueSnapshotResultChoices.PASS,
+                evaluated_values_json=issue.failed_value,
+                message=acknowledgement_comment or str(issue.message or "").strip(),
+                severity=str(issue.severity or "").strip(),
+                data_version=int(getattr(issue.form_instance, "data_version", 0) or 0),
+                created_at=now,
+                related_audit_event_id=None,
+            )
+            acknowledged_issue_ids.append(normalized_issue_id)
         return acknowledged_issue_ids
 
     @classmethod

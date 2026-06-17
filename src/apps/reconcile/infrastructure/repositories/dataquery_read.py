@@ -6,6 +6,7 @@ from apps.reconcile.models import (
     ReconcileDataQueryStatusChoices,
     ReconcileQueryThread,
     ReconcileValidationIssue,
+    ReconcileValidationIssueSnapshot,
     ReconcileValidationIssueStatusChoices,
 )
 
@@ -116,56 +117,65 @@ class DjangoReconcileDataQueryReadRepository:
         if not field_template_ids:
             return {}
         rows = (
-            ReconcileValidationIssue.objects.filter(form_instance_id=page_state_id)
-            .filter(
-                Q(field_instance__field_template_id__in=field_template_ids)
-                | Q(field_instance_id__isnull=True, rule__field_template_id__in=field_template_ids)
+            ReconcileValidationIssueSnapshot.objects.filter(
+                validation_issue__form_instance_id=page_state_id,
             )
-            .annotate(sort_at=Coalesce("resolved_at", "acknowledged_at", "created_at"))
-            .order_by("field_instance__field_template_id", "rule__field_template_id", "-sort_at", "-id")
+            .filter(
+                Q(validation_issue__field_instance__field_template_id__in=field_template_ids)
+                | Q(
+                    validation_issue__field_instance_id__isnull=True,
+                    validation_issue__rule__field_template_id__in=field_template_ids,
+                )
+            )
+            .order_by(
+                "validation_issue__field_instance__field_template_id",
+                "validation_issue__rule__field_template_id",
+                "-created_at",
+                "-id",
+            )
             .values(
                 "id",
-                "rule_id",
-                "field_instance_id",
-                "field_instance__field_template_id",
-                "rule__field_template_id",
-                "mode",
+                "validation_issue_id",
+                "validation_issue__rule_id",
+                "validation_issue__field_instance_id",
+                "validation_issue__field_instance__field_template_id",
+                "validation_issue__rule__field_template_id",
+                "validation_issue__mode",
+                "result",
+                "evaluated_values_json",
+                "validation_run_id",
                 "severity",
-                "status",
                 "message",
-                "failed_value",
                 "created_at",
-                "acknowledged_by",
-                "acknowledged_at",
-                "acknowledgement_comment",
-                "resolved_at",
             )
         )
         grouped: dict[int, list[dict[str, object]]] = {}
-        seen_ids: set[int] = set()
         for row in rows:
-            issue_id = int(row["id"])
-            if issue_id in seen_ids:
-                continue
-            seen_ids.add(issue_id)
-            field_template_id = row["field_instance__field_template_id"] or row["rule__field_template_id"]
+            field_template_id = (
+                row["validation_issue__field_instance__field_template_id"]
+                or row["validation_issue__rule__field_template_id"]
+            )
             if field_template_id is None:
                 continue
             grouped.setdefault(int(field_template_id), []).append(
                 {
-                    "id": issue_id,
-                    "rule_id": row["rule_id"],
-                    "field_instance_id": row["field_instance_id"],
-                    "mode": row["mode"],
+                    "id": int(row["id"]),
+                    "validation_issue_id": (
+                        int(row["validation_issue_id"]) if row["validation_issue_id"] is not None else None
+                    ),
+                    "rule_id": (
+                        int(row["validation_issue__rule_id"])
+                        if row["validation_issue__rule_id"] is not None
+                        else None
+                    ),
+                    "field_instance_id": row["validation_issue__field_instance_id"],
+                    "mode": row["validation_issue__mode"],
+                    "result": row["result"],
+                    "evaluated_value": row["evaluated_values_json"],
+                    "validation_run_id": row["validation_run_id"],
                     "severity": row["severity"],
-                    "status": row["status"],
                     "message": row["message"],
-                    "failed_value": row["failed_value"],
                     "created_at": row["created_at"],
-                    "acknowledged_by": row["acknowledged_by"],
-                    "acknowledged_at": row["acknowledged_at"],
-                    "acknowledgement_comment": row["acknowledgement_comment"],
-                    "resolved_at": row["resolved_at"],
                 }
             )
         return grouped

@@ -532,6 +532,7 @@ class SubjectDetailView(
                             "query_thread_badge_count": row.get("query_thread_badge_count"),
                             "query_messages": row.get("query_messages"),
                             "closed_query_histories": closed_query_histories,
+                            "validation_issue_histories": row.get("validation_issue_histories") or [],
                             "has_query_history": has_query_records,
                             "has_validation_issue_history": has_validation_issue_records,
                         }
