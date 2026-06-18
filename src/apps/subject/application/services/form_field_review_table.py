@@ -361,6 +361,8 @@ class FormFieldReviewTableService:
             control_norm=control_norm,
             label_by_value=label_by_value,
         )
+        if validation_issue_histories:
+            closed_query_histories.extend(validation_issue_histories)
         return {
             "field_template_id": field_template_id,
             "field_key": display_field_key,
@@ -862,17 +864,21 @@ class FormFieldReviewTableService:
     ) -> list[dict[str, Any]]:
         formatted_items: list[tuple[datetime | None, int, dict[str, Any]]] = []
         for issue in issues:
-            issue_id = issue.get("validation_issue_id")
             snapshot_id = issue.get("id")
+            issue_id = issue.get("validation_issue_id") or snapshot_id
             result = str(issue.get("result") or "").strip().upper()
+            status = str(issue.get("status") or "").strip().upper()
             created_at = issue.get("created_at")
+            resolved_at = issue.get("resolved_at")
             evaluated_value_display = self._resolve_display_value(
                 raw_value=issue.get("evaluated_value"),
                 control_norm=control_norm,
                 label_by_value=label_by_value,
             )
-            result_label = result or "SNAPSHOT"
-            tone = "resolved" if result == "PASS" else "warning"
+            is_resolved = result == "PASS" or bool(resolved_at) or status in {"RESOLVED", "PASS", "CLOSED"}
+            result_label = result or status or "OPEN"
+            tone = "resolved" if is_resolved else "warning"
+            lifecycle_text = "đã xử lý" if is_resolved else "đang chờ trả lời"
             messages = [
                 {
                     "dataquery_id": (
@@ -885,7 +891,19 @@ class FormFieldReviewTableService:
                     "tone": tone,
                     "created_at": created_at,
                     "opened_by_id": None,
-                }
+                },
+                {
+                    "dataquery_id": (
+                        f"validation_issue_{issue_id}_snapshot_{snapshot_id}"
+                        if issue_id and snapshot_id
+                        else "validation_issue_snapshot"
+                    ),
+                    "text": lifecycle_text,
+                    "status": status or result or "OPEN",
+                    "tone": tone,
+                    "created_at": resolved_at or created_at,
+                    "opened_by_id": None,
+                },
             ]
             formatted_items.append(
                 (
@@ -897,15 +915,11 @@ class FormFieldReviewTableService:
                             if issue_id and snapshot_id
                             else "validation_issue_snapshot"
                         ),
-                        "status": result_label,
-                        "label": (
-                            f"Validation Issue #{issue_id} {result_label}"
-                            if issue_id
-                            else f"Validation Issue {result_label}"
-                        ),
+                        "status": status or result or "OPEN",
+                        "label": f"Validation Issue #{issue_id}" if issue_id else "Validation Issue",
                         "question_text": str(issue.get("message") or "").strip(),
                         "opened_at": self._format_datetime(created_at),
-                        "closed_at": self._format_datetime(created_at),
+                        "closed_at": self._format_datetime(resolved_at or created_at),
                         "value_snapshot": evaluated_value_display,
                         "messages": self._format_query_messages(messages),
                     },
