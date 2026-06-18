@@ -23,11 +23,10 @@ from apps.reconcile.models import (
     ReconcileQueryThreadSourceChoices,
     ReconcileQueryThreadVisibilityChoices,
     ReconcileValidationIssue,
-    ReconcileValidationRun,
-    ReconcileValidationRunSourceChoices,
     ReconcileValidationIssueSnapshot,
     ReconcileValidationIssueSnapshotResultChoices,
     ReconcileValidationIssueStatusChoices,
+    ReconcileValidationRun,
 )
 
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
