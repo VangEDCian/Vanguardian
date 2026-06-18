@@ -105,6 +105,19 @@ class DjangoStudyEventRepository:
             form_definition_id=form_definition_id,
         ).first()
 
+    def soft_delete_event_form_bindings_for_import(self, *, event_definition_ids, actor_user_id, updated_at):
+        normalized_ids = tuple(int(event_definition_id) for event_definition_id in event_definition_ids or ())
+        if not normalized_ids:
+            return 0
+        return EventFormBinding.objects.filter(
+            event_definition_id__in=normalized_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+
     def create_event_form_binding(self, **values):
         return EventFormBinding.objects.create(**values)
 

@@ -104,6 +104,20 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
 
         self.assertEqual(result, "F")
 
+    def test_build_table_row_cells_normalizes_html_line_breaks_for_criterion_text(self):
+        result = SubjectDetailView._build_table_row_cells(
+            {
+                "field_key": "ELIGIBILITY",
+                "label": "Line 1<br>Line 2",
+                "helper_text": "Help 1<br/>Help 2",
+                "is_required": False,
+            },
+            [{"key": "criterion", "source": "label", "cell_class": ""}],
+        )
+
+        self.assertEqual(result[0]["text"], "Line 1\nLine 2")
+        self.assertEqual(result[0]["helper_text"], "Help 1\nHelp 2")
+
     def test_repeatable_section_renders_saved_repeat_instances(self):
         view = SubjectDetailView()
 
@@ -848,6 +862,31 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         )
 
         self.assertLess(rendered.index('data-field-key="FIRST"'), rendered.index('data-field-key="SECOND"'))
+
+    def test_table_section_render_converts_multiline_criterion_text_to_br(self):
+        rendered = render_to_string(
+            "subject/components/_field_table_row_render.html",
+            {
+                "section": {"table_layout": {"response_direction": "horizontal"}},
+                "field": {
+                    "field_key": "ELIGIBILITY",
+                    "control_type": "text",
+                    "table_row_cells": [
+                        {
+                            "kind": "text",
+                            "source": "label",
+                            "text": "Line 1\nLine 2",
+                            "show_required": False,
+                            "helper_text": "Help 1\nHelp 2",
+                            "cell_class": "subject-form-table-row__cell--criterion",
+                        }
+                    ],
+                },
+            },
+        )
+
+        self.assertIn("Line 1<br>Line 2", rendered)
+        self.assertIn("Help 1<br>Help 2", rendered)
 
     def test_repeat_table_render_sorts_headers_and_row_fields_by_display_order(self):
         rendered = render_to_string(

@@ -324,6 +324,7 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter = MagicMock()
         mock_adapter.resolve_import_validation_rule_template_by_code.return_value = form_template
         mock_adapter.resolve_import_validation_rule_field_by_key.return_value = field_template
+        mock_adapter.reset_import_validation_rules.return_value = 1
         mock_adapter.upsert_import_validation_rule.return_value = ("created", SimpleNamespace(pk=31))
         service = ImportStudyCrfValidationRulesTemplateService(
             crf_context_adapter=mock_adapter,
@@ -350,6 +351,11 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_validation_rule_field_by_key.assert_called_once_with(
             crf_template_id=17,
             field_name="AETERM",
+        )
+        mock_adapter.reset_import_validation_rules.assert_called_once_with(
+            field_template_ids=[23],
+            actor_user_id=7,
+            now=mock_adapter.reset_import_validation_rules.call_args.kwargs["now"],
         )
         mock_adapter.upsert_import_validation_rule.assert_called_once_with(
             study_id=3,
@@ -393,6 +399,7 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter = MagicMock()
         mock_adapter.resolve_import_validation_rule_template_by_code.return_value = form_template
         mock_adapter.resolve_import_validation_rule_field_by_key.return_value = field_template
+        mock_adapter.reset_import_validation_rules.return_value = 1
         mock_adapter.upsert_import_validation_rule.return_value = ("created", SimpleNamespace(pk=31))
         service = ImportStudyCrfValidationRulesTemplateService(
             crf_context_adapter=mock_adapter,
@@ -413,6 +420,11 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_validation_rule_template_by_code.assert_called_once_with(
             study_id=3,
             form_code="AE",
+        )
+        mock_adapter.reset_import_validation_rules.assert_called_once_with(
+            field_template_ids=[23],
+            actor_user_id=7,
+            now=mock_adapter.reset_import_validation_rules.call_args.kwargs["now"],
         )
 
 

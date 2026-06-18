@@ -242,13 +242,6 @@ class SubjectFormVerificationVerifyCheckedView(
             )
             if not context_is_reviewable:
                 return JsonResponse({"error": [STALE_REVIEW_ERROR]}, status=400)
-            if _current_user_matches_submitted_entry_editor(
-                request=request,
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
-            ):
-                return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
             context_can_continue, checked_field_template_ids, stale_review_fields, reload_required = (
                 _filter_changed_review_fields(
                     subject_id=subject_id,
@@ -353,13 +346,6 @@ class SubjectFormVerificationFinalizePageDataView(
             subject_id = int(kwargs["subject_id"])
             visit_id = int(kwargs["visit_id"])
             crf_template_id = int(kwargs["crf_template_id"])
-            if _current_user_matches_submitted_entry_editor(
-                request=request,
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
-            ):
-                return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
             page_status = finalize_page_data_for_subject_visit_crf(
                 subject_id=subject_id,
                 visit_id=visit_id,
@@ -556,13 +542,6 @@ class SubjectFormVerificationOpenQueryView(
                     {"error": ["Chỉ được tạo Query khi Page State ở trạng thái Submitted hoặc Verified."]},
                     status=400,
                 )
-            if _current_user_matches_submitted_entry_editor(
-                request=request,
-                subject_id=int(kwargs["subject_id"]),
-                visit_id=int(kwargs["visit_id"]),
-                crf_template_id=int(kwargs["crf_template_id"]),
-            ):
-                return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
             result = open_reconcile_query(
                 page_state_id=int(page_state_id),
                 field_template_id=int(normalized["field_template_id"]),

@@ -64,3 +64,17 @@ class DjangoCrfValidationRuleImportRepository:
     def save_validation_rule(self, validation_rule):
         validation_rule.save()
         return validation_rule
+
+    def reset_validation_rules_for_import(self, *, field_template_ids, actor_user_id, now):
+        normalized_ids = tuple(int(field_template_id) for field_template_id in field_template_ids or ())
+        if not normalized_ids:
+            return 0
+
+        return CrfFieldValidationRule.objects.filter(
+            field_template_id__in=normalized_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=now,
+            updated_by_id=actor_user_id,
+        )

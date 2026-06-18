@@ -487,13 +487,7 @@ class SubjectDetailView(
                             "validation_issue_count": len(issues),
                             "validation_issues": issues,
                         }
-                    form_verification_user_can_review = (
-                        getattr(focused_render_entry, "updated_by_id", None) is None
-                        or not _same_user_id(
-                            getattr(self.request.user, "id", None),
-                            getattr(focused_render_entry, "updated_by_id", None),
-                        )
-                    )
+                    form_verification_user_can_review = True
                     query_review = FormFieldReviewTableService().build_for_verification(
                         subject_code=subject.subject_code or subject.screening_code or "",
                         site_id=subject.site.code,
@@ -592,13 +586,7 @@ class SubjectDetailView(
                     focused_render_entry is not None
                     and DataCapturePageEntry.is_submitted(getattr(focused_render_entry, "status", ""))
                 )
-                form_verification_user_can_review = (
-                    getattr(focused_render_entry, "updated_by_id", None) is None
-                    or not _same_user_id(
-                        getattr(self.request.user, "id", None),
-                        getattr(focused_render_entry, "updated_by_id", None),
-                    )
-                )
+                form_verification_user_can_review = True
                 if is_form_verification_mode:
                     normalized_page_status = (focused_page_status or "").strip().lower()
                     form_verification_show_actions = normalized_page_status in {

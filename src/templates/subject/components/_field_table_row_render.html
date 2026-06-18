@@ -28,7 +28,7 @@
                 {% endif %}
             {% else %}
                 <div class="subject-form-table-row__text{% if cell.source == 'label' %} subject-form-table-row__criterion-text{% endif %}">
-                    {{ cell.text }}
+                    {{ cell.text|linebreaksbr }}
                     {% if cell.show_required %}
                         <span class="subject-form-table-row__required">*</span>
                     {% endif %}
@@ -37,7 +37,7 @@
                     {% endif %}
                 </div>
                 {% if cell.helper_text %}
-                    <div class="subject-form-table-row__helper">{{ cell.helper_text }}</div>
+                    <div class="subject-form-table-row__helper">{{ cell.helper_text|linebreaksbr }}</div>
                 {% endif %}
             {% endif %}
         </td>

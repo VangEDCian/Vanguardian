@@ -7,6 +7,8 @@ from apps.core.form_data_document import REPEAT_COUNTS_EXPORT_META_KEY
 
 
 class SubjectDetailRenderingMixin:
+    _html_line_break_pattern = re.compile(r"<br\s*/?>", re.IGNORECASE)
+
     @classmethod
     def _normalize_control_type(cls, raw_control_type):
         if not raw_control_type:
@@ -266,7 +268,9 @@ class SubjectDetailRenderingMixin:
             if source == "display_order":
                 value = field.get("display_order")
             elif source == "label":
-                value = field.get("label") or field.get("field_key")
+                value = cls._normalize_multiline_text(
+                    field.get("label") or field.get("field_key")
+                )
             elif source == "field_key":
                 value = field.get("field_key")
             elif source == "data_type":
@@ -280,7 +284,11 @@ class SubjectDetailRenderingMixin:
                     "kind": "text",
                     "text": value if value not in (None, "") else "—",
                     "show_required": source == "label" and field.get("is_required"),
-                    "helper_text": field.get("helper_text") if source == "label" else "",
+                    "helper_text": (
+                        cls._normalize_multiline_text(field.get("helper_text"))
+                        if source == "label"
+                        else ""
+                    ),
                 }
             )
 
@@ -417,6 +425,14 @@ class SubjectDetailRenderingMixin:
         if isinstance(raw_value, bool):
             return "true" if raw_value else "false"
         return str(raw_value)
+
+    @classmethod
+    def _normalize_multiline_text(cls, raw_value):
+        normalized_value = cls._normalize_scalar_field_value(raw_value)
+        if not normalized_value:
+            return ""
+        normalized_value = normalized_value.replace("\r\n", "\n").replace("\r", "\n")
+        return cls._html_line_break_pattern.sub("\n", normalized_value)
 
     @staticmethod
     def _normalize_multi_value(raw_value):

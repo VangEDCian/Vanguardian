@@ -237,6 +237,19 @@ class CrfContextAdapter:
             now=now,
         )
 
+    def reset_import_validation_rules(
+        self,
+        *,
+        field_template_ids,
+        actor_user_id,
+        now=None,
+    ):
+        return self.validation_rule_import_service.reset_validation_rules_for_import(
+            field_template_ids=field_template_ids,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
     def upsert_section_layout_config(
         self,
         *,
