@@ -1,0 +1,117 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}
+    {{ detail_study.code }} | {% trans "Instance Display Labels | Vanguardian" %}
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{% url 'study:study_event_definitions' study_id=detail_study.id %}" class="dashboard-breadcrumb__back">{% trans "Event Definitions" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        <header class="entity-table-panel__header">
+            <h1>{% trans "Repeated Form Instance Display Labels" %}</h1>
+            <p>{% trans "Configure derived display labels per event-form binding." %}</p>
+        </header>
+
+        <div class="study-form-layout">
+            <aside class="study-form-layout__sidebar">
+                <h2>{% trans "Bindings" %}</h2>
+                <ul>
+                    {% for row in binding_rows %}
+                        <li>
+                            <a href="?binding_id={{ row.binding_id }}"{% if selected_binding_id == row.binding_id %} aria-current="page"{% endif %}>
+                                {{ row.event_code }} / {{ row.form_code }}
+                            </a>
+                            {% if row.is_repeatable_within_event %}
+                                <span>({% trans "repeatable" %})</span>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </aside>
+
+            <div class="study-form-layout__content">
+                <form method="post">
+                    {% csrf_token %}
+                    {% if config_form.non_field_errors %}
+                        <div class="event-form-binding-import-alert event-form-binding-import-alert--error">
+                            {% for error in config_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {{ config_form.event_form_binding_id }}
+                    <div>
+                        <label>{{ config_form.is_enabled }} {{ config_form.is_enabled.label }}</label>
+                    </div>
+                    <div>
+                        <label for="{{ config_form.max_length.id_for_label }}">{{ config_form.max_length.label }}</label>
+                        {{ config_form.max_length }}
+                    </div>
+                    <div>
+                        <label>{{ config_form.use_choice_display_label }} {{ config_form.use_choice_display_label.label }}</label>
+                    </div>
+                    <div>
+                        <label for="{{ config_form.empty_value_policy.id_for_label }}">{{ config_form.empty_value_policy.label }}</label>
+                        {{ config_form.empty_value_policy }}
+                    </div>
+
+                    <h2>{% trans "Vietnamese" %}</h2>
+                    {{ config_form.label_template_vi.label_tag }} {{ config_form.label_template_vi }}
+                    {{ config_form.fallback_template_vi.label_tag }} {{ config_form.fallback_template_vi }}
+                    {{ config_form.empty_value_text_vi.label_tag }} {{ config_form.empty_value_text_vi }}
+
+                    <h2>{% trans "English" %}</h2>
+                    {{ config_form.label_template_en.label_tag }} {{ config_form.label_template_en }}
+                    {{ config_form.fallback_template_en.label_tag }} {{ config_form.fallback_template_en }}
+                    {{ config_form.empty_value_text_en.label_tag }} {{ config_form.empty_value_text_en }}
+
+                    <h2>{% trans "Preview" %}</h2>
+                    {{ config_form.sample_repeat_index.label_tag }} {{ config_form.sample_repeat_index }}
+                    {{ config_form.sample_field_values.label_tag }} {{ config_form.sample_field_values }}
+
+                    <h3>{% trans "Supported Tokens" %}</h3>
+                    <ul>
+                        {% for token in token_help %}
+                            <li><code>{{ token }}</code></li>
+                        {% endfor %}
+                    </ul>
+
+                    <h3>{% trans "Available Fields" %}</h3>
+                    <ul>
+                        {% for field in field_choices %}
+                            <li><button type="button" data-token-target="id_label_template_vi" data-token-value="{{ '{{field:' }}{{ field.field_key }}{{ '}}' }}"><code>{{ field.field_key }}</code></button> - {{ field.label }}</li>
+                        {% empty %}
+                            <li>{% trans "Select a binding to see field tokens." %}</li>
+                        {% endfor %}
+                    </ul>
+
+                    <div class="modal__footer modal__footer--end">
+                        <button type="submit" name="_action" value="preview" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Preview" %}</button>
+                        <button type="submit" name="_action" value="save" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Save" %}</button>
+                    </div>
+                </form>
+
+                {% if preview_result %}
+                    <section>
+                        <h2>{% trans "Preview Result" %}</h2>
+                        <p><strong>VI:</strong> {{ preview_result.vi.label|default:"—" }}</p>
+                        <p><strong>EN:</strong> {{ preview_result.en.label|default:"—" }}</p>
+                    </section>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+    <script>
+        document.querySelectorAll("[data-token-target]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const target = document.getElementById(button.dataset.tokenTarget);
+                if (!target) return;
+                const token = button.dataset.tokenValue || "";
+                const start = target.selectionStart ?? target.value.length;
+                const end = target.selectionEnd ?? target.value.length;
+                target.value = `${target.value.slice(0, start)}${token}${target.value.slice(end)}`;
+                target.focus();
+            });
+        });
+    </script>
+{% endblock %}

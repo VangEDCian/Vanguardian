@@ -8,6 +8,10 @@ from apps.datacapture.application import (
     TriggerPageStateEventTransitionCommand,
 )
 from apps.datacapture.application.services.fact_snapshot import DataCaptureFactSnapshotService
+from apps.datacapture.application.services.form_instances import (
+    DataCaptureFormInstanceDTO,
+    DataCaptureFormInstanceService,
+)
 from apps.datacapture.application.services.page_entry_read import DataCapturePageEntryReadService
 from apps.datacapture.application.services.page_state_read import DataCapturePageStateReadService
 from apps.datacapture.application.services.page_state_write import DataCapturePageStateWriteService
@@ -195,6 +199,36 @@ def get_page_entry_for_subject_visit_crf(
     )
 
 
+def create_form_instance_for_event_binding(
+    *,
+    subject_id: int,
+    visit_id: int,
+    event_form_binding_id: int,
+    actor_user_id: int | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> DataCaptureFormInstanceDTO:
+    return DataCaptureFormInstanceService().create_form_instance(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        event_form_binding_id=event_form_binding_id,
+        actor_user_id=actor_user_id,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+
+def list_form_instances_for_event_instance(
+    *,
+    visit_id: int,
+    language_code: str | None = None,
+) -> list[DataCaptureFormInstanceDTO]:
+    return DataCaptureFormInstanceService().list_form_instances_for_event_instance(
+        visit_id=visit_id,
+        language_code=language_code,
+    )
+
+
 def merge_form_verification_checked_fields_into_page_state_final_data(
     *,
     subject_id: int,
@@ -347,7 +381,9 @@ def ensure_draft_page_state_if_not_exists(
 
 
 __all__ = [
+    "DataCaptureFormInstanceDTO",
     "DataCapturePageStateNotFoundError",
+    "create_form_instance_for_event_binding",
     "delete_latest_draft_page_entry_for_subject_visit_crf",
     "ensure_draft_page_state_if_not_exists",
     "event_instance_has_data",
@@ -363,6 +399,7 @@ __all__ = [
     "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
     "is_field_verified_for_page_state",
+    "list_form_instances_for_event_instance",
     "lock_page_for_subject_visit_crf",
     "merge_form_verification_checked_fields_into_page_state_final_data",
     "read_fact_snapshot_for_page_state",

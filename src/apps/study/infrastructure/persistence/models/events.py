@@ -433,3 +433,71 @@ class EventFormBinding(models.Model):
         ]
         verbose_name = "study event form binding"
         verbose_name_plural = "study event form bindings"
+
+
+class EventFormDisplayConfig(models.Model):
+    class EmptyValuePolicy(models.TextChoices):
+        FALLBACK = "FALLBACK", "Fallback"
+        EMPTY_TEXT = "EMPTY_TEXT", "Empty Text"
+        OMIT_TOKEN = "OMIT_TOKEN", "Omit Token"
+
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    event_form_binding = models.OneToOneField(
+        EventFormBinding,
+        on_delete=models.DO_NOTHING,
+        db_column="event_form_binding_id",
+        related_name="display_config",
+    )
+    syntax_version = models.IntegerField(default=1)
+    is_enabled = models.BooleanField(default=True)
+    max_length = models.IntegerField(default=120)
+    use_choice_display_label = models.BooleanField(default=True)
+    empty_value_policy = models.CharField(
+        max_length=32,
+        choices=EmptyValuePolicy.choices,
+        default=EmptyValuePolicy.FALLBACK,
+    )
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventformdisplayconfig"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event_form_binding"],
+                name="study_eventformdisplayconfig_binding_uniq",
+            )
+        ]
+        verbose_name = "study event form display config"
+        verbose_name_plural = "study event form display configs"
+
+
+class EventFormDisplayConfigTranslation(models.Model):
+    display_config = models.ForeignKey(
+        EventFormDisplayConfig,
+        on_delete=models.DO_NOTHING,
+        db_column="display_config_id",
+        related_name="translations",
+    )
+    language_code = models.CharField(max_length=15)
+    label_template = models.TextField()
+    fallback_template = models.TextField()
+    empty_value_text = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventformdisplayconfig_translation"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["display_config", "language_code"],
+                name="study_eventformdisplayconfig_translation_uniq",
+            )
+        ]
+        verbose_name = "study event form display config translation"
+        verbose_name_plural = "study event form display config translations"

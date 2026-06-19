@@ -40,6 +40,16 @@ class DataCapturePageState(models.Model):
         db_column="crf_template_id",
         related_name="data_capture_page_states",
     )
+    event_form_binding = models.ForeignKey(
+        "study.EventFormBinding",
+        on_delete=models.DO_NOTHING,
+        db_column="event_form_binding_id",
+        related_name="data_capture_page_states",
+        null=True,
+        blank=True,
+    )
+    repeat_index = models.IntegerField(default=1)
+    instance_key = models.CharField(max_length=64, null=True, blank=True)
     subject = models.ForeignKey(
         "subject.Subject",
         on_delete=models.DO_NOTHING,
@@ -67,14 +77,22 @@ class DataCapturePageState(models.Model):
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
-                fields=["subject", "visit", "crf_template"],
-                name="datacapture_pagestate_subject_visit_crf_uniq",
+                fields=["subject", "visit", "event_form_binding", "repeat_index"],
+                name="datacapture_pagestate_subject_visit_binding_repeat_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["instance_key"],
+                name="datacapture_pagestate_instance_key_uniq",
             )
         ]
         indexes = [
             models.Index(fields=["subject", "status"], name="dcps_subject_status_idx"),
             models.Index(fields=["visit", "status"], name="dcps_visit_status_idx"),
             models.Index(fields=["crf_template", "status"], name="dcps_crf_status_idx"),
+            models.Index(
+                fields=["visit", "event_form_binding", "status"],
+                name="dcps_visit_binding_status_idx",
+            ),
         ]
         verbose_name = "data capture page state"
         verbose_name_plural = "data capture page states"

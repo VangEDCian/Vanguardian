@@ -6,6 +6,12 @@ from apps.study.application.commands import (
     RetractEligibilityAssessmentCommand,
 )
 from apps.study.application.exceptions import EligibilityEnrollmentGateError
+from apps.study.application.services.event_form_display_label import (
+    EventFormDisplayConfigSnapshot,
+    EventFormDisplayLabelService,
+    EventFormDisplayLabelValidationError,
+    EventFormDisplayTemplatePreview,
+)
 from apps.study.application.services.randomization_workflow import (
     RandomizationSlotAssignment,
     StudyRandomizationSlotAssignmentService,
@@ -96,6 +102,39 @@ def study_site_belongs_to_study(*, study_id: int, study_site_id: int) -> bool:
     )
 
 
+class EventFormDisplayConfigReader:
+    def __init__(self, service=None):
+        self.service = service or EventFormDisplayLabelService()
+
+    def get_config(self, *, binding_id: int) -> EventFormDisplayConfigSnapshot | None:
+        return self.service.get_config(binding_id=binding_id)
+
+    def list_binding_choices(self, *, study_id: int):
+        return self.service.list_binding_choices(study_id=study_id)
+
+
+class EventFormDisplayLabelRenderer:
+    def __init__(self, service=None):
+        self.service = service or EventFormDisplayLabelService()
+
+    def preview(self, **kwargs) -> EventFormDisplayTemplatePreview:
+        return self.service.preview(**kwargs)
+
+    def render_label(self, **kwargs) -> str:
+        return self.service.render_label(**kwargs)
+
+    def save_config(self, **kwargs) -> EventFormDisplayConfigSnapshot:
+        return self.service.save_config(**kwargs)
+
+
+class StudyEventFormBindingReader:
+    def __init__(self, service=None):
+        self.service = service or EventFormDisplayLabelService()
+
+    def get_binding_snapshot(self, *, binding_id: int):
+        return self.service.get_binding_snapshot(binding_id=binding_id)
+
+
 __all__ = [
     "RandomizationSlotAssignment",
     "EnrollSubjectCommand",
@@ -104,6 +143,12 @@ __all__ = [
     "MarkEligibilityStaleOnSourceDataChangeCommand",
     "RecordEventGateEvaluationCommand",
     "RetractEligibilityAssessmentCommand",
+    "EventFormDisplayConfigReader",
+    "EventFormDisplayConfigSnapshot",
+    "EventFormDisplayLabelRenderer",
+    "EventFormDisplayLabelValidationError",
+    "EventFormDisplayTemplatePreview",
+    "StudyEventFormBindingReader",
     "assign_randomization_slot_for_subject",
     "enroll_subject_after_eligibility_gate",
     "finalize_subject_eligibility_assessment",

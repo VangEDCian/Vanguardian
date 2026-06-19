@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.datacapture.presentation.api.views import (
     DataCaptureDeleteDraftAPIView,
+    DataCaptureFormInstanceListCreateAPIView,
     DataCaptureSaveAPIView,
     DataCaptureSubmitAPIView,
 )
@@ -9,6 +10,11 @@ from apps.datacapture.presentation.api.views import (
 app_name = "datacapture"
 
 urlpatterns = [
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/form-instances/",
+        DataCaptureFormInstanceListCreateAPIView.as_view(),
+        name="form_instances",
+    ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/save/",
         DataCaptureSaveAPIView.as_view(),

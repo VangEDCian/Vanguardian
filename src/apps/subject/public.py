@@ -224,6 +224,21 @@ def get_subject_site_id(*, study_id: int, subject_id: int) -> int | None:
     )
 
 
+def get_event_instance_snapshot(*, event_instance_id: int):
+    return (
+        SubjectEventInstance.objects.filter(pk=event_instance_id, deleted=False)
+        .values(
+            "id",
+            "subject_id",
+            "study_id",
+            "study_version",
+            "event_definition_id",
+            "updated_at",
+        )
+        .first()
+    )
+
+
 class SubjectEligibilityWorkflowAdapter:
     def __init__(self, workflow_service=None):
         self.workflow_service = workflow_service or SubjectEligibilityWorkflowService()
@@ -273,6 +288,7 @@ __all__ = [
     "SubjectScopeSnapshot",
     "complete_subject_event_instance",
     "get_subject_site_id",
+    "get_event_instance_snapshot",
     "mark_subject_event_instance_in_progress",
     "resync_subject_active_study_version",
     "resync_subject_event_instances",

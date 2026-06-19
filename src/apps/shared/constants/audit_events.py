@@ -49,6 +49,8 @@ class AuditEventActionEnum(enum.Enum):
     SUBJECT_STATUS_CHANGED_FROM_ELIGIBILITY = "study.subject_status.changed_from_eligibility"
     ENROLL_SUBJECT = "study.subject.enroll"
     ENROLL_SUBJECT_GATE_EVALUATED = "study.subject.enroll_gate_evaluated"
+    STUDY_EVENT_FORM_DISPLAY_CONFIG_SAVED = "study.event_form_display_config.saved"
+    DATACAPTURE_FORM_INSTANCE_CREATED = "datacapture.form_instance.created"
 
 
 class AuditEventObjectTypeEnum(enum.Enum):
@@ -61,3 +63,5 @@ class AuditEventObjectTypeEnum(enum.Enum):
     SUBJECT_ELIGIBILITY_ASSESSMENT = "study_subject_eligibility_assessment"
     SUBJECT_ENROLLMENT = "study_subject_enrollment"
     EVENT_GATE_EVALUATION = "study_event_gate_evaluation"
+    STUDY_EVENT_FORM_DISPLAY_CONFIG = "study_event_form_display_config"
+    DATACAPTURE_FORM_INSTANCE = "datacapture_form_instance"
