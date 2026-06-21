@@ -275,6 +275,37 @@ class CrfContextAdapter:
             now=now,
         )
 
+    def upsert_import_field_review_policy(
+        self,
+        *,
+        study_id,
+        study_version,
+        crf_template_id,
+        field_template_id,
+        review_type,
+        is_required_for_page_verify,
+        is_required_for_lock,
+        is_blocking_if_missing,
+        role_required,
+        is_enabled,
+        actor_user_id,
+        now=None,
+    ):
+        return self.field_template_import_service.upsert_field_review_policy(
+            study_id=study_id,
+            study_version=study_version,
+            crf_template_id=crf_template_id,
+            field_template_id=field_template_id,
+            review_type=review_type,
+            is_required_for_page_verify=is_required_for_page_verify,
+            is_required_for_lock=is_required_for_lock,
+            is_blocking_if_missing=is_blocking_if_missing,
+            role_required=role_required,
+            is_enabled=is_enabled,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
     def upsert_import_validation_rule(
         self,
         *,

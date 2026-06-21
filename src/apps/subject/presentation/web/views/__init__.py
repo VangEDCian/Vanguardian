@@ -5,6 +5,7 @@
 ``apps.datacapture.public``.
 """
 
+from apps.subject.presentation.web.views.audit_history import SubjectAuditHistoryView
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 from apps.subject.presentation.web.views.create import SubjectCreateView
 from apps.subject.presentation.web.views.event_instance_files import (
@@ -23,6 +24,7 @@ from apps.subject.presentation.web.views.trigger_workflow import SubjectTriggerW
 __all__ = [
     "SubjectAddRepeatingEventInstanceView",
     "SubjectAbstractVerifyStudy",
+    "SubjectAuditHistoryView",
     "SubjectCreateView",
     "SubjectEventInstanceFileContentView",
     "SubjectEventInstanceFileImportView",

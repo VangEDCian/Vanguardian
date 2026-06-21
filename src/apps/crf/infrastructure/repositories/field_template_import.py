@@ -87,6 +87,30 @@ class DjangoCrfFieldTemplateImportRepository:
             defaults=values,
         )
 
+    def get_field_review_policy(
+        self,
+        *,
+        study_id,
+        study_version,
+        crf_template_id,
+        field_template_id,
+        review_type,
+    ):
+        return CrfFieldReviewPolicy.objects.filter(
+            study_id=study_id,
+            study_version=study_version,
+            crf_template_id=crf_template_id,
+            field_template_id=field_template_id,
+            review_type=review_type,
+        ).first()
+
+    def create_field_review_policy(self, **values):
+        return CrfFieldReviewPolicy.objects.create(**values)
+
+    def save_field_review_policy(self, field_review_policy, *, update_fields):
+        field_review_policy.save(update_fields=update_fields)
+        return field_review_policy
+
     def reset_template_fields_for_import(self, *, crf_template_id, actor_user_id, now):
         field_ids = tuple(
             CrfFieldTemplate.objects.filter(

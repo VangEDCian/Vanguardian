@@ -45,6 +45,29 @@
   white-space: nowrap;
 }
 
+.subject-detail-screen__summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.subject-detail-screen__audit-link {
+  border: 1px solid #b9c3cc;
+  border-radius: 999px;
+  color: #173042;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.subject-detail-screen__audit-link:hover {
+  background: #fff;
+}
+
 .subject-detail-screen__tabs {
   display: flex;
   align-items: flex-end;
@@ -75,7 +98,7 @@
 
 .subject-detail-screen__body {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: min-content minmax(0, 1fr);
   min-height: 560px;
   /* max-height: calc(100vh - 320px); */
   height: 100%;
@@ -956,6 +979,157 @@
   color: #b42318;
 }
 
+.subject-event-attestation {
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid #cfdae5;
+  background: linear-gradient(135deg, #f8fbfd 0%, #eef5f8 100%);
+}
+
+.subject-event-attestation__header,
+.subject-event-attestation__policy-header,
+.subject-event-attestation__actions,
+.subject-event-attestation__summary,
+.subject-event-attestation__facts {
+  display: flex;
+  gap: 12px;
+}
+
+.subject-event-attestation__header,
+.subject-event-attestation__policy-header {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.subject-event-attestation__eyebrow,
+.subject-event-attestation__policy-meta {
+  margin: 0;
+  color: #5b6976;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.subject-event-attestation__title,
+.subject-event-attestation__policy-title {
+  margin: 2px 0 0;
+  color: #1f2d3a;
+}
+
+.subject-event-attestation__summary,
+.subject-event-attestation__facts {
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.subject-event-attestation__summary div,
+.subject-event-attestation__facts div {
+  min-width: 96px;
+}
+
+.subject-event-attestation__summary dt,
+.subject-event-attestation__facts dt {
+  color: #607080;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.subject-event-attestation__summary dd,
+.subject-event-attestation__facts dd {
+  margin: 2px 0 0;
+  color: #1f2d3a;
+  font-weight: 700;
+}
+
+.subject-event-attestation__policies {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.subject-event-attestation__policy {
+  padding: 14px;
+  border: 1px solid #d6dde4;
+  background: #ffffff;
+}
+
+.subject-event-attestation__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid #9cc3aa;
+  border-radius: 999px;
+  background: #eef8f1;
+  color: #25613c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.subject-event-attestation__badge--stale {
+  border-color: #f1c75b;
+  background: #fff8df;
+  color: #7a5d11;
+}
+
+.subject-event-attestation__badge--empty {
+  border-color: #c7d1dc;
+  background: #f6f8fa;
+  color: #607080;
+}
+
+.subject-event-attestation__statement {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-left: 3px solid #2d83b0;
+  background: #f7fafc;
+  color: #253544;
+  font-size: 13px;
+}
+
+.subject-event-attestation__messages {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.subject-event-attestation__messages--blocked {
+  color: #b42318;
+}
+
+.subject-event-attestation__messages--warning {
+  color: #7a5d11;
+}
+
+.subject-event-attestation__actions {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.subject-event-attestation__confirm {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: #253544;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.subject-event-attestation__history {
+  margin-top: 12px;
+  color: #253544;
+  font-size: 12px;
+}
+
+.subject-event-attestation__history ol {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 @media (max-width: 1200px) {
   /* .subject-detail-screen__body {
     grid-template-columns: max-content minmax(0, 1fr);
@@ -977,5 +1151,9 @@
   .subject-detail-screen__summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .subject-detail-screen__summary-actions {
+    justify-content: flex-start;
   }
 }

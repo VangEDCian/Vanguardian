@@ -815,8 +815,6 @@
         if (checkbox instanceof HTMLInputElement) {
           checkbox.checked = false;
           checkbox.dataset.blockedByOpenQuery = 'true';
-          checkbox.disabled = true;
-          checkbox.setAttribute('aria-disabled', 'true');
         }
         const countCell = row ? row.querySelector('[data-open-query-count]') : null;
         if (countCell) {

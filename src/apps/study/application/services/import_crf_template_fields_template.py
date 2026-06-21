@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
+from apps.core.choices.datacapture import DataCaptureFieldReviewTypeChoices
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError, StudyScopeViolationError
 from apps.crf.public import CrfContextAdapter
 from apps.study.application.commands.import_crf_template_fields_template import (
@@ -60,6 +61,13 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "Codelist En",
             "Comments Vi",
             "Comments En",
+            "Review Study Version",
+            "Review Type",
+            "Review Required For Verify",
+            "Review Required For Lock",
+            "Review Blocking If Missing",
+            "Review Role Required",
+            "Review Enabled",
         ),
     }
     expected_header_map = {
@@ -101,6 +109,13 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "codelist en": "codelist_en",
             "comments vi": "comments_vi",
             "comments en": "comments_en",
+            "review study version": "review_study_version",
+            "review type": "review_type",
+            "review required for verify": "review_required_for_verify",
+            "review required for lock": "review_required_for_lock",
+            "review blocking if missing": "review_blocking_if_missing",
+            "review role required": "review_role_required",
+            "review enabled": "review_enabled",
         },
     }
     sheet_aliases = {
@@ -109,6 +124,13 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "Field Templates",
             "CRF Template Fields",
         ),
+    }
+    review_type_aliases = {
+        "data_review": DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        "datareview": DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        "sdv": DataCaptureFieldReviewTypeChoices.SDV,
+        "medical_review": DataCaptureFieldReviewTypeChoices.MEDICAL_REVIEW,
+        "medical": DataCaptureFieldReviewTypeChoices.MEDICAL_REVIEW,
     }
 
     def __init__(self, crf_context_adapter=None):
@@ -235,13 +257,29 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
         )
 
     def _import_prepared_template_field_row(self, *, prepared_row, actor_user_id, now):
-        import_outcome, _field_template = self.crf_context_adapter.upsert_import_template_field(
+        import_outcome, field_template = self.crf_context_adapter.upsert_import_template_field(
             crf_template_id=prepared_row.form_template.pk,
             section_template_id=prepared_row.section_template.pk,
             payload=prepared_row.payload,
             actor_user_id=actor_user_id,
             now=now,
         )
+        review_policy = prepared_row.payload.get("review_policy")
+        if review_policy is not None:
+            self.crf_context_adapter.upsert_import_field_review_policy(
+                study_id=prepared_row.form_template.study_id,
+                study_version=review_policy["study_version"],
+                crf_template_id=prepared_row.form_template.pk,
+                field_template_id=field_template.pk,
+                review_type=review_policy["review_type"],
+                is_required_for_page_verify=review_policy["is_required_for_page_verify"],
+                is_required_for_lock=review_policy["is_required_for_lock"],
+                is_blocking_if_missing=review_policy["is_blocking_if_missing"],
+                role_required=review_policy["role_required"],
+                is_enabled=review_policy["is_enabled"],
+                actor_user_id=actor_user_id,
+                now=now,
+            )
         return import_outcome
 
     def _build_payload(self, row_data):
@@ -294,10 +332,66 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "codelist_en": self._nullable_text(row_data.get("codelist_en")),
             "comments_vi": self._nullable_text(row_data.get("comments_vi")),
             "comments_en": self._nullable_text(row_data.get("comments_en")),
+            "review_policy": self._build_review_policy_payload(row_data),
         }
 
-    def _nullable_text(self, value):
+    def _build_review_policy_payload(self, row_data):
+        if not self._has_review_policy_payload(row_data):
+            return None
+        return {
+            "study_version": self._require_text(
+                row_data.get("review_study_version"),
+                field_label="Review Study Version",
+                max_length=20,
+            ),
+            "review_type": self._normalize_review_type(row_data.get("review_type")),
+            "is_required_for_page_verify": self._coerce_bool(
+                row_data.get("review_required_for_verify"),
+                field_label="Review Required For Verify",
+                default=True,
+            ),
+            "is_required_for_lock": self._coerce_bool(
+                row_data.get("review_required_for_lock"),
+                field_label="Review Required For Lock",
+                default=False,
+            ),
+            "is_blocking_if_missing": self._coerce_bool(
+                row_data.get("review_blocking_if_missing"),
+                field_label="Review Blocking If Missing",
+                default=True,
+            ),
+            "role_required": self._nullable_text(row_data.get("review_role_required"), max_length=64),
+            "is_enabled": self._coerce_bool(
+                row_data.get("review_enabled"),
+                field_label="Review Enabled",
+                default=True,
+            ),
+        }
+
+    def _has_review_policy_payload(self, row_data):
+        review_keys = (
+            "review_study_version",
+            "review_type",
+            "review_required_for_verify",
+            "review_required_for_lock",
+            "review_blocking_if_missing",
+            "review_role_required",
+            "review_enabled",
+        )
+        return any(self._as_text(row_data.get(key)) for key in review_keys)
+
+    def _normalize_review_type(self, value):
+        normalized = self._as_text(value).lower().replace("-", "_").replace(" ", "_")
+        normalized = normalized or "data_review"
+        review_type = self.review_type_aliases.get(normalized)
+        if review_type is None:
+            raise CrfTemplateImportFormatError(f"Invalid Review Type: {value!r}")
+        return review_type
+
+    def _nullable_text(self, value, *, max_length=None):
         normalized_value = self._as_text(value)
+        if max_length is not None and len(normalized_value) > max_length:
+            raise CrfTemplateImportFormatError(f"Value must be {max_length} characters or fewer.")
         return normalized_value or None
 
     def _coerce_optional_decimal(self, value, *, field_label):

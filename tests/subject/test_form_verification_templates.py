@@ -28,6 +28,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
             "form_verification_reopen_url": "",
             "form_verification_finalize_page_data_url": "",
             "form_verification_lock_page_url": "",
+            "form_verification_lock_blocked_by_queries": False,
             "form_verification_open_query_url": "",
             "form_verification_query_thread_url": "",
             "form_verification_fields_locked": False,
@@ -143,6 +144,54 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn('data-form-verification-page-action="finalize"', rendered)
         self.assertIn('data-form-verification-page-action="lock"', rendered)
         self.assertIn("subject_form_verification_page_actions.js", rendered)
+
+    def test_verification_footer_disables_lock_when_queries_are_not_closed(self):
+        rendered = self._render_subject_detail_verification_screen(
+            form_verification_lock_blocked_by_queries=True,
+        )
+
+        self.assertIn("Lock Page", rendered)
+        self.assertIn("Close all queries before locking the form.", rendered)
+        self.assertIn("disabled", rendered)
+        self.assertNotIn('data-form-verification-page-action="lock"', rendered)
+        self.assertNotIn('data-post-url="/api/lock-page/"', rendered)
+
+    def test_verification_screen_renders_event_attestation_panel(self):
+        rendered = self._render_subject_detail_verification_screen(
+            event_attestation_panel={
+                "has_policies": True,
+                "summary": {
+                    "submitted_page_count": 1,
+                    "page_count": 1,
+                    "blocking_query_count": 0,
+                    "validation_issue_count": 0,
+                },
+                "policies": [
+                    {
+                        "policy_id": 51,
+                        "code": "VISIT_REVIEW",
+                        "action_kind": "REVIEW_COMPLETION",
+                        "dialog_title": "Complete Visit Review",
+                        "action_label": "Complete Review",
+                        "statement_text": "I reviewed this visit.",
+                        "confirmation_label": "I confirm.",
+                        "success_message": "Review completed.",
+                        "requires_confirmation_checkbox": True,
+                        "active_attestation": None,
+                        "readiness": {"can_submit": True, "blockers": [], "warnings": []},
+                        "submit_url": "/api/attest/",
+                        "revoke_url": "",
+                    }
+                ],
+                "history": [],
+            }
+        )
+
+        self.assertIn("Review and Certification", rendered)
+        self.assertIn("Complete Review", rendered)
+        self.assertIn("I reviewed this visit.", rendered)
+        self.assertIn("data-event-attestation-submit", rendered)
+        self.assertIn("subject_event_attestation.js", rendered)
 
     def test_field_review_table_hides_actions_column_without_submitted_entry(self):
         rendered = self._render_field_review_table(
@@ -274,7 +323,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
 
         self.assertNotIn("hidden", action_button)
 
-    def test_field_review_checkbox_is_disabled_when_field_has_open_query(self):
+    def test_field_review_checkbox_stays_enabled_when_field_has_open_query(self):
         rendered = self._render_field_review_table(
             show_checkboxes=True,
             fields_locked=False,
@@ -287,8 +336,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
         input_end = rendered.index(">", checkbox_start)
         checkbox = rendered[input_start : input_end + 1]
 
-        self.assertIn("disabled", checkbox)
-        self.assertIn('aria-disabled="true"', checkbox)
+        self.assertNotIn("disabled", checkbox)
+        self.assertNotIn('aria-disabled="true"', checkbox)
         self.assertIn('data-blocked-by-open-query="true"', checkbox)
 
     def test_field_review_table_shows_validation_issue_count_and_disables_checkbox(self):

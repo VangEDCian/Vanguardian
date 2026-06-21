@@ -109,6 +109,9 @@ class ReconcileDataQueryReadService:
     def has_active_blocking_query_for_page(self, *, page_state_id: int) -> bool:
         return self.repository.has_active_blocking_query_for_page(page_state_id=page_state_id)
 
+    def has_unclosed_query_for_page(self, *, page_state_id: int) -> bool:
+        return self.repository.has_unclosed_query_for_page(page_state_id=page_state_id)
+
     def list_latest_query_messages_by_page_state_and_field_templates(
         self,
         *,

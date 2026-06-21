@@ -7,6 +7,7 @@ from django.utils.translation import gettext as _
 from apps.core.choices.study import EventExecutionModeChoices, EventInstanceStatusChoices
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.public import CrfContextAdapter
+from apps.datacapture.public import list_form_instances_for_event_instance
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
 
@@ -67,6 +68,16 @@ class SubjectDetailNavigationMixin:
 
         event_items_by_definition = {}
         for event_instance in event_instances:
+            form_instance_labels_by_binding_id = {}
+            for form_instance in list_form_instances_for_event_instance(
+                visit_id=int(event_instance.pk),
+                language_code=get_language(),
+            ):
+                binding_id = int(form_instance.event_form_binding_id)
+                form_instance_labels_by_binding_id.setdefault(
+                    binding_id,
+                    str(form_instance.display_label or "").strip(),
+                )
             forms = []
             for binding in bindings_map.get(event_instance.event_definition_id, []):
                 template = binding.form_definition
@@ -77,11 +88,15 @@ class SubjectDetailNavigationMixin:
                     "name",
                     default=template.code,
                 )
+                form_title = (
+                    form_instance_labels_by_binding_id.get(int(binding.pk))
+                    or template_name
+                )
                 forms.append(
                     {
                         "id": str(binding.pk),
                         "form_definition_id": str(template.pk),
-                        "title": template_name,
+                        "title": form_title,
                         "code": template.code,
                     }
                 )
@@ -132,9 +147,21 @@ class SubjectDetailNavigationMixin:
             "can_add_another": can_add_another,
             "add_another_label": _("Add Another %(event_name)s") % {"event_name": event_name},
             "completed_at_label": self._format_completed_at_label(event_instance.completed_at),
+            "sidebar_label": self._resolve_repeating_sidebar_label(
+                forms=forms,
+                completed_at=event_instance.completed_at,
+            ),
             "forms": forms,
             "repeat_event_instances": [],
         }
+
+    @classmethod
+    def _resolve_repeating_sidebar_label(cls, *, forms: list[dict], completed_at) -> str:
+        for form in forms or []:
+            title = str(form.get("title") or "").strip()
+            if title:
+                return title
+        return cls._format_completed_at_label(completed_at)
 
     @staticmethod
     def _collapse_repeating_event_navigation(event_items_by_definition: dict[int, list[dict]]) -> list[dict]:

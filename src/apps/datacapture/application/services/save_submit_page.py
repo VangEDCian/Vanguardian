@@ -178,6 +178,7 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
             actor_user_id=command.actor_user_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
 
     def _with_persisted_lookup_values(self, command):
@@ -281,6 +282,7 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
             actor_user_id=command.actor_user_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         page_state = self.repository.submit_page_state_with_entry(
             subject_id=command.subject_id,
@@ -288,6 +290,7 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=command.crf_template_id,
             entry_id=latest.id,
             actor_user_id=command.actor_user_id,
+            event_form_binding_id=command.event_form_binding_id,
             trigger_source=(
                 "query"
                 if DataCapturePageState.is_correction_required(started_page_state.status)
@@ -329,6 +332,7 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
             exclude_entry_id=latest.id,
+            event_form_binding_id=command.event_form_binding_id,
         )
 
     def _dispatch_page_entry_state_change(
@@ -402,6 +406,23 @@ class DataCaptureSaveSubmitPageService:
             actor_user_id=actor_user_id,
         )
 
+    @staticmethod
+    def _invalidate_event_attestations_for_data_change(
+        *,
+        visit_id: int,
+        actor_user_id: int | None,
+    ) -> None:
+        from apps.datacapture.application.services.event_attestation import (
+            DataCaptureEventAttestationService,
+        )
+
+        DataCaptureEventAttestationService().invalidate_active_attestations_for_event(
+            event_instance_id=visit_id,
+            change_type="data",
+            actor_user_id=actor_user_id,
+            reason_text="Submitted page data changed for this event.",
+        )
+
     def _correct_resolved_validation_issues(
         self,
         *,
@@ -442,12 +463,14 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         latest = self._with_canonical_entry_snapshot(
             self.repository.get_current_entry(
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
         )
         command = self._with_canonical_form_data(command, entry_version=latest.entry_version if latest else None)
@@ -483,6 +506,7 @@ class DataCaptureSaveSubmitPageService:
                 data=command.data,
                 status=plan.entry_state_change.to_status,
                 actor_user_id=command.actor_user_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
             self._persist_entry_values(
                 command=command,
@@ -514,6 +538,7 @@ class DataCaptureSaveSubmitPageService:
                 crf_template_id=command.crf_template_id,
                 data=command.data,
                 actor_user_id=command.actor_user_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
             snapshot = refreshed or latest
             assert snapshot is not None
@@ -541,6 +566,7 @@ class DataCaptureSaveSubmitPageService:
                 data=command.data,
                 status=plan.entry_state_change.to_status,
                 actor_user_id=command.actor_user_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
             self._persist_entry_values(
                 command=command,
@@ -578,12 +604,14 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         latest = self._with_canonical_entry_snapshot(
             self.repository.get_current_entry(
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
         )
         command = self._with_canonical_form_data(command, entry_version=latest.entry_version if latest else None)
@@ -593,6 +621,7 @@ class DataCaptureSaveSubmitPageService:
                 subject_id=command.subject_id,
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
         )
         try:
@@ -642,6 +671,7 @@ class DataCaptureSaveSubmitPageService:
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
             actor_user_id=command.actor_user_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         superseded_entry_ids: list[int] = []
         if plan.action == "replace_submitted" and plan.superseded_entry_snapshot is not None:
@@ -652,6 +682,7 @@ class DataCaptureSaveSubmitPageService:
                 visit_id=command.visit_id,
                 crf_template_id=command.crf_template_id,
                 exclude_entry_id=plan.draft_entry_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
         entry = self.repository.execute_submit_plan(
             page_state_id=started_page_state.pk,
@@ -661,6 +692,7 @@ class DataCaptureSaveSubmitPageService:
             plan=plan,
             data=command.data,
             actor_user_id=command.actor_user_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         self._persist_entry_values(
             command=command,
@@ -675,6 +707,7 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=command.crf_template_id,
             entry_id=entry.pk,
             actor_user_id=command.actor_user_id,
+            event_form_binding_id=command.event_form_binding_id,
             trigger_source=(
                 "query"
                 if page_state and DataCapturePageState.is_correction_required(page_state.status)
@@ -733,6 +766,10 @@ class DataCaptureSaveSubmitPageService:
                 candidate_payload=candidate_payload,
             )
         )
+        self._invalidate_event_attestations_for_data_change(
+            visit_id=command.visit_id,
+            actor_user_id=command.actor_user_id,
+        )
         return SubmitPageResult(
             entry_id=entry.pk,
             entry_status=DataCapturePageEntry.SUBMITTED,
@@ -751,6 +788,7 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         try:
             if page_state is not None:
@@ -765,6 +803,7 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=command.crf_template_id,
             target_status=cancel_state_change.to_status,
             actor_user_id=command.actor_user_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         self.validator.require_active_draft(canceled_entry)
         self._dispatch_page_entry_state_change(
@@ -781,6 +820,7 @@ class DataCaptureSaveSubmitPageService:
             subject_id=command.subject_id,
             visit_id=command.visit_id,
             crf_template_id=command.crf_template_id,
+            event_form_binding_id=command.event_form_binding_id,
         )
         if latest_submitted is not None:
             page_state = self.repository.upsert_page_state(
@@ -789,6 +829,7 @@ class DataCaptureSaveSubmitPageService:
                 crf_template_id=command.crf_template_id,
                 status=DataCapturePageState.SUBMITTED,
                 actor_user_id=command.actor_user_id,
+                event_form_binding_id=command.event_form_binding_id,
             )
             return DeleteDraftPageResult(
                 entry_id=canceled_entry.id,
@@ -803,6 +844,7 @@ class DataCaptureSaveSubmitPageService:
             status=DataCapturePageState.NOT_STARTED,
             actor_user_id=command.actor_user_id,
             trigger_source="manual",
+            event_form_binding_id=command.event_form_binding_id,
         )
         return DeleteDraftPageResult(
             entry_id=canceled_entry.id,

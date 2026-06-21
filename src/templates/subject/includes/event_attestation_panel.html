@@ -1,0 +1,144 @@
+{% load i18n %}
+{% if event_attestation_panel and event_attestation_panel.has_policies %}
+    <section class="subject-event-attestation"
+             aria-label="{% trans 'Event review and certification' %}">
+        <header class="subject-event-attestation__header">
+            <div>
+                <p class="subject-event-attestation__eyebrow">{% trans "Event-level controls" %}</p>
+                <h3 class="subject-event-attestation__title">{% trans "Review and Certification" %}</h3>
+            </div>
+            <dl class="subject-event-attestation__summary">
+                <div>
+                    <dt>{% trans "Pages" %}</dt>
+                    <dd>
+                        {{ event_attestation_panel.summary.submitted_page_count }}/{{ event_attestation_panel.summary.page_count }}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% trans "Blocking Queries" %}</dt>
+                    <dd>
+                        {{ event_attestation_panel.summary.blocking_query_count }}
+                    </dd>
+                </div>
+                <div>
+                    <dt>{% trans "Validation Issues" %}</dt>
+                    <dd>
+                        {{ event_attestation_panel.summary.validation_issue_count }}
+                    </dd>
+                </div>
+            </dl>
+        </header>
+        <div class="subject-event-attestation__policies">
+            {% for policy in event_attestation_panel.policies %}
+                <article class="subject-event-attestation__policy"
+                         data-event-attestation-policy>
+                    <header class="subject-event-attestation__policy-header">
+                        <div>
+                            <h4 class="subject-event-attestation__policy-title">{{ policy.dialog_title }}</h4>
+                            <p class="subject-event-attestation__policy-meta">
+                                {{ policy.action_kind }} - {{ policy.code }}
+                            </p>
+                        </div>
+                        {% if policy.active_attestation %}
+                            <span class="subject-event-attestation__badge{% if not policy.active_attestation.is_current_scope %} subject-event-attestation__badge--stale{% endif %}">
+                                {% if policy.active_attestation.is_current_scope %}
+                                    {% trans "Active" %}
+                                {% else %}
+                                    {% trans "Stale" %}
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            <span class="subject-event-attestation__badge subject-event-attestation__badge--empty">
+                                {% trans "Not attested" %}
+                            </span>
+                        {% endif %}
+                    </header>
+                    <blockquote class="subject-event-attestation__statement">
+                        {{ policy.statement_text|linebreaksbr }}
+                    </blockquote>
+                    {% if policy.active_attestation %}
+                        <dl class="subject-event-attestation__facts">
+                            <div>
+                                <dt>{% trans "Signer" %}</dt>
+                                <dd>
+                                    {{ policy.active_attestation.signer_name }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>{% trans "Attested At" %}</dt>
+                                <dd>
+                                    {{ policy.active_attestation.attested_at }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>{% trans "Scope Digest" %}</dt>
+                                <dd>
+                                    <code>{{ policy.active_attestation.scope_digest|slice:":12" }}</code>
+                                </dd>
+                            </div>
+                        </dl>
+                    {% endif %}
+                    {% if policy.readiness.blockers %}
+                        <ul class="subject-event-attestation__messages subject-event-attestation__messages--blocked">
+                            {% for blocker in policy.readiness.blockers %}
+                                <li>{{ blocker }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if policy.readiness.warnings %}
+                        <ul class="subject-event-attestation__messages subject-event-attestation__messages--warning">
+                            {% for warning in policy.readiness.warnings %}
+                                <li>{{ warning }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    <div class="subject-event-attestation__actions">
+                        {% if policy.requires_confirmation_checkbox %}
+                            <label class="subject-event-attestation__confirm">
+                                <input type="checkbox" data-event-attestation-confirm />
+                                <span>
+                                    {% if policy.confirmation_label %}
+                                        {{ policy.confirmation_label }}
+                                    {% else %}
+                                        {% trans "I confirm this statement." %}
+                                    {% endif %}
+                                </span>
+                            </label>
+                        {% endif %}
+                        <button type="button"
+                                class="entity-table__footer-button entity-table__footer-button--primary"
+                                data-event-attestation-submit
+                                data-post-url="{{ policy.submit_url|escape }}"
+                                data-success-message="{{ policy.success_message|escape }}"
+                                {% if not policy.readiness.can_submit %}disabled aria-disabled="true"{% endif %}>
+                            {{ policy.action_label }}
+                        </button>
+                        {% if policy.revoke_url %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-event-attestation-revoke
+                                    data-post-url="{{ policy.revoke_url|escape }}">
+                                {% trans "Revoke" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+        {% if event_attestation_panel.history %}
+            <details class="subject-event-attestation__history">
+                <summary>{% trans "Attestation history" %}</summary>
+                <ol>
+                    {% for row in event_attestation_panel.history %}
+                        <li>
+                            <strong>{{ row.action_label }}</strong>
+                            <span>{{ row.status }}</span>
+                            <span>{{ row.signer_name }}</span>
+                            <span>{{ row.attested_at }}</span>
+                        </li>
+                    {% endfor %}
+                </ol>
+            </details>
+        {% endif %}
+    </section>
+{% endif %}

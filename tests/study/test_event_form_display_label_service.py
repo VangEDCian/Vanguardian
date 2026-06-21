@@ -83,6 +83,29 @@ class TestEventFormDisplayLabelService(SimpleTestCase):
 
         self.assertEqual(result, "Adverse Event #3")
 
+    def test_render_label_fallback_does_not_append_hash_one_for_non_repeated_instance(self):
+        self.service._build_snapshot = lambda binding: EventFormDisplayConfigSnapshot(
+            binding_id=41,
+            template_id=12,
+            form_code="AE",
+            form_name_by_language={"en": "Adverse Event", "vi": "Bien co bat loi"},
+            is_enabled=False,
+            syntax_version=1,
+            max_length=120,
+            use_choice_display_label=True,
+            empty_value_policy="FALLBACK",
+            translations={},
+        )
+
+        result = self.service.render_label(
+            binding_id=41,
+            language_code="en",
+            repeat_index=1,
+            field_values={},
+        )
+
+        self.assertEqual(result, "Adverse Event")
+
     def test_render_label_uses_empty_text_policy(self):
         self.service._build_snapshot = lambda binding: EventFormDisplayConfigSnapshot(
             binding_id=41,

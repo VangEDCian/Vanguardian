@@ -814,6 +814,7 @@ class _DummyWorkbenchReaderResult:
             resolved=0,
             closed=0,
             validation_issues_open=0,
+            hard_validation_issues_open=0,
         )
 
 
@@ -881,6 +882,7 @@ class _WorkbenchRepository:
             "resolved": 1,
             "closed": 0,
             "validation_issues_open": 1,
+            "hard_validation_issues_open": 1,
             "actionable_for_current_user": 3,
         }
 

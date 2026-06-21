@@ -537,7 +537,11 @@ class EventFormDisplayLabelService:
 
     @staticmethod
     def _fallback_form_label(*, form_name: str, repeat_index: int) -> str:
-        return f"{form_name} #{int(repeat_index)}".strip()
+        normalized_form_name = str(form_name or "").strip()
+        normalized_repeat_index = max(1, int(repeat_index or 1))
+        if normalized_repeat_index <= 1:
+            return normalized_form_name
+        return f"{normalized_form_name} #{normalized_repeat_index}".strip()
 
 
 def serialize_event_form_display_errors(

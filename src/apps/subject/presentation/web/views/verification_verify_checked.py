@@ -70,6 +70,12 @@ def _current_user_matches_submitted_entry_editor(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        event_form_binding_id=(
+            _parse_int_or_none(request.GET.get("form"))
+            or _parse_int_or_none(request.POST.get("form"))
+            or _parse_int_or_none(request.GET.get("event_form_binding_id"))
+            or _parse_int_or_none(request.POST.get("event_form_binding_id"))
+        ),
     )
     return _same_user(getattr(request.user, "id", None), getattr(submitted_entry, "updated_by_id", None))
 
@@ -79,6 +85,15 @@ def _parse_int_or_none(value) -> int | None:
         return int(str(value or "").strip())
     except (TypeError, ValueError):
         return None
+
+
+def _event_form_binding_id_from_request(request) -> int | None:
+    return (
+        _parse_int_or_none(request.GET.get("form"))
+        or _parse_int_or_none(request.POST.get("form"))
+        or _parse_int_or_none(request.GET.get("event_form_binding_id"))
+        or _parse_int_or_none(request.POST.get("event_form_binding_id"))
+    )
 
 
 def _load_entry_payload_map(raw_payload) -> dict:
@@ -128,6 +143,7 @@ def _filter_changed_review_fields(
     crf_template_id: int,
     normalized_payload: dict[str, object],
     submitted_entry,
+    event_form_binding_id: int | None = None,
 ) -> tuple[bool, list[int], list[dict[str, object]], bool]:
     checked_field_template_ids = list(normalized_payload["field_template_ids"])
     if _review_context_matches_submitted_entry(
@@ -145,6 +161,7 @@ def _filter_changed_review_fields(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        event_form_binding_id=event_form_binding_id,
     )
     if reviewed_entry is None:
         return False, [], [], False
@@ -193,11 +210,13 @@ def _review_context_status_and_submitted_entry(
     subject_id: int,
     visit_id: int,
     crf_template_id: int,
+    event_form_binding_id: int | None = None,
 ):
     current_page_status = get_page_state_status_for_subject_visit_crf(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        event_form_binding_id=event_form_binding_id,
     )
     normalized_current_status = (current_page_status or "").strip().lower()
     if not DataCapturePageState.can_start_or_continue_review(normalized_current_status):
@@ -207,6 +226,7 @@ def _review_context_status_and_submitted_entry(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        event_form_binding_id=event_form_binding_id,
     )
     if submitted_entry is None:
         return False, current_page_status, None
@@ -233,11 +253,13 @@ class SubjectFormVerificationVerifyCheckedView(
             subject_id = int(kwargs["subject_id"])
             visit_id = int(kwargs["visit_id"])
             crf_template_id = int(kwargs["crf_template_id"])
+            event_form_binding_id = _event_form_binding_id_from_request(request)
             context_is_reviewable, current_page_status, submitted_entry = (
                 _review_context_status_and_submitted_entry(
                     subject_id=subject_id,
                     visit_id=visit_id,
                     crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
                 )
             )
             if not context_is_reviewable:
@@ -249,6 +271,7 @@ class SubjectFormVerificationVerifyCheckedView(
                     crf_template_id=crf_template_id,
                     normalized_payload=normalized,
                     submitted_entry=submitted_entry,
+                    event_form_binding_id=event_form_binding_id,
                 )
             )
             if not context_can_continue:
@@ -278,6 +301,7 @@ class SubjectFormVerificationVerifyCheckedView(
                 checked_field_template_ids=checked_field_template_ids,
                 unverify_reason_text=normalized["reason_text"],
                 actor_user_id=getattr(request.user, "id", None),
+                event_form_binding_id=event_form_binding_id,
             )
         except (SubjectValidationError, DataCaptureValidationError) as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
@@ -318,6 +342,7 @@ class SubjectFormVerificationReopenView(
                 crf_template_id=int(kwargs["crf_template_id"]),
                 reason_text=reason_text,
                 actor_user_id=getattr(request.user, "id", None),
+                event_form_binding_id=_event_form_binding_id_from_request(request),
             )
         except (SubjectValidationError, DataCaptureValidationError) as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
@@ -351,6 +376,7 @@ class SubjectFormVerificationFinalizePageDataView(
                 visit_id=visit_id,
                 crf_template_id=crf_template_id,
                 actor_user_id=getattr(request.user, "id", None),
+                event_form_binding_id=_event_form_binding_id_from_request(request),
             )
         except (DataCaptureValidationError, ValueError) as exc:
             messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
@@ -383,6 +409,7 @@ class SubjectFormVerificationLockPageView(
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
                 actor_user_id=getattr(request.user, "id", None),
+                event_form_binding_id=_event_form_binding_id_from_request(request),
             )
         except (DataCaptureValidationError, ValueError) as exc:
             messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
@@ -417,6 +444,7 @@ class SubjectFormVerificationQueryThreadView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                event_form_binding_id=_event_form_binding_id_from_request(request),
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
@@ -526,6 +554,7 @@ class SubjectFormVerificationOpenQueryView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                event_form_binding_id=_event_form_binding_id_from_request(request),
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
@@ -533,6 +562,7 @@ class SubjectFormVerificationOpenQueryView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                event_form_binding_id=_event_form_binding_id_from_request(request),
             )
             if (page_state_status or "").strip().lower() not in {
                 DataCapturePageState.SUBMITTED,
@@ -585,6 +615,7 @@ class SubjectValidationIssueAcknowledgeView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                event_form_binding_id=_event_form_binding_id_from_request(request),
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
@@ -605,6 +636,7 @@ class SubjectValidationIssueAcknowledgeView(
                     subject_id=int(kwargs["subject_id"]),
                     visit_id=int(kwargs["visit_id"]),
                     crf_template_id=int(kwargs["crf_template_id"]),
+                    event_form_binding_id=_event_form_binding_id_from_request(request),
                 )
                 or "",
             }

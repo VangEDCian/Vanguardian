@@ -40,13 +40,14 @@ class DataCaptureSaveAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin,
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
+        raw_body = request.body.decode("utf-8")
         try:
             result = DataCaptureSaveSubmitPageService().save(
                 save_page_command_from_post(
                     subject_id=kwargs["subject_id"],
                     visit_id=kwargs["visit_id"],
                     crf_template_id=kwargs["crf_template_id"],
-                    raw_body=request.body.decode("utf-8"),
+                    raw_body=raw_body,
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
@@ -77,13 +78,14 @@ class DataCaptureSubmitAPIView(LoginRequiredMixin, ContextPermissionRequiredMixi
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
+        raw_body = request.body.decode("utf-8")
         try:
             result = DataCaptureSaveSubmitPageService().submit(
                 submit_page_command_from_post(
                     subject_id=kwargs["subject_id"],
                     visit_id=kwargs["visit_id"],
                     crf_template_id=kwargs["crf_template_id"],
-                    raw_body=request.body.decode("utf-8"),
+                    raw_body=raw_body,
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
@@ -119,6 +121,7 @@ class DataCaptureDeleteDraftAPIView(LoginRequiredMixin, ContextPermissionRequire
                     subject_id=kwargs["subject_id"],
                     visit_id=kwargs["visit_id"],
                     crf_template_id=kwargs["crf_template_id"],
+                    raw_body=request.body.decode("utf-8"),
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )

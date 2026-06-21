@@ -233,6 +233,69 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
                         "data_type": "TEXT",
                         "display_order": "1",
                         "control_type": "TEXT",
+                        "review_study_version": "v1.0",
+                        "review_type": "data review",
+                        "review_required_for_verify": "yes",
+                        "review_required_for_lock": "no",
+                        "review_blocking_if_missing": "yes",
+                        "review_role_required": "DATA_MANAGER",
+                        "review_enabled": "yes",
+                    },
+                )
+            ],
+        },
+    )
+    def test_execute_imports_field_review_policy_after_template_field(self, mock_load_rows):
+        form_template = SimpleNamespace(pk=17, study_id=3)
+        section_template = SimpleNamespace(pk=23)
+        field_template = SimpleNamespace(pk=31)
+        mock_adapter = MagicMock()
+        mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
+        mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
+        mock_adapter.reset_import_template_fields.return_value = 0
+        mock_adapter.upsert_import_template_field.return_value = ("created", field_template)
+        service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
+
+        result = service.execute(
+            command=SimpleNamespace(
+                actor_user_id=7,
+                selected_study_id=3,
+                study_id=3,
+                file_name="crf_template_fields_import_template.xlsx",
+                file_content=b"xlsx",
+            )
+        )
+
+        self.assertEqual(result.created_count, 1)
+        mock_adapter.upsert_import_field_review_policy.assert_called_once_with(
+            study_id=3,
+            study_version="v1.0",
+            crf_template_id=17,
+            field_template_id=31,
+            review_type="data_review",
+            is_required_for_page_verify=True,
+            is_required_for_lock=False,
+            is_blocking_if_missing=True,
+            role_required="DATA_MANAGER",
+            is_enabled=True,
+            actor_user_id=7,
+            now=mock_adapter.reset_import_template_fields.call_args.kwargs["now"],
+        )
+
+    @patch.object(
+        ImportStudyCrfTemplateFieldsTemplateService,
+        "_load_rows_from_workbook",
+        return_value={
+            "Template Fields": [
+                (
+                    2,
+                    {
+                        "form_name": "AE",
+                        "section_name": "General",
+                        "field_name": "AETERM",
+                        "data_type": "TEXT",
+                        "display_order": "1",
+                        "control_type": "TEXT",
                     },
                 ),
                 (

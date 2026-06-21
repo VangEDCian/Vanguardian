@@ -15,6 +15,7 @@ from apps.datacapture.infrastructure.persistence.models import (
     DataCapturePageState,
     DataCapturePageStateTransitionLog,
 )
+from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRepository
 from apps.shared.constants import AuditEventActionEnum, AuditEventObjectTypeEnum
 from apps.study.public import (
     EventFormDisplayConfigReader,
@@ -42,6 +43,7 @@ class DataCaptureFormInstanceService:
     label_renderer_class = EventFormDisplayLabelRenderer
     audit_context_adapter_class = AuditContextAdapter
     binding_reader_class = StudyEventFormBindingReader
+    repository_class = DjangoDataCapturePageRepository
 
     def __init__(
         self,
@@ -51,12 +53,14 @@ class DataCaptureFormInstanceService:
         label_renderer=None,
         audit_context_adapter=None,
         binding_reader=None,
+        repository=None,
     ):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
         self.config_reader = config_reader or self.config_reader_class()
         self.label_renderer = label_renderer or self.label_renderer_class()
         self.audit_context_adapter = audit_context_adapter or self.audit_context_adapter_class()
         self.binding_reader = binding_reader or self.binding_reader_class()
+        self.repository = repository or self.repository_class()
 
     @transaction.atomic
     def create_form_instance(
@@ -94,9 +98,12 @@ class DataCaptureFormInstanceService:
         )
         if not binding["is_repeatable_within_event"] and existing_states:
             raise ValueError("This event form binding is not repeatable within the visit.")
-        next_repeat_index = (
-            max((int(page_state.repeat_index or 0) for page_state in existing_states), default=0) + 1
-        )
+        if binding["is_repeatable_within_event"]:
+            next_repeat_index = (
+                max((int(page_state.repeat_index or 0) for page_state in existing_states), default=0) + 1
+            )
+        else:
+            next_repeat_index = max(1, int(visit.get("repeat_index") or 1))
         page_state = DataCapturePageState.objects.create(
             created_at=visit["updated_at"],
             updated_at=visit["updated_at"],
@@ -151,21 +158,68 @@ class DataCaptureFormInstanceService:
         visit_id: int,
         language_code: str | None = None,
     ) -> list[DataCaptureFormInstanceDTO]:
+        visit = get_event_instance_snapshot(event_instance_id=visit_id) or {}
+        visit_repeat_index = max(1, int(visit.get("repeat_index") or 1))
         page_states = list(
             DataCapturePageState.objects.filter(
                 visit_id=visit_id,
                 deleted=False,
-                event_form_binding__deleted=False,
-                event_form_binding__is_enabled=True,
             )
             .select_related("event_form_binding", "event_form_binding__form_definition", "current_entry")
             .prefetch_related("event_form_binding__form_definition__translations")
-            .order_by("event_form_binding__display_order", "repeat_index", "id")
+            .order_by("repeat_index", "id")
         )
         normalized_language = self._language_code(language_code)
+        hydrated_page_states = []
+        for page_state in page_states:
+            page_state = self.repository.ensure_page_state_binding_context(page_state)
+            binding = getattr(page_state, "event_form_binding", None)
+            if binding is None and getattr(page_state, "event_form_binding_id", None):
+                page_state = (
+                    DataCapturePageState.objects.select_related(
+                        "event_form_binding",
+                        "event_form_binding__form_definition",
+                        "current_entry",
+                    )
+                    .prefetch_related("event_form_binding__form_definition__translations")
+                    .filter(pk=page_state.pk)
+                    .first()
+                )
+                binding = getattr(page_state, "event_form_binding", None) if page_state is not None else None
+            if (
+                page_state is None
+                or binding is None
+                or bool(getattr(binding, "deleted", False))
+                or not bool(getattr(binding, "is_enabled", False))
+            ):
+                continue
+            hydrated_page_states.append(page_state)
+        binding_counts: dict[int, int] = {}
+        for page_state in hydrated_page_states:
+            binding_counts[int(page_state.event_form_binding_id)] = (
+                binding_counts.get(int(page_state.event_form_binding_id), 0) + 1
+            )
+        hydrated_page_states.sort(
+            key=lambda page_state: (
+                int(getattr(getattr(page_state, "event_form_binding", None), "display_order", 0) or 0),
+                int(page_state.repeat_index or 1),
+                int(page_state.pk),
+            )
+        )
         return [
-            self._to_instance_dto(page_state=page_state, language_code=normalized_language)
-            for page_state in page_states
+            self._to_instance_dto(
+                page_state=page_state,
+                language_code=normalized_language,
+                repeat_index_override=(
+                    visit_repeat_index
+                    if (
+                        visit_repeat_index > int(page_state.repeat_index or 1)
+                        and binding_counts.get(int(page_state.event_form_binding_id), 0) == 1
+                    )
+                    else None
+                ),
+            )
+            for page_state in hydrated_page_states
         ]
 
     def _to_instance_dto(
@@ -173,8 +227,10 @@ class DataCaptureFormInstanceService:
         *,
         page_state: DataCapturePageState,
         language_code: str,
+        repeat_index_override: int | None = None,
     ) -> DataCaptureFormInstanceDTO:
         binding = page_state.event_form_binding
+        resolved_repeat_index = max(1, int(repeat_index_override or page_state.repeat_index or 1))
         template_name = self._template_name(binding=binding, language_code=language_code)
         config = self.config_reader.get_config(binding_id=int(binding.pk))
         field_values = self._display_field_values(
@@ -187,13 +243,13 @@ class DataCaptureFormInstanceService:
         display_label = self.label_renderer.render_label(
             binding_id=int(binding.pk),
             language_code=language_code,
-            repeat_index=int(page_state.repeat_index or 1),
+            repeat_index=resolved_repeat_index,
             field_values=field_values,
         )
         return DataCaptureFormInstanceDTO(
             page_state_id=int(page_state.pk),
             instance_key=str(page_state.instance_key or ""),
-            repeat_index=int(page_state.repeat_index or 1),
+            repeat_index=resolved_repeat_index,
             event_form_binding_id=int(page_state.event_form_binding_id),
             crf_template_id=int(page_state.crf_template_id),
             template_name=template_name,

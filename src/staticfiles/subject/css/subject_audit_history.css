@@ -1,0 +1,75 @@
+.subject-audit-workbench__toolbar .entity-table__search input {
+  width: 220px;
+}
+
+.subject-audit-workbench__field-filter {
+  flex: 0 0 auto;
+}
+
+.subject-audit-workbench__field-input {
+  width: 160px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 0.25rem 0.5rem;
+}
+
+.subject-audit-workbench__field-input:focus {
+  border-color: #8bb7d8;
+  outline: 2px solid rgb(139 183 216 / 28%);
+  outline-offset: 1px;
+}
+
+.subject-audit-workbench__meta {
+  color: #5f7382;
+}
+
+.subject-audit-workbench__detail-link {
+  color: #0b5cad;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.subject-audit-workbench__detail-link:hover {
+  text-decoration: underline;
+}
+
+.subject-audit-workbench__detail {
+  display: grid;
+  grid-template-columns: minmax(84px, max-content) minmax(0, 1fr);
+  gap: 6px;
+  color: #263945;
+  font-size: 12px;
+}
+
+.subject-audit-workbench__detail strong {
+  color: #5f7382;
+}
+
+.subject-audit-workbench__detail span {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .subject-audit-workbench__toolbar .query-workbench__toolbar-main {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .subject-audit-workbench__toolbar .entity-table__toolbar-divider {
+    display: none;
+  }
+
+  .subject-audit-workbench__field-filter,
+  .subject-audit-workbench__toolbar .entity-table__search {
+    width: 100%;
+  }
+
+  .subject-audit-workbench__field-input,
+  .subject-audit-workbench__toolbar .entity-table__search input {
+    width: 100%;
+  }
+}

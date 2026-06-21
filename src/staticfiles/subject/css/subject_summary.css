@@ -54,6 +54,24 @@
   letter-spacing: 0.04em;
 }
 
+.subject-summary-screen__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.subject-summary-screen__action-link {
+  color: #173042;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.subject-summary-screen__action-link:hover {
+  text-decoration: underline;
+}
+
 .subject-summary-screen__sections {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -113,6 +131,10 @@
   .subject-summary-screen__hero {
     flex-direction: column;
     padding: 20px;
+  }
+
+  .subject-summary-screen__actions {
+    align-items: flex-start;
   }
 
   .subject-summary-screen__sections {

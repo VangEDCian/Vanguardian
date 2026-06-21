@@ -6,12 +6,17 @@ from apps.study.application.commands import (
     RetractEligibilityAssessmentCommand,
 )
 from apps.study.application.exceptions import EligibilityEnrollmentGateError
+from apps.study.application.services.event_attestation_policy import (
+    EventAttestationPolicySnapshot,
+    StudyEventAttestationPolicyReader,
+)
 from apps.study.application.services.event_form_display_label import (
     EventFormDisplayConfigSnapshot,
     EventFormDisplayLabelService,
     EventFormDisplayLabelValidationError,
     EventFormDisplayTemplatePreview,
 )
+from apps.study.application.services.event_gate_evaluation import EventGateEvaluationHistoryReader
 from apps.study.application.services.randomization_workflow import (
     RandomizationSlotAssignment,
     StudyRandomizationSlotAssignmentService,
@@ -95,10 +100,42 @@ def record_event_gate_evaluation(command: RecordEventGateEvaluationCommand):
     return EventGateEvaluationRecorder().record(command)
 
 
+def list_event_gate_evaluation_history_for_subject(
+    *,
+    study_id: int,
+    subject_id: int,
+    limit: int = 200,
+    search: str = "",
+    field_name: str = "",
+) -> list[dict]:
+    return EventGateEvaluationHistoryReader().list_for_subject(
+        study_id=study_id,
+        subject_id=subject_id,
+        limit=limit,
+        search=search,
+        field_name=field_name,
+    )
+
+
 def study_site_belongs_to_study(*, study_id: int, study_site_id: int) -> bool:
     return StudySiteDirectoryQueryService.study_site_belongs_to_study(
         study_id=study_id,
         study_site_id=study_site_id,
+    )
+
+
+def list_event_attestation_policies_for_event(
+    *,
+    study_id: int,
+    study_version: str,
+    event_definition_id: int,
+    language_code: str | None = None,
+) -> list[EventAttestationPolicySnapshot]:
+    return StudyEventAttestationPolicyReader().list_enabled_for_event(
+        study_id=study_id,
+        study_version=study_version,
+        event_definition_id=event_definition_id,
+        language_code=language_code,
     )
 
 
@@ -148,6 +185,7 @@ __all__ = [
     "EventFormDisplayLabelRenderer",
     "EventFormDisplayLabelValidationError",
     "EventFormDisplayTemplatePreview",
+    "EventAttestationPolicySnapshot",
     "StudyEventFormBindingReader",
     "assign_randomization_slot_for_subject",
     "enroll_subject_after_eligibility_gate",
@@ -156,6 +194,8 @@ __all__ = [
     "record_event_gate_evaluation",
     "get_current_subject_treatment",
     "get_subject_treatment_timeline",
+    "list_event_attestation_policies_for_event",
+    "list_event_gate_evaluation_history_for_subject",
     "randomize_subject",
     "retract_subject_eligibility_assessment",
     "study_site_belongs_to_study",

@@ -1,0 +1,44 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% load render_table from django_tables2 %}
+{% block title %}
+    {{ subject_audit_history.title }} | {% trans "Subject Audit History | Vanguardian" %}
+{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet"
+          href="{% static 'reconcile/css/query_workbench.css' %}">
+    <link rel="stylesheet"
+          href="{% static 'subject/css/subject_audit_history.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ subject_audit_history.back_url }}"
+       class="dashboard-breadcrumb__back">{% trans "Subject Detail" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="query-workbench subject-audit-workbench">
+        <section class="entity-table-panel">
+            <form method="get"
+                  class="entity-table__toolbar query-workbench__toolbar subject-audit-workbench__toolbar">
+                <div class="query-workbench__toolbar-main">
+                    {% include "shared/components/_entity_table_toolbar_icon.html" %}
+                    <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
+                    <div class="entity-table__filter subject-audit-workbench__field-filter">
+                        <label for="{{ filter_form.field_name.id_for_label }}"
+                               class="entity-table__filter-label">{{ filter_form.field_name.label }}:</label>
+                        {{ filter_form.field_name }}
+                    </div>
+                    {{ filter_form.search }}
+                </div>
+                <div class="query-workbench__toolbar-user-filters subject-audit-workbench__meta">
+                    <span>
+                        {% blocktrans count total=subject_audit_history.total_count %}{{ total }} audit record{% plural %}{{ total }} audit records{% endblocktrans %}
+                    </span>
+                    <a href="{{ subject_audit_history.subject_detail_url }}"
+                       class="subject-audit-workbench__detail-link">{% trans "Open Subject Detail" %}</a>
+                </div>
+            </form>
+            {% render_table table %}
+        </section>
+    </section>
+{% endblock %}

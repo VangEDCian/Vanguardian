@@ -58,6 +58,88 @@ class AddRepeatingSubjectEventInstanceServiceTests(SimpleTestCase):
         self.assertEqual(repository.created_kwargs["now"], now)
         self.assertEqual(repository.created_kwargs["actor_user_id"], 99)
 
+
+class SubjectDetailNavigationMixinTests(SimpleTestCase):
+    def test_build_event_navigation_prefers_form_instance_display_label(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+        event_definition = SimpleNamespace(
+            id=76,
+            pk=76,
+            code="SCREENING",
+            name="Screening",
+            sequence_no=1,
+            is_repeating=False,
+            max_repeats=None,
+        )
+        event_instance = SimpleNamespace(
+            pk=76,
+            event_definition_id=76,
+            event_definition=event_definition,
+            event_name_snapshot="Screening",
+            event_code_snapshot="SCREENING",
+            status=EventInstanceStatusChoices.OPEN,
+            repeat_index=1,
+            completed_at=None,
+        )
+        binding = SimpleNamespace(
+            pk=401,
+            event_definition_id=76,
+            form_definition=SimpleNamespace(pk=15, code="AE"),
+        )
+        form_instance = SimpleNamespace(
+            event_form_binding_id=401,
+            display_label="AE #1 — acxc",
+        )
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet([event_instance]),
+                    _FakeQuerySet([SimpleNamespace(id=76, event_definition_id=76, status=EventInstanceStatusChoices.OPEN)]),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet([binding]),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instance",
+                return_value=[form_instance],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.CrfTemplateQueryService._translated_value",
+                return_value="Adverse Event Log",
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual(payload[0]["forms"][0]["title"], "AE #1 — acxc")
+
+
+class _FakeQuerySet(list):
+    def exclude(self, **kwargs):
+        if "status" not in kwargs:
+            return self
+        excluded_status = kwargs["status"]
+        return _FakeQuerySet([item for item in self if getattr(item, "status", None) != excluded_status])
+
+    def select_related(self, *args, **kwargs):
+        return self
+
+    def prefetch_related(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def only(self, *args, **kwargs):
+        return self
+
     def test_blocks_when_open_instance_exists(self):
         repository = _RepeatingEventRepositoryStub(
             event_instances=[
@@ -240,18 +322,21 @@ class SubjectDetailNavigationRepeatingActionTests(SimpleTestCase):
                     "event_definition_id": "100",
                     "status": EventInstanceStatusChoices.COMPLETED,
                     "is_repeating": True,
+                    "sidebar_label": "AE #1 — Headache",
                 },
                 {
                     "id": "11",
                     "event_definition_id": "100",
                     "status": EventInstanceStatusChoices.OPEN,
                     "is_repeating": True,
+                    "sidebar_label": "AE #2 — Nausea",
                 },
                 {
                     "id": "12",
                     "event_definition_id": "100",
                     "status": EventInstanceStatusChoices.VERIFIED,
                     "is_repeating": True,
+                    "sidebar_label": "AE #3 — Fatigue",
                 },
             ]
         }
@@ -260,6 +345,17 @@ class SubjectDetailNavigationRepeatingActionTests(SimpleTestCase):
 
         self.assertEqual(navigation[0]["id"], "11")
         self.assertEqual([item["id"] for item in navigation[0]["repeat_event_instances"]], ["10"])
+        self.assertEqual(navigation[0]["repeat_event_instances"][0]["sidebar_label"], "AE #1 — Headache")
+
+    def test_resolve_repeating_sidebar_label_prefers_form_title_over_date(self):
+        completed_at = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)
+
+        label = SubjectDetailNavigationMixin._resolve_repeating_sidebar_label(
+            forms=[{"title": "AE #1 — Headache"}],
+            completed_at=completed_at,
+        )
+
+        self.assertEqual(label, "AE #1 — Headache")
 
     def test_completed_at_label_uses_active_locale_date_format(self):
         completed_at = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)

@@ -2,6 +2,7 @@ import django_tables2 as tables
 from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
 from django.utils.formats import date_format
+from django.utils.html import format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
@@ -140,3 +141,76 @@ class SubjectListTable(tables.Table):
             "validation_issues",
             "actions",
         )
+
+
+class SubjectAuditHistoryTable(tables.Table):
+    occurred_at = tables.Column(verbose_name=_("Time"))
+    source = tables.Column(verbose_name=_("Source"))
+    field_name = tables.Column(verbose_name=_("Field Name"), attrs={"td": {"class": "entity-table__primary"}})
+    field_description = tables.Column(verbose_name=_("Field Description"))
+    value = tables.Column(verbose_name=_("Value"), orderable=False)
+    user_display = tables.Column(verbose_name=_("User"))
+    details = tables.Column(verbose_name=_("Details"), empty_values=(), orderable=False)
+
+    @staticmethod
+    def render_occurred_at(value):
+        return date_format(value, "DATETIME_FORMAT") if value else "—"
+
+    @staticmethod
+    def render_source(value):
+        return value or "—"
+
+    @staticmethod
+    def render_field_name(value):
+        return value or "—"
+
+    @staticmethod
+    def render_field_description(value):
+        return value or "—"
+
+    @staticmethod
+    def render_value(value):
+        return value or "—"
+
+    @staticmethod
+    def render_user_display(value):
+        return value or "—"
+
+    @staticmethod
+    def render_details(record):
+        details = record.get("details", []) if isinstance(record, dict) else getattr(record, "details", [])
+        reason = record.get("reason", "") if isinstance(record, dict) else getattr(record, "reason", "")
+        rows = []
+        if reason:
+            rows.append(("Reason", reason))
+        rows.extend(
+            (detail.get("label"), detail.get("value"))
+            for detail in details
+            if detail.get("label") and detail.get("value")
+        )
+        if not rows:
+            return "—"
+        return format_html_join(
+            "",
+            '<div class="subject-audit-workbench__detail"><strong>{}</strong><span>{}</span></div>',
+            rows,
+        )
+
+    class Meta:
+        attrs = {"class": "entity-table"}
+        order_by = ("-occurred_at",)
+        fields = (
+            "occurred_at",
+            "source",
+            "field_name",
+            "field_description",
+            "value",
+            "user_display",
+            "details",
+        )
+
+
+__all__ = [
+    "SubjectAuditHistoryTable",
+    "SubjectListTable",
+]
