@@ -1,6 +1,8 @@
 from .eligibility import SubjectEligibilityAssessment, SubjectEligibilityFailure
 from .events import (
     ConditionDefinition,
+    EventAttestationPolicy,
+    EventAttestationPolicyTranslation,
     EventDefinition,
     EventFormBinding,
     EventFormDisplayConfig,
@@ -22,6 +24,8 @@ from .study import Study
 __all__ = [
     "Study",
     "ConditionDefinition",
+    "EventAttestationPolicy",
+    "EventAttestationPolicyTranslation",
     "EventDefinition",
     "EventFormBinding",
     "EventFormDisplayConfig",

@@ -4,8 +4,8 @@ from datetime import datetime
 
 from django.utils import timezone
 
+from apps.core.choices.reconcile import ReconcileValidationRunSourceChoices
 from apps.reconcile.infrastructure.repositories import DjangoReconcileDataQueryWriteRepository
-from apps.reconcile.models import ReconcileValidationRunSourceChoices
 
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
 _QUERY_THREAD_COMMENT = "comment"

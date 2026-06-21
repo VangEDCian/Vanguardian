@@ -180,6 +180,180 @@ class DataCapturePageEntry(models.Model):
         verbose_name_plural = "data capture page entries"
 
 
+class DataCaptureEventAttestation(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        INVALIDATED = "INVALIDATED", "Invalidated"
+        SUPERSEDED = "SUPERSEDED", "Superseded"
+        REVOKED = "REVOKED", "Revoked"
+
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    study = models.ForeignKey(
+        "study.Study",
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="event_attestations",
+    )
+    site = models.ForeignKey(
+        "study.Site",
+        on_delete=models.DO_NOTHING,
+        db_column="site_id",
+        related_name="event_attestations",
+    )
+    subject = models.ForeignKey(
+        "subject.Subject",
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="event_attestations",
+    )
+    event_instance = models.ForeignKey(
+        "subject.SubjectEventInstance",
+        on_delete=models.DO_NOTHING,
+        db_column="event_instance_id",
+        related_name="attestations",
+    )
+    attestation_policy = models.ForeignKey(
+        "study.EventAttestationPolicy",
+        on_delete=models.DO_NOTHING,
+        db_column="attestation_policy_id",
+        related_name="runtime_attestations",
+    )
+
+    attestation_no = models.IntegerField()
+    study_version_snapshot = models.CharField(max_length=20)
+    policy_code_snapshot = models.CharField(max_length=64)
+    action_kind_snapshot = models.CharField(max_length=32)
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.ACTIVE)
+
+    language_code = models.CharField(max_length=15)
+    statement_code_snapshot = models.CharField(max_length=64)
+    statement_version_snapshot = models.CharField(max_length=20)
+    dialog_title_snapshot = models.CharField(max_length=255)
+    action_label_snapshot = models.CharField(max_length=100)
+    statement_text_snapshot = models.TextField()
+    confirmation_label_snapshot = models.CharField(max_length=255, null=True, blank=True)
+    confirmation_accepted = models.BooleanField(default=True)
+
+    attested_by_id = models.BigIntegerField()
+    attested_at = models.DateTimeField()
+    signer_name_snapshot = models.CharField(max_length=255)
+    signer_role_code_snapshot = models.CharField(max_length=100, null=True, blank=True)
+
+    study_site_membership_id = models.BigIntegerField(null=True, blank=True)
+    delegation_of_authority_id = models.BigIntegerField(null=True, blank=True)
+    gate_evaluation_id = models.BigIntegerField(null=True, blank=True)
+    signature_id = models.BigIntegerField(null=True, blank=True, unique=True)
+
+    scope_digest = models.CharField(max_length=64)
+
+    invalidated_at = models.DateTimeField(null=True, blank=True)
+    invalidated_by_id = models.BigIntegerField(null=True, blank=True)
+    invalidation_reason_code = models.CharField(max_length=64, null=True, blank=True)
+    invalidation_reason_text = models.TextField(null=True, blank=True)
+
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by_id = models.BigIntegerField(null=True, blank=True)
+    revocation_reason = models.TextField(null=True, blank=True)
+
+    supersedes_attestation = models.ForeignKey(
+        "self",
+        on_delete=models.DO_NOTHING,
+        db_column="supersedes_attestation_id",
+        related_name="superseded_by_attestations",
+        null=True,
+        blank=True,
+    )
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "datacapture_eventattestation"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event_instance", "attestation_policy", "attestation_no"],
+                name="dc_evt_attest_sequence_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["event_instance", "attestation_policy", "status"],
+                name="dc_evt_attest_evt_pol_stat_idx",
+            ),
+            models.Index(
+                fields=["study", "site", "status"],
+                name="dc_evt_attest_st_site_stat_idx",
+            ),
+            models.Index(
+                fields=["subject", "event_instance", "attested_at"],
+                name="dc_evt_attest_sub_evt_time_idx",
+            ),
+            models.Index(
+                fields=["attested_by_id", "attested_at"],
+                name="dc_evt_attest_user_time_idx",
+            ),
+            models.Index(fields=["scope_digest"], name="dc_evt_attest_scope_digest_idx"),
+        ]
+        verbose_name = "data capture event attestation"
+        verbose_name_plural = "data capture event attestations"
+
+
+class DataCaptureEventAttestationPage(models.Model):
+    event_attestation = models.ForeignKey(
+        DataCaptureEventAttestation,
+        on_delete=models.DO_NOTHING,
+        db_column="event_attestation_id",
+        related_name="pages",
+    )
+    page_state = models.ForeignKey(
+        DataCapturePageState,
+        on_delete=models.DO_NOTHING,
+        db_column="page_state_id",
+        related_name="event_attestation_pages",
+    )
+    page_entry = models.ForeignKey(
+        DataCapturePageEntry,
+        on_delete=models.DO_NOTHING,
+        db_column="page_entry_id",
+        related_name="event_attestation_pages",
+    )
+    crf_template = models.ForeignKey(
+        "crf.CrfTemplate",
+        on_delete=models.DO_NOTHING,
+        db_column="crf_template_id",
+        related_name="event_attestation_pages",
+    )
+
+    data_version = models.IntegerField()
+    page_status_snapshot = models.CharField(max_length=32)
+    page_data_hash = models.CharField(max_length=64)
+    captured_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "datacapture_eventattestation_page"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event_attestation", "page_state"],
+                name="dc_evt_attest_page_scope_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["page_state", "data_version"],
+                name="dc_evt_attest_page_version_idx",
+            ),
+            models.Index(fields=["page_entry"], name="dc_evt_attest_page_entry_idx"),
+        ]
+        verbose_name = "data capture event attestation page"
+        verbose_name_plural = "data capture event attestation pages"
+
+
 class DataCaptureSectionInstance(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -432,6 +606,8 @@ class DataCaptureFactMapping(models.Model):
 
 
 __all__ = [
+    "DataCaptureEventAttestation",
+    "DataCaptureEventAttestationPage",
     "DataCaptureFieldReview",
     "DataCaptureFieldEntry",
     "DataCaptureFactMapping",
