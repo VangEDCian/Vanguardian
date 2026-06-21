@@ -433,3 +433,190 @@ class EventFormBinding(models.Model):
         ]
         verbose_name = "study event form binding"
         verbose_name_plural = "study event form bindings"
+
+
+class EventFormDisplayConfig(models.Model):
+    class EmptyValuePolicy(models.TextChoices):
+        FALLBACK = "FALLBACK", "Fallback"
+        EMPTY_TEXT = "EMPTY_TEXT", "Empty Text"
+        OMIT_TOKEN = "OMIT_TOKEN", "Omit Token"
+
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    event_form_binding = models.OneToOneField(
+        EventFormBinding,
+        on_delete=models.DO_NOTHING,
+        db_column="event_form_binding_id",
+        related_name="display_config",
+    )
+    syntax_version = models.IntegerField(default=1)
+    is_enabled = models.BooleanField(default=True)
+    max_length = models.IntegerField(default=120)
+    use_choice_display_label = models.BooleanField(default=True)
+    empty_value_policy = models.CharField(
+        max_length=32,
+        choices=EmptyValuePolicy.choices,
+        default=EmptyValuePolicy.FALLBACK,
+    )
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventformdisplayconfig"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event_form_binding"],
+                name="study_eventformdisplayconfig_binding_uniq",
+            )
+        ]
+        verbose_name = "study event form display config"
+        verbose_name_plural = "study event form display configs"
+
+
+class EventFormDisplayConfigTranslation(models.Model):
+    display_config = models.ForeignKey(
+        EventFormDisplayConfig,
+        on_delete=models.DO_NOTHING,
+        db_column="display_config_id",
+        related_name="translations",
+    )
+    language_code = models.CharField(max_length=15)
+    label_template = models.TextField()
+    fallback_template = models.TextField()
+    empty_value_text = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventformdisplayconfig_translation"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["display_config", "language_code"],
+                name="study_eventformdisplayconfig_translation_uniq",
+            )
+        ]
+        verbose_name = "study event form display config translation"
+        verbose_name_plural = "study event form display config translations"
+
+
+class EventAttestationPolicy(models.Model):
+    class ActionKind(models.TextChoices):
+        REVIEW_COMPLETION = "REVIEW_COMPLETION", "Review completion"
+        CERTIFICATION = "CERTIFICATION", "Certification"
+
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="event_attestation_policies",
+    )
+    study_version = models.CharField(max_length=20)
+    event_definition = models.ForeignKey(
+        EventDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="event_definition_id",
+        related_name="attestation_policies",
+    )
+
+    code = models.CharField(max_length=64)
+    action_kind = models.CharField(max_length=32, choices=ActionKind.choices)
+    display_order = models.IntegerField(default=1)
+
+    statement_code = models.CharField(max_length=64)
+    statement_version = models.CharField(max_length=20, default="1")
+
+    required_permission_code = models.CharField(max_length=100)
+    required_role_code = models.CharField(max_length=100, null=True, blank=True)
+    delegation_task_code = models.CharField(max_length=64, null=True, blank=True)
+
+    condition_definition = models.ForeignKey(
+        ConditionDefinition,
+        on_delete=models.DO_NOTHING,
+        db_column="condition_definition_id",
+        related_name="event_attestation_policies",
+        null=True,
+        blank=True,
+    )
+    gate_code = models.CharField(max_length=64)
+
+    requires_confirmation_checkbox = models.BooleanField(default=True)
+    requires_signature = models.BooleanField(default=False)
+    requires_reauthentication = models.BooleanField(default=False)
+
+    invalidate_on_data_change = models.BooleanField(default=True)
+    invalidate_on_scope_change = models.BooleanField(default=True)
+
+    is_required_for_lock = models.BooleanField(default=False)
+    is_enabled = models.BooleanField(default=True)
+
+    created_by_id = models.BigIntegerField(null=True, blank=True)
+    updated_by_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventattestation_policy"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["study", "study_version", "event_definition", "code"],
+                name="study_evt_attest_policy_scope_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["event_definition", "action_kind", "is_enabled"],
+                name="study_evt_att_pol_evt_kind_idx",
+            ),
+            models.Index(
+                fields=["study", "study_version", "is_enabled"],
+                name="study_evt_att_pol_std_ver_idx",
+            ),
+            models.Index(
+                fields=["condition_definition", "is_enabled"],
+                name="study_evt_att_pol_cond_idx",
+            ),
+        ]
+        verbose_name = "study event attestation policy"
+        verbose_name_plural = "study event attestation policies"
+
+
+class EventAttestationPolicyTranslation(models.Model):
+    attestation_policy = models.ForeignKey(
+        EventAttestationPolicy,
+        on_delete=models.DO_NOTHING,
+        db_column="attestation_policy_id",
+        related_name="translations",
+    )
+    language_code = models.CharField(max_length=15)
+    dialog_title = models.CharField(max_length=255)
+    action_label = models.CharField(max_length=100)
+    statement_text = models.TextField()
+    confirmation_label = models.CharField(max_length=255, null=True, blank=True)
+    success_message = models.CharField(max_length=500, null=True, blank=True)
+
+    class Meta:
+        db_table = "study_eventattestation_policy_translation"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attestation_policy", "language_code"],
+                name="study_evt_attest_policy_trans_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["language_code"],
+                name="study_evt_att_pol_tr_lang_idx",
+            )
+        ]
+        verbose_name = "study event attestation policy translation"
+        verbose_name_plural = "study event attestation policy translations"

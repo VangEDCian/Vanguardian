@@ -5,6 +5,7 @@
              data-save-url="{{ datacapture_save_url|escape }}"
              data-submit-url="{{ datacapture_submit_url|escape }}"
              data-delete-draft-url="{{ datacapture_delete_draft_url|default:''|escape }}"
+             data-event-form-binding-id="{{ focused_form.id|default:'' }}"
              data-current-entry-id="{{ focused_render_entry.id|default:'' }}"
              data-page-status="{{ focused_page_status|default:''|escape }}"
              data-confirmation-message="{{ datacapture_save_confirm_message|default:''|escape }}"

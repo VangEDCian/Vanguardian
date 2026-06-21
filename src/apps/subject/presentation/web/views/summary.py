@@ -58,6 +58,10 @@ class SubjectSummaryView(
         context = super().get_context_data(**kwargs)
         summary = self.get_summary_model()
         summary["back_url"] = self._resolve_back_url()
+        summary["audit_history_url"] = reverse(
+            "subject:subject_audit_history",
+            kwargs={"study_id": self.get_study_id(), "subject_id": self.kwargs["subject_id"]},
+        )
         context["subject_summary"] = summary
         return context
 

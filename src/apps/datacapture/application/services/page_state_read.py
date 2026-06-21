@@ -26,21 +26,37 @@ class DataCapturePageStateReadService:
     def __init__(self, repository=None):
         self.repository = repository or DjangoDataCapturePageRepository()
 
-    def get_page_state_status(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> str:
+    def get_page_state_status(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        event_form_binding_id: int | None = None,
+    ) -> str:
         page_state = self.repository.get_page_state_by_scope(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         if page_state is None:
             return ""
         return (page_state.status or "").strip()
 
-    def get_page_state_id_for_scope(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> int | None:
+    def get_page_state_id_for_scope(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        event_form_binding_id: int | None = None,
+    ) -> int | None:
         page_state = self.repository.get_page_state_by_scope(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         if page_state is None:
             return None
@@ -60,11 +76,13 @@ class DataCapturePageStateReadService:
         subject_id: int,
         visit_id: int,
         crf_template_id: int,
+        event_form_binding_id: int | None = None,
     ) -> dict[str, Any]:
         page_state = self.repository.get_page_state_by_scope(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         if page_state is None or not (page_state.final_data or "").strip():
             return {}

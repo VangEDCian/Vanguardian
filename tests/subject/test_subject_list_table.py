@@ -2,10 +2,26 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from apps.subject.presentation.web.tables import SubjectListTable
+from apps.subject.presentation.web.tables import SubjectAuditHistoryTable, SubjectListTable
 
 
 class SubjectListTableTests(SimpleTestCase):
+    def test_subject_audit_history_table_has_workbench_columns(self):
+        table = SubjectAuditHistoryTable([])
+
+        self.assertEqual(
+            table.columns.names(),
+            [
+                "occurred_at",
+                "source",
+                "field_name",
+                "field_description",
+                "value",
+                "user_display",
+                "details",
+            ],
+        )
+
     def test_subject_list_table_shows_arm_after_randomization(self):
         record = SimpleNamespace(
             pk=1,

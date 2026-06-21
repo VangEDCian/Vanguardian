@@ -128,6 +128,7 @@
   const saveUrl = formRoot.dataset.saveUrl;
   const submitUrl = formRoot.dataset.submitUrl;
   const deleteDraftUrl = formRoot.dataset.deleteDraftUrl;
+  const eventFormBindingId = Number.parseInt(formRoot.dataset.eventFormBindingId || '', 10);
   const currentEntryId = Number.parseInt(formRoot.dataset.currentEntryId || '', 10);
   const confirmationMessage =
     formRoot.dataset.confirmationMessage ||
@@ -324,7 +325,10 @@
   }
 
   function collectFormPayload() {
-    return JSON.stringify(collectFormPayloadObject({ includeLookupMetadata: true }));
+    return JSON.stringify({
+      data: collectFormPayloadObject({ includeLookupMetadata: true }),
+      event_form_binding_id: Number.isFinite(eventFormBindingId) ? eventFormBindingId : null,
+    });
   }
 
   function stablePayloadString(value) {
@@ -1237,6 +1241,7 @@
     try {
       const submitPayload = JSON.stringify({
         data: collectFormPayloadObject({ includeLookupMetadata: true }),
+        event_form_binding_id: Number.isFinite(eventFormBindingId) ? eventFormBindingId : null,
         change_reasons: submitReasons,
       });
       const result = await network.postJson(submitUrl, submitPayload);
@@ -1270,7 +1275,12 @@
       setButtonsEnabled(false);
       setButtonPending(deleteDraftButton, 'Deleting...');
       try {
-        const result = await network.postJson(deleteDraftUrl, '{}');
+        const result = await network.postJson(
+          deleteDraftUrl,
+          JSON.stringify({
+            event_form_binding_id: Number.isFinite(eventFormBindingId) ? eventFormBindingId : null,
+          }),
+        );
         pageStatus = normalizePageStatus(result.page_status ?? pageStatus);
         formRoot.dataset.pageStatus = pageStatus;
         allowNextNavigation();

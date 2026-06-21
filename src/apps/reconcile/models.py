@@ -1,3 +1,4 @@
+from apps.core.choices.reconcile import ReconcileValidationRunSourceChoices
 from apps.reconcile.infrastructure.persistence.models import (
     ReconcileDataQuery,
     ReconcileDataQuerySeverityChoices,
@@ -13,7 +14,6 @@ from apps.reconcile.infrastructure.persistence.models import (
     ReconcileValidationIssueSnapshotResultChoices,
     ReconcileValidationIssueStatusChoices,
     ReconcileValidationRun,
-    ReconcileValidationRunSourceChoices,
 )
 
 __all__ = [

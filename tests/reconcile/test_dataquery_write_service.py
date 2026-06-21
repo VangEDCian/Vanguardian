@@ -242,11 +242,20 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
                     "message": "Please resolve query.",
                     "failed_value": "bad",
                 },
+                {
+                    "rule_id": 203,
+                    "field_template_id": 3,
+                    "field_key": "field_3",
+                    "mode": "HARD",
+                    "severity": "error",
+                    "message": "Hard rule failed.",
+                    "failed_value": "blocked",
+                },
             ],
             actor_user_id=99,
         )
 
-        self.assertEqual(result, {"soft_issue_count": 1, "query_count": 1})
+        self.assertEqual(result, {"soft_issue_count": 2, "query_count": 1})
         self.assertEqual(repository.created_validation_runs[0]["page_state_id"], 11)
         self.assertEqual(
             repository.created_validation_runs[0]["source"],
@@ -254,6 +263,8 @@ class ReconcileDataQueryWriteServiceTests(SimpleTestCase):
         )
         self.assertEqual(repository.created_soft_issues[0]["validation_run_id"], 8801)
         self.assertEqual(repository.created_soft_issues[0]["items"][0]["rule_id"], 201)
+        self.assertEqual(repository.created_soft_issues[0]["items"][1]["rule_id"], 203)
+        self.assertEqual(repository.created_soft_issues[0]["items"][1]["mode"], "HARD")
         self.assertEqual(repository.created_validation_queries[0]["validation_rule_id"], 202)
         self.assertEqual(repository.created_validation_queries[0]["severity"], "major")
         self.assertEqual(repository.created_threads[-1]["message_text"], "Please resolve query.")

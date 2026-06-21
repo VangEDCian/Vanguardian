@@ -468,6 +468,16 @@ class DjangoReconcileDataQueryReadRepository:
             .exists()
         )
 
+    def has_unclosed_query_for_page(self, *, page_state_id: int) -> bool:
+        return (
+            ReconcileDataQuery.objects.filter(
+                page_state_id=page_state_id,
+                deleted=False,
+            )
+            .exclude(status__in=self._active_status_excludes())
+            .exists()
+        )
+
     def list_latest_query_messages_by_page_state_and_field_templates(
         self,
         *,
@@ -791,12 +801,22 @@ class DjangoReconcileDataQueryReadRepository:
                 "resolved": 0,
                 "closed": 0,
                 "validation_issues_open": 0,
+                "hard_validation_issues_open": 0,
                 "actionable_for_current_user": 0,
             }
         inactive_statuses = ("cancelled", "closed", "resolved", "void")
         queryset = ReconcileDataQuery.objects.filter(page_state_id__in=page_state_ids, deleted=False)
         validation_issue_count = ReconcileValidationIssue.objects.filter(
             form_instance_id__in=page_state_ids,
+            status__in=(
+                ReconcileValidationIssueStatusChoices.OPEN,
+                ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+                ReconcileValidationIssueStatusChoices.QUERY_CREATED,
+            ),
+        ).count()
+        hard_validation_issue_count = ReconcileValidationIssue.objects.filter(
+            form_instance_id__in=page_state_ids,
+            rule__mode="HARD",
             status__in=(
                 ReconcileValidationIssueStatusChoices.OPEN,
                 ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
@@ -816,6 +836,7 @@ class DjangoReconcileDataQueryReadRepository:
             "resolved": queryset.filter(status=ReconcileDataQueryStatusChoices.RESOLVED).count(),
             "closed": queryset.filter(status=ReconcileDataQueryStatusChoices.CLOSED).count(),
             "validation_issues_open": validation_issue_count,
+            "hard_validation_issues_open": hard_validation_issue_count,
             "actionable_for_current_user": queryset.filter(status__in=("open", "answered")).count(),
         }
 

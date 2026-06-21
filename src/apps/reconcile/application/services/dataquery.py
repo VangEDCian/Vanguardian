@@ -4,8 +4,8 @@ from datetime import datetime
 
 from django.utils import timezone
 
+from apps.core.choices.reconcile import ReconcileValidationRunSourceChoices
 from apps.reconcile.infrastructure.repositories import DjangoReconcileDataQueryWriteRepository
-from apps.reconcile.models import ReconcileValidationRunSourceChoices
 
 _DATE_PART_SUFFIXES = ("__day", "__month", "__year", "__time")
 _QUERY_THREAD_COMMENT = "comment"
@@ -101,7 +101,9 @@ class ReconcileDataQueryWriteService:
         related_audit_event_id: int | None = None,
     ) -> dict[str, int]:
         normalized_failures = [self._normalize_validation_failure(item) for item in failures]
-        soft_failures = [item for item in normalized_failures if item.mode == "SOFT"]
+        validation_issue_failures = [
+            item for item in normalized_failures if item.mode in {"HARD", "SOFT"}
+        ]
         query_failures = [item for item in normalized_failures if item.mode == "QUERY"]
         now: datetime = timezone.now()
         normalized_evaluated_values_json = (
@@ -143,7 +145,7 @@ class ReconcileDataQueryWriteService:
                     "message": item.message,
                     "failed_value": item.failed_value,
                 }
-                for item in soft_failures
+                for item in validation_issue_failures
             ],
             actor_user_id=actor_user_id,
             now=now,

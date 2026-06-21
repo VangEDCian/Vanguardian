@@ -37,6 +37,10 @@
                         data-modal-open="modal-import-eventformbindings">
                     {% trans "Binding Form By Template" %}
                 </button>
+                <a href="{% url 'study:study_event_form_display_labels' study_id=detail_study.id %}"
+                   class="entity-table__footer-button entity-table__footer-button--secondary">
+                    {% trans "Configure Instance Labels" %}
+                </a>
                 <button type="button"
                         class="entity-table__footer-button entity-table__footer-button--secondary"
                         data-modal-open="modal-import-factmappings">

@@ -4,6 +4,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from apps.shared.filters import SharedSearch, SharedTotal
+from apps.shared.widgets import ToolbarSearchInputWidget
 from apps.subject.models import Subject
 
 MAX_EVENT_INSTANCE_IMPORT_FILE_SIZE_BYTES = 10 * 1024 * 1024
@@ -34,6 +35,7 @@ __all__ = [
     "ALLOWED_EVENT_INSTANCE_UPLOAD_EXTENSIONS",
     "ALLOWED_EVENT_INSTANCE_UPLOAD_MIME_TYPES",
     "MAX_EVENT_INSTANCE_IMPORT_FILE_SIZE_BYTES",
+    "SubjectAuditHistoryFilterForm",
     "SubjectEventInstanceFileImportForm",
     "SubjectsToolbarForm",
     "detect_event_instance_upload_kind_from_header",
@@ -104,6 +106,28 @@ class SubjectsToolbarForm(SharedSearch, SharedTotal):
         model = Subject
         fields = ("search",)
         toolbar_fields = ("total", "search")
+
+
+class SubjectAuditHistoryFilterForm(forms.Form):
+    field_name = forms.CharField(
+        required=False,
+        label=_("Field Name"),
+        widget=forms.TextInput(
+            attrs={
+                "class": "subject-audit-workbench__field-input",
+                "placeholder": _("Field name..."),
+                "aria-label": _("Filter audit history by field name"),
+            }
+        ),
+    )
+    search = forms.CharField(
+        required=False,
+        label=_("Search Queries"),
+        widget=ToolbarSearchInputWidget(
+            attrs={"placeholder": _("Search Queries")},
+            aria_label=_("Search audit history values, descriptions, and users"),
+        ),
+    )
 
 
 class SubjectEventInstanceFileImportForm(forms.Form):

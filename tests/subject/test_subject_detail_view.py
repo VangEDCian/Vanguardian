@@ -485,6 +485,37 @@ class SubjectDetailPageEntryFooterTests(SimpleTestCase):
 
 
 class SubjectDetailPageEntryMainTests(SimpleTestCase):
+    def test_form_render_header_uses_runtime_display_label(self):
+        rendered = render_to_string(
+            "subject/components/_form_render.html",
+            {
+                "focused_form": {"title": "AE #1 — acxc"},
+                "focused_page_status": "submitted",
+                "focused_event": {"name": "Screening"},
+                "form_render_sections": [{"title": "Section A", "fields": []}],
+                "can_add_repeat_sections": False,
+            },
+        )
+
+        self.assertIn("AE #1 — acxc", rendered)
+        self.assertIn("(SUBMITTED)", rendered)
+        self.assertNotIn("Adverse Event Log", rendered)
+
+    def test_form_render_placeholder_uses_runtime_display_label(self):
+        rendered = render_to_string(
+            "subject/components/_form_render.html",
+            {
+                "focused_form": {"title": "AE #1 — acxc"},
+                "focused_page_status": "",
+                "focused_event": {"name": "Screening"},
+                "form_render_sections": [],
+                "can_add_repeat_sections": False,
+            },
+        )
+
+        self.assertIn("AE #1 — acxc", rendered)
+        self.assertNotIn("Adverse Event Log", rendered)
+
     def test_radio_control_renders_clear_button_after_options(self):
         rendered = render_to_string(
             "subject/components/controls/_radio_control.html",

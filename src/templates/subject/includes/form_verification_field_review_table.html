@@ -36,7 +36,7 @@
                                data-blocked-by-open-query="{% if row.active_query_id or row.open_query_count %}true{% else %}false{% endif %}"
                                data-blocked-by-validation-issue="{% if row.validation_issue_count %}true{% else %}false{% endif %}"
                                {% if row.is_checked %}checked{% endif %}
-                               {% if row.active_query_id or row.open_query_count or row.validation_issue_count or form_verification_fields_locked or not form_verification_show_field_checkboxes %}disabled aria-disabled="true"{% endif %}
+                               {% if row.validation_issue_count or form_verification_fields_locked or not form_verification_show_field_checkboxes %}disabled aria-disabled="true"{% endif %}
                                aria-label="{% trans 'Select field for verification' %}" />
                     </td>
                     <td>

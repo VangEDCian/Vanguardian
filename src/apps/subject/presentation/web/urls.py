@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.subject.presentation.web.views import (
     SubjectAddRepeatingEventInstanceView,
+    SubjectAuditHistoryView,
     SubjectCreateView,
     SubjectDetailView,
     SubjectEventInstanceFileContentView,
@@ -44,6 +45,11 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/<int:subject_id>/summary/",
         SubjectSummaryView.as_view(),
         name="subject_summary",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/audit-history/",
+        SubjectAuditHistoryView.as_view(),
+        name="subject_audit_history",
     ),
     path(
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/verify-checked/",

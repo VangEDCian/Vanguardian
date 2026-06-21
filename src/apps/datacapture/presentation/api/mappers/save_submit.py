@@ -42,6 +42,20 @@ def _normalize_submit_payload(raw_body: str) -> tuple[str, tuple[SubmitFieldChan
     return json.dumps(data_payload), tuple(reasons)
 
 
+def _extract_event_form_binding_id(raw_body: str) -> int | None:
+    try:
+        parsed = json.loads(raw_body or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    raw_value = parsed.get("event_form_binding_id")
+    try:
+        return int(raw_value) if raw_value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
 def save_page_command_from_post(
     *,
     subject_id: int,
@@ -50,11 +64,14 @@ def save_page_command_from_post(
     raw_body: str,
     actor_user_id: int | None,
 ) -> SavePageCommand:
+    event_form_binding_id = _extract_event_form_binding_id(raw_body)
+    normalized_data, _ = _normalize_submit_payload(raw_body)
     return SavePageCommand(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
-        data=raw_body,
+        data=normalized_data,
+        event_form_binding_id=event_form_binding_id,
         actor_user_id=actor_user_id,
     )
 
@@ -73,6 +90,7 @@ def submit_page_command_from_post(
         visit_id=visit_id,
         crf_template_id=crf_template_id,
         data=normalized_data,
+        event_form_binding_id=_extract_event_form_binding_id(raw_body),
         change_reasons=change_reasons,
         actor_user_id=actor_user_id,
     )
@@ -83,11 +101,13 @@ def delete_draft_page_command_from_post(
     subject_id: int,
     visit_id: int,
     crf_template_id: int,
+    raw_body: str = "",
     actor_user_id: int | None,
 ) -> DeleteDraftPageCommand:
     return DeleteDraftPageCommand(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        event_form_binding_id=_extract_event_form_binding_id(raw_body),
         actor_user_id=actor_user_id,
     )

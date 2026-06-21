@@ -9,8 +9,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 1rem;
   color: #20262d;
 }
 

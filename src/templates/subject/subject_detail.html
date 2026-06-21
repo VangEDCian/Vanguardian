@@ -40,7 +40,13 @@
                     <strong>{{ subject_obj.screening_code|default:"—" }}</strong>
                 </span>
             </div>
-            <strong class="subject-detail-screen__study-name">{{ study_header_label }}</strong>
+            <div class="subject-detail-screen__summary-actions">
+                <strong class="subject-detail-screen__study-name">{{ study_header_label }}</strong>
+                {% if audit_history_url %}
+                    <a href="{{ audit_history_url }}"
+                       class="subject-detail-screen__audit-link">{% trans "Audit History" %}</a>
+                {% endif %}
+            </div>
         </header>
         {% if focused_forms %}
             <nav class="subject-detail-screen__tabs"
@@ -80,7 +86,7 @@
                                         {% for repeat_item in event_item.repeat_event_instances %}
                                             <a href="{{ repeat_item.focus_url }}"
                                                class="subject-detail-sidebar__child{% if focused_event and focused_event.id == repeat_item.id %} is-active{% endif %}">
-                                                {{ repeat_item.completed_at_label }}
+                                                {{ repeat_item.sidebar_label|default:repeat_item.completed_at_label }}
                                             </a>
                                         {% endfor %}
                                     </div>
@@ -112,7 +118,7 @@
             </main>
         </div>
         {% if is_form_verification_mode %}
-            {% if form_verification_reopen_url or form_verification_verify_checked_url or form_verification_finalize_page_data_url or form_verification_lock_page_url %}
+            {% if form_verification_reopen_url or form_verification_verify_checked_url or form_verification_finalize_page_data_url or form_verification_lock_page_url or form_verification_lock_blocked_by_queries %}
                 <footer class="subject-detail-screen__footer subject-detail-screen__footer--verification">
                     <div class="subject-detail-screen__footer-actions">
                         {% if form_verification_reopen_url %}
@@ -147,7 +153,13 @@
                                     data-form-verification-page-action="lock"
                                     data-post-url="{{ form_verification_lock_page_url|escape }}"
                                     data-loading-message="{% trans 'Locking page...' %}"
-                                    data-success-message="{% trans 'Page locked.' %}">
+                                    data-success-message="{% trans 'Page locked.' %}">{% trans "Lock Page" %}</button>
+                        {% elif form_verification_lock_blocked_by_queries %}
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--danger"
+                                    disabled
+                                    aria-disabled="true"
+                                    title="{% trans 'Close all queries before locking the form.' %}">
                                 {% trans "Lock Page" %}
                             </button>
                         {% endif %}
@@ -341,6 +353,9 @@
         {% endif %}
         <script src="{% static 'subject/js/subject_form_verification_review_filter.js' %}"></script>
         <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
+        {% if event_attestation_panel and event_attestation_panel.has_policies %}
+            <script src="{% static 'subject/js/subject_event_attestation.js' %}"></script>
+        {% endif %}
     {% endif %}
     {% if not is_subject_detail_viewonly_mode %}
         <script src="{% static 'subject/js/subject_detail_event_files.js' %}"></script>

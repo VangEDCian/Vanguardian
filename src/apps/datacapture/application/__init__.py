@@ -25,6 +25,7 @@ from apps.datacapture.application.exceptions import (
 )
 from apps.datacapture.application.services import (
     DataCaptureEventFactEvaluation,
+    DataCaptureEventAttestationService,
     DataCaptureEventTransitionTriggerResult,
     DataCaptureFactEvaluation,
     DataCaptureFactEvaluationService,
@@ -42,6 +43,7 @@ from apps.datacapture.application.services import (
 __all__ = [
     "DataCaptureEventTransitionTriggerResult",
     "DataCaptureEventFactEvaluation",
+    "DataCaptureEventAttestationService",
     "DataCaptureFactEvaluation",
     "DataCaptureFactEvaluationService",
     "DataCaptureFactMappingConfigService",

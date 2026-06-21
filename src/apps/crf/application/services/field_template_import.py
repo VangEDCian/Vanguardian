@@ -95,6 +95,59 @@ class CrfFieldTemplateImportService:
         self._save_ui_config_translations(ui_config=ui_config, payload=payload)
         return action, field_template
 
+    @transaction.atomic
+    def upsert_field_review_policy(
+        self,
+        *,
+        study_id,
+        study_version,
+        crf_template_id,
+        field_template_id,
+        review_type,
+        is_required_for_page_verify,
+        is_required_for_lock,
+        is_blocking_if_missing,
+        role_required,
+        is_enabled,
+        actor_user_id,
+        now=None,
+    ):
+        now = now or timezone.now()
+        defaults = {
+            "updated_at": now,
+            "deleted": False,
+            "is_required_for_page_verify": is_required_for_page_verify,
+            "is_required_for_lock": is_required_for_lock,
+            "is_blocking_if_missing": is_blocking_if_missing,
+            "role_required": role_required,
+            "is_enabled": is_enabled,
+            "updated_by_id": actor_user_id,
+        }
+        policy = self.repository.get_field_review_policy(
+            study_id=study_id,
+            study_version=study_version,
+            crf_template_id=crf_template_id,
+            field_template_id=field_template_id,
+            review_type=review_type,
+        )
+        if policy is None:
+            self.repository.create_field_review_policy(
+                study_id=study_id,
+                study_version=study_version,
+                crf_template_id=crf_template_id,
+                field_template_id=field_template_id,
+                review_type=review_type,
+                created_at=now,
+                created_by_id=actor_user_id,
+                **defaults,
+            )
+            return "created"
+
+        for field_name, value in defaults.items():
+            setattr(policy, field_name, value)
+        self.repository.save_field_review_policy(policy, update_fields=list(defaults.keys()))
+        return "updated"
+
     def _save_field_template_translations(self, *, field_template, payload):
         fallback_label = payload["label_en"] or payload["label_vi"] or payload["field_key"]
         self.repository.save_field_template_translation(

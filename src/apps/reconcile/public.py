@@ -119,6 +119,10 @@ def list_field_template_ids_with_reconcile_queries(
     )
 
 
+def summarize_reconcile_workbench_for_page_states(*, page_state_ids: tuple[int, ...]) -> dict[str, int]:
+    return ReconcileDataQueryReadService().summarize_workbench(page_state_ids=page_state_ids)
+
+
 def reply_to_reconcile_query(
     *,
     dataquery_id: int,
@@ -274,4 +278,5 @@ __all__ = [
     "request_clarification_reconcile_query",
     "resolve_reconcile_query",
     "reply_to_reconcile_query",
+    "summarize_reconcile_workbench_for_page_states",
 ]

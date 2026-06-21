@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.choices.reconcile import ReconcileValidationRunSourceChoices
+
 
 class ReconcileDataQueryStatusChoices(models.TextChoices):
     OPEN = "open", _("Open")
@@ -62,11 +64,6 @@ class ReconcileValidationIssueStatusChoices(models.TextChoices):
 class ReconcileValidationIssueSnapshotResultChoices(models.TextChoices):
     FAIL = "FAIL", _("Fail")
     PASS = "PASS", _("Pass")
-
-
-class ReconcileValidationRunSourceChoices(models.TextChoices):
-    SUBMIT_FOR_REVIEW = "SUBMIT_FOR_REVIEW", _("Submit for review")
-    VALIDATION_ISSUE_ACKNOWLEDGEMENT = "VALIDATION_ISSUE_ACKNOWLEDGEMENT", _("Validation issue acknowledgement")
 
 
 class ReconcileDataQuery(models.Model):

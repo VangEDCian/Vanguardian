@@ -29,7 +29,13 @@
                     </p>
                 {% endif %}
             </div>
-            <span class="subject-summary-screen__stage">{{ subject_summary.subtitle }}</span>
+            <div class="subject-summary-screen__actions">
+                <span class="subject-summary-screen__stage">{{ subject_summary.subtitle }}</span>
+                {% if subject_summary.audit_history_url %}
+                    <a href="{{ subject_summary.audit_history_url }}"
+                       class="subject-summary-screen__action-link">{% trans "Audit History" %}</a>
+                {% endif %}
+            </div>
         </header>
         <div class="subject-summary-screen__sections">
             {% for section in subject_summary.sections %}

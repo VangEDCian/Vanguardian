@@ -10,6 +10,7 @@ from apps.study.presentation.web.forms.eventdefinitions import (
     EventDefinitionsToolbarForm,
     FactMappingImportTemplateForm,
 )
+from apps.study.presentation.web.forms.event_form_display_labels import EventFormDisplayLabelConfigForm
 from apps.study.presentation.web.forms.eventformbindings import EventFormBindingImportTemplateForm
 from apps.study.presentation.web.forms.randomization import RandomizationImportFileForm
 from apps.study.presentation.web.forms.site import SitesToolbarForm
@@ -24,6 +25,7 @@ __all__ = [
     "CrfTemplateFieldsImportTemplateForm",
     "CrfTemplateImportTemplateForm",
     "CrfValidationRuleImportTemplateForm",
+    "EventFormDisplayLabelConfigForm",
     "EventFormBindingImportTemplateForm",
     "EventDefinitionImportTemplateForm",
     "FactMappingImportTemplateForm",

@@ -1,5 +1,7 @@
 from apps.study.infrastructure.persistence.models import (
     ConditionDefinition,
+    EventAttestationPolicy,
+    EventAttestationPolicyTranslation,
     EventDefinition,
     EventFormBinding,
     EventTransitionRule,
@@ -98,6 +100,28 @@ class DjangoStudyEventRepository:
     def save_transition_rule(self, transition_rule, *, update_fields):
         transition_rule.save(update_fields=update_fields)
         return transition_rule
+
+    def get_attestation_policy_for_import(self, *, study_id, study_version, event_definition, code):
+        return EventAttestationPolicy.objects.filter(
+            study_id=study_id,
+            study_version=study_version,
+            event_definition=event_definition,
+            code=code,
+        ).first()
+
+    def create_attestation_policy(self, **values):
+        return EventAttestationPolicy.objects.create(**values)
+
+    def save_attestation_policy(self, attestation_policy, *, update_fields):
+        attestation_policy.save(update_fields=update_fields)
+        return attestation_policy
+
+    def upsert_attestation_policy_translation(self, *, attestation_policy, language_code, defaults):
+        return EventAttestationPolicyTranslation.objects.update_or_create(
+            attestation_policy=attestation_policy,
+            language_code=language_code,
+            defaults=defaults,
+        )
 
     def get_event_form_binding(self, *, event_definition_id, form_definition_id):
         return EventFormBinding.objects.filter(

@@ -12,6 +12,7 @@ from apps.study.presentation.web.views.eventdefinitions import (
     StudyEventFormBindingImportTemplateView,
     StudyFactMappingImportTemplateView,
 )
+from apps.study.presentation.web.views.event_form_display_labels import StudyEventFormDisplayLabelConfigView
 from apps.study.presentation.web.views.randomization import (
     StudyRandomizationArmImportCommitView,
     StudyRandomizationArmImportPreviewView,
@@ -62,6 +63,7 @@ __all__ = [
     "StudyEventDefinitionCreateView",
     "StudyEventDefinitionImportTemplateView",
     "StudyEventDefinitionListView",
+    "StudyEventFormDisplayLabelConfigView",
     "StudyEventFormBindingImportTemplateView",
     "StudyFactMappingImportTemplateView",
     "StudyListView",

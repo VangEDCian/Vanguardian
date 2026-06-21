@@ -86,11 +86,19 @@ class DataCapturePageStateVerificationFinalDataService:
         value = "" if raw_value is None else str(raw_value)
         return json.dumps({field_key: value}, ensure_ascii=False, sort_keys=True)
 
-    def _get_reviewable_page_state_or_raise(self, *, subject_id: int, visit_id: int, crf_template_id: int):
+    def _get_reviewable_page_state_or_raise(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        event_form_binding_id: int | None = None,
+    ):
         snapshot = self.repository.get_page_state(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         self.validator.require_page_state(snapshot)
         self.validator.require_verify_status(snapshot.status)
@@ -122,19 +130,16 @@ class DataCapturePageStateVerificationFinalDataService:
         checked_field_template_ids: list[int],
         unverify_reason_text: str | None = None,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ) -> tuple[bool, str, list[str], list[int]]:
         snapshot = self._get_reviewable_page_state_or_raise(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         checked_set = self._normalize_checked_ids(checked_field_template_ids)
         for field_template_id in sorted(checked_set):
-            if self.reconcile_read_service.has_open_query_for_page_field(
-                page_state_id=snapshot.id,
-                field_template_id=field_template_id,
-            ):
-                raise DataCaptureValidationError("yêu cầu đóng Query trước khi verify")
             if self.reconcile_read_service.has_open_validation_issue_for_page_field(
                 page_state_id=snapshot.id,
                 field_template_id=field_template_id,
@@ -149,6 +154,7 @@ class DataCapturePageStateVerificationFinalDataService:
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         self.validator.require_page_state(snapshot)
 
@@ -168,6 +174,7 @@ class DataCapturePageStateVerificationFinalDataService:
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         entry_payload = self._load_json_dict(latest_entry.data if latest_entry is not None else "{}")
         blockers: list[str] = []
@@ -203,12 +210,6 @@ class DataCapturePageStateVerificationFinalDataService:
                 continue
 
         for field_template_id in sorted(checked_set & set(field_template_ids)):
-            if self.reconcile_read_service.has_active_blocking_query_for_page_field(
-                page_state_id=snapshot.id,
-                field_template_id=field_template_id,
-            ):
-                blockers.append(f"field_blocked_by_query:{field_template_id}")
-                continue
             self.repository.verify_field_review(
                 page_state_id=snapshot.id,
                 field_template_id=field_template_id,
@@ -234,8 +235,6 @@ class DataCapturePageStateVerificationFinalDataService:
                 review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
             )
         )
-        if self.reconcile_read_service.has_active_blocking_query_for_page(page_state_id=snapshot.id):
-            blockers.append("active_blocking_query")
 
         if blockers:
             return False, DataCapturePageState.UNDER_REVIEW, blockers, unverified_field_template_ids
@@ -250,6 +249,11 @@ class DataCapturePageStateVerificationFinalDataService:
             visit_id=visit_id,
             actor_user_id=actor_user_id,
             page_status=page_status,
+        )
+        self._invalidate_event_attestations_for_scope_change(
+            visit_id=visit_id,
+            actor_user_id=actor_user_id,
+            reason_text="Page verification status changed for this event.",
         )
         return True, page_status, [], unverified_field_template_ids
 
@@ -301,11 +305,13 @@ class DataCapturePageStateVerificationFinalDataService:
         subject_id: int,
         visit_id: int,
         crf_template_id: int,
+        event_form_binding_id: int | None = None,
     ) -> set[int]:
         snapshot = self.repository.get_page_state(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         if snapshot is None:
             return set()
@@ -323,11 +329,13 @@ class DataCapturePageStateVerificationFinalDataService:
         crf_template_id: int,
         reason_text: str | None,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ) -> str:
         snapshot = self.repository.get_page_state(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         self.validator.require_page_state(snapshot)
         self.validator.require_reopen_status(snapshot.status)
@@ -342,6 +350,11 @@ class DataCapturePageStateVerificationFinalDataService:
                 event_instance_id=visit_id,
                 actor_user_id=actor_user_id,
             )
+            self._invalidate_event_attestations_for_scope_change(
+                visit_id=visit_id,
+                actor_user_id=actor_user_id,
+                reason_text="Page verification was reopened for this event.",
+            )
         return page_status
 
     def finalize_page_data(
@@ -351,11 +364,13 @@ class DataCapturePageStateVerificationFinalDataService:
         visit_id: int,
         crf_template_id: int,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ) -> str:
         snapshot = self.repository.get_page_state(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         self.validator.require_page_state(snapshot)
         self.validator.require_finalize_status(snapshot.status)
@@ -369,6 +384,12 @@ class DataCapturePageStateVerificationFinalDataService:
             status=DataCapturePageState.FINALIZED,
             actor_user_id=actor_user_id,
             trigger_source="PageDataFinalized",
+            event_form_binding_id=event_form_binding_id,
+        )
+        self._invalidate_event_attestations_for_scope_change(
+            visit_id=visit_id,
+            actor_user_id=actor_user_id,
+            reason_text="Page data was finalized for this event.",
         )
         return DataCapturePageState.FINALIZED
 
@@ -379,14 +400,18 @@ class DataCapturePageStateVerificationFinalDataService:
         visit_id: int,
         crf_template_id: int,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ) -> str:
         snapshot = self.repository.get_page_state(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         self.validator.require_page_state(snapshot)
         self.validator.require_lock_status(snapshot.status)
+        if self.reconcile_read_service.has_unclosed_query_for_page(page_state_id=snapshot.id):
+            raise DataCaptureValidationError("yêu cầu đóng hết Query trước khi lock")
         if snapshot.status != DataCapturePageState.LOCKED:
             self.repository.update_page_state_final_data_and_status(
                 subject_id=subject_id,
@@ -396,6 +421,12 @@ class DataCapturePageStateVerificationFinalDataService:
                 status=DataCapturePageState.LOCKED,
                 actor_user_id=actor_user_id,
                 trigger_source="PageLocked",
+                event_form_binding_id=event_form_binding_id,
+            )
+            self._invalidate_event_attestations_for_scope_change(
+                visit_id=visit_id,
+                actor_user_id=actor_user_id,
+                reason_text="Page was locked for this event.",
             )
         self._governance_lock_adapter().lock_page_scope(
             subject_id=subject_id,
@@ -414,17 +445,37 @@ class DataCapturePageStateVerificationFinalDataService:
             self.governance_lock_adapter = GovernancePageLockAdapter()
         return self.governance_lock_adapter
 
+    @staticmethod
+    def _invalidate_event_attestations_for_scope_change(
+        *,
+        visit_id: int,
+        actor_user_id: int | None,
+        reason_text: str,
+    ) -> None:
+        from apps.datacapture.application.services.event_attestation import (
+            DataCaptureEventAttestationService,
+        )
+
+        DataCaptureEventAttestationService().invalidate_active_attestations_for_event(
+            event_instance_id=visit_id,
+            change_type="scope",
+            actor_user_id=actor_user_id,
+            reason_text=reason_text,
+        )
+
     def list_verified_field_template_ids(
         self,
         *,
         subject_id: int,
         visit_id: int,
         crf_template_id: int,
+        event_form_binding_id: int | None = None,
     ) -> set[int]:
         snapshot = self.repository.get_page_state(
             subject_id=subject_id,
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
         )
         if snapshot is None:
             return set()
