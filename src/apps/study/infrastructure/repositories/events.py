@@ -74,14 +74,6 @@ class DjangoStudyEventRepository:
             updated_at=updated_at,
             updated_by_id=actor_user_id,
         )
-        EventAttestationPolicyTranslation.objects.filter(
-            attestation_policy__event_definition_id__in=event_definition_ids,
-            deleted=False,
-        ).update(
-            deleted=True,
-            updated_at=updated_at,
-            updated_by_id=actor_user_id,
-        )
         EventAttestationPolicy.objects.filter(
             event_definition_id__in=event_definition_ids,
             deleted=False,
