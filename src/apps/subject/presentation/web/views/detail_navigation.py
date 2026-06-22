@@ -7,7 +7,7 @@ from django.utils.translation import gettext as _
 from apps.core.choices.study import EventExecutionModeChoices, EventInstanceStatusChoices
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.public import CrfContextAdapter
-from apps.datacapture.public import list_form_instances_for_event_instance
+from apps.datacapture.public import list_form_instances_for_event_instances
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
 
@@ -66,13 +66,16 @@ class SubjectDetailNavigationMixin:
                 event_instance.pk
             )
 
+        language_code = get_language()
+        lang = CrfTemplateQueryService._normalize_language_code(language_code)
         event_items_by_definition = {}
+        form_instances_by_event_id = list_form_instances_for_event_instances(
+            visit_ids=tuple(int(event_instance.pk) for event_instance in event_instances),
+            language_code=language_code,
+        )
         for event_instance in event_instances:
             form_instance_labels_by_binding_id = {}
-            for form_instance in list_form_instances_for_event_instance(
-                visit_id=int(event_instance.pk),
-                language_code=get_language(),
-            ):
+            for form_instance in form_instances_by_event_id.get(int(event_instance.pk), []):
                 binding_id = int(form_instance.event_form_binding_id)
                 form_instance_labels_by_binding_id.setdefault(
                     binding_id,
@@ -81,7 +84,6 @@ class SubjectDetailNavigationMixin:
             forms = []
             for binding in bindings_map.get(event_instance.event_definition_id, []):
                 template = binding.form_definition
-                lang = CrfTemplateQueryService._normalize_language_code(get_language())
                 template_name = CrfTemplateQueryService._translated_value(
                     template,
                     lang,

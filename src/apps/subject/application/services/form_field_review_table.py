@@ -110,20 +110,25 @@ class FormFieldReviewTableService:
                     field_template_ids=tuple(field_template_ids),
                 )
             )
-            query_thread_badge_counts = (
-                self._reconcile_read_service.count_query_threads_since_current_user_last_comment(
-                    page_state_id=page_state_id,
-                    field_template_ids=tuple(field_template_ids),
+            active_query_ids_tuple = tuple(active_query_ids.values())
+            query_messages_by_query_for_field = self._reconcile_read_service.list_latest_query_messages_by_dataquery_ids(
+                dataquery_ids=active_query_ids_tuple,
+                limit_per_query=10,
+            )
+            query_thread_badge_counts_by_active_query = (
+                self._reconcile_read_service.count_query_threads_since_current_user_last_comment_by_dataquery_ids(
+                    dataquery_ids=active_query_ids_tuple,
                     current_user_id=current_user_id,
                 )
             )
-            query_messages_by_field = (
-                self._reconcile_read_service.list_latest_query_messages_by_page_state_and_field_templates(
-                    page_state_id=page_state_id,
-                    field_template_ids=tuple(field_template_ids),
-                    limit_per_field=10,
-                )
-            )
+            query_messages_by_field = {
+                field_template_id: query_messages_by_query_for_field.get(dataquery_id, [])
+                for field_template_id, dataquery_id in active_query_ids.items()
+            }
+            query_thread_badge_counts = {
+                field_template_id: query_thread_badge_counts_by_active_query.get(dataquery_id, 0)
+                for field_template_id, dataquery_id in active_query_ids.items()
+            }
             closed_query_histories_by_field = (
                 self._reconcile_read_service.list_closed_query_histories_by_page_state_and_field_templates(
                     page_state_id=page_state_id,

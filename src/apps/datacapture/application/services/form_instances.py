@@ -61,6 +61,9 @@ class DataCaptureFormInstanceService:
         self.audit_context_adapter = audit_context_adapter or self.audit_context_adapter_class()
         self.binding_reader = binding_reader or self.binding_reader_class()
         self.repository = repository or self.repository_class()
+        self._display_config_cache: dict[int, object | None] = {}
+        self._field_schema_cache: dict[int, list[dict]] = {}
+        self._choice_label_maps_cache: dict[int, dict[str, dict[str, str]]] = {}
 
     @transaction.atomic
     def create_form_instance(
@@ -158,25 +161,40 @@ class DataCaptureFormInstanceService:
         visit_id: int,
         language_code: str | None = None,
     ) -> list[DataCaptureFormInstanceDTO]:
-        visit = get_event_instance_snapshot(event_instance_id=visit_id) or {}
-        visit_repeat_index = max(1, int(visit.get("repeat_index") or 1))
+        return self.list_form_instances_for_event_instances(
+            visit_ids=(int(visit_id),),
+            language_code=language_code,
+        ).get(int(visit_id), [])
+
+    def list_form_instances_for_event_instances(
+        self,
+        *,
+        visit_ids: tuple[int, ...],
+        language_code: str | None = None,
+    ) -> dict[int, list[DataCaptureFormInstanceDTO]]:
+        normalized_visit_ids = tuple(dict.fromkeys(int(visit_id) for visit_id in visit_ids or ()))
+        if not normalized_visit_ids:
+            return {}
         page_states = list(
             DataCapturePageState.objects.filter(
-                visit_id=visit_id,
+                visit_id__in=normalized_visit_ids,
                 deleted=False,
             )
-            .select_related("event_form_binding", "event_form_binding__form_definition", "current_entry")
+            .select_related("visit", "event_form_binding", "event_form_binding__form_definition", "current_entry")
             .prefetch_related("event_form_binding__form_definition__translations")
-            .order_by("repeat_index", "id")
+            .order_by("visit_id", "repeat_index", "id")
         )
         normalized_language = self._language_code(language_code)
-        hydrated_page_states = []
+        hydrated_page_states_by_visit_id: dict[int, list[DataCapturePageState]] = {
+            visit_id: [] for visit_id in normalized_visit_ids
+        }
         for page_state in page_states:
             page_state = self.repository.ensure_page_state_binding_context(page_state)
             binding = getattr(page_state, "event_form_binding", None)
             if binding is None and getattr(page_state, "event_form_binding_id", None):
                 page_state = (
                     DataCapturePageState.objects.select_related(
+                        "visit",
                         "event_form_binding",
                         "event_form_binding__form_definition",
                         "current_entry",
@@ -193,34 +211,34 @@ class DataCaptureFormInstanceService:
                 or not bool(getattr(binding, "is_enabled", False))
             ):
                 continue
-            hydrated_page_states.append(page_state)
-        binding_counts: dict[int, int] = {}
-        for page_state in hydrated_page_states:
-            binding_counts[int(page_state.event_form_binding_id)] = (
-                binding_counts.get(int(page_state.event_form_binding_id), 0) + 1
+            hydrated_page_states_by_visit_id.setdefault(int(page_state.visit_id), []).append(page_state)
+
+        payload: dict[int, list[DataCaptureFormInstanceDTO]] = {}
+        for visit_id, hydrated_page_states in hydrated_page_states_by_visit_id.items():
+            binding_counts: dict[int, int] = {}
+            for page_state in hydrated_page_states:
+                binding_counts[int(page_state.event_form_binding_id)] = (
+                    binding_counts.get(int(page_state.event_form_binding_id), 0) + 1
+                )
+            hydrated_page_states.sort(
+                key=lambda page_state: (
+                    int(getattr(getattr(page_state, "event_form_binding", None), "display_order", 0) or 0),
+                    int(page_state.repeat_index or 1),
+                    int(page_state.pk),
+                )
             )
-        hydrated_page_states.sort(
-            key=lambda page_state: (
-                int(getattr(getattr(page_state, "event_form_binding", None), "display_order", 0) or 0),
-                int(page_state.repeat_index or 1),
-                int(page_state.pk),
-            )
-        )
-        return [
-            self._to_instance_dto(
-                page_state=page_state,
-                language_code=normalized_language,
-                repeat_index_override=(
-                    visit_repeat_index
-                    if (
-                        visit_repeat_index > int(page_state.repeat_index or 1)
-                        and binding_counts.get(int(page_state.event_form_binding_id), 0) == 1
-                    )
-                    else None
-                ),
-            )
-            for page_state in hydrated_page_states
-        ]
+            payload[visit_id] = [
+                self._to_instance_dto(
+                    page_state=page_state,
+                    language_code=normalized_language,
+                    repeat_index_override=self._repeat_index_override(
+                        page_state=page_state,
+                        binding_counts=binding_counts,
+                    ),
+                )
+                for page_state in hydrated_page_states
+            ]
+        return payload
 
     def _to_instance_dto(
         self,
@@ -232,7 +250,7 @@ class DataCaptureFormInstanceService:
         binding = page_state.event_form_binding
         resolved_repeat_index = max(1, int(repeat_index_override or page_state.repeat_index or 1))
         template_name = self._template_name(binding=binding, language_code=language_code)
-        config = self.config_reader.get_config(binding_id=int(binding.pk))
+        config = self._get_display_config(binding_id=int(binding.pk))
         field_values = self._display_field_values(
             page_state=page_state,
             language_code=language_code,
@@ -276,8 +294,11 @@ class DataCaptureFormInstanceService:
             parsed = {}
         doc = normalize_form_data(parsed if isinstance(parsed, dict) else {}, strict=False)
         flattened = flatten_form_data_for_export(doc, repeat_strategy="legacy_repeat_suffix")
-        schema = self.crf_context_adapter.list_template_field_schema_for_display_label(
-            template_id=page_state.crf_template_id,
+        schema = self._get_field_schema(template_id=int(page_state.crf_template_id))
+        choice_label_maps = (
+            self._get_choice_label_maps(template_id=int(page_state.crf_template_id))
+            if use_choice_display_label
+            else {}
         )
         payload: dict[str, str] = {}
         for field in schema:
@@ -287,14 +308,91 @@ class DataCaptureFormInstanceService:
             if not normalized_value:
                 continue
             if use_choice_display_label:
-                normalized_value = self.crf_context_adapter.resolve_choice_display_label(
-                    template_id=page_state.crf_template_id,
+                normalized_value = self._resolve_choice_display_label(
                     field_key=field_key,
                     raw_value=normalized_value,
-                    language_code=language_code,
+                    choice_label_maps=choice_label_maps,
                 )
             payload[field_key] = normalized_value
         return payload
+
+    def _repeat_index_override(
+        self,
+        *,
+        page_state: DataCapturePageState,
+        binding_counts: dict[int, int],
+    ) -> int | None:
+        visit = getattr(page_state, "visit", None)
+        visit_repeat_index = max(1, int(getattr(visit, "repeat_index", None) or page_state.repeat_index or 1))
+        page_state_repeat_index = int(page_state.repeat_index or 1)
+        if (
+            visit_repeat_index > page_state_repeat_index
+            and binding_counts.get(int(page_state.event_form_binding_id), 0) == 1
+        ):
+            return visit_repeat_index
+        return None
+
+    def _get_display_config(self, *, binding_id: int):
+        if binding_id not in self._display_config_cache:
+            self._display_config_cache[binding_id] = self.config_reader.get_config(binding_id=binding_id)
+        return self._display_config_cache[binding_id]
+
+    def _get_field_schema(self, *, template_id: int) -> list[dict]:
+        if template_id not in self._field_schema_cache:
+            self._field_schema_cache[template_id] = self.crf_context_adapter.list_template_field_schema_for_display_label(
+                template_id=template_id,
+            )
+        return self._field_schema_cache[template_id]
+
+    def _get_choice_label_maps(self, *, template_id: int) -> dict[str, dict[str, str]]:
+        if template_id in self._choice_label_maps_cache:
+            return self._choice_label_maps_cache[template_id]
+        label_maps: dict[str, dict[str, str]] = {}
+        for field in self._get_field_schema(template_id=template_id):
+            raw_options = (field.get("ui_config") or {}).get("options")
+            options = self._normalize_choice_options(raw_options)
+            if not options:
+                continue
+            field_key = str(field.get("field_key") or "").strip()
+            if not field_key:
+                continue
+            label_maps[field_key] = {
+                str(option.get("value", "")).strip(): str(option.get("label", "")).strip()
+                for option in options
+            }
+        self._choice_label_maps_cache[template_id] = label_maps
+        return label_maps
+
+    @classmethod
+    def _resolve_choice_display_label(
+        cls,
+        *,
+        field_key: str,
+        raw_value: str,
+        choice_label_maps: dict[str, dict[str, str]],
+    ) -> str:
+        label_map = choice_label_maps.get(str(field_key or "").strip())
+        if not label_map:
+            return raw_value
+        selected_values = [item.strip() for item in str(raw_value or "").split(",") if item.strip()]
+        resolved = [label_map.get(value, value) for value in selected_values]
+        return ", ".join(resolved) if resolved else raw_value
+
+    @staticmethod
+    def _normalize_choice_options(raw_options):
+        if not raw_options:
+            return []
+        if isinstance(raw_options, list):
+            return raw_options
+        if isinstance(raw_options, str):
+            normalized = raw_options.strip()
+            if normalized.startswith("["):
+                try:
+                    parsed = json.loads(normalized)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    return []
+                return parsed if isinstance(parsed, list) else []
+        return []
 
     def _template_name(self, *, binding, language_code: str) -> str:
         form_definition = binding.form_definition

@@ -106,20 +106,25 @@ class DataCapturePageStateVerificationFinalDataService:
 
     def _required_field_template_ids(self, *, snapshot, all_field_template_ids: tuple[int, ...]) -> tuple[int, ...]:
         try:
-            policy_ids = tuple(
+            policy_rows = tuple(
                 CrfFieldReviewPolicy.objects.filter(
                     study_id=snapshot.study_id,
                     study_version=snapshot.study_version,
                     crf_template_id=snapshot.crf_template_id,
                     review_type=DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
-                    is_required_for_page_verify=True,
                     is_enabled=True,
                     deleted=False,
-                ).values_list("field_template_id", flat=True)
+                ).values_list("field_template_id", "is_required_for_page_verify")
             )
         except (OperationalError, ProgrammingError):
-            policy_ids = ()
-        return tuple(int(field_id) for field_id in (policy_ids or all_field_template_ids))
+            policy_rows = ()
+        if policy_rows:
+            return tuple(
+                int(field_id)
+                for field_id, is_required_for_page_verify in policy_rows
+                if is_required_for_page_verify
+            )
+        return tuple(int(field_id) for field_id in all_field_template_ids)
 
     def merge_checked_field_template_ids(
         self,

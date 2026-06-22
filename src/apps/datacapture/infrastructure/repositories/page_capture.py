@@ -149,10 +149,19 @@ class DjangoDataCapturePageRepository:
             if resolved_binding_id is not None:
                 page_state.event_form_binding_id = resolved_binding_id
                 update_fields.append("event_form_binding_id")
-        expected_repeat_index = self._resolve_page_state_repeat_index_for_scope(
-            visit_id=int(page_state.visit_id),
-            event_form_binding_id=resolved_binding_id,
-        )
+        binding = getattr(page_state, "event_form_binding", None)
+        visit = getattr(page_state, "visit", None)
+        if resolved_binding_id and binding is not None and visit is not None:
+            expected_repeat_index = (
+                1
+                if bool(getattr(binding, "is_repeatable_within_event", False))
+                else max(1, int(getattr(visit, "repeat_index", 1) or 1))
+            )
+        else:
+            expected_repeat_index = self._resolve_page_state_repeat_index_for_scope(
+                visit_id=int(page_state.visit_id),
+                event_form_binding_id=resolved_binding_id,
+            )
         if int(getattr(page_state, "repeat_index", 0) or 0) != expected_repeat_index:
             page_state.repeat_index = expected_repeat_index
             update_fields.append("repeat_index")

@@ -367,6 +367,17 @@ def list_form_instances_for_event_instance(
     )
 
 
+def list_form_instances_for_event_instances(
+    *,
+    visit_ids: tuple[int, ...],
+    language_code: str | None = None,
+) -> dict[int, list[DataCaptureFormInstanceDTO]]:
+    return DataCaptureFormInstanceService().list_form_instances_for_event_instances(
+        visit_ids=visit_ids,
+        language_code=language_code,
+    )
+
+
 def merge_form_verification_checked_fields_into_page_state_final_data(
     *,
     subject_id: int,
@@ -555,6 +566,7 @@ __all__ = [
     "invalidate_event_attestations_for_event_instance",
     "is_field_verified_for_page_state",
     "list_form_instances_for_event_instance",
+    "list_form_instances_for_event_instances",
     "lock_page_for_subject_visit_crf",
     "merge_form_verification_checked_fields_into_page_state_final_data",
     "read_fact_snapshot_for_page_state",
