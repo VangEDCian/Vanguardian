@@ -157,7 +157,7 @@ class SubjectEventTransitionPolicy:
             return False
         actual_value = facts.get(fact_key)
         expected_value = expression.get("value")
-        operator = self._normalized(expression.get("op") or "eq")
+        operator = self._normalized(expression.get("op") or expression.get("operator") or "eq")
         return self._compare_fact_value(actual_value, operator, expected_value)
 
     def _compare_fact_value(self, actual_value, operator: str, expected_value) -> bool:

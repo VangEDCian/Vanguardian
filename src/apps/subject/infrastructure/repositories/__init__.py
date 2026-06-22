@@ -10,6 +10,9 @@ from apps.subject.infrastructure.repositories.event_lifecycle import (
 from apps.subject.infrastructure.repositories.eligibility_workflow import (
     DjangoSubjectEligibilityWorkflowRepository,
 )
+from apps.subject.infrastructure.repositories.early_termination import (
+    DjangoSubjectEarlyTerminationRepository,
+)
 from apps.subject.infrastructure.repositories.repeating_event_instance import (
     DjangoSubjectRepeatingEventInstanceRepository,
 )
@@ -18,6 +21,7 @@ from apps.subject.infrastructure.repositories.workflow_action import DjangoSubje
 
 __all__ = [
     "DjangoSubjectCommandRepository",
+    "DjangoSubjectEarlyTerminationRepository",
     "DjangoSubjectEligibilityWorkflowRepository",
     "DjangoSubjectEventInstanceFileRepository",
     "DjangoSubjectEventInstanceResyncRepository",

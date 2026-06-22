@@ -28,12 +28,28 @@ class StudyEventGateEvaluationRecorder:
         return record_event_gate_evaluation(command)
 
 
+class StudyRandomizationTransitionFactReader:
+    def build_facts(self, *, study_id: int):
+        from apps.study.public import build_randomization_transition_facts
+
+        return build_randomization_transition_facts(study_id=study_id)
+
+
+class StudyEligibilityTransitionFactReader:
+    def build_facts(self, *, study_id: int, subject_id: int):
+        from apps.study.public import build_eligibility_transition_facts
+
+        return build_eligibility_transition_facts(study_id=study_id, subject_id=subject_id)
+
+
 class SubjectEventTransitionService:
     repository_class = DjangoSubjectEventLifecycleRepository
     transition_policy_class = SubjectEventTransitionPolicy
     event_publisher_class = NoopSubjectEventPublisher
     workflow_action_service_class = SubjectWorkflowActionService
     gate_evaluation_recorder_class = StudyEventGateEvaluationRecorder
+    randomization_fact_reader_class = StudyRandomizationTransitionFactReader
+    eligibility_fact_reader_class = StudyEligibilityTransitionFactReader
 
     def __init__(
         self,
@@ -42,12 +58,16 @@ class SubjectEventTransitionService:
         event_publisher=None,
         workflow_action_service=None,
         gate_evaluation_recorder=None,
+        randomization_fact_reader=None,
+        eligibility_fact_reader=None,
     ):
         self.repository = repository or self.repository_class()
         self.transition_policy = transition_policy or self.transition_policy_class()
         self.event_publisher = event_publisher or self.event_publisher_class()
         self.workflow_action_service = workflow_action_service or self.workflow_action_service_class()
         self.gate_evaluation_recorder = gate_evaluation_recorder or self.gate_evaluation_recorder_class()
+        self.randomization_fact_reader = randomization_fact_reader or self.randomization_fact_reader_class()
+        self.eligibility_fact_reader = eligibility_fact_reader or self.eligibility_fact_reader_class()
 
     def execute(
         self,
@@ -81,6 +101,12 @@ class SubjectEventTransitionService:
                 source_event=source_event,
                 external_facts=command.facts,
                 trigger_source=command.trigger_source,
+            )
+            facts.update(
+                self._build_scoped_transition_facts(
+                    source_event=source_event,
+                    transition_rules=transition_rules,
+                )
             )
             decisions = self.transition_policy.decide(
                 source_event=source_event,
@@ -199,6 +225,25 @@ class SubjectEventTransitionService:
         facts.update(external_facts or {})
         return facts
 
+    def _build_scoped_transition_facts(self, *, source_event, transition_rules):
+        scopes = {
+            str(getattr(transition_rule, "condition_scope", "") or "").strip().lower()
+            for transition_rule in transition_rules
+        }
+        if "randomization" not in scopes:
+            if "eligibility" not in scopes:
+                return {}
+            return self.eligibility_fact_reader.build_facts(
+                study_id=source_event.study_id,
+                subject_id=source_event.subject_id,
+            )
+        facts = self.eligibility_fact_reader.build_facts(
+            study_id=source_event.study_id,
+            subject_id=source_event.subject_id,
+        )
+        facts.update(self.randomization_fact_reader.build_facts(study_id=source_event.study_id))
+        return facts
+
     @staticmethod
     def _resolve_planned_date(*, offset_days, anchor_datetime):
         if offset_days is None:
@@ -310,6 +355,8 @@ class SubjectEventTransitionService:
 
 __all__ = [
     "NoopSubjectEventPublisher",
+    "StudyEligibilityTransitionFactReader",
     "StudyEventGateEvaluationRecorder",
+    "StudyRandomizationTransitionFactReader",
     "SubjectEventTransitionService",
 ]

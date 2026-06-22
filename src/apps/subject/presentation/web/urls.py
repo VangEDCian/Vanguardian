@@ -5,6 +5,7 @@ from apps.subject.presentation.web.views import (
     SubjectAuditHistoryView,
     SubjectCreateView,
     SubjectDetailView,
+    SubjectEarlyTerminationRequestView,
     SubjectEventInstanceFileContentView,
     SubjectEventInstanceFileImportView,
     SubjectEventInstanceFilePreviewView,
@@ -40,6 +41,11 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/<int:subject_id>/resync-stage/",
         SubjectResyncStageView.as_view(),
         name="subject_resync_stage",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/early-termination/request/",
+        SubjectEarlyTerminationRequestView.as_view(),
+        name="subject_early_termination_request",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/summary/",

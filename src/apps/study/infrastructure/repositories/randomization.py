@@ -71,6 +71,27 @@ class DjangoRandomizationRepository:
             requires_screening_pass=True,
         ).exists()
 
+    def get_active_scheme_status(self, *, study_id):
+        return (
+            RandomizationScheme.objects.filter(
+                study_id=study_id,
+                deleted=False,
+                status=RandomizationSchemeStatusChoice.ACTIVE,
+            )
+            .order_by("id")
+            .values_list("status", flat=True)
+            .first()
+        )
+
+    def count_available_slots_for_active_schemes(self, *, study_id):
+        return RandomizationSlot.objects.filter(
+            scheme__study_id=study_id,
+            scheme__deleted=False,
+            scheme__status=RandomizationSchemeStatusChoice.ACTIVE,
+            deleted=False,
+            status=RandomizationSlotStatusChoice.AVAILABLE,
+        ).count()
+
     def soft_delete_slots_for_scheme(self, *, scheme_id, updated_at):
         return RandomizationSlot.objects.filter(
             scheme_id=scheme_id,

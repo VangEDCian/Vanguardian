@@ -91,10 +91,13 @@ class SubjectListTable(tables.Table):
 
     def render_enrollment(self, record):
         try:
-            created_at = record.enrollment.created_at
+            is_enrolled = record.enrollment.is_enrolled
+            enrollment_date = record.enrollment.enrollment_date
         except ObjectDoesNotExist:
             return "—"
-        return date_format(created_at, "DATETIME_FORMAT") if created_at else "—"
+        if not is_enrolled or not enrollment_date:
+            return "—"
+        return date_format(enrollment_date, "DATE_FORMAT")
 
     def render_randomization(self, record):
         try:

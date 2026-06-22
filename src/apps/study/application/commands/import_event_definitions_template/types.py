@@ -32,6 +32,7 @@ class ImportStudyEventDefinitionsTemplateResult:
     total_rows: int
     created_count: int
     updated_count: int
+    deleted_count: int
     skipped_count: int
     issues: tuple[EventDefinitionImportIssue, ...] = ()
     warnings: tuple[str, ...] = ()

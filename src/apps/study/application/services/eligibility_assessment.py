@@ -40,6 +40,39 @@ class DataCaptureEligibilityFactReader:
         return read_fact_snapshot_for_page_state(page_state_id=page_state_id)
 
 
+class StudyEligibilityTransitionFactService:
+    repository_class = DjangoEligibilityAssessmentRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    def build_facts(self, *, study_id: int, subject_id: int, assessment_type: str = "SCREENING") -> dict[str, object]:
+        assessment = self.repository.get_current_assessment(
+            study_id=study_id,
+            subject_id=subject_id,
+            assessment_type=assessment_type,
+        )
+        if assessment is None:
+            return {}
+        is_final_eligible = bool(
+            assessment.assessment_status == EligibilityAssessmentStatusChoices.FINAL
+            and assessment.result == EligibilityResultChoices.ELIGIBLE
+            and assessment.is_current
+        )
+        is_final_not_eligible = bool(
+            assessment.assessment_status == EligibilityAssessmentStatusChoices.FINAL
+            and assessment.result == EligibilityResultChoices.NOT_ELIGIBLE
+            and assessment.is_current
+        )
+        return {
+            "eligibility.latest.result": assessment.result,
+            "eligibility.latest.assessment_status": assessment.assessment_status,
+            "eligibility.latest.is_current": assessment.is_current,
+            "eligible": is_final_eligible,
+            "not_eligible": is_final_not_eligible,
+        }
+
+
 class EligibilityAssessmentService:
     repository_class = DjangoEligibilityAssessmentRepository
     audit_context_adapter_class = AuditContextAdapter
@@ -701,4 +734,5 @@ __all__ = [
     "DataCaptureEligibilityFactReader",
     "EligibilityAssessmentService",
     "EligibilityEvaluation",
+    "StudyEligibilityTransitionFactService",
 ]

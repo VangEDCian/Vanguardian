@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from apps.study.infrastructure.persistence.models import (
     ConditionDefinition,
     EventAttestationPolicy,
@@ -32,6 +34,70 @@ class DjangoStudyEventRepository:
     def save_event_definition(self, event_definition, *, update_fields):
         event_definition.save(update_fields=update_fields)
         return event_definition
+
+    def soft_delete_event_definitions_missing_from_import(
+        self,
+        *,
+        study_id,
+        study_version,
+        imported_codes,
+        actor_user_id,
+        updated_at,
+    ):
+        normalized_codes = tuple(str(code or "").strip() for code in imported_codes or () if str(code or "").strip())
+        event_definition_ids = list(
+            EventDefinition.objects.filter(
+                study_id=study_id,
+                study_version=study_version,
+                deleted=False,
+            )
+            .exclude(code__in=normalized_codes)
+            .values_list("id", flat=True)
+        )
+        if not event_definition_ids:
+            return 0
+
+        EventTransitionRule.objects.filter(
+            Q(from_event_definition_id__in=event_definition_ids)
+            | Q(to_event_definition_id__in=event_definition_ids),
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+        EventFormBinding.objects.filter(
+            event_definition_id__in=event_definition_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+        EventAttestationPolicyTranslation.objects.filter(
+            attestation_policy__event_definition_id__in=event_definition_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+        EventAttestationPolicy.objects.filter(
+            event_definition_id__in=event_definition_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+        return EventDefinition.objects.filter(
+            id__in=event_definition_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
 
     def get_condition_definition(self, *, study_id, study_version, code):
         return ConditionDefinition.objects.filter(

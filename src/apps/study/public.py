@@ -20,6 +20,7 @@ from apps.study.application.services.event_gate_evaluation import EventGateEvalu
 from apps.study.application.services.randomization_workflow import (
     RandomizationSlotAssignment,
     StudyRandomizationSlotAssignmentService,
+    StudyRandomizationTransitionFactService,
 )
 from apps.study.application.services.site_directory import StudySiteDirectoryQueryService
 
@@ -41,6 +42,10 @@ def assign_randomization_slot_for_subject(
         scheme_id=scheme_id,
         stratum_code=stratum_code,
     )
+
+
+def build_randomization_transition_facts(*, study_id: int) -> dict[str, object]:
+    return StudyRandomizationTransitionFactService().build_facts(study_id=study_id)
 
 
 def randomize_subject(**kwargs):
@@ -74,6 +79,21 @@ def finalize_subject_eligibility_assessment(command: FinalizeEligibilityAssessme
     from apps.study.application.services.eligibility_assessment import EligibilityAssessmentService
 
     return EligibilityAssessmentService().finalize(command)
+
+
+def build_eligibility_transition_facts(
+    *,
+    study_id: int,
+    subject_id: int,
+    assessment_type: str = "SCREENING",
+) -> dict[str, object]:
+    from apps.study.application.services.eligibility_assessment import StudyEligibilityTransitionFactService
+
+    return StudyEligibilityTransitionFactService().build_facts(
+        study_id=study_id,
+        subject_id=subject_id,
+        assessment_type=assessment_type,
+    )
 
 
 def retract_subject_eligibility_assessment(command: RetractEligibilityAssessmentCommand):
@@ -188,6 +208,8 @@ __all__ = [
     "EventAttestationPolicySnapshot",
     "StudyEventFormBindingReader",
     "assign_randomization_slot_for_subject",
+    "build_eligibility_transition_facts",
+    "build_randomization_transition_facts",
     "enroll_subject_after_eligibility_gate",
     "finalize_subject_eligibility_assessment",
     "mark_subject_eligibility_stale_on_source_data_change",

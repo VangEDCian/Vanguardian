@@ -169,8 +169,10 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
 
         created_count = 0
         updated_count = 0
+        deleted_count = 0
         issues = []
         touched_study_versions = set()
+        imported_codes_by_study_version = {}
 
         for row_number, row_data in workbook_rows:
             try:
@@ -191,15 +193,24 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 )
                 continue
 
+            study_version = self._resolve_study_version(
+                study_id=command.study_id,
+                raw_study_version=row_data.get("study_version"),
+            )
+            imported_codes_by_study_version.setdefault(study_version, set()).add(
+                self._as_text(row_data.get("code"))
+            )
             if import_outcome == "created":
                 created_count += 1
             else:
                 updated_count += 1
-            touched_study_versions.add(
-                self._resolve_study_version(
-                    study_id=command.study_id,
-                    raw_study_version=row_data.get("study_version"),
-                )
+            touched_study_versions.add(study_version)
+
+        if not issues:
+            deleted_count = self._soft_delete_missing_event_definitions(
+                study_id=command.study_id,
+                imported_codes_by_study_version=imported_codes_by_study_version,
+                actor_user_id=command.actor_user_id,
             )
 
         warnings = self._resync_subject_event_instances(
@@ -212,10 +223,31 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             total_rows=len(workbook_rows),
             created_count=created_count,
             updated_count=updated_count,
+            deleted_count=deleted_count,
             skipped_count=len(issues),
             issues=tuple(issues),
             warnings=tuple(warnings),
         )
+
+    def _soft_delete_missing_event_definitions(
+        self,
+        *,
+        study_id,
+        imported_codes_by_study_version,
+        actor_user_id,
+    ):
+        deleted_count = 0
+        now = self._now()
+        with transaction.atomic():
+            for study_version, imported_codes in imported_codes_by_study_version.items():
+                deleted_count += self.repository.soft_delete_event_definitions_missing_from_import(
+                    study_id=study_id,
+                    study_version=study_version,
+                    imported_codes=imported_codes,
+                    actor_user_id=actor_user_id,
+                    updated_at=now,
+                )
+        return deleted_count
 
     def _resync_subject_event_instances(self, *, study_id, study_versions, actor_user_id) -> list[str]:
         warnings = []
