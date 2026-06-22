@@ -3,7 +3,6 @@ from django.utils import timezone
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 
-from apps.shared.datetime_formatting import date_format
 from apps.core.choices.study import EventExecutionModeChoices, EventInstanceStatusChoices
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.public import CrfContextAdapter
@@ -11,6 +10,7 @@ from apps.datacapture.public import (
     list_form_instances_for_event_instance as _list_form_instances_for_event_instance,
 )
 from apps.datacapture.public import list_form_instances_for_event_instances
+from apps.shared.datetime_formatting import date_format
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
 
