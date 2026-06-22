@@ -77,7 +77,7 @@ Run the remaining framework-managed migrations:
 ```bash
 python manage.py migrate
 ```
-
+ 
 Create an admin account if you need quick access to the back office:
 
 ```bash
