@@ -1,8 +1,8 @@
 # from django.db.models import Q
 from django.urls import reverse
-from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.datetime_formatting import date_format
 from apps.study.application.exceptions import StudyNotFoundError
 from apps.study.application.services.study_filters import StudyFilterQueryService
 from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository

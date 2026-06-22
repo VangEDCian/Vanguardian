@@ -1,10 +1,10 @@
 import django_tables2 as tables
 from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
-from django.utils.formats import date_format
 from django.utils.html import format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.datetime_formatting import date_format
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
 
 

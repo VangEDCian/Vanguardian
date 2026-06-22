@@ -2,8 +2,10 @@ import datetime
 
 from django import template
 from django.core.exceptions import ImproperlyConfigured
-from django.utils.formats import date_format, get_format
+from django.utils.formats import get_format
 from django.utils.translation import gettext_lazy as _
+
+from apps.shared.datetime_formatting import date_format
 
 register = template.Library()
 

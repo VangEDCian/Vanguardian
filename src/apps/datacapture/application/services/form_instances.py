@@ -211,7 +211,15 @@ class DataCaptureFormInstanceService:
                 or not bool(getattr(binding, "is_enabled", False))
             ):
                 continue
-            hydrated_page_states_by_visit_id.setdefault(int(page_state.visit_id), []).append(page_state)
+            page_state_visit_id = getattr(page_state, "visit_id", None)
+            if page_state_visit_id is None:
+                visit = getattr(page_state, "visit", None)
+                page_state_visit_id = getattr(visit, "pk", None) or getattr(visit, "id", None)
+            if page_state_visit_id is None and len(normalized_visit_ids) == 1:
+                page_state_visit_id = normalized_visit_ids[0]
+            if page_state_visit_id is None:
+                continue
+            hydrated_page_states_by_visit_id.setdefault(int(page_state_visit_id), []).append(page_state)
 
         payload: dict[int, list[DataCaptureFormInstanceDTO]] = {}
         for visit_id, hydrated_page_states in hydrated_page_states_by_visit_id.items():

@@ -1,9 +1,9 @@
 import json
 from collections import Counter
 
-from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.datetime_formatting import date_format
 from apps.study.domain import RandomizationSlot
 from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 

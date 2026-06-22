@@ -1,10 +1,10 @@
 import django_tables2 as tables
 from django.templatetags.static import static
 from django.urls import reverse
-from django.utils.formats import date_format
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.datetime_formatting import date_format
 from apps.crf.public import get_crf_template_model
 from apps.study.infrastructure.persistence.models import EventDefinition, Site
 

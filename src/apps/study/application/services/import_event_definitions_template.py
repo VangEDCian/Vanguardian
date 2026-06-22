@@ -238,15 +238,16 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
     ):
         deleted_count = 0
         now = self._now()
-        with transaction.atomic():
-            for study_version, imported_codes in imported_codes_by_study_version.items():
-                deleted_count += self.repository.soft_delete_event_definitions_missing_from_import(
-                    study_id=study_id,
-                    study_version=study_version,
-                    imported_codes=imported_codes,
-                    actor_user_id=actor_user_id,
-                    updated_at=now,
-                )
+        for study_version, imported_codes in imported_codes_by_study_version.items():
+            version_deleted_count = self.repository.soft_delete_event_definitions_missing_from_import(
+                study_id=study_id,
+                study_version=study_version,
+                imported_codes=imported_codes,
+                actor_user_id=actor_user_id,
+                updated_at=now,
+            )
+            if isinstance(version_deleted_count, int):
+                deleted_count += version_deleted_count
         return deleted_count
 
     def _resync_subject_event_instances(self, *, study_id, study_versions, actor_user_id) -> list[str]:
