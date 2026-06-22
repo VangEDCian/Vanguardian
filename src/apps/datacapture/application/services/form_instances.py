@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from types import SimpleNamespace
 from uuid import uuid4
 
 from django.db import transaction
@@ -188,6 +189,7 @@ class DataCaptureFormInstanceService:
         hydrated_page_states_by_visit_id: dict[int, list[DataCapturePageState]] = {
             visit_id: [] for visit_id in normalized_visit_ids
         }
+        visit_snapshots_by_id = {}
         for page_state in page_states:
             page_state = self.repository.ensure_page_state_binding_context(page_state)
             binding = getattr(page_state, "event_form_binding", None)
@@ -219,6 +221,13 @@ class DataCaptureFormInstanceService:
                 page_state_visit_id = normalized_visit_ids[0]
             if page_state_visit_id is None:
                 continue
+            if getattr(page_state, "visit", None) is None:
+                visit_snapshot = visit_snapshots_by_id.get(int(page_state_visit_id))
+                if visit_snapshot is None:
+                    visit_snapshot = get_event_instance_snapshot(event_instance_id=int(page_state_visit_id)) or {}
+                    visit_snapshots_by_id[int(page_state_visit_id)] = visit_snapshot
+                if isinstance(visit_snapshot, dict):
+                    page_state.visit = SimpleNamespace(**visit_snapshot)
             hydrated_page_states_by_visit_id.setdefault(int(page_state_visit_id), []).append(page_state)
 
         payload: dict[int, list[DataCaptureFormInstanceDTO]] = {}
