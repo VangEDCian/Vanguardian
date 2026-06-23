@@ -72,6 +72,9 @@ class ReconcileDataQueryReadService:
             field_template_ids=field_template_ids,
         )
 
+    def summarize_workbench(self, *, page_state_ids: tuple[int, ...]) -> dict[str, int]:
+        return self.repository.summarize_workbench(page_state_ids=page_state_ids)
+
     def list_field_template_ids_with_verified_queries(
         self,
         *,

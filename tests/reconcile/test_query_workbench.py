@@ -16,6 +16,16 @@ from apps.shared.context_processors import shared_select_options
 
 
 class QueryWorkbenchReaderTests(SimpleTestCase):
+    def test_dataquery_read_service_exposes_workbench_summary(self):
+        repository = _WorkbenchRepository()
+
+        result = ReconcileDataQueryReadService(repository=repository).summarize_workbench(
+            page_state_ids=(10,),
+        )
+
+        self.assertEqual(result["open"], 1)
+        self.assertEqual(result["validation_issues_open"], 1)
+
     def test_pending_with_maps_status_to_responsible_party(self):
         self.assertEqual(QueryWorkbenchReader.pending_with("open"), "Site / Data Entry")
         self.assertEqual(QueryWorkbenchReader.pending_with("answered"), "CRA / Data Manager")

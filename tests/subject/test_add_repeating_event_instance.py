@@ -120,6 +120,98 @@ class SubjectDetailNavigationMixinTests(SimpleTestCase):
 
         self.assertEqual(payload[0]["forms"][0]["title"], "AE #1 — acxc")
 
+    def test_default_focus_prefers_oldest_open_event(self):
+        navigation = [
+            {"id": "1", "status": EventInstanceStatusChoices.COMPLETED},
+            {"id": "2", "status": EventInstanceStatusChoices.OPEN},
+            {"id": "3", "status": EventInstanceStatusChoices.OPEN},
+        ]
+
+        focused_event = SubjectDetailNavigationMixin._resolve_default_focus_event(navigation)
+
+        self.assertEqual(focused_event["id"], "2")
+
+    def test_form_sidebar_tone_marks_open_reconcile_as_danger_before_submitted_success(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+        event_definition = SimpleNamespace(
+            id=76,
+            pk=76,
+            code="SCREENING",
+            name="Screening",
+            sequence_no=1,
+            is_repeating=False,
+            max_repeats=None,
+        )
+        event_instance = SimpleNamespace(
+            pk=76,
+            event_definition_id=76,
+            event_definition=event_definition,
+            event_name_snapshot="Screening",
+            event_code_snapshot="SCREENING",
+            status=EventInstanceStatusChoices.OPEN,
+            repeat_index=1,
+            completed_at=None,
+        )
+        adverse_event_binding = SimpleNamespace(
+            pk=401,
+            event_definition_id=76,
+            form_definition=SimpleNamespace(pk=15, code="AE"),
+        )
+        vitals_binding = SimpleNamespace(
+            pk=402,
+            event_definition_id=76,
+            form_definition=SimpleNamespace(pk=16, code="VS"),
+        )
+        adverse_event_instance = SimpleNamespace(
+            page_state_id=10,
+            event_form_binding_id=401,
+            display_label="AE #1",
+            status="submitted",
+        )
+        vitals_instance = SimpleNamespace(
+            page_state_id=20,
+            event_form_binding_id=402,
+            display_label="Vitals",
+            status="submitted",
+        )
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet([event_instance]),
+                    _FakeQuerySet([SimpleNamespace(id=76, event_definition_id=76, status=EventInstanceStatusChoices.OPEN)]),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet([adverse_event_binding, vitals_binding]),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instance",
+                return_value=[adverse_event_instance, vitals_instance],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.CrfTemplateQueryService._translated_value",
+                side_effect=["Adverse Event Log", "Vitals"],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.summarize_reconcile_workbench_for_page_states",
+                side_effect=[
+                    {"open": 1, "validation_issues_open": 0},
+                    {"open": 0, "validation_issues_open": 0},
+                ],
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual(payload[0]["forms"][0]["sidebar_tone"], "danger")
+        self.assertEqual(payload[0]["forms"][1]["sidebar_tone"], "success")
+
 
 class _FakeQuerySet(list):
     def exclude(self, **kwargs):

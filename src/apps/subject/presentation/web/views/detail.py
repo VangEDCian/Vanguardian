@@ -195,9 +195,9 @@ class SubjectDetailView(
             event_navigation = self._with_focus_urls(raw_event_navigation)
 
         focus_event_id = (self.request.GET.get("event") or "").strip()
-        focused_event = self._resolve_focus(event_navigation, focus_event_id)
+        focused_event = self._resolve_focus(event_navigation, focus_event_id) if focus_event_id else None
         if focused_event is None and event_navigation:
-            focused_event = event_navigation[0]
+            focused_event = self._resolve_default_focus_event(event_navigation)
         focused_forms = focused_event["forms"] if focused_event else []
 
         focus_form_id = (self.request.GET.get("form") or "").strip()

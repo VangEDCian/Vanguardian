@@ -95,7 +95,7 @@
                                 <div class="subject-detail-sidebar__children">
                                     {% for form_item in event_item.forms %}
                                         <a href="{{ form_item.focus_url }}"
-                                           class="subject-detail-sidebar__child{% if focused_form and focused_form.id == form_item.id %} is-active{% endif %}">
+                                           class="subject-detail-sidebar__child{% if focused_form and focused_form.id == form_item.id %} is-active{% endif %}{% if form_item.sidebar_tone %} subject-detail-sidebar__child--{{ form_item.sidebar_tone }}{% endif %}">
                                             {{ form_item.title }}
                                         </a>
                                     {% endfor %}
@@ -107,6 +107,12 @@
                     <p class="subject-detail-screen__empty">{% trans "No event instances available for this subject." %}</p>
                 {% endif %}
             </aside>
+            <div class="subject-detail-screen__sidebar-resizer"
+                 role="separator"
+                 aria-label="{% trans 'Resize subject sidebar' %}"
+                 aria-orientation="vertical"
+                 tabindex="0"
+                 data-subject-sidebar-resizer></div>
             <main class="subject-detail-screen__content">
                 {% if is_form_verification_mode %}
                     {% include "subject/includes/subject_detail_review_main.html" %}
@@ -336,6 +342,7 @@
     {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode %}
         <script src="{% static 'subject/js/subject_detail_sidebar_scroll.js' %}"></script>
     {% endif %}
+    <script src="{% static 'subject/js/subject_detail_sidebar_resize.js' %}"></script>
     {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode %}
         {% if page_entry_has_open_queries or page_entry_has_open_validation_issues %}
             <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>

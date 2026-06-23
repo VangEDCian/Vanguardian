@@ -1034,7 +1034,76 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         )
 
         self.assertIn("subject/js/subject_detail_sidebar_scroll.js", rendered)
+        self.assertIn("subject/js/subject_detail_sidebar_resize.js", rendered)
+        self.assertIn("data-subject-sidebar-resizer", rendered)
+        self.assertIn('role="separator"', rendered)
         self.assertIn('class="subject-detail-sidebar__child is-active"', rendered)
+
+    def test_subject_detail_marks_sidebar_form_tone_classes(self):
+        rendered = render_to_string(
+            "subject/subject_detail.html",
+            {
+                "focused_forms": [{"id": 6, "title": "Vitals", "focus_url": "/subjects/1/?event=1&form=6"}],
+                "event_navigation": [
+                    {
+                        "id": 1,
+                        "name": "Visit 1",
+                        "status": "open",
+                        "focus_url": "/subjects/1/?event=1",
+                        "is_repeating": False,
+                        "forms": [
+                            {
+                                "id": 6,
+                                "title": "Vitals",
+                                "focus_url": "/subjects/1/?event=1&form=6",
+                                "sidebar_tone": "success",
+                            },
+                            {
+                                "id": 7,
+                                "title": "Lab",
+                                "focus_url": "/subjects/1/?event=1&form=7",
+                                "sidebar_tone": "danger",
+                            },
+                        ],
+                    }
+                ],
+                "focused_event": {"id": 1},
+                "focused_form": {"id": 6, "title": "Vitals"},
+                "focused_render_entry": {"id": 99},
+                "focused_page_status": "in_progress",
+                "datacapture_save_url": "/api/save/",
+                "datacapture_submit_url": "/api/submit/",
+                "is_form_verification_mode": False,
+                "is_subject_detail_viewonly_mode": False,
+                "is_viewing_submitted_version": False,
+                "is_page_edit_locked": False,
+                "form_render_sections": [],
+                "current_data_values": {},
+                "previous_data_values": None,
+                "previous_submitted_entry_values": {},
+                "reason_required_field_keys": [],
+                "page_entry_has_open_queries": False,
+                "subject_display_id": "SUBJ-001",
+                "subject_obj": {"site": {"code": "SITE-01"}, "screening_code": "SCR-01"},
+                "study_header_label": "Study A",
+                "back_url": "/subjects/",
+                "auth_user": {"is_superuser": False, "display_name": "Demo User", "username": "demo", "email": ""},
+                "shared_study_selected_id": 1,
+                "shared_study_select_default": "Study A",
+                "shared_study_select_options": [],
+                "shared_study_cookies_key": "study",
+                "shared_site_select_default": "Site 01",
+                "shared_site_select_options": [],
+                "shared_site_cookies_key": "site",
+                "shared_language_select_options": [],
+                "layout_nav_key": "",
+                "layout_show_breadcrumb_trail": False,
+                "layout_detail_meta_items": [],
+            },
+        )
+
+        self.assertIn("subject-detail-sidebar__child is-active subject-detail-sidebar__child--success", rendered)
+        self.assertIn("subject-detail-sidebar__child subject-detail-sidebar__child--danger", rendered)
 
     def test_subject_detail_marks_repeating_event_group_active_for_sidebar_scroll(self):
         rendered = render_to_string(

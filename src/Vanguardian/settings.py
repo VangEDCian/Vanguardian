@@ -282,6 +282,14 @@ STATICFILES_DIRS = [BASE_DIR / "staticfiles"]
 if (BASE_DIR / "node_modules").exists():
     STATICFILES_DIRS.append(BASE_DIR / "node_modules")
 STATIC_ROOT = BASE_DIR.parent / "static"
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "apps.shared.staticfiles.VersionedStaticFilesStorage",
+    },
+}
 
 AUTH_USER_MODEL = "identity.User"
 AUTHENTICATION_BACKENDS = [

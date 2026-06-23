@@ -6,10 +6,12 @@ from django.utils.translation import gettext as _
 from apps.core.choices.study import EventExecutionModeChoices, EventInstanceStatusChoices
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.public import CrfContextAdapter
+from apps.datacapture.domain import DataCapturePageState
 from apps.datacapture.public import (
     list_form_instances_for_event_instance as _list_form_instances_for_event_instance,
 )
 from apps.datacapture.public import list_form_instances_for_event_instances
+from apps.reconcile.public import summarize_reconcile_workbench_for_page_states
 from apps.shared.datetime_formatting import date_format
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
@@ -97,11 +99,19 @@ class SubjectDetailNavigationMixin:
             )
         for event_instance in event_instances:
             form_instance_labels_by_binding_id = {}
+            form_instance_state_by_binding_id = {}
             for form_instance in form_instances_by_event_id.get(int(event_instance.pk), []):
                 binding_id = int(form_instance.event_form_binding_id)
                 form_instance_labels_by_binding_id.setdefault(
                     binding_id,
                     str(form_instance.display_label or "").strip(),
+                )
+                form_instance_state_by_binding_id.setdefault(
+                    binding_id,
+                    {
+                        "page_state_id": getattr(form_instance, "page_state_id", None),
+                        "status": str(getattr(form_instance, "status", "") or ""),
+                    },
                 )
             forms = []
             for binding in bindings_map.get(event_instance.event_definition_id, []):
@@ -116,12 +126,21 @@ class SubjectDetailNavigationMixin:
                     form_instance_labels_by_binding_id.get(int(binding.pk))
                     or template_name
                 )
+                form_state = form_instance_state_by_binding_id.get(int(binding.pk), {})
+                page_state_id = form_state.get("page_state_id")
+                page_state_status = str(form_state.get("status") or "").strip().lower()
                 forms.append(
                     {
                         "id": str(binding.pk),
                         "form_definition_id": str(template.pk),
                         "title": form_title,
                         "code": template.code,
+                        "page_state_id": str(page_state_id or ""),
+                        "page_state_status": page_state_status,
+                        "sidebar_tone": self._resolve_form_sidebar_tone(
+                            page_state_id=page_state_id,
+                            page_state_status=page_state_status,
+                        ),
                     }
                 )
 
@@ -217,6 +236,28 @@ class SubjectDetailNavigationMixin:
                 }
             )
         return payload
+
+    @staticmethod
+    def _resolve_form_sidebar_tone(*, page_state_id: int | None, page_state_status: str) -> str:
+        if page_state_id:
+            summary = summarize_reconcile_workbench_for_page_states(
+                page_state_ids=(int(page_state_id),),
+            )
+            if int(summary.get("validation_issues_open") or 0) > 0 or int(summary.get("open") or 0) > 0:
+                return "danger"
+        if page_state_status == DataCapturePageState.SUBMITTED:
+            return "success"
+        return ""
+
+    @staticmethod
+    def _resolve_default_focus_event(event_navigation: list[dict]) -> dict | None:
+        for event_item in event_navigation:
+            if event_item.get("status") == EventInstanceStatusChoices.OPEN:
+                return event_item
+            for repeat_item in event_item.get("repeat_event_instances") or []:
+                if repeat_item.get("status") == EventInstanceStatusChoices.OPEN:
+                    return repeat_item
+        return event_navigation[0] if event_navigation else None
 
     @staticmethod
     def _resolve_focus(items, focus_id):
