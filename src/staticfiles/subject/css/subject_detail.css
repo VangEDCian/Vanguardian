@@ -98,7 +98,7 @@
 
 .subject-detail-screen__body {
   display: grid;
-  grid-template-columns: min-content 4px minmax(0, 1fr);
+  grid-template-columns: var(--subject-detail-sidebar-width, min-content) 4px minmax(0, 1fr);
   min-height: 560px;
   /* max-height: calc(100vh - 320px); */
   height: 100%;
