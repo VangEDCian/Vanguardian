@@ -24,6 +24,13 @@ class DataCaptureFormInstanceListCreateAPIView(
     def get_service(self):
         return self.service_class()
 
+    def dispatch(self, request, *args, **kwargs):
+        # The same URL lists existing instances with read permission and creates
+        # a new repeated capture instance with CRF entry permission.
+        if request.method.upper() == "POST":
+            self.permission_required = "CRF.ENTER"
+        return super().dispatch(request, *args, **kwargs)
+
     def get(self, request, *args, **kwargs):
         payload = self.get_service().list_form_instances_for_event_instance(
             visit_id=kwargs["visit_id"],

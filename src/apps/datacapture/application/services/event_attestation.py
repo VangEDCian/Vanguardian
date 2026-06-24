@@ -19,6 +19,7 @@ from apps.study.public import EventAttestationPolicySnapshot, list_event_attesta
 
 class DataCaptureEventAttestationService:
     REVOKE_PERMISSION_CODE = "EVENT_ATTESTATION.REVOKE"
+    CERTIFICATION_ACTION_KIND = "CERTIFICATION"
     REVIEW_READY_STATUSES = frozenset(
         {
             "submitted",
@@ -37,12 +38,14 @@ class DataCaptureEventAttestationService:
         query_summary_reader=None,
         permission_checker=None,
         user_display_reader=None,
+        subject_event_lifecycle_adapter=None,
     ):
         self.repository = repository or DjangoEventAttestationRepository()
         self.policy_reader = policy_reader or list_event_attestation_policies_for_event
         self.query_summary_reader = query_summary_reader or summarize_reconcile_workbench_for_page_states
         self.permission_checker = permission_checker or can_perform
         self.user_display_reader = user_display_reader or get_user_display_map
+        self.subject_event_lifecycle_adapter = subject_event_lifecycle_adapter
 
     def get_panel(
         self,
@@ -158,6 +161,11 @@ class DataCaptureEventAttestationService:
             language_code=self._normalize_language(language_code),
             confirmation_accepted=confirmation_accepted or not self._requires_confirmation(policy),
         )
+        self._trigger_transition_after_certification(
+            event_context=event_context,
+            policy=policy,
+            actor_user_id=actor_user_id,
+        )
         return {"ok": True, "attestation": self._record_payload(record, current_scope_digest=scope_digest)}
 
     @transaction.atomic
@@ -214,6 +222,48 @@ class DataCaptureEventAttestationService:
             actor_user_id=actor_user_id,
             reason_text=reason_text or f"Event attestation invalidated by {change_type} change.",
         )
+
+    def has_current_active_certification(self, *, event_instance_id: int) -> bool:
+        page_scope = self.repository.list_page_scope(event_instance_id=event_instance_id)
+        current_scope_digest = self._scope_digest(page_scope)
+        for row in self.repository.list_attestations_for_event(event_instance_id=event_instance_id):
+            if str(row.status or "").strip().upper() != "ACTIVE":
+                continue
+            if str(row.action_kind or "").strip().upper() != self.CERTIFICATION_ACTION_KIND:
+                continue
+            if str(row.scope_digest or "") != current_scope_digest:
+                continue
+            return True
+        return False
+
+    def _trigger_transition_after_certification(
+        self,
+        *,
+        event_context: EventAttestationEventContext,
+        policy: EventAttestationPolicySnapshot,
+        actor_user_id: int,
+    ) -> None:
+        if str(policy.action_kind or "").strip().upper() != self.CERTIFICATION_ACTION_KIND:
+            return
+        adapter = self.subject_event_lifecycle_adapter
+        if adapter is None:
+            from apps.subject.public import SubjectEventLifecycleAdapter
+
+            adapter = SubjectEventLifecycleAdapter()
+        adapter.trigger_event_transition(
+            source_event_instance_id=event_context.event_instance_id,
+            facts=self._certification_transition_facts(event_context=event_context),
+            actor_user_id=actor_user_id,
+            trigger_source="datacapture_event_certification",
+        )
+
+    @staticmethod
+    def _certification_transition_facts(*, event_context: EventAttestationEventContext) -> dict[str, bool]:
+        event_code = str(event_context.event_code or "").strip().lower()
+        facts = {"source_event.certified": True}
+        if event_code:
+            facts[f"{event_code}.event_certified"] = True
+        return facts
 
     def _event_context_or_raise(self, event_instance_id: int) -> EventAttestationEventContext:
         event_context = self.repository.get_event_context(event_instance_id=event_instance_id)

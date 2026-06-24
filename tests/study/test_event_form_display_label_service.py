@@ -135,3 +135,36 @@ class TestEventFormDisplayLabelService(SimpleTestCase):
         )
 
         self.assertEqual(result, "AE #1 — Pending")
+
+    def test_render_label_from_snapshot_does_not_reload_binding(self):
+        snapshot = EventFormDisplayConfigSnapshot(
+            binding_id=41,
+            template_id=12,
+            form_code="CM",
+            form_name_by_language={"en": "ConMed", "vi": "Thuoc dung kem"},
+            is_enabled=True,
+            syntax_version=1,
+            max_length=120,
+            use_choice_display_label=True,
+            empty_value_policy="FALLBACK",
+            translations={
+                "en": EventFormDisplayTranslationSnapshot(
+                    language_code="en",
+                    label_template="{{form_name}} #{{repeat_index}} — {{field:MED_NAME}}",
+                    fallback_template="{{form_name}} #{{repeat_index}}",
+                    empty_value_text="",
+                )
+            },
+        )
+        self.service._get_binding = lambda binding_id: (_ for _ in ()).throw(
+            AssertionError("binding should not be reloaded")
+        )
+
+        result = self.service.render_label_from_snapshot(
+            snapshot=snapshot,
+            language_code="en",
+            repeat_index=2,
+            field_values={"MED_NAME": "Paracetamol"},
+        )
+
+        self.assertEqual(result, "ConMed #2 — Paracetamol")

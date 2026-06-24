@@ -16,6 +16,11 @@ class DjangoReconcileDataQueryReadRepository:
         ReconcileValidationIssueStatusChoices.OPEN,
         ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
     )
+    WORKBENCH_OPEN_VALIDATION_ISSUE_STATUSES = (
+        ReconcileValidationIssueStatusChoices.OPEN,
+        ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
+        ReconcileValidationIssueStatusChoices.QUERY_CREATED,
+    )
 
     @staticmethod
     def _active_status_excludes() -> tuple[str, ...]:
@@ -808,20 +813,12 @@ class DjangoReconcileDataQueryReadRepository:
         queryset = ReconcileDataQuery.objects.filter(page_state_id__in=page_state_ids, deleted=False)
         validation_issue_count = ReconcileValidationIssue.objects.filter(
             form_instance_id__in=page_state_ids,
-            status__in=(
-                ReconcileValidationIssueStatusChoices.OPEN,
-                ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
-                ReconcileValidationIssueStatusChoices.QUERY_CREATED,
-            ),
+            status__in=self.WORKBENCH_OPEN_VALIDATION_ISSUE_STATUSES,
         ).count()
         hard_validation_issue_count = ReconcileValidationIssue.objects.filter(
             form_instance_id__in=page_state_ids,
             rule__mode="HARD",
-            status__in=(
-                ReconcileValidationIssueStatusChoices.OPEN,
-                ReconcileValidationIssueStatusChoices.ACKNOWLEDGEMENT_REQUIRED,
-                ReconcileValidationIssueStatusChoices.QUERY_CREATED,
-            ),
+            status__in=self.WORKBENCH_OPEN_VALIDATION_ISSUE_STATUSES,
         ).count()
         return {
             "total": queryset.count(),
@@ -840,6 +837,25 @@ class DjangoReconcileDataQueryReadRepository:
             "actionable_for_current_user": queryset.filter(status__in=("open", "answered")).count(),
         }
 
+    def list_page_state_ids_with_open_workbench_items(self, *, page_state_ids: tuple[int, ...]) -> set[int]:
+        normalized_page_state_ids = tuple(
+            dict.fromkeys(int(page_state_id) for page_state_id in page_state_ids or () if page_state_id)
+        )
+        if not normalized_page_state_ids:
+            return set()
+        query_page_state_ids = ReconcileDataQuery.objects.filter(
+            page_state_id__in=normalized_page_state_ids,
+            deleted=False,
+            status=ReconcileDataQueryStatusChoices.OPEN,
+        ).values_list("page_state_id", flat=True)
+        validation_issue_page_state_ids = ReconcileValidationIssue.objects.filter(
+            form_instance_id__in=normalized_page_state_ids,
+            status__in=self.WORKBENCH_OPEN_VALIDATION_ISSUE_STATUSES,
+        ).values_list("form_instance_id", flat=True)
+        return {int(page_state_id) for page_state_id in query_page_state_ids} | {
+            int(page_state_id) for page_state_id in validation_issue_page_state_ids
+        }
+
     def count_open_queries_assigned_to_user(
         self,
         *,
@@ -854,6 +870,26 @@ class DjangoReconcileDataQueryReadRepository:
             deleted=False,
             status=ReconcileDataQueryStatusChoices.OPEN,
         ).count()
+
+    def count_open_queries_assigned_to_user_for_study_site(
+        self,
+        *,
+        study_id: int | None,
+        site_id: int | None,
+        user_id: int | None,
+    ) -> int:
+        if study_id is None or user_id is None:
+            return 0
+        queryset = ReconcileDataQuery.objects.filter(
+            assigned_to_id=user_id,
+            deleted=False,
+            status=ReconcileDataQueryStatusChoices.OPEN,
+            page_state__deleted=False,
+            page_state__subject__study_id=study_id,
+        )
+        if site_id is not None:
+            queryset = queryset.filter(page_state__subject__site_id=site_id)
+        return queryset.count()
 
     def list_workbench_queries(
         self,

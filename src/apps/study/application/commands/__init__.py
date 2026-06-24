@@ -53,6 +53,12 @@ from apps.study.application.commands.import_event_form_bindings_template import 
     ImportStudyEventFormBindingsTemplateCommand,
     ImportStudyEventFormBindingsTemplateResult,
 )
+from apps.study.application.commands.import_event_attestation_policies_template import (
+    EventAttestationPolicyImportDependencyError,
+    EventAttestationPolicyImportFormatError,
+    ImportStudyEventAttestationPoliciesTemplateCommand,
+    ImportStudyEventAttestationPoliciesTemplateResult,
+)
 from apps.study.application.commands.import_fact_mappings_template import (
     FactMappingImportDependencyError,
     FactMappingImportFormatError,
@@ -95,6 +101,8 @@ __all__ = [
     "EnrollSubjectCommand",
     "EventDefinitionImportDependencyError",
     "EventDefinitionImportFormatError",
+    "EventAttestationPolicyImportDependencyError",
+    "EventAttestationPolicyImportFormatError",
     "EventFormBindingImportDependencyError",
     "EventFormBindingImportFormatError",
     "FactMappingImportDependencyError",
@@ -109,6 +117,8 @@ __all__ = [
     "ImportStudyCrfSectionLayoutConfigsTemplateResult",
     "ImportStudyEventDefinitionsTemplateCommand",
     "ImportStudyEventDefinitionsTemplateResult",
+    "ImportStudyEventAttestationPoliciesTemplateCommand",
+    "ImportStudyEventAttestationPoliciesTemplateResult",
     "ImportStudyEventFormBindingsTemplateCommand",
     "ImportStudyEventFormBindingsTemplateResult",
     "ImportStudyFactMappingsTemplateCommand",

@@ -23,6 +23,7 @@ class EventAttestationEventContext:
     site_id: int
     subject_id: int
     event_definition_id: int
+    event_code: str
     event_name: str
     event_status: str
 
@@ -74,6 +75,7 @@ class DjangoEventAttestationRepository:
             site_id=int(event.subject.site_id),
             subject_id=int(event.subject_id),
             event_definition_id=int(event.event_definition_id),
+            event_code=str(event.event_code_snapshot or event.event_definition.code or ""),
             event_name=str(event.event_name_snapshot or event.event_definition.name or ""),
             event_status=str(event.status or ""),
         )
@@ -238,7 +240,7 @@ class DjangoEventAttestationRepository:
         reason_text: str,
     ) -> int:
         normalized_change_type = str(change_type or "").strip().lower()
-        if normalized_change_type not in {"data", "scope"}:
+        if normalized_change_type not in {"data", "query", "scope"}:
             return 0
         flag_name = f"attestation_policy__invalidate_on_{normalized_change_type}_change"
         now = timezone.now()

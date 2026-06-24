@@ -113,12 +113,17 @@ class Command(BaseCommand):
             "SCREENING_SOURCE_READY": self._upsert_condition(
                 study_id=study_id,
                 study_version=study_version,
-                code="SCREENING_SOURCE_READY",
-                scope=StudyConditionDefinitionScopeChoices.PAGE,
+                code="screening_source_ready",
+                scope=StudyConditionDefinitionScopeChoices.EVENT,
                 expression={
-                    "all": [
-                        {"fact": "screening.page.status", "operator": "in", "value": ["completed", "verified", "locked"]},
-                        {"fact": "screening.blocking_queries_open", "operator": "equals", "value": False},
+                    "any": [
+                        {
+                            "all": [
+                                {"fact": "screening.page_state_is_verified", "operator": "equals", "value": True},
+                                {"fact": "screening.non_bloking_queries", "operator": "equals", "value": True},
+                            ]
+                        },
+                        {"fact": "screening.event_certified", "operator": "equals", "value": True},
                     ]
                 },
                 actor_id=actor_id,

@@ -277,7 +277,7 @@ class StudyDetailView(
 
 
 class StudyRolesContextMixin(AuthenticateTemplateView):
-    permission_required = "study.view_study_detail"
+    permission_required = "USER_ACCESS.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     layout_nav_key = "STUDIES"
@@ -356,6 +356,12 @@ class StudyRolesContextMixin(AuthenticateTemplateView):
 class StudyManageRolesView(StudyRolesContextMixin):
     template_name = "study/study_manage_roles.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        # GET is role/access visibility; POST imports role-permission changes.
+        if request.method.upper() == "POST":
+            self.permission_required = "USER_ACCESS.MANAGE"
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["detail_study"] = self._detail_view_model["detail_study"]
@@ -396,6 +402,7 @@ class StudyManageRolesView(StudyRolesContextMixin):
 
 
 class StudyRoleCreateView(StudyRolesContextMixin):
+    permission_required = "USER_ACCESS.MANAGE"
     template_name = "study/study_role_create.html"
 
     def get_context_data(self, **kwargs):

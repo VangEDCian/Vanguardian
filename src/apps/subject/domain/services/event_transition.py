@@ -69,9 +69,6 @@ class SubjectEventTransitionPolicy:
         if rule.requires_previous_completion and not source_event_is_transition_ready:
             return False, "source_event_not_transition_ready"
 
-        if target_event is not None and not SubjectEventInstance.is_openable(target_event.status):
-            return False, "target_event_not_openable"
-
         if transition_type == self.SEQUENTIAL:
             condition_satisfied = True
         elif transition_type == self.CONDITIONAL:
@@ -81,6 +78,9 @@ class SubjectEventTransitionPolicy:
 
         if not condition_satisfied:
             return False, "condition_not_satisfied"
+
+        if target_event is not None and not SubjectEventInstance.is_openable(target_event.status):
+            return False, "target_event_not_openable"
 
         if target_event is None and not rule.auto_create:
             return False, "target_event_missing"

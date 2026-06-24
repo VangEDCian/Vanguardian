@@ -200,11 +200,8 @@ class SubjectDetailNavigationMixinTests(SimpleTestCase):
                 side_effect=["Adverse Event Log", "Vitals"],
             ),
             patch(
-                "apps.subject.presentation.web.views.detail_navigation.summarize_reconcile_workbench_for_page_states",
-                side_effect=[
-                    {"open": 1, "validation_issues_open": 0},
-                    {"open": 0, "validation_issues_open": 0},
-                ],
+                "apps.subject.presentation.web.views.detail_navigation.list_page_state_ids_with_open_reconcile_workbench_items",
+                return_value={10},
             ),
         ):
             payload = _View(subject)._build_event_navigation()

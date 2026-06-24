@@ -55,6 +55,18 @@ class FactMappingImportFormatError(FactMappingImportTemplateError):
     """Raised when the uploaded workbook shape is invalid."""
 
 
+class EventAttestationPolicyImportTemplateError(StudyImportTemplateError):
+    """Base error raised for event attestation policy import failures."""
+
+
+class EventAttestationPolicyImportDependencyError(EventAttestationPolicyImportTemplateError):
+    """Raised when the Excel parser dependency is missing."""
+
+
+class EventAttestationPolicyImportFormatError(EventAttestationPolicyImportTemplateError):
+    """Raised when the uploaded workbook shape is invalid."""
+
+
 class RandomizationImportUseCaseError(ApplicationValidationError):
     """Base exception for randomization import application use cases."""
 
@@ -82,6 +94,9 @@ __all__ = [
     "CrfTemplateImportDependencyError",
     "CrfTemplateImportFormatError",
     "CrfTemplateImportTemplateError",
+    "EventAttestationPolicyImportDependencyError",
+    "EventAttestationPolicyImportFormatError",
+    "EventAttestationPolicyImportTemplateError",
     "EventDefinitionImportDependencyError",
     "EventDefinitionImportFormatError",
     "EventDefinitionImportTemplateError",

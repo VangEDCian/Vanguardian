@@ -189,6 +189,12 @@ def get_latest_stable_page_state_id_for_event_instance(*, event_instance_id: int
     )
 
 
+def get_latest_submitted_or_stable_page_state_id_for_event_instance(*, event_instance_id: int) -> int | None:
+    return DataCapturePageStateReadService().get_latest_submitted_or_stable_page_state_id_for_event_instance(
+        event_instance_id=event_instance_id,
+    )
+
+
 def event_instance_has_data(*, event_instance_id: int) -> bool:
     return DataCapturePageStateReadService().event_instance_has_data(
         event_instance_id=event_instance_id,
@@ -264,6 +270,12 @@ def invalidate_event_attestations_for_event_instance(
         change_type=change_type,
         actor_user_id=actor_user_id,
         reason_text=reason_text,
+    )
+
+
+def has_current_event_certification_attestation(*, event_instance_id: int) -> bool:
+    return DataCaptureEventAttestationService().has_current_active_certification(
+        event_instance_id=event_instance_id,
     )
 
 
@@ -556,6 +568,7 @@ __all__ = [
     "get_event_attestation_panel_for_event_instance",
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",
+    "get_latest_submitted_or_stable_page_state_id_for_event_instance",
     "get_latest_stable_page_state_id_for_event_instance",
     "get_page_entry_for_subject_visit_crf",
     "get_page_state_final_data_for_subject_visit_crf",
@@ -563,6 +576,7 @@ __all__ = [
     "get_page_state_status_for_subject_visit_crf",
     "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
+    "has_current_event_certification_attestation",
     "invalidate_event_attestations_for_event_instance",
     "is_field_verified_for_page_state",
     "list_form_instances_for_event_instance",

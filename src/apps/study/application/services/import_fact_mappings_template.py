@@ -87,6 +87,7 @@ class ImportStudyFactMappingsTemplateService:
         "attestation requires reauth": "attestation_requires_reauth",
         "attestation invalidate on data change": "attestation_invalidate_on_data_change",
         "attestation invalidate on scope change": "attestation_invalidate_on_scope_change",
+        "attestation invalidate on query change": "attestation_invalidate_on_query_change",
         "attestation required for lock": "attestation_required_for_lock",
         "attestation enabled": "attestation_enabled",
         "attestation dialog title vi": "attestation_dialog_title_vi",
@@ -345,6 +346,11 @@ class ImportStudyFactMappingsTemplateService:
             "invalidate_on_scope_change": self._coerce_bool(
                 row_data.get("attestation_invalidate_on_scope_change"),
                 field_label="Attestation Invalidate On Scope Change",
+                default=True,
+            ),
+            "invalidate_on_query_change": self._coerce_bool(
+                row_data.get("attestation_invalidate_on_query_change"),
+                field_label="Attestation Invalidate On Query Change",
                 default=True,
             ),
             "is_required_for_lock": self._coerce_bool(

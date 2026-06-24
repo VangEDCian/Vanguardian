@@ -34,7 +34,7 @@ def _latest_active_entry_payload(*, subject_id: int, visit_id: int, crf_template
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureSaveAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.ENTER"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -72,7 +72,7 @@ class DataCaptureSaveAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin,
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureSubmitAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.SUBMIT"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -109,7 +109,7 @@ class DataCaptureSubmitAPIView(LoginRequiredMixin, ContextPermissionRequiredMixi
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureDeleteDraftAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.UPDATE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
