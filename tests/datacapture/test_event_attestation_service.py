@@ -56,6 +56,7 @@ class _EventAttestationRepository:
             site_id=2,
             subject_id=3,
             event_definition_id=21,
+            event_code="SCREENING",
             event_name="Visit 1",
             event_status="completed",
         )
@@ -135,8 +136,24 @@ class _EventAttestationRepository:
         return record
 
 
+class _SubjectEventLifecycleAdapterStub:
+    def __init__(self):
+        self.calls = []
+
+    def trigger_event_transition(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(has_changes=True)
+
+
 class DataCaptureEventAttestationServiceTests(SimpleTestCase):
-    def _service(self, *, policy=None, repository=None, permission_checker=None):
+    def _service(
+        self,
+        *,
+        policy=None,
+        repository=None,
+        permission_checker=None,
+        subject_event_lifecycle_adapter=None,
+    ):
         return DataCaptureEventAttestationService(
             repository=repository or _EventAttestationRepository(),
             policy_reader=lambda **kwargs: [policy or _policy()],
@@ -147,6 +164,7 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
             },
             permission_checker=permission_checker or (lambda **kwargs: SimpleNamespace(is_allowed=True)),
             user_display_reader=lambda user_ids: {int(user_ids[0]): "Reviewer"},
+            subject_event_lifecycle_adapter=subject_event_lifecycle_adapter,
         )
 
     @staticmethod
@@ -219,6 +237,30 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(repository.created[0]["signer_name"], "Reviewer")
         self.assertEqual(result["attestation"]["status"], "ACTIVE")
+
+    def test_certification_attestation_triggers_event_transition_with_certified_fact(self):
+        repository = _EventAttestationRepository()
+        adapter = _SubjectEventLifecycleAdapterStub()
+        service = self._service(
+            policy=_policy(action_kind="CERTIFICATION", code="SCREENING_CERT"),
+            repository=repository,
+            subject_event_lifecycle_adapter=adapter,
+        )
+
+        result = self._without_db_atomic(
+            service.attest_event_for_policy,
+            event_instance_id=11,
+            attestation_policy_id=51,
+            actor_user_id=7,
+            confirmation_accepted=True,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(adapter.calls), 1)
+        self.assertEqual(adapter.calls[0]["source_event_instance_id"], 11)
+        self.assertEqual(adapter.calls[0]["trigger_source"], "datacapture_event_certification")
+        self.assertTrue(adapter.calls[0]["facts"]["source_event.certified"])
+        self.assertTrue(adapter.calls[0]["facts"]["screening.event_certified"])
 
     def test_signature_policy_uses_confirmation_checkbox_until_signature_is_implemented(self):
         repository = _EventAttestationRepository()

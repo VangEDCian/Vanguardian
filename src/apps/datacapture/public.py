@@ -189,6 +189,12 @@ def get_latest_stable_page_state_id_for_event_instance(*, event_instance_id: int
     )
 
 
+def get_latest_submitted_or_stable_page_state_id_for_event_instance(*, event_instance_id: int) -> int | None:
+    return DataCapturePageStateReadService().get_latest_submitted_or_stable_page_state_id_for_event_instance(
+        event_instance_id=event_instance_id,
+    )
+
+
 def event_instance_has_data(*, event_instance_id: int) -> bool:
     return DataCapturePageStateReadService().event_instance_has_data(
         event_instance_id=event_instance_id,
@@ -562,6 +568,7 @@ __all__ = [
     "get_event_attestation_panel_for_event_instance",
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",
+    "get_latest_submitted_or_stable_page_state_id_for_event_instance",
     "get_latest_stable_page_state_id_for_event_instance",
     "get_page_entry_for_subject_visit_crf",
     "get_page_state_final_data_for_subject_visit_crf",

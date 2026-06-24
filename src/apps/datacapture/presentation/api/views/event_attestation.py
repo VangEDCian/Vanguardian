@@ -28,7 +28,7 @@ class DataCaptureEventAttestationSubmitAPIView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "EVENT_CERTIFICATION.CERTIFY"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -59,7 +59,7 @@ class DataCaptureEventAttestationRevokeAPIView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "EVENT_ATTESTATION.REVOKE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

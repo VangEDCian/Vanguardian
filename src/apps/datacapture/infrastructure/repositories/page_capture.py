@@ -1538,6 +1538,22 @@ class DjangoDataCapturePageRepository:
             .first()
         )
 
+    def get_latest_submitted_or_stable_page_state_id_for_event_instance(self, *, event_instance_id: int) -> int | None:
+        return (
+            DataCapturePageState.objects.filter(
+                visit_id=event_instance_id,
+                deleted=False,
+                status__in=(
+                    DataCapturePageStateStatusChoices.SUBMITTED,
+                    *self.FINAL_DATA_STATUSES,
+                ),
+                current_entry__status=DataCapturePageEntryStatusChoices.SUBMITTED,
+            )
+            .order_by("-updated_at", "-id")
+            .values_list("id", flat=True)
+            .first()
+        )
+
     def event_instance_has_data(self, *, event_instance_id: int) -> bool:
         return DataCapturePageEntry.objects.filter(
             visit_id=event_instance_id,

@@ -94,6 +94,9 @@ class StudyCrfTemplateListView(
         return self.import_event_attestation_policies_template_service_class()
 
     def dispatch(self, request, *args, **kwargs):
+        # GET lists CRF templates; POST imports template definitions.
+        if request.method.upper() == "POST":
+            self.permission_required = "study.manage_crf_template"
         unauthenticated_response = self.dispatch_authenticated(request)
         if unauthenticated_response is not None:
             return unauthenticated_response

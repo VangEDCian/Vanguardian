@@ -26,9 +26,11 @@ class SubjectWorkflowActionResult:
 
 
 def _default_source_page_state_resolver(*, event_instance_id: int) -> int | None:
-    from apps.datacapture.public import get_latest_stable_page_state_id_for_event_instance
+    from apps.datacapture.public import get_latest_submitted_or_stable_page_state_id_for_event_instance
 
-    return get_latest_stable_page_state_id_for_event_instance(event_instance_id=event_instance_id)
+    return get_latest_submitted_or_stable_page_state_id_for_event_instance(
+        event_instance_id=event_instance_id
+    )
 
 
 def _default_eligibility_assessment_finalizer(command):

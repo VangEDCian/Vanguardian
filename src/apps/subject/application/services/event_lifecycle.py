@@ -60,6 +60,7 @@ class SubjectEventTransitionService:
         gate_evaluation_recorder=None,
         randomization_fact_reader=None,
         eligibility_fact_reader=None,
+        source_event_certification_checker=None,
     ):
         self.repository = repository or self.repository_class()
         self.transition_policy = transition_policy or self.transition_policy_class()
@@ -68,6 +69,9 @@ class SubjectEventTransitionService:
         self.gate_evaluation_recorder = gate_evaluation_recorder or self.gate_evaluation_recorder_class()
         self.randomization_fact_reader = randomization_fact_reader or self.randomization_fact_reader_class()
         self.eligibility_fact_reader = eligibility_fact_reader or self.eligibility_fact_reader_class()
+        self.source_event_certification_checker = (
+            source_event_certification_checker or self._default_source_event_certification_checker
+        )
 
     def execute(
         self,
@@ -129,6 +133,12 @@ class SubjectEventTransitionService:
 
             for decision in decisions:
                 if not decision.should_open and not decision.should_create:
+                    self._retry_open_workflow_action(
+                        decision=decision,
+                        source_event=source_event,
+                        target_events_by_definition=target_events_by_definition,
+                        actor_user_id=command.actor_user_id,
+                    )
                     skipped_decisions.append(decision)
                     continue
 
@@ -206,8 +216,34 @@ class SubjectEventTransitionService:
             self.event_publisher.publish_many(result.applied_events)
             return result
 
+    def _retry_open_workflow_action(
+        self,
+        *,
+        decision,
+        source_event,
+        target_events_by_definition,
+        actor_user_id,
+    ) -> None:
+        if decision.reason != "target_event_not_openable":
+            return
+        target_event = target_events_by_definition.get(decision.target_event_definition_id)
+        if target_event is None:
+            return
+        if str(getattr(target_event, "status", "") or "").strip().lower() != SubjectEventInstance.OPEN:
+            return
+        self.workflow_action_service.execute_for_open_event(
+            event_instance_id=target_event.id,
+            actor_user_id=actor_user_id,
+            source_event_instance_id=source_event.id,
+        )
+
     @staticmethod
-    def _build_transition_facts(*, source_event, external_facts, trigger_source=None):
+    def _default_source_event_certification_checker(*, event_instance_id: int) -> bool:
+        from apps.datacapture.public import has_current_event_certification_attestation
+
+        return has_current_event_certification_attestation(event_instance_id=event_instance_id)
+
+    def _build_transition_facts(self, *, source_event, external_facts, trigger_source=None):
         facts = {
             "subject_event.triggered": True,
             "subject_event.completed": SubjectEventInstance.is_transition_ready(source_event.status),
@@ -222,7 +258,16 @@ class SubjectEventTransitionService:
         }
         if trigger_source:
             facts[f"trigger_source.{trigger_source}"] = True
+        facts.update(self._source_event_certification_facts(source_event=source_event))
         facts.update(external_facts or {})
+        return facts
+
+    def _source_event_certification_facts(self, *, source_event) -> dict[str, bool]:
+        event_code = str(getattr(source_event, "event_code", "") or "").strip().lower()
+        is_certified = bool(self.source_event_certification_checker(event_instance_id=source_event.id))
+        facts = {"source_event.certified": is_certified}
+        if event_code:
+            facts[f"{event_code}.event_certified"] = is_certified
         return facts
 
     def _build_scoped_transition_facts(self, *, source_event, transition_rules):

@@ -606,7 +606,7 @@ class SubjectValidationIssueAcknowledgeView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "VALIDATION_ISSUE.ACKNOWLEDGE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

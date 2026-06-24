@@ -120,6 +120,7 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
                 repository=repository,
                 workflow_action_service=workflow_action_service,
                 gate_evaluation_recorder=gate_evaluation_recorder,
+                source_event_certification_checker=lambda **kwargs: False,
             ).execute(
                 TriggerSubjectEventTransitionCommand(
                     source_event_instance_id=10,
@@ -167,6 +168,7 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
                 repository=repository,
                 workflow_action_service=_WorkflowActionServiceStub(),
                 gate_evaluation_recorder=gate_evaluation_recorder,
+                source_event_certification_checker=lambda **kwargs: False,
             ).execute(
                 TriggerSubjectEventTransitionCommand(
                     source_event_instance_id=10,
@@ -189,6 +191,108 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
         self.assertEqual(gate_command.condition_results[0]["result"], "fail")
         self.assertEqual(gate_command.condition_results[1]["operator"], "evaluate_rule")
         self.assertEqual(gate_command.condition_results[1]["actual_value"], "condition_not_satisfied")
+
+    def test_certified_source_event_satisfies_screening_source_ready_transition(self):
+        repository = _SubjectEventLifecycleRepositoryStub(
+            now=datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc),
+            transition_rule=StudyEventTransitionRuleSnapshot(
+                id=3,
+                from_event_definition_id=100,
+                to_event_definition_id=101,
+                transition_type="conditional",
+                condition_scope="subject_event",
+                condition_code="screening_source_ready",
+                condition_definition_id=55,
+                condition_definition_scope="event",
+                condition_definition_code="screening_source_ready",
+                condition_expression_json={
+                    "any": [
+                        {"fact": "screening.page_state_is_verified", "operator": "equals", "value": True},
+                        {"fact": "screening.event_certified", "operator": "equals", "value": True},
+                    ]
+                },
+                auto_open=True,
+                auto_create=True,
+                requires_previous_completion=True,
+                allow_skip=False,
+                display_order=1,
+            ),
+        )
+
+        with patch("apps.subject.application.services.event_lifecycle.transaction.atomic", return_value=nullcontext()):
+            result = SubjectEventTransitionService(
+                repository=repository,
+                workflow_action_service=_WorkflowActionServiceStub(),
+                gate_evaluation_recorder=_GateEvaluationRecorderStub(),
+                source_event_certification_checker=lambda **kwargs: True,
+            ).execute(
+                TriggerSubjectEventTransitionCommand(
+                    source_event_instance_id=10,
+                    actor_user_id=99,
+                    trigger_source="datacapture_event_certification",
+                )
+            )
+
+        self.assertTrue(result.has_changes)
+        self.assertEqual(result.applied_events[0].facts["screening.event_certified"], True)
+
+    def test_certified_source_event_retries_workflow_action_when_target_already_open(self):
+        repository = _SubjectEventLifecycleRepositoryStub(
+            now=datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc),
+            target_event=SubjectEventInstanceSnapshot(
+                id=11,
+                study_id=1,
+                subject_id=20,
+                event_definition_id=101,
+                study_version="1.0",
+                repeat_index=1,
+                status="open",
+                event_code="ELIGIBILITY_ASSESSMENT",
+                event_name="Eligibility Assessment",
+                event_type="operational",
+            ),
+            transition_rule=StudyEventTransitionRuleSnapshot(
+                id=3,
+                from_event_definition_id=100,
+                to_event_definition_id=101,
+                transition_type="conditional",
+                condition_scope="subject_event",
+                condition_code="screening_source_ready",
+                condition_definition_id=55,
+                condition_definition_scope="event",
+                condition_definition_code="screening_source_ready",
+                condition_expression_json={
+                    "any": [
+                        {"fact": "screening.page_state_is_verified", "operator": "equals", "value": True},
+                        {"fact": "screening.event_certified", "operator": "equals", "value": True},
+                    ]
+                },
+                auto_open=True,
+                auto_create=True,
+                requires_previous_completion=True,
+                allow_skip=False,
+                display_order=1,
+            ),
+        )
+        workflow_action_service = _WorkflowActionServiceStub()
+
+        with patch("apps.subject.application.services.event_lifecycle.transaction.atomic", return_value=nullcontext()):
+            result = SubjectEventTransitionService(
+                repository=repository,
+                workflow_action_service=workflow_action_service,
+                gate_evaluation_recorder=_GateEvaluationRecorderStub(),
+                source_event_certification_checker=lambda **kwargs: True,
+            ).execute(
+                TriggerSubjectEventTransitionCommand(
+                    source_event_instance_id=10,
+                    actor_user_id=99,
+                    trigger_source="datacapture_event_certification",
+                )
+            )
+
+        self.assertFalse(result.has_changes)
+        self.assertEqual(result.skipped_decisions[0].reason, "target_event_not_openable")
+        self.assertEqual(workflow_action_service.open_event_ids, [11])
 
 
 class _SubjectCommandRepositoryStub:
@@ -240,10 +344,11 @@ class _GateEvaluationRecorderStub:
 
 
 class _SubjectEventLifecycleRepositoryStub:
-    def __init__(self, *, now, transition_rule=None):
+    def __init__(self, *, now, transition_rule=None, target_event=None):
         self._now = now
         self.created_planned_date = None
         self.transition_rule = transition_rule
+        self.target_event = target_event
 
     def now(self):
         return self._now
@@ -284,6 +389,8 @@ class _SubjectEventLifecycleRepositoryStub:
         ]
 
     def list_event_instances_for_update(self, *, subject_id, event_definition_ids):
+        if self.target_event is not None:
+            return {self.target_event.event_definition_id: self.target_event}
         return {}
 
     def get_event_definition(self, *, event_definition_id):

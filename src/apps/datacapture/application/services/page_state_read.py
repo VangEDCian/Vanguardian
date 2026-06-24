@@ -67,6 +67,11 @@ class DataCapturePageStateReadService:
             event_instance_id=event_instance_id,
         )
 
+    def get_latest_submitted_or_stable_page_state_id_for_event_instance(self, *, event_instance_id: int) -> int | None:
+        return self.repository.get_latest_submitted_or_stable_page_state_id_for_event_instance(
+            event_instance_id=event_instance_id,
+        )
+
     def event_instance_has_data(self, *, event_instance_id: int) -> bool:
         return self.repository.event_instance_has_data(event_instance_id=event_instance_id)
 

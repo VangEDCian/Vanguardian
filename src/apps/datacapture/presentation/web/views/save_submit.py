@@ -16,7 +16,7 @@ from apps.subject.public import SubjectAbstractVerifyStudy
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureSaveView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.ENTER"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -46,7 +46,7 @@ class DataCaptureSaveView(LoginRequiredMixin, ContextPermissionRequiredMixin, Su
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureSubmitView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.SUBMIT"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

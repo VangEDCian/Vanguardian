@@ -23,6 +23,7 @@ class EventAttestationEventContext:
     site_id: int
     subject_id: int
     event_definition_id: int
+    event_code: str
     event_name: str
     event_status: str
 
@@ -74,6 +75,7 @@ class DjangoEventAttestationRepository:
             site_id=int(event.subject.site_id),
             subject_id=int(event.subject_id),
             event_definition_id=int(event.event_definition_id),
+            event_code=str(event.event_code_snapshot or event.event_definition.code or ""),
             event_name=str(event.event_name_snapshot or event.event_definition.name or ""),
             event_status=str(event.status or ""),
         )
