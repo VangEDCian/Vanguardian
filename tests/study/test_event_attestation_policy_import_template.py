@@ -8,7 +8,6 @@ from openpyxl import load_workbook
 
 from apps.study.application.services import ImportStudyEventAttestationPoliciesTemplateService
 
-
 CERTIFICATION_STATEMENT = (
     "I certify that the data entered in this eCRF are complete, accurate, "
     "and ae supported by the source documents"

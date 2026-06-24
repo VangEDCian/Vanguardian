@@ -4,15 +4,6 @@ from django.urls import URLPattern, URLResolver, get_resolver
 from apps.crf.presentation.web.views.builder import CrfFormBuilderView
 from apps.crf.presentation.web.views.field_update import CrfFieldUpdateView
 from apps.dashboard.presentation.web.views import DashboardMainView
-from apps.identity.presentation.web.views.users import (
-    IdentityStudyOptionsApiView,
-    IdentityStudySiteOptionsApiView,
-    IdentityUserCreateView,
-    IdentityUserDeleteView,
-    IdentityUserDetailView,
-    IdentityUserRestoreView,
-    IdentityUsersView,
-)
 from apps.datacapture.presentation.api.views.event_attestation import (
     DataCaptureEventAttestationRevokeAPIView,
     DataCaptureEventAttestationSubmitAPIView,
@@ -25,24 +16,31 @@ from apps.datacapture.presentation.api.views.save_submit import (
     DataCaptureSaveAPIView,
     DataCaptureSubmitAPIView,
 )
+from apps.identity.application.permissions import ALL_PERMISSION_DEFINITIONS
+from apps.identity.presentation.web.views.users import (
+    IdentityStudyOptionsApiView,
+    IdentityStudySiteOptionsApiView,
+    IdentityUserCreateView,
+    IdentityUserDeleteView,
+    IdentityUserDetailView,
+    IdentityUserRestoreView,
+    IdentityUsersView,
+)
 from apps.study.presentation.web.views.crf_templates import (
-    StudyCrfTemplateListView,
     StudyCrfSectionLayoutConfigImportTemplateView,
     StudyCrfTemplateFieldImportTemplateView,
     StudyCrfTemplateImportTemplateView,
+    StudyCrfTemplateListView,
 )
+from apps.study.presentation.web.views.site import SiteMembershipOptionsApiView
 from apps.study.presentation.web.views.studies import (
     StudyManageRolesView,
     StudyRoleCreateView,
     StudyRolesContextMixin,
 )
-from apps.study.presentation.web.views.site import SiteMembershipOptionsApiView
 from apps.subject.presentation.web.views.event_instance_files import SubjectEventInstanceFileImportView
 from apps.subject.presentation.web.views.repeating_event_instance import SubjectAddRepeatingEventInstanceView
-from apps.subject.presentation.web.views.verification_verify_checked import SubjectFormVerificationQueryThreadView
-from apps.subject.presentation.web.views.verification_verify_checked import SubjectValidationIssueAcknowledgeView
-from apps.identity.application.permissions import ALL_PERMISSION_DEFINITIONS
-
+from apps.subject.presentation.web.views.verification_verify_checked import SubjectFormVerificationQueryThreadView, SubjectValidationIssueAcknowledgeView
 
 EXPECTED_ROUTES_WITHOUT_BUSINESS_PERMISSION = {
     "",
