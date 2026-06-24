@@ -238,7 +238,7 @@ class DjangoEventAttestationRepository:
         reason_text: str,
     ) -> int:
         normalized_change_type = str(change_type or "").strip().lower()
-        if normalized_change_type not in {"data", "scope"}:
+        if normalized_change_type not in {"data", "query", "scope"}:
             return 0
         flag_name = f"attestation_policy__invalidate_on_{normalized_change_type}_change"
         now = timezone.now()

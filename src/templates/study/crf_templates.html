@@ -33,10 +33,16 @@
                     data-modal-open="modal-import-crf-validation-rules">
                 {% trans "Import Validation Rules" %}
             </button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                    data-modal-open="modal-import-event-attestation-policies">
+                {% trans "Import Attestation Template" %}
+            </button>
         </div>
     </section>
     {% include "study/components/_crf_template_import_modal.html" %}
     {% include "study/components/_crf_template_field_import_modal.html" %}
     {% include "study/components/_crf_section_layout_config_import_modal.html" %}
     {% include "study/components/_crf_validation_rule_import_modal.html" %}
+    {% include "study/components/_event_attestation_policy_import_modal.html" %}
 {% endblock %}

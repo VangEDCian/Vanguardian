@@ -636,4 +636,7 @@
   );
 
   applyAllBehaviors();
+  window.setTimeout(() => {
+    window.DatacaptureUnsavedChangesGuard?.markCurrentPayloadClean?.();
+  }, 0);
 })();

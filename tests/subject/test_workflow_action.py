@@ -143,6 +143,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
                 repository=repository,
                 source_page_state_resolver=lambda *, event_instance_id: 13,
                 eligibility_assessment_finalizer=finalizer,
+                source_event_certification_checker=lambda *, event_instance_id: True,
                 transition_service=transition_service,
             ).execute_for_open_event(
                 event_instance_id=60,
@@ -159,6 +160,43 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 60)
         self.assertEqual(transition_service.commands[0].facts["eligibility.latest.result"], "ELIGIBLE")
         self.assertTrue(transition_service.commands[0].facts["eligible"])
+
+    def test_eligibility_assessment_workflow_requires_source_event_certification(self):
+        repository = _WorkflowRepositoryStub(
+            event=SubjectEventWorkflowContext(
+                event_instance_id=60,
+                study_id=1,
+                subject_id=20,
+                site_id=2,
+                study_version="v1.0",
+                status="open",
+                event_definition_id=29,
+                event_code="ELIGIBILITY_ASSESSMENT",
+                event_type="operational",
+                event_category="screening",
+                execution_mode="workflow_action",
+            )
+        )
+        finalizer = _EligibilityFinalizerStub()
+
+        with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
+            result = SubjectWorkflowActionService(
+                repository=repository,
+                source_page_state_resolver=lambda *, event_instance_id: 13,
+                eligibility_assessment_finalizer=finalizer,
+                source_event_certification_checker=lambda *, event_instance_id: False,
+                transition_service=_TransitionServiceStub(),
+            ).execute_for_open_event(
+                event_instance_id=60,
+                actor_user_id=99,
+                source_event_instance_id=10,
+            )
+
+        self.assertFalse(result.executed)
+        self.assertEqual(result.action, "eligibility_assessment")
+        self.assertEqual(result.reason, "eligibility_source_event_certification_required")
+        self.assertEqual(finalizer.commands, [])
+        self.assertEqual(repository.completed_events, [])
 
     def test_eligibility_assessment_manual_trigger_resolves_source_event(self):
         repository = _WorkflowRepositoryStub(
@@ -189,6 +227,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
                 repository=repository,
                 source_page_state_resolver=source_page_state_resolver,
                 eligibility_assessment_finalizer=finalizer,
+                source_event_certification_checker=lambda *, event_instance_id: True,
                 transition_service=_TransitionServiceStub(),
             ).execute_for_open_event(
                 event_instance_id=60,

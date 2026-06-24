@@ -553,6 +553,7 @@ class EventAttestationPolicy(models.Model):
 
     invalidate_on_data_change = models.BooleanField(default=True)
     invalidate_on_scope_change = models.BooleanField(default=True)
+    invalidate_on_query_change = models.BooleanField(default=True)
 
     is_required_for_lock = models.BooleanField(default=False)
     is_enabled = models.BooleanField(default=True)

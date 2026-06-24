@@ -275,6 +275,27 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
         self.assertEqual(manager.filter_kwargs["deleted"], False)
         self.assertEqual(manager.filter_kwargs["status"], "open")
 
+    def test_repository_counts_open_queries_assigned_to_user_for_study_site(self):
+        manager = _DataQueryManagerStub(count=5)
+
+        with patch(
+            "apps.reconcile.infrastructure.repositories.dataquery_read.ReconcileDataQuery.objects",
+            manager,
+        ):
+            count = DjangoReconcileDataQueryReadRepository().count_open_queries_assigned_to_user_for_study_site(
+                study_id=1,
+                site_id=2,
+                user_id=9,
+            )
+
+        self.assertEqual(count, 5)
+        self.assertEqual(manager.filter_calls[0]["assigned_to_id"], 9)
+        self.assertEqual(manager.filter_calls[0]["deleted"], False)
+        self.assertEqual(manager.filter_calls[0]["status"], "open")
+        self.assertEqual(manager.filter_calls[0]["page_state__deleted"], False)
+        self.assertEqual(manager.filter_calls[0]["page_state__subject__study_id"], 1)
+        self.assertEqual(manager.filter_calls[1]["page_state__subject__site_id"], 2)
+
     def test_read_service_delegates_assigned_open_query_count(self):
         repository = _ReadServiceRepositoryStub()
 
@@ -288,6 +309,25 @@ class QueryWorkbenchReaderTests(SimpleTestCase):
             repository.assigned_count_kwargs,
             {
                 "page_state_ids": (10,),
+                "user_id": 9,
+            },
+        )
+
+    def test_read_service_delegates_assigned_open_query_count_for_study_site(self):
+        repository = _ReadServiceRepositoryStub()
+
+        count = ReconcileDataQueryReadService(repository=repository).count_open_queries_assigned_to_user_for_study_site(
+            study_id=1,
+            site_id=2,
+            user_id=9,
+        )
+
+        self.assertEqual(count, 4)
+        self.assertEqual(
+            repository.assigned_count_for_study_site_kwargs,
+            {
+                "study_id": 1,
+                "site_id": 2,
                 "user_id": 9,
             },
         )
@@ -459,10 +499,6 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
                 },
             ),
             patch(
-                "apps.datacapture.public.list_page_state_contexts_for_study_site",
-                return_value={12: object(), 10: object()},
-            ),
-            patch(
                 "apps.reconcile.application.ReconcileDataQueryReadService",
                 return_value=ReconcileDataQueryReadService(repository=read_service),
             ),
@@ -471,9 +507,10 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
 
         self.assertEqual(context["layout_queries_need_response_count"], 4)
         self.assertEqual(
-            read_service.assigned_count_kwargs,
+            read_service.assigned_count_for_study_site_kwargs,
             {
-                "page_state_ids": (10, 12),
+                "study_id": 1,
+                "site_id": 2,
                 "user_id": 9,
             },
         )
@@ -852,9 +889,14 @@ class _SharedDropdownHandler:
 class _ReadServiceRepositoryStub:
     def __init__(self):
         self.assigned_count_kwargs = None
+        self.assigned_count_for_study_site_kwargs = None
 
     def count_open_queries_assigned_to_user(self, **kwargs):
         self.assigned_count_kwargs = kwargs
+        return 4
+
+    def count_open_queries_assigned_to_user_for_study_site(self, **kwargs):
+        self.assigned_count_for_study_site_kwargs = kwargs
         return 4
 
 
@@ -862,15 +904,22 @@ class _DataQueryManagerStub:
     def __init__(self, *, count):
         self.count = count
         self.filter_kwargs = None
+        self.filter_calls = []
 
     def filter(self, **kwargs):
         self.filter_kwargs = kwargs
-        return _CountQuerySet(self.count)
+        self.filter_calls.append(kwargs)
+        return _CountQuerySet(self.count, self.filter_calls)
 
 
 class _CountQuerySet:
-    def __init__(self, count):
+    def __init__(self, count, filter_calls=None):
         self._count = count
+        self.filter_calls = filter_calls if filter_calls is not None else []
+
+    def filter(self, **kwargs):
+        self.filter_calls.append(kwargs)
+        return self
 
     def count(self):
         return self._count

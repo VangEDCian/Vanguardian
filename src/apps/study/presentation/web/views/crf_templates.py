@@ -12,11 +12,14 @@ from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.study.application import (
     CrfTemplateImportDependencyError,
     CrfTemplateImportFormatError,
+    EventAttestationPolicyImportDependencyError,
+    EventAttestationPolicyImportFormatError,
     ImportStudyCrfSectionLayoutConfigsTemplateService,
     ImportStudyCrfTemplateFieldsTemplateResult,
     ImportStudyCrfTemplateFieldsTemplateService,
     ImportStudyCrfTemplatesTemplateService,
     ImportStudyCrfValidationRulesTemplateService,
+    ImportStudyEventAttestationPoliciesTemplateService,
     StudyDirectoryQueryService,
     StudyNotFoundError,
 )
@@ -30,12 +33,14 @@ from apps.study.presentation.web.forms import (
     CrfTemplateImportTemplateForm,
     CrfTemplatesToolbarForm,
     CrfValidationRuleImportTemplateForm,
+    EventAttestationPolicyImportTemplateForm,
 )
 from apps.study.presentation.web.mappers.commands import (
     to_import_study_crf_section_layout_configs_template_command,
     to_import_study_crf_template_fields_template_command,
     to_import_study_crf_templates_template_command,
     to_import_study_crf_validation_rules_template_command,
+    to_import_study_event_attestation_policies_template_command,
 )
 from apps.study.presentation.web.tables import CrfTemplateListTable
 from apps.study.presentation.web.views.helpers import _user_has_study_access
@@ -61,10 +66,12 @@ class StudyCrfTemplateListView(
     import_crf_template_fields_template_service_class = ImportStudyCrfTemplateFieldsTemplateService
     import_crf_section_layout_configs_template_service_class = ImportStudyCrfSectionLayoutConfigsTemplateService
     import_crf_validation_rules_template_service_class = ImportStudyCrfValidationRulesTemplateService
+    import_event_attestation_policies_template_service_class = ImportStudyEventAttestationPoliciesTemplateService
     expected_import_columns = ImportStudyCrfTemplatesTemplateService.expected_columns
     expected_field_import_columns = ImportStudyCrfTemplateFieldsTemplateService.expected_columns
     expected_section_layout_config_import_columns = ImportStudyCrfSectionLayoutConfigsTemplateService.expected_columns
     expected_validation_rule_import_columns = ImportStudyCrfValidationRulesTemplateService.expected_columns
+    expected_attestation_policy_import_columns = ImportStudyEventAttestationPoliciesTemplateService.expected_columns
     _detail_view_model = None
     _study = None
 
@@ -82,6 +89,9 @@ class StudyCrfTemplateListView(
 
     def get_import_crf_validation_rules_template_service(self):
         return self.import_crf_validation_rules_template_service_class()
+
+    def get_import_event_attestation_policies_template_service(self):
+        return self.import_event_attestation_policies_template_service_class()
 
     def dispatch(self, request, *args, **kwargs):
         unauthenticated_response = self.dispatch_authenticated(request)
@@ -175,14 +185,17 @@ class StudyCrfTemplateListView(
         context.setdefault("field_import_form", CrfTemplateFieldsImportTemplateForm())
         context.setdefault("section_layout_config_import_form", CrfSectionLayoutConfigImportTemplateForm())
         context.setdefault("validation_rule_import_form", CrfValidationRuleImportTemplateForm())
+        context.setdefault("attestation_policy_import_form", EventAttestationPolicyImportTemplateForm())
         context["expected_import_columns"] = self.expected_import_columns
         context["expected_field_import_columns"] = self.expected_field_import_columns
         context["expected_section_layout_config_import_columns"] = self.expected_section_layout_config_import_columns
         context["expected_validation_rule_import_columns"] = self.expected_validation_rule_import_columns
+        context["expected_attestation_policy_import_columns"] = self.expected_attestation_policy_import_columns
         context["import_result"] = kwargs.get("import_result")
         context["field_import_result"] = kwargs.get("field_import_result")
         context["section_layout_config_import_result"] = kwargs.get("section_layout_config_import_result")
         context["validation_rule_import_result"] = kwargs.get("validation_rule_import_result")
+        context["attestation_policy_import_result"] = kwargs.get("attestation_policy_import_result")
         context["import_modal_open"] = kwargs.get(
             "import_modal_open",
             self.request.GET.get("open_import_modal") == "1",
@@ -198,6 +211,10 @@ class StudyCrfTemplateListView(
         context["validation_rule_import_modal_open"] = kwargs.get(
             "validation_rule_import_modal_open",
             self.request.GET.get("open_validation_rule_import_modal") == "1",
+        )
+        context["attestation_policy_import_modal_open"] = kwargs.get(
+            "attestation_policy_import_modal_open",
+            self.request.GET.get("open_attestation_policy_import_modal") == "1",
         )
         return context
 
@@ -453,5 +470,62 @@ class StudyCrfValidationRuleImportTemplateView(StudyCrfTemplateListView):
                 validation_rule_import_form=CrfValidationRuleImportTemplateForm(),
                 validation_rule_import_result=import_result,
                 validation_rule_import_modal_open=True,
+            )
+        )
+
+
+class StudyEventAttestationPolicyImportTemplateView(StudyCrfTemplateListView):
+    permission_required = "study.manage_crf_template"
+    authorization_scope = "STUDY"
+    raise_exception = True
+
+    def get(self, request, *args, **kwargs):
+        return redirect(
+            reverse("study:study_crf_templates", kwargs={"study_id": self._study.pk})
+            + "?open_attestation_policy_import_modal=1"
+        )
+
+    def post(self, request, *args, **kwargs):
+        import_form = EventAttestationPolicyImportTemplateForm(request.POST, request.FILES)
+        if not import_form.is_valid():
+            return self.render_to_response(
+                self.get_context_data(
+                    attestation_policy_import_form=import_form,
+                    attestation_policy_import_modal_open=True,
+                )
+            )
+
+        uploaded_file = import_form.cleaned_data["import_file"]
+        command = to_import_study_event_attestation_policies_template_command(
+            actor_user_id=request.user.pk,
+            selected_study_id=self._study.pk,
+            study_id=self._study.pk,
+            file_name=uploaded_file.name,
+            file_content=uploaded_file.read(),
+        )
+        try:
+            import_result = self.get_import_event_attestation_policies_template_service().execute(command)
+        except (
+            EventAttestationPolicyImportDependencyError,
+            EventAttestationPolicyImportFormatError,
+        ) as exc:
+            import_form.add_error(None, str(exc))
+            return self.render_to_response(
+                self.get_context_data(
+                    attestation_policy_import_form=import_form,
+                    attestation_policy_import_modal_open=True,
+                )
+            )
+
+        if import_result.skipped_count == 0 and not import_result.warnings:
+            return redirect(
+                reverse("study:study_crf_templates", kwargs={"study_id": self._study.pk})
+            )
+
+        return self.render_to_response(
+            self.get_context_data(
+                attestation_policy_import_form=EventAttestationPolicyImportTemplateForm(),
+                attestation_policy_import_result=import_result,
+                attestation_policy_import_modal_open=True,
             )
         )

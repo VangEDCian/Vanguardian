@@ -75,6 +75,9 @@ class ReconcileDataQueryReadService:
     def summarize_workbench(self, *, page_state_ids: tuple[int, ...]) -> dict[str, int]:
         return self.repository.summarize_workbench(page_state_ids=page_state_ids)
 
+    def list_page_state_ids_with_open_workbench_items(self, *, page_state_ids: tuple[int, ...]) -> set[int]:
+        return self.repository.list_page_state_ids_with_open_workbench_items(page_state_ids=page_state_ids)
+
     def list_field_template_ids_with_verified_queries(
         self,
         *,
@@ -252,6 +255,19 @@ class ReconcileDataQueryReadService:
     ) -> int:
         return self.repository.count_open_queries_assigned_to_user(
             page_state_ids=page_state_ids,
+            user_id=user_id,
+        )
+
+    def count_open_queries_assigned_to_user_for_study_site(
+        self,
+        *,
+        study_id: int | None,
+        site_id: int | None,
+        user_id: int | None,
+    ) -> int:
+        return self.repository.count_open_queries_assigned_to_user_for_study_site(
+            study_id=study_id,
+            site_id=site_id,
             user_id=user_id,
         )
 

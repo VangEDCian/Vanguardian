@@ -100,6 +100,23 @@ class EventFormDisplayLabelService:
             )
         return payload
 
+    def map_config_by_binding_ids(
+        self,
+        *,
+        binding_ids: tuple[int, ...],
+    ) -> dict[int, EventFormDisplayConfigSnapshot]:
+        normalized_binding_ids = tuple(
+            dict.fromkeys(int(binding_id) for binding_id in binding_ids or () if binding_id)
+        )
+        if not normalized_binding_ids:
+            return {}
+        return {
+            int(binding.pk): self._build_snapshot(binding)
+            for binding in self.repository.list_bindings_by_ids(
+                binding_ids=normalized_binding_ids,
+            )
+        }
+
     def preview(
         self,
         *,
@@ -293,6 +310,43 @@ class EventFormDisplayLabelService:
             repeat_index=repeat_index,
         )
 
+    def render_label_from_snapshot(
+        self,
+        *,
+        snapshot: EventFormDisplayConfigSnapshot,
+        language_code: str,
+        repeat_index: int,
+        field_values: dict[str, Any],
+    ) -> str:
+        translation = self._resolve_translation(snapshot, language_code)
+        render_context = self._build_render_context_from_snapshot(
+            snapshot=snapshot,
+            repeat_index=repeat_index,
+            language_code=language_code,
+            field_values=field_values,
+        )
+        if snapshot.is_enabled and translation is not None:
+            label = self._render_template(
+                template=translation.label_template,
+                fallback_template=translation.fallback_template,
+                empty_value_text=translation.empty_value_text,
+                empty_value_policy=snapshot.empty_value_policy,
+                max_length=snapshot.max_length,
+                context=render_context,
+            )
+            if label:
+                return label
+        return self._fallback_form_label(
+            form_name=render_context["form_name"],
+            repeat_index=repeat_index,
+        )
+
+    def render_fallback_label(self, *, form_name: str, repeat_index: int) -> str:
+        return self._fallback_form_label(
+            form_name=form_name,
+            repeat_index=repeat_index,
+        )
+
     def _get_binding(self, *, binding_id: int):
         return self.repository.get_binding(binding_id=binding_id)
 
@@ -441,6 +495,30 @@ class EventFormDisplayLabelService:
         return {
             "form_name": self._resolve_form_name(binding, normalized_language),
             "form_code": binding.form_definition.code,
+            "repeat_index": int(repeat_index),
+            "field_values": {
+                str(key): "" if value is None else str(value)
+                for key, value in (field_values or {}).items()
+            },
+        }
+
+    def _build_render_context_from_snapshot(
+        self,
+        *,
+        snapshot: EventFormDisplayConfigSnapshot,
+        repeat_index: int,
+        language_code: str,
+        field_values: dict[str, Any],
+    ) -> dict[str, Any]:
+        normalized_language = self._normalize_language_code(language_code)
+        form_name = (
+            snapshot.form_name_by_language.get(normalized_language)
+            or snapshot.form_name_by_language.get("en")
+            or snapshot.form_code
+        )
+        return {
+            "form_name": str(form_name or snapshot.form_code),
+            "form_code": snapshot.form_code,
             "repeat_index": int(repeat_index),
             "field_values": {
                 str(key): "" if value is None else str(value)

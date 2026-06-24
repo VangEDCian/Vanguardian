@@ -166,6 +166,13 @@ class EventFormDisplayConfigReader:
     def get_config(self, *, binding_id: int) -> EventFormDisplayConfigSnapshot | None:
         return self.service.get_config(binding_id=binding_id)
 
+    def map_config_by_binding_ids(
+        self,
+        *,
+        binding_ids: tuple[int, ...],
+    ) -> dict[int, EventFormDisplayConfigSnapshot]:
+        return self.service.map_config_by_binding_ids(binding_ids=binding_ids)
+
     def list_binding_choices(self, *, study_id: int):
         return self.service.list_binding_choices(study_id=study_id)
 
@@ -179,6 +186,12 @@ class EventFormDisplayLabelRenderer:
 
     def render_label(self, **kwargs) -> str:
         return self.service.render_label(**kwargs)
+
+    def render_label_from_snapshot(self, **kwargs) -> str:
+        return self.service.render_label_from_snapshot(**kwargs)
+
+    def render_fallback_label(self, **kwargs) -> str:
+        return self.service.render_fallback_label(**kwargs)
 
     def save_config(self, **kwargs) -> EventFormDisplayConfigSnapshot:
         return self.service.save_config(**kwargs)

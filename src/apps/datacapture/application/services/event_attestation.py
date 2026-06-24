@@ -19,6 +19,7 @@ from apps.study.public import EventAttestationPolicySnapshot, list_event_attesta
 
 class DataCaptureEventAttestationService:
     REVOKE_PERMISSION_CODE = "EVENT_ATTESTATION.REVOKE"
+    CERTIFICATION_ACTION_KIND = "CERTIFICATION"
     REVIEW_READY_STATUSES = frozenset(
         {
             "submitted",
@@ -214,6 +215,19 @@ class DataCaptureEventAttestationService:
             actor_user_id=actor_user_id,
             reason_text=reason_text or f"Event attestation invalidated by {change_type} change.",
         )
+
+    def has_current_active_certification(self, *, event_instance_id: int) -> bool:
+        page_scope = self.repository.list_page_scope(event_instance_id=event_instance_id)
+        current_scope_digest = self._scope_digest(page_scope)
+        for row in self.repository.list_attestations_for_event(event_instance_id=event_instance_id):
+            if str(row.status or "").strip().upper() != "ACTIVE":
+                continue
+            if str(row.action_kind or "").strip().upper() != self.CERTIFICATION_ACTION_KIND:
+                continue
+            if str(row.scope_digest or "") != current_scope_digest:
+                continue
+            return True
+        return False
 
     def _event_context_or_raise(self, event_instance_id: int) -> EventAttestationEventContext:
         event_context = self.repository.get_event_context(event_instance_id=event_instance_id)

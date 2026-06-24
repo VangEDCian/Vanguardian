@@ -146,6 +146,7 @@ class ImportStudyFactMappingsTemplateServiceTests(SimpleTestCase):
             requires_reauthentication=False,
             invalidate_on_data_change=True,
             invalidate_on_scope_change=True,
+            invalidate_on_query_change=True,
             is_required_for_lock=False,
             is_enabled=True,
             updated_by_id=99,

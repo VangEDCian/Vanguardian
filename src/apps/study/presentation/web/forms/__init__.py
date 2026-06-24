@@ -4,6 +4,7 @@ from apps.study.presentation.web.forms.crftemplates import (
     CrfTemplateImportTemplateForm,
     CrfValidationRuleImportTemplateForm,
     CrfTemplatesToolbarForm,
+    EventAttestationPolicyImportTemplateForm,
 )
 from apps.study.presentation.web.forms.eventdefinitions import (
     EventDefinitionImportTemplateForm,
@@ -26,6 +27,7 @@ __all__ = [
     "CrfTemplateImportTemplateForm",
     "CrfValidationRuleImportTemplateForm",
     "EventFormDisplayLabelConfigForm",
+    "EventAttestationPolicyImportTemplateForm",
     "EventFormBindingImportTemplateForm",
     "EventDefinitionImportTemplateForm",
     "FactMappingImportTemplateForm",

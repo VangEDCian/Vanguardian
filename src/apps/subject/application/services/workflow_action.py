@@ -43,6 +43,12 @@ def _default_subject_enroller(command):
     return enroll_subject_after_eligibility_gate(command)
 
 
+def _default_source_event_certification_checker(*, event_instance_id: int) -> bool:
+    from apps.datacapture.public import has_current_event_certification_attestation
+
+    return has_current_event_certification_attestation(event_instance_id=event_instance_id)
+
+
 class SubjectWorkflowActionService:
     repository_class = DjangoSubjectWorkflowActionRepository
 
@@ -53,6 +59,7 @@ class SubjectWorkflowActionService:
         source_page_state_resolver=None,
         eligibility_assessment_finalizer=None,
         subject_enroller=None,
+        source_event_certification_checker=None,
         transition_service=None,
     ):
         self.repository = repository or self.repository_class()
@@ -62,6 +69,9 @@ class SubjectWorkflowActionService:
             eligibility_assessment_finalizer or _default_eligibility_assessment_finalizer
         )
         self.subject_enroller = subject_enroller or _default_subject_enroller
+        self.source_event_certification_checker = (
+            source_event_certification_checker or _default_source_event_certification_checker
+        )
         self.transition_service = transition_service
 
     def can_trigger_event_instance(
@@ -185,6 +195,12 @@ class SubjectWorkflowActionService:
                 event_instance_id=event.event_instance_id,
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
                 reason="eligibility_source_event_not_found",
+            )
+        if not self.source_event_certification_checker(event_instance_id=source_event_instance_id):
+            return SubjectWorkflowActionResult(
+                event_instance_id=event.event_instance_id,
+                action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
+                reason="eligibility_source_event_certification_required",
             )
 
         source_page_state_id = self.source_page_state_resolver(event_instance_id=source_event_instance_id)

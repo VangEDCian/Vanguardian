@@ -164,6 +164,46 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
         self.assertEqual(panel["summary"]["page_count"], 1)
         self.assertTrue(panel["policies"][0]["readiness"]["can_submit"])
 
+    def test_current_certification_check_requires_active_certification_for_current_scope(self):
+        repository = _EventAttestationRepository()
+        repository.history.append(
+            self._attestation_record(
+                action_kind="CERTIFICATION",
+                status="ACTIVE",
+                scope_digest=DataCaptureEventAttestationService._scope_digest(repository.page_scope),
+            )
+        )
+
+        self.assertTrue(
+            self._service(repository=repository).has_current_active_certification(
+                event_instance_id=11,
+            )
+        )
+
+    def test_current_certification_check_rejects_review_or_stale_scope(self):
+        repository = _EventAttestationRepository()
+        current_scope_digest = DataCaptureEventAttestationService._scope_digest(repository.page_scope)
+        repository.history.extend(
+            [
+                self._attestation_record(
+                    action_kind="REVIEW_COMPLETION",
+                    status="ACTIVE",
+                    scope_digest=current_scope_digest,
+                ),
+                self._attestation_record(
+                    action_kind="CERTIFICATION",
+                    status="ACTIVE",
+                    scope_digest="old-scope",
+                ),
+            ]
+        )
+
+        self.assertFalse(
+            self._service(repository=repository).has_current_active_certification(
+                event_instance_id=11,
+            )
+        )
+
     def test_attest_event_persists_record_when_confirmation_is_accepted(self):
         repository = _EventAttestationRepository()
         service = self._service(repository=repository)
@@ -217,6 +257,31 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
             )
 
         self.assertIn("Confirmation is required", str(ctx.exception))
+
+    @staticmethod
+    def _attestation_record(
+        *,
+        action_kind: str,
+        status: str,
+        scope_digest: str,
+    ) -> EventAttestationRecordSnapshot:
+        return EventAttestationRecordSnapshot(
+            id=91,
+            attestation_policy_id=51,
+            attestation_no=1,
+            policy_code="VISIT_CERT",
+            action_kind=action_kind,
+            status=status,
+            action_label="Certify",
+            statement_text="I certify this visit.",
+            attested_by_id=7,
+            signer_name="Reviewer",
+            attested_at=None,
+            scope_digest=scope_digest,
+            invalidation_reason_text="",
+            revocation_reason="",
+            supersedes_attestation_id=None,
+        )
 
     def test_panel_blocks_duplicate_current_active_attestation(self):
         repository = _EventAttestationRepository()

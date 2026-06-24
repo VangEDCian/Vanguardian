@@ -267,6 +267,12 @@ def invalidate_event_attestations_for_event_instance(
     )
 
 
+def has_current_event_certification_attestation(*, event_instance_id: int) -> bool:
+    return DataCaptureEventAttestationService().has_current_active_certification(
+        event_instance_id=event_instance_id,
+    )
+
+
 def get_page_state_final_data_for_subject_visit_crf(
     *,
     subject_id: int,
@@ -563,6 +569,7 @@ __all__ = [
     "get_page_state_status_for_subject_visit_crf",
     "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
+    "has_current_event_certification_attestation",
     "invalidate_event_attestations_for_event_instance",
     "is_field_verified_for_page_state",
     "list_form_instances_for_event_instance",

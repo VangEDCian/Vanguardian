@@ -123,6 +123,15 @@ def summarize_reconcile_workbench_for_page_states(*, page_state_ids: tuple[int, 
     return ReconcileDataQueryReadService().summarize_workbench(page_state_ids=page_state_ids)
 
 
+def list_page_state_ids_with_open_reconcile_workbench_items(
+    *,
+    page_state_ids: tuple[int, ...],
+) -> set[int]:
+    return ReconcileDataQueryReadService().list_page_state_ids_with_open_workbench_items(
+        page_state_ids=page_state_ids,
+    )
+
+
 def reply_to_reconcile_query(
     *,
     dataquery_id: int,
@@ -270,6 +279,7 @@ __all__ = [
     "get_reconcile_query_site_id",
     "list_field_template_ids_with_reconcile_queries",
     "list_field_template_ids_with_reconcile_validation_issues",
+    "list_page_state_ids_with_open_reconcile_workbench_items",
     "has_open_reconcile_validation_issue_for_page_field",
     "has_verified_reconcile_query_for_page_field",
     "list_open_reconcile_validation_issues_by_fields",

@@ -22,6 +22,13 @@ class DjangoEventFormDisplayLabelRepository:
             .order_by("event_definition__sequence_no", "display_order", "id")
         )
 
+    def list_bindings_by_ids(self, *, binding_ids: tuple[int, ...]):
+        return (
+            EventFormBinding.objects.filter(pk__in=binding_ids, deleted=False)
+            .select_related("form_definition")
+            .prefetch_related("form_definition__translations", "display_config__translations")
+        )
+
     def get_active_config(self, *, binding_id: int):
         return EventFormDisplayConfig.objects.filter(
             event_form_binding_id=binding_id,

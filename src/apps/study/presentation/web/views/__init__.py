@@ -4,6 +4,7 @@ from apps.study.presentation.web.views.crf_templates import (
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
     StudyCrfValidationRuleImportTemplateView,
+    StudyEventAttestationPolicyImportTemplateView,
 )
 from apps.study.presentation.web.views.eventdefinitions import (
     StudyEventDefinitionCreateView,
@@ -58,6 +59,7 @@ __all__ = [
     "StudyCrfTemplateImportTemplateView",
     "StudyCrfTemplateListView",
     "StudyCrfValidationRuleImportTemplateView",
+    "StudyEventAttestationPolicyImportTemplateView",
     "StudyDeleteView",
     "StudyDetailView",
     "StudyEventDefinitionCreateView",

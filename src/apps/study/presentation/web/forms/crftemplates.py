@@ -11,6 +11,7 @@ __all__ = [
     "CrfTemplateImportTemplateForm",
     "CrfValidationRuleImportTemplateForm",
     "CrfTemplatesToolbarForm",
+    "EventAttestationPolicyImportTemplateForm",
 ]
 
 
@@ -89,6 +90,19 @@ class CrfValidationRuleImportTemplateForm(CrfTemplateImportTemplateForm):
             attrs={
                 "accept": ".xlsx,.xls",
                 "id": "id_validation_rule_import_file",
+            }
+        ),
+    )
+
+
+class EventAttestationPolicyImportTemplateForm(CrfTemplateImportTemplateForm):
+    import_file = forms.FileField(
+        label=_("Import File"),
+        allow_empty_file=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": ".xlsx,.xls",
+                "id": "id_event_attestation_policy_import_file",
             }
         ),
     )

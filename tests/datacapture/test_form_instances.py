@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.test import SimpleTestCase
 
@@ -7,6 +7,84 @@ from apps.datacapture.application.services.form_instances import DataCaptureForm
 
 
 class TestDataCaptureFormInstanceService(SimpleTestCase):
+    def test_to_instance_dto_uses_fallback_label_when_display_config_is_missing(self):
+        list_field_schema = Mock(side_effect=AssertionError("schema should not be loaded"))
+        render_label = Mock(side_effect=AssertionError("custom label renderer should not be used"))
+        render_fallback_label = Mock(return_value="ConMed #2")
+        service = DataCaptureFormInstanceService(
+            crf_context_adapter=SimpleNamespace(
+                list_template_field_schema_for_display_label=list_field_schema,
+            ),
+            config_reader=SimpleNamespace(get_config=lambda binding_id: None),
+            label_renderer=SimpleNamespace(
+                render_label=render_label,
+                render_fallback_label=render_fallback_label,
+            ),
+            audit_context_adapter=SimpleNamespace(record_event=lambda **kwargs: None),
+            binding_reader=SimpleNamespace(get_binding_snapshot=lambda **kwargs: None),
+            repository=SimpleNamespace(ensure_page_state_binding_context=lambda page_state, **kwargs: page_state),
+        )
+        page_state = SimpleNamespace(
+            pk=91,
+            instance_key="abc123",
+            repeat_index=2,
+            event_form_binding_id=45,
+            crf_template_id=12,
+            status="in_progress",
+            final_data='{"MED_NAME":"Paracetamol"}',
+            current_entry=None,
+            event_form_binding=SimpleNamespace(
+                pk=45,
+                form_definition=SimpleNamespace(
+                    code="CONMED",
+                    safe_translation_getter=lambda field_name, default="", language_code=None, any_language=False: "ConMed",
+                ),
+            ),
+        )
+
+        dto = service._to_instance_dto(page_state=page_state, language_code="en")
+
+        self.assertEqual(dto.display_label, "ConMed #2")
+        list_field_schema.assert_not_called()
+        render_label.assert_not_called()
+        render_fallback_label.assert_called_once_with(form_name="ConMed", repeat_index=2)
+
+    def test_to_instance_dto_uses_preloaded_display_config_without_reader_lookup(self):
+        get_config = Mock(side_effect=AssertionError("config reader should not be used"))
+        service = DataCaptureFormInstanceService(
+            crf_context_adapter=SimpleNamespace(),
+            config_reader=SimpleNamespace(get_config=get_config),
+            label_renderer=SimpleNamespace(
+                render_fallback_label=lambda **kwargs: "ConMed",
+            ),
+            audit_context_adapter=SimpleNamespace(record_event=lambda **kwargs: None),
+            binding_reader=SimpleNamespace(get_binding_snapshot=lambda **kwargs: None),
+            repository=SimpleNamespace(ensure_page_state_binding_context=lambda page_state, **kwargs: page_state),
+        )
+        page_state = SimpleNamespace(
+            pk=91,
+            instance_key="abc123",
+            repeat_index=1,
+            event_form_binding_id=45,
+            crf_template_id=12,
+            status="in_progress",
+            final_data='{"MED_NAME":"Paracetamol"}',
+            current_entry=None,
+            event_form_binding=SimpleNamespace(
+                pk=45,
+                display_config=SimpleNamespace(is_enabled=False, deleted=False, use_choice_display_label=True),
+                form_definition=SimpleNamespace(
+                    code="CONMED",
+                    safe_translation_getter=lambda field_name, default="", language_code=None, any_language=False: "ConMed",
+                ),
+            ),
+        )
+
+        dto = service._to_instance_dto(page_state=page_state, language_code="en")
+
+        self.assertEqual(dto.display_label, "ConMed")
+        get_config.assert_not_called()
+
     def test_to_instance_dto_renders_display_label_from_current_entry_payload(self):
         service = DataCaptureFormInstanceService(
             crf_context_adapter=SimpleNamespace(
@@ -48,6 +126,54 @@ class TestDataCaptureFormInstanceService(SimpleTestCase):
         self.assertEqual(dto.page_state_id, 91)
         self.assertEqual(dto.repeat_index, 2)
         self.assertEqual(dto.display_label, "ConMed #2 — Paracetamol")
+
+    def test_to_instance_dto_prefers_snapshot_renderer_when_available(self):
+        config = SimpleNamespace(is_enabled=True, use_choice_display_label=False)
+        render_label = Mock(side_effect=AssertionError("binding renderer should not be used"))
+        render_label_from_snapshot = Mock(return_value="ConMed #2 — Paracetamol")
+        service = DataCaptureFormInstanceService(
+            crf_context_adapter=SimpleNamespace(
+                list_template_field_schema_for_display_label=lambda template_id: [
+                    {"field_key": "MED_NAME", "label": "Medication", "data_type": "TEXT", "ui_config": {}}
+                ],
+            ),
+            config_reader=SimpleNamespace(get_config=lambda binding_id: config),
+            label_renderer=SimpleNamespace(
+                render_label=render_label,
+                render_label_from_snapshot=render_label_from_snapshot,
+            ),
+            audit_context_adapter=SimpleNamespace(record_event=lambda **kwargs: None),
+            binding_reader=SimpleNamespace(get_binding_snapshot=lambda **kwargs: None),
+            repository=SimpleNamespace(ensure_page_state_binding_context=lambda page_state, **kwargs: page_state),
+        )
+        page_state = SimpleNamespace(
+            pk=91,
+            instance_key="abc123",
+            repeat_index=2,
+            event_form_binding_id=45,
+            crf_template_id=12,
+            status="in_progress",
+            final_data='{"MED_NAME":"Paracetamol"}',
+            current_entry=None,
+            event_form_binding=SimpleNamespace(
+                pk=45,
+                form_definition=SimpleNamespace(
+                    code="CONMED",
+                    safe_translation_getter=lambda field_name, default="", language_code=None, any_language=False: "ConMed",
+                ),
+            ),
+        )
+
+        dto = service._to_instance_dto(page_state=page_state, language_code="en")
+
+        self.assertEqual(dto.display_label, "ConMed #2 — Paracetamol")
+        render_label.assert_not_called()
+        render_label_from_snapshot.assert_called_once_with(
+            snapshot=config,
+            language_code="en",
+            repeat_index=2,
+            field_values={"MED_NAME": "Paracetamol"},
+        )
 
     def test_list_form_instances_heals_missing_binding_context_before_rendering(self):
         bound_page_state = SimpleNamespace(

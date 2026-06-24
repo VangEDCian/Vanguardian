@@ -243,12 +243,11 @@ def _count_queries_need_response(
     if not can_view_queries or not study_id or not getattr(user, "is_authenticated", False):
         return 0
     try:
-        from apps.datacapture.public import list_page_state_contexts_for_study_site
         from apps.reconcile.application import ReconcileDataQueryReadService
 
-        page_state_ids = tuple(sorted(list_page_state_contexts_for_study_site(study_id=study_id, site_id=site_id)))
-        return ReconcileDataQueryReadService().count_open_queries_assigned_to_user(
-            page_state_ids=page_state_ids,
+        return ReconcileDataQueryReadService().count_open_queries_assigned_to_user_for_study_site(
+            study_id=study_id,
+            site_id=site_id,
             user_id=getattr(user, "pk", None),
         )
     except Exception:

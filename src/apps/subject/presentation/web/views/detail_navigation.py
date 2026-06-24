@@ -11,7 +11,7 @@ from apps.datacapture.public import (
     list_form_instances_for_event_instance as _list_form_instances_for_event_instance,
 )
 from apps.datacapture.public import list_form_instances_for_event_instances
-from apps.reconcile.public import summarize_reconcile_workbench_for_page_states
+from apps.reconcile.public import list_page_state_ids_with_open_reconcile_workbench_items
 from apps.shared.datetime_formatting import date_format
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
@@ -97,6 +97,9 @@ class SubjectDetailNavigationMixin:
                 visit_ids=tuple(int(event_instance.pk) for event_instance in event_instances),
                 language_code=language_code,
             )
+        danger_page_state_ids = self._resolve_form_sidebar_danger_page_state_ids(
+            form_instances_by_event_id,
+        )
         for event_instance in event_instances:
             form_instance_labels_by_binding_id = {}
             form_instance_state_by_binding_id = {}
@@ -140,6 +143,7 @@ class SubjectDetailNavigationMixin:
                         "sidebar_tone": self._resolve_form_sidebar_tone(
                             page_state_id=page_state_id,
                             page_state_status=page_state_status,
+                            danger_page_state_ids=danger_page_state_ids,
                         ),
                     }
                 )
@@ -238,12 +242,35 @@ class SubjectDetailNavigationMixin:
         return payload
 
     @staticmethod
-    def _resolve_form_sidebar_tone(*, page_state_id: int | None, page_state_status: str) -> str:
+    def _resolve_form_sidebar_danger_page_state_ids(
+        form_instances_by_event_id: dict[int, list],
+    ) -> set[int]:
+        page_state_ids = []
+        for form_instances in form_instances_by_event_id.values():
+            for form_instance in form_instances:
+                page_state_id = getattr(form_instance, "page_state_id", None)
+                if page_state_id:
+                    page_state_ids.append(int(page_state_id))
+        if not page_state_ids:
+            return set()
+        return list_page_state_ids_with_open_reconcile_workbench_items(
+            page_state_ids=tuple(page_state_ids),
+        )
+
+    @staticmethod
+    def _resolve_form_sidebar_tone(
+        *,
+        page_state_id: int | None,
+        page_state_status: str,
+        danger_page_state_ids: set[int] | None = None,
+    ) -> str:
         if page_state_id:
-            summary = summarize_reconcile_workbench_for_page_states(
-                page_state_ids=(int(page_state_id),),
-            )
-            if int(summary.get("validation_issues_open") or 0) > 0 or int(summary.get("open") or 0) > 0:
+            normalized_page_state_id = int(page_state_id)
+            if danger_page_state_ids is None:
+                danger_page_state_ids = list_page_state_ids_with_open_reconcile_workbench_items(
+                    page_state_ids=(normalized_page_state_id,),
+                )
+            if normalized_page_state_id in danger_page_state_ids:
                 return "danger"
         if page_state_status == DataCapturePageState.SUBMITTED:
             return "success"

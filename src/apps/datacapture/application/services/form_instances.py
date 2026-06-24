@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from uuid import uuid4
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.utils.translation import get_language
 
@@ -181,9 +182,25 @@ class DataCaptureFormInstanceService:
                 visit_id__in=normalized_visit_ids,
                 deleted=False,
             )
-            .select_related("visit", "event_form_binding", "event_form_binding__form_definition", "current_entry")
-            .prefetch_related("event_form_binding__form_definition__translations")
+            .select_related(
+                "visit",
+                "event_form_binding",
+                "event_form_binding__form_definition",
+                "event_form_binding__display_config",
+                "current_entry",
+            )
+            .prefetch_related(
+                "event_form_binding__form_definition__translations",
+                "event_form_binding__display_config__translations",
+            )
             .order_by("visit_id", "repeat_index", "id")
+        )
+        self._prime_display_config_cache(
+            binding_ids=tuple(
+                int(page_state.event_form_binding_id)
+                for page_state in page_states
+                if getattr(page_state, "event_form_binding_id", None)
+            )
         )
         normalized_language = self._language_code(language_code)
         hydrated_page_states_by_visit_id: dict[int, list[DataCapturePageState]] = {
@@ -199,9 +216,13 @@ class DataCaptureFormInstanceService:
                         "visit",
                         "event_form_binding",
                         "event_form_binding__form_definition",
+                        "event_form_binding__display_config",
                         "current_entry",
                     )
-                    .prefetch_related("event_form_binding__form_definition__translations")
+                    .prefetch_related(
+                        "event_form_binding__form_definition__translations",
+                        "event_form_binding__display_config__translations",
+                    )
                     .filter(pk=page_state.pk)
                     .first()
                 )
@@ -267,20 +288,32 @@ class DataCaptureFormInstanceService:
         binding = page_state.event_form_binding
         resolved_repeat_index = max(1, int(repeat_index_override or page_state.repeat_index or 1))
         template_name = self._template_name(binding=binding, language_code=language_code)
-        config = self._get_display_config(binding_id=int(binding.pk))
-        field_values = self._display_field_values(
-            page_state=page_state,
-            language_code=language_code,
-            use_choice_display_label=(
-                True if config is None else bool(config.use_choice_display_label)
-            ),
-        )
-        display_label = self.label_renderer.render_label(
-            binding_id=int(binding.pk),
-            language_code=language_code,
-            repeat_index=resolved_repeat_index,
-            field_values=field_values,
-        )
+        config = self._get_display_config_for_binding(binding)
+        if self._is_display_label_config_enabled(config):
+            field_values = self._display_field_values(
+                page_state=page_state,
+                language_code=language_code,
+                use_choice_display_label=bool(config.use_choice_display_label),
+            )
+            if hasattr(self.label_renderer, "render_label_from_snapshot"):
+                display_label = self.label_renderer.render_label_from_snapshot(
+                    snapshot=config,
+                    language_code=language_code,
+                    repeat_index=resolved_repeat_index,
+                    field_values=field_values,
+                )
+            else:
+                display_label = self.label_renderer.render_label(
+                    binding_id=int(binding.pk),
+                    language_code=language_code,
+                    repeat_index=resolved_repeat_index,
+                    field_values=field_values,
+                )
+        else:
+            display_label = self._fallback_display_label(
+                form_name=template_name,
+                repeat_index=resolved_repeat_index,
+            )
         return DataCaptureFormInstanceDTO(
             page_state_id=int(page_state.pk),
             instance_key=str(page_state.instance_key or ""),
@@ -333,6 +366,24 @@ class DataCaptureFormInstanceService:
             payload[field_key] = normalized_value
         return payload
 
+    @staticmethod
+    def _is_display_label_config_enabled(config) -> bool:
+        if config is None:
+            return False
+        return bool(getattr(config, "is_enabled", True))
+
+    def _fallback_display_label(self, *, form_name: str, repeat_index: int) -> str:
+        if hasattr(self.label_renderer, "render_fallback_label"):
+            return self.label_renderer.render_fallback_label(
+                form_name=form_name,
+                repeat_index=repeat_index,
+            )
+        normalized_form_name = str(form_name or "").strip()
+        normalized_repeat_index = max(1, int(repeat_index or 1))
+        if normalized_repeat_index <= 1:
+            return normalized_form_name
+        return f"{normalized_form_name} #{normalized_repeat_index}".strip()
+
     def _repeat_index_override(
         self,
         *,
@@ -353,6 +404,33 @@ class DataCaptureFormInstanceService:
         if binding_id not in self._display_config_cache:
             self._display_config_cache[binding_id] = self.config_reader.get_config(binding_id=binding_id)
         return self._display_config_cache[binding_id]
+
+    def _prime_display_config_cache(self, *, binding_ids: tuple[int, ...]) -> None:
+        normalized_binding_ids = tuple(
+            binding_id
+            for binding_id in dict.fromkeys(int(binding_id) for binding_id in binding_ids or () if binding_id)
+            if binding_id not in self._display_config_cache
+        )
+        if not normalized_binding_ids or not hasattr(self.config_reader, "map_config_by_binding_ids"):
+            return
+        config_by_binding_id = self.config_reader.map_config_by_binding_ids(
+            binding_ids=normalized_binding_ids,
+        )
+        for binding_id in normalized_binding_ids:
+            self._display_config_cache[binding_id] = config_by_binding_id.get(binding_id)
+
+    def _get_display_config_for_binding(self, binding):
+        binding_id = int(binding.pk)
+        if binding_id in self._display_config_cache:
+            return self._display_config_cache[binding_id]
+        try:
+            config = getattr(binding, "display_config", None)
+        except ObjectDoesNotExist:
+            config = None
+        if config is not None:
+            self._display_config_cache[binding_id] = config
+            return config
+        return self._get_display_config(binding_id=binding_id)
 
     def _get_field_schema(self, *, template_id: int) -> list[dict]:
         if template_id not in self._field_schema_cache:
