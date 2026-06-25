@@ -23,7 +23,14 @@
       if (!labelInput || !valueInput) {
         return;
       }
-      valueInput.value = normalizeStoredValue(labelInput.value);
+      const dataListId = labelInput.getAttribute('list');
+      const dataList = dataListId ? document.getElementById(dataListId) : null;
+      const matchedOption = dataList
+        ? Array.from(dataList.options || []).find((option) => normalizeLabel(option.value) === normalizeLabel(labelInput.value))
+        : null;
+      valueInput.value = matchedOption
+        ? normalizeLabel(matchedOption.dataset.lookupValue || matchedOption.value)
+        : normalizeStoredValue(labelInput.value);
     });
   }
 
@@ -62,7 +69,7 @@
     const url = String(input.dataset.fieldLookupUrl || '').trim();
     const query = normalizeLabel(input.value);
     if (!lookupKey || !url) {
-      return [];
+      return null;
     }
     const endpoint = new URL(url, window.location.origin);
     endpoint.searchParams.set('lookup', lookupKey);
@@ -117,7 +124,9 @@
         }
         pendingTimer = window.setTimeout(async () => {
           const results = await fetchLookupOptions(input);
-          renderLookupOptions(input, results);
+          if (Array.isArray(results)) {
+            renderLookupOptions(input, results);
+          }
         }, 180);
       });
       input.addEventListener('change', () => {

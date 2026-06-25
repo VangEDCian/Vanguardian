@@ -411,6 +411,8 @@ class SubjectDetailRenderingMixin:
             label = str(item.get("label") or "").strip()
             value = str(item.get("value") or "").strip()
             if not label:
+                label = value
+            if not label:
                 continue
             if not value:
                 value = label

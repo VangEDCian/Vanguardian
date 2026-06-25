@@ -19,4 +19,10 @@
        autocomplete="off"
        {% if field.style %}style="{{ field.style }}"{% endif %}
        disabled>
-<datalist id="field-lookup-options-{{ field.id }}" data-field-lookup-options></datalist>
+<datalist id="field-lookup-options-{{ field.id }}" data-field-lookup-options>
+    {% if field.options_config.source == "static" %}
+        {% for option in field.options %}
+            <option value="{{ option.label }}" data-lookup-value="{{ option.value }}"></option>
+        {% endfor %}
+    {% endif %}
+</datalist>

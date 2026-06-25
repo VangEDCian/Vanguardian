@@ -53,6 +53,25 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
             ],
         )
 
+    def test_normalize_options_config_uses_value_when_static_label_is_blank(self):
+        result = SubjectDetailView._normalize_options_config(
+            {
+                "source": "static",
+                "static": [
+                    {"value": "250", "label": ""},
+                    {"value": "500", "label": ""},
+                ],
+            }
+        )
+
+        self.assertEqual(
+            result["static"],
+            [
+                {"value": "250", "label": "250"},
+                {"value": "500", "label": "500"},
+            ],
+        )
+
     def test_radio_display_value_uses_static_option_label(self):
         result = SubjectDetailView._display_value_for_control(
             raw_value="F",
@@ -337,6 +356,7 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
                     "value": "HOSPITAL_A",
                     "display_value": "Hospital A",
                     "lookup_key": "hospital",
+                    "options_config": {"source": "lookup", "lookup": "hospital"},
                     "is_required": False,
                 },
                 "shared_study_selected_id": 31,
@@ -353,6 +373,40 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertIn("study_id=31", rendered)
         self.assertIn("study_site_id=41", rendered)
         self.assertIn('data-submitted-diff-control="select2"', rendered)
+        self.assertNotIn("Unsupported control type", rendered)
+
+    def test_field_render_resolves_static_select2_options(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "field": {
+                    "id": 150,
+                    "field_key": "ECG_PKPD_RATE",
+                    "label": "Sampling Rate (Frequency)",
+                    "control_type": "SELECT2",
+                    "value": "250",
+                    "display_value": "250",
+                    "lookup_key": "",
+                    "options_config": {"source": "static"},
+                    "options": [
+                        {"value": "250", "label": "250"},
+                        {"value": "500", "label": "500"},
+                        {"value": "1000", "label": "1000"},
+                    ],
+                    "is_required": False,
+                },
+                "shared_study_selected_id": 1,
+                "shared_site_selected_id": 1,
+            },
+        )
+
+        self.assertIn('name="ECG_PKPD_RATE"', rendered)
+        self.assertIn('value="250"', rendered)
+        self.assertIn('data-submitted-diff-control="select2"', rendered)
+        self.assertIn('id="field-lookup-options-150"', rendered)
+        self.assertIn('<option value="250" data-lookup-value="250"></option>', rendered)
+        self.assertIn('<option value="500" data-lookup-value="500"></option>', rendered)
+        self.assertIn('<option value="1000" data-lookup-value="1000"></option>', rendered)
         self.assertNotIn("Unsupported control type", rendered)
 
     def test_number_control_renders_range_and_precision_attrs(self):
