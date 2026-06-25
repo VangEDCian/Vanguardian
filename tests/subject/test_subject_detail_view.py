@@ -325,6 +325,36 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertIn('type="time"', rendered)
         self.assertIn('value=""', rendered)
 
+    def test_field_render_resolves_select2_control_template(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "field": {
+                    "id": 14,
+                    "field_key": "HOSPITAL",
+                    "label": "Hospital",
+                    "control_type": "SELECT2",
+                    "value": "HOSPITAL_A",
+                    "display_value": "Hospital A",
+                    "lookup_key": "hospital",
+                    "is_required": False,
+                },
+                "shared_study_selected_id": 31,
+                "shared_site_selected_id": 41,
+            },
+        )
+
+        self.assertIn('name="HOSPITAL"', rendered)
+        self.assertIn('value="HOSPITAL_A"', rendered)
+        self.assertIn('value="Hospital A"', rendered)
+        self.assertIn("data-field-lookup-value-input", rendered)
+        self.assertIn("data-field-lookup-label-input", rendered)
+        self.assertIn('data-field-lookup-key="hospital"', rendered)
+        self.assertIn("study_id=31", rendered)
+        self.assertIn("study_site_id=41", rendered)
+        self.assertIn('data-submitted-diff-control="select2"', rendered)
+        self.assertNotIn("Unsupported control type", rendered)
+
     def test_number_control_renders_range_and_precision_attrs(self):
         rendered = render_to_string(
             "subject/components/_field_render.html",

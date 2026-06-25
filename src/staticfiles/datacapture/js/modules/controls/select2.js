@@ -123,7 +123,8 @@
       input.addEventListener('change', () => {
         syncSelect2LookupControls(container);
       });
-      if (normalizeLabel(input.value)) {
+      const valueInput = container.querySelector('[data-field-lookup-value-input]');
+      if (valueInput && !normalizeLabel(valueInput.value) && normalizeLabel(input.value)) {
         syncSelect2LookupControls(container);
       }
     });

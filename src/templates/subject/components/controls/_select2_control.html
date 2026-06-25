@@ -8,7 +8,7 @@
 <input type="text"
        class="{{ input_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
        tabindex="{% subject_control_tabindex field 1 %}"
-       value="{{ field.value }}"
+       value="{{ field.display_value|default:field.value }}"
        placeholder="{{ select2_control_i18n.placeholder }}"
        data-submitted-diff-select2
        data-submitted-diff-control="select2"
