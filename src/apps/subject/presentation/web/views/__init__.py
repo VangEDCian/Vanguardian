@@ -8,6 +8,7 @@
 from apps.subject.presentation.web.views.audit_history import SubjectAuditHistoryView
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 from apps.subject.presentation.web.views.create import SubjectCreateView
+from apps.subject.presentation.web.views.field_audit_history import SubjectFieldAuditHistoryView
 from apps.subject.presentation.web.views.event_instance_files import (
     SubjectEventInstanceFileContentView,
     SubjectEventInstanceFileImportView,
@@ -28,6 +29,7 @@ __all__ = [
     "SubjectAddRepeatingEventInstanceView",
     "SubjectAbstractVerifyStudy",
     "SubjectAuditHistoryView",
+    "SubjectFieldAuditHistoryView",
     "SubjectCreateView",
     "SubjectEarlyTerminationRequestView",
     "SubjectEventInstanceFileContentView",

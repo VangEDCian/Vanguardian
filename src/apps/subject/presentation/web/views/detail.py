@@ -221,6 +221,7 @@ class SubjectDetailView(
         datacapture_save_url = ""
         datacapture_submit_url = ""
         datacapture_delete_draft_url = ""
+        field_audit_history_url = ""
         event_file_import_url = ""
         event_file_preview_url = ""
         has_event_instance_files = False
@@ -379,6 +380,19 @@ class SubjectDetailView(
                         datacapture_save_url = reverse("datacapture:page_save", kwargs=url_kw)
                         datacapture_submit_url = reverse("datacapture:page_submit", kwargs=url_kw)
                         datacapture_delete_draft_url = reverse("datacapture:page_delete_draft", kwargs=url_kw)
+                    if focused_event:
+                        field_audit_history_url = reverse(
+                            "subject:subject_field_audit_history",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": int(focused_event["id"]),
+                                "crf_template_id": template_id,
+                            },
+                        )
+                        form_binding_id = str(focused_form.get("id") or "").strip()
+                        if form_binding_id:
+                            field_audit_history_url = f"{field_audit_history_url}?form={form_binding_id}"
                 except (TypeError, ValueError):
                     focused_form_fields = []
                     focused_page_status = ""
@@ -397,6 +411,7 @@ class SubjectDetailView(
                     datacapture_save_url = ""
                     datacapture_submit_url = ""
                     datacapture_delete_draft_url = ""
+                    field_audit_history_url = ""
 
         if focused_event and not is_submitted_readonly_mode:
             try:
@@ -779,6 +794,7 @@ class SubjectDetailView(
         context["datacapture_save_url"] = datacapture_save_url
         context["datacapture_submit_url"] = datacapture_submit_url
         context["datacapture_delete_draft_url"] = datacapture_delete_draft_url
+        context["field_audit_history_url"] = field_audit_history_url
         context["can_show_datacapture_entry_actions"] = (
             bool(datacapture_save_url)
             and not is_viewing_submitted_version

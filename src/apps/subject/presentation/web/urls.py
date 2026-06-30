@@ -9,6 +9,7 @@ from apps.subject.presentation.web.views import (
     SubjectEventInstanceFileContentView,
     SubjectEventInstanceFileImportView,
     SubjectEventInstanceFilePreviewView,
+    SubjectFieldAuditHistoryView,
     SubjectListView,
     SubjectResyncStageView,
     SubjectSummaryView,
@@ -81,6 +82,11 @@ urlpatterns = [
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/query-thread/",
         SubjectFormVerificationQueryThreadView.as_view(),
         name="subject_form_verification_query_thread",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/audit-history/",
+        SubjectFieldAuditHistoryView.as_view(),
+        name="subject_field_audit_history",
     ),
     path(
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/open-query/",

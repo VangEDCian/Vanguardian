@@ -220,6 +220,52 @@
                     </footer>
                 </div>
             </div>
+            {% if field_audit_history_url %}
+                <div class="subject-detail-screen__audit-history-modal-backdrop"
+                     hidden
+                     data-field-audit-history-modal>
+                    <div class="subject-detail-screen__audit-history-modal"
+                         role="dialog"
+                         aria-modal="true"
+                         aria-labelledby="field-audit-history-modal-title">
+                        <header class="subject-detail-screen__audit-history-modal-header">
+                            <h3 id="field-audit-history-modal-title"
+                                data-field-audit-history-modal-title>{% trans "AUDIT HISTORY" %}</h3>
+                        </header>
+                        <div class="subject-detail-screen__audit-history-modal-body">
+                            <p class="subject-detail-screen__audit-history-loading"
+                               hidden
+                               data-field-audit-history-loading>{% trans "Loading audit history..." %}</p>
+                            <div class="subject-detail-screen__audit-history-table-wrap">
+                                <table class="subject-detail-screen__audit-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "Audit Event" %}</th>
+                                            <th>{% trans "Changed At" %}</th>
+                                            <th>{% trans "Changed By" %}</th>
+                                            <th>{% trans "Field Name" %}</th>
+                                            <th>{% trans "Value From" %}</th>
+                                            <th>{% trans "Value To" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-field-audit-history-table-body>
+                                        <tr data-field-audit-history-empty-row>
+                                            <td colspan="6" class="subject-detail-screen__audit-history-empty">
+                                                {% trans "No audit history available." %}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <footer class="subject-detail-screen__audit-history-modal-footer">
+                            <button type="button"
+                                    class="entity-table__footer-button entity-table__footer-button--secondary"
+                                    data-field-audit-history-modal-close>{% trans "Close" %}</button>
+                        </footer>
+                    </div>
+                </div>
+            {% endif %}
             <div class="subject-detail-screen__loading"
                  hidden
                  data-datacapture-loading
@@ -343,6 +389,9 @@
         <script src="{% static 'subject/js/subject_detail_sidebar_scroll.js' %}"></script>
     {% endif %}
     <script src="{% static 'subject/js/subject_detail_sidebar_resize.js' %}"></script>
+    {% if focused_form and not is_subject_detail_viewonly_mode %}
+        <script src="{% static 'subject/js/subject_field_audit_history_modal.js' %}"></script>
+    {% endif %}
     {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode %}
         {% if page_entry_has_open_queries or page_entry_has_open_validation_issues %}
             <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
