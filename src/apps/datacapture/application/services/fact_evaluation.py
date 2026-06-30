@@ -25,6 +25,12 @@ class DataCaptureEventFactEvaluation:
     facts: dict[str, bool]
     fact_source: object | None
 
+    @property
+    def source_data_for_hash(self) -> Any:
+        if self.fact_source is not None:
+            return self.fact_source.to_jsonpath_context()
+        return None
+
 
 class DataCaptureFactEvaluationService:
     repository_class = DjangoDataCaptureFactMappingRepository

@@ -385,10 +385,16 @@ class EligibilityAssessmentService:
         )
 
     def _read_fact_snapshot(self, command: FinalizeEligibilityAssessmentCommand):
+        if command.source_context != "datacapture":
+            return None
+        if command.source_object_type == "EVENT_INSTANCE" and command.source_object_id is not None:
+            from apps.datacapture.public import read_fact_snapshot_for_event_instance
+
+            return read_fact_snapshot_for_event_instance(event_instance_id=command.source_object_id)
         page_state_id = command.source_page_state_id or (
             command.source_object_id if command.source_object_type == "PAGE_STATE" else None
         )
-        if command.source_context != "datacapture" or page_state_id is None:
+        if page_state_id is None:
             return None
         return self.fact_reader.read_for_page_state(page_state_id=page_state_id)
 

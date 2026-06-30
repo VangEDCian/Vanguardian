@@ -145,6 +145,20 @@ class _SubjectEventLifecycleAdapterStub:
         return SimpleNamespace(has_changes=True)
 
 
+class _EventFactEvaluatorStub:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, *, event_instance_id):
+        self.calls.append(event_instance_id)
+        return SimpleNamespace(
+            facts={
+                "screening.page_state_is_verified": True,
+                "screening.non_bloking_queries": True,
+            }
+        )
+
+
 class DataCaptureEventAttestationServiceTests(SimpleTestCase):
     def _service(
         self,
@@ -153,6 +167,7 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
         repository=None,
         permission_checker=None,
         subject_event_lifecycle_adapter=None,
+        event_fact_evaluator=None,
     ):
         return DataCaptureEventAttestationService(
             repository=repository or _EventAttestationRepository(),
@@ -165,6 +180,7 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
             permission_checker=permission_checker or (lambda **kwargs: SimpleNamespace(is_allowed=True)),
             user_display_reader=lambda user_ids: {int(user_ids[0]): "Reviewer"},
             subject_event_lifecycle_adapter=subject_event_lifecycle_adapter,
+            event_fact_evaluator=event_fact_evaluator,
         )
 
     @staticmethod
@@ -241,10 +257,12 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
     def test_certification_attestation_triggers_event_transition_with_certified_fact(self):
         repository = _EventAttestationRepository()
         adapter = _SubjectEventLifecycleAdapterStub()
+        evaluator = _EventFactEvaluatorStub()
         service = self._service(
             policy=_policy(action_kind="CERTIFICATION", code="SCREENING_CERT"),
             repository=repository,
             subject_event_lifecycle_adapter=adapter,
+            event_fact_evaluator=evaluator,
         )
 
         result = self._without_db_atomic(
@@ -259,6 +277,9 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
         self.assertEqual(len(adapter.calls), 1)
         self.assertEqual(adapter.calls[0]["source_event_instance_id"], 11)
         self.assertEqual(adapter.calls[0]["trigger_source"], "datacapture_event_certification")
+        self.assertEqual(evaluator.calls, [11])
+        self.assertTrue(adapter.calls[0]["facts"]["screening.page_state_is_verified"])
+        self.assertTrue(adapter.calls[0]["facts"]["screening.non_bloking_queries"])
         self.assertTrue(adapter.calls[0]["facts"]["source_event.certified"])
         self.assertTrue(adapter.calls[0]["facts"]["screening.event_certified"])
 

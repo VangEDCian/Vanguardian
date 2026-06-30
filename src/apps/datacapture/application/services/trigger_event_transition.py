@@ -54,7 +54,9 @@ class DataCapturePageStateEventTransitionService:
                 skipped_reason="page_state_not_stable",
             )
 
-        evaluation = self.fact_evaluation_service.evaluate(page_state=page_state)
+        evaluation = self.fact_evaluation_service.evaluate_for_event_instance(
+            event_instance_id=page_state.visit_id,
+        )
         transition_result = self.subject_event_lifecycle_adapter.trigger_event_transition(
             source_event_instance_id=page_state.visit_id,
             facts=evaluation.facts,

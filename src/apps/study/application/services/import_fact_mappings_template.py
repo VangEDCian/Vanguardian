@@ -33,33 +33,6 @@ class ImportStudyFactMappingsTemplateService:
         "Value Type",
         "Default Value",
         "Display Order",
-        "Attestation Policy Code",
-        "Attestation Action Kind",
-        "Attestation Gate Code",
-        "Attestation Display Order",
-        "Attestation Statement Code",
-        "Attestation Statement Version",
-        "Attestation Permission Code",
-        "Attestation Role Code",
-        "Attestation Delegation Task Code",
-        "Attestation Condition Code",
-        "Attestation Requires Confirmation",
-        "Attestation Requires Signature",
-        "Attestation Requires Reauth",
-        "Attestation Invalidate On Data Change",
-        "Attestation Invalidate On Scope Change",
-        "Attestation Required For Lock",
-        "Attestation Enabled",
-        "Attestation Dialog Title Vi",
-        "Attestation Action Label Vi",
-        "Attestation Statement Text Vi",
-        "Attestation Confirmation Label Vi",
-        "Attestation Success Message Vi",
-        "Attestation Dialog Title En",
-        "Attestation Action Label En",
-        "Attestation Statement Text En",
-        "Attestation Confirmation Label En",
-        "Attestation Success Message En",
     )
     expected_header_map = {
         "event code": "event_code",
@@ -72,34 +45,6 @@ class ImportStudyFactMappingsTemplateService:
         "value type": "value_type",
         "default value": "default_value",
         "display order": "display_order",
-        "attestation policy code": "attestation_policy_code",
-        "attestation action kind": "attestation_action_kind",
-        "attestation gate code": "attestation_gate_code",
-        "attestation display order": "attestation_display_order",
-        "attestation statement code": "attestation_statement_code",
-        "attestation statement version": "attestation_statement_version",
-        "attestation permission code": "attestation_permission_code",
-        "attestation role code": "attestation_role_code",
-        "attestation delegation task code": "attestation_delegation_task_code",
-        "attestation condition code": "attestation_condition_code",
-        "attestation requires confirmation": "attestation_requires_confirmation",
-        "attestation requires signature": "attestation_requires_signature",
-        "attestation requires reauth": "attestation_requires_reauth",
-        "attestation invalidate on data change": "attestation_invalidate_on_data_change",
-        "attestation invalidate on scope change": "attestation_invalidate_on_scope_change",
-        "attestation invalidate on query change": "attestation_invalidate_on_query_change",
-        "attestation required for lock": "attestation_required_for_lock",
-        "attestation enabled": "attestation_enabled",
-        "attestation dialog title vi": "attestation_dialog_title_vi",
-        "attestation action label vi": "attestation_action_label_vi",
-        "attestation statement text vi": "attestation_statement_text_vi",
-        "attestation confirmation label vi": "attestation_confirmation_label_vi",
-        "attestation success message vi": "attestation_success_message_vi",
-        "attestation dialog title en": "attestation_dialog_title_en",
-        "attestation action label en": "attestation_action_label_en",
-        "attestation statement text en": "attestation_statement_text_en",
-        "attestation confirmation label en": "attestation_confirmation_label_en",
-        "attestation success message en": "attestation_success_message_en",
     }
     operators = {
         "equals",
@@ -118,7 +63,6 @@ class ImportStudyFactMappingsTemplateService:
         "is_not_empty",
     }
     value_types = {"string", "boolean", "number", "decimal", "integer", "json"}
-    attestation_action_kinds = {"REVIEW_COMPLETION", "CERTIFICATION"}
 
     def __init__(self, crf_context_adapter=None, datacapture_fact_mapping_config_adapter=None, repository=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
@@ -243,197 +187,7 @@ class ImportStudyFactMappingsTemplateService:
                 actor_user_id=actor_user_id,
                 now=now,
             )
-            self._upsert_attestation_policy_from_row(
-                study_id=study_id,
-                study_version=event_definition.study_version,
-                event_definition=event_definition,
-                row_data=row_data,
-                actor_user_id=actor_user_id,
-                now=now,
-            )
         return result.outcome
-
-    def _upsert_attestation_policy_from_row(
-        self,
-        *,
-        study_id,
-        study_version,
-        event_definition,
-        row_data,
-        actor_user_id,
-        now,
-    ):
-        if not self._has_attestation_policy_payload(row_data):
-            return None
-
-        policy_code = self._require_text(
-            row_data.get("attestation_policy_code"),
-            field_label="Attestation Policy Code",
-            max_length=64,
-        )
-        action_kind = self._normalize_attestation_action_kind(
-            row_data.get("attestation_action_kind"),
-        )
-        gate_code = self._require_text(
-            row_data.get("attestation_gate_code"),
-            field_label="Attestation Gate Code",
-            max_length=64,
-        )
-        display_order = self._coerce_int(
-            row_data.get("attestation_display_order"),
-            field_label="Attestation Display Order",
-            default=1,
-        )
-        if display_order < 1:
-            raise FactMappingImportFormatError("Attestation Display Order must be greater than 0.")
-        statement_code = (
-            self._nullable_text(row_data.get("attestation_statement_code"), max_length=64)
-            or policy_code
-        )
-        condition_code = self._nullable_text(row_data.get("attestation_condition_code"), max_length=64)
-        condition_definition = None
-        if condition_code:
-            condition_definition = self.repository.get_condition_definition(
-                study_id=study_id,
-                study_version=study_version,
-                code=condition_code,
-            )
-            if condition_definition is None:
-                raise FactMappingImportFormatError("Attestation Condition Code was not found.")
-
-        defaults = {
-            "updated_at": now,
-            "deleted": False,
-            "action_kind": action_kind,
-            "display_order": display_order,
-            "statement_code": statement_code,
-            "statement_version": (
-                self._nullable_text(row_data.get("attestation_statement_version"), max_length=20)
-                or "1"
-            ),
-            "required_permission_code": self._require_text(
-                row_data.get("attestation_permission_code"),
-                field_label="Attestation Permission Code",
-                max_length=100,
-            ),
-            "required_role_code": self._nullable_text(row_data.get("attestation_role_code"), max_length=100),
-            "delegation_task_code": self._nullable_text(
-                row_data.get("attestation_delegation_task_code"),
-                max_length=64,
-            ),
-            "condition_definition": condition_definition,
-            "gate_code": gate_code,
-            "requires_confirmation_checkbox": self._coerce_bool(
-                row_data.get("attestation_requires_confirmation"),
-                field_label="Attestation Requires Confirmation",
-                default=True,
-            ),
-            "requires_signature": self._coerce_bool(
-                row_data.get("attestation_requires_signature"),
-                field_label="Attestation Requires Signature",
-                default=False,
-            ),
-            "requires_reauthentication": self._coerce_bool(
-                row_data.get("attestation_requires_reauth"),
-                field_label="Attestation Requires Reauth",
-                default=False,
-            ),
-            "invalidate_on_data_change": self._coerce_bool(
-                row_data.get("attestation_invalidate_on_data_change"),
-                field_label="Attestation Invalidate On Data Change",
-                default=True,
-            ),
-            "invalidate_on_scope_change": self._coerce_bool(
-                row_data.get("attestation_invalidate_on_scope_change"),
-                field_label="Attestation Invalidate On Scope Change",
-                default=True,
-            ),
-            "invalidate_on_query_change": self._coerce_bool(
-                row_data.get("attestation_invalidate_on_query_change"),
-                field_label="Attestation Invalidate On Query Change",
-                default=True,
-            ),
-            "is_required_for_lock": self._coerce_bool(
-                row_data.get("attestation_required_for_lock"),
-                field_label="Attestation Required For Lock",
-                default=False,
-            ),
-            "is_enabled": self._coerce_bool(
-                row_data.get("attestation_enabled"),
-                field_label="Attestation Enabled",
-                default=True,
-            ),
-            "updated_by_id": actor_user_id,
-        }
-
-        policy = self.repository.get_attestation_policy_for_import(
-            study_id=study_id,
-            study_version=study_version,
-            event_definition=event_definition,
-            code=policy_code,
-        )
-        if policy is None:
-            policy = self.repository.create_attestation_policy(
-                study_id=study_id,
-                study_version=study_version,
-                event_definition=event_definition,
-                code=policy_code,
-                created_at=now,
-                created_by_id=actor_user_id,
-                **defaults,
-            )
-        else:
-            for field_name, value in defaults.items():
-                setattr(policy, field_name, value)
-            self.repository.save_attestation_policy(policy, update_fields=list(defaults.keys()))
-
-        for language_code in ("vi", "en"):
-            self.repository.upsert_attestation_policy_translation(
-                attestation_policy=policy,
-                language_code=language_code,
-                defaults=self._attestation_translation_defaults(
-                    row_data=row_data,
-                    language_code=language_code,
-                    policy_code=policy_code,
-                    action_kind=action_kind,
-                ),
-            )
-        return policy
-
-    def _has_attestation_policy_payload(self, row_data):
-        return bool(self._as_text(row_data.get("attestation_policy_code")))
-
-    def _normalize_attestation_action_kind(self, value):
-        normalized_value = self._as_text(value).upper().replace("-", "_").replace(" ", "_")
-        if normalized_value not in self.attestation_action_kinds:
-            raise FactMappingImportFormatError(f"Invalid Attestation Action Kind: {value!r}")
-        return normalized_value
-
-    def _attestation_translation_defaults(self, *, row_data, language_code, policy_code, action_kind):
-        suffix = language_code.lower()
-        statement_text = self._require_text(
-            row_data.get(f"attestation_statement_text_{suffix}"),
-            field_label=f"Attestation Statement Text {suffix.upper()}",
-        )
-        return {
-            "dialog_title": (
-                self._nullable_text(row_data.get(f"attestation_dialog_title_{suffix}"), max_length=255)
-                or policy_code
-            ),
-            "action_label": (
-                self._nullable_text(row_data.get(f"attestation_action_label_{suffix}"), max_length=100)
-                or action_kind.replace("_", " ").title()
-            ),
-            "statement_text": statement_text,
-            "confirmation_label": self._nullable_text(
-                row_data.get(f"attestation_confirmation_label_{suffix}"),
-                max_length=255,
-            ),
-            "success_message": self._nullable_text(
-                row_data.get(f"attestation_success_message_{suffix}"),
-                max_length=500,
-            ),
-        }
 
     def _resolve_event_definition(self, *, study_id, event_code):
         event_definitions = list(

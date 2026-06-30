@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from django.test import SimpleTestCase
+from unittest.mock import patch
 
 from apps.core.choices import EligibilityAssessmentStatusChoices, EligibilityResultChoices
 from apps.study.application.commands import (
@@ -232,6 +233,50 @@ class EligibilityAssessmentServiceTests(SimpleTestCase):
         self.assertEqual(subject_workflow.status_transitions[0].to_status, "ScreenFailure")
         self.assertGreaterEqual(len(repository.failures), 1)
         self.assertEqual(repository.gates[0].result, "fail")
+        self.assertTrue(audit.events)
+
+    def test_finalize_can_read_facts_from_event_instance_source(self):
+        service, repository, subject_workflow, audit = self._service(facts={})
+
+        command = FinalizeEligibilityAssessmentCommand(
+            study_id=1,
+            site_id=2,
+            subject_id=3,
+            event_instance_id=4,
+            assessment_type="SCREENING",
+            source_context="datacapture",
+            source_object_type="EVENT_INSTANCE",
+            source_object_id=4,
+            study_version="v1",
+            actor_id=99,
+            rule_code="ELIGIBILITY_RULE_V1",
+            reason_text="assessment complete",
+        )
+
+        with patch(
+            "apps.datacapture.public.read_fact_snapshot_for_event_instance",
+            return_value=SimpleNamespace(
+                page_state_id=8,
+                page_entry_id=9,
+                event_instance_id=4,
+                source_data_version=3,
+                source_data_hash="hash",
+                blocking_queries_open=False,
+                facts={
+                    "screening.inclusion.all_required_passed": True,
+                    "screening.exclusion.any_exclusion_present": False,
+                    "screening.eligibility_conclusion": "yes",
+                },
+            ),
+        ) as mocked_reader:
+            result = service.finalize(command)
+
+        self.assertEqual(result.result, EligibilityResultChoices.ELIGIBLE)
+        self.assertEqual(mocked_reader.call_args.kwargs["event_instance_id"], 4)
+        self.assertEqual(repository.assessments[0].source_object_type, "EVENT_INSTANCE")
+        self.assertEqual(repository.assessments[0].source_object_id, 4)
+        self.assertEqual(repository.assessments[0].source_page_state_id, 8)
+        self.assertEqual(subject_workflow.status_transitions[0].to_status, "Eligible")
         self.assertTrue(audit.events)
 
     def test_cannot_enroll_without_current_final_eligible_assessment(self):

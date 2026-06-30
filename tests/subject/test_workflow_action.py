@@ -156,7 +156,8 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
 
         self.assertTrue(result.executed)
         self.assertEqual(result.action, "eligibility_assessment")
-        self.assertEqual(finalizer.commands[0].source_page_state_id, 13)
+        self.assertEqual(finalizer.commands[0].source_object_type, "EVENT_INSTANCE")
+        self.assertEqual(finalizer.commands[0].source_object_id, 10)
         self.assertEqual(finalizer.commands[0].event_instance_id, 60)
         self.assertEqual(finalizer.commands[0].rule_code, "screening_source_ready")
         self.assertEqual(
@@ -244,7 +245,8 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertTrue(result.executed)
         self.assertEqual(repository.resolved_source_event_calls, [60])
         self.assertEqual(resolved_page_state_event_ids, [10])
-        self.assertEqual(finalizer.commands[0].source_page_state_id, 13)
+        self.assertEqual(finalizer.commands[0].source_object_type, "EVENT_INSTANCE")
+        self.assertEqual(finalizer.commands[0].source_object_id, 10)
 
     def test_enrollment_workflow_enrolls_subject_and_completes_event(self):
         repository = _WorkflowRepositoryStub(

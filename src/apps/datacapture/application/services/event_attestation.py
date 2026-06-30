@@ -39,6 +39,7 @@ class DataCaptureEventAttestationService:
         permission_checker=None,
         user_display_reader=None,
         subject_event_lifecycle_adapter=None,
+        event_fact_evaluator=None,
     ):
         self.repository = repository or DjangoEventAttestationRepository()
         self.policy_reader = policy_reader or list_event_attestation_policies_for_event
@@ -46,6 +47,7 @@ class DataCaptureEventAttestationService:
         self.permission_checker = permission_checker or can_perform
         self.user_display_reader = user_display_reader or get_user_display_map
         self.subject_event_lifecycle_adapter = subject_event_lifecycle_adapter
+        self.event_fact_evaluator = event_fact_evaluator or self._default_event_fact_evaluator
 
     def get_panel(
         self,
@@ -245,14 +247,18 @@ class DataCaptureEventAttestationService:
     ) -> None:
         if str(policy.action_kind or "").strip().upper() != self.CERTIFICATION_ACTION_KIND:
             return
+
         adapter = self.subject_event_lifecycle_adapter
         if adapter is None:
             from apps.subject.public import SubjectEventLifecycleAdapter
 
             adapter = SubjectEventLifecycleAdapter()
+        evaluation = self.event_fact_evaluator(event_instance_id=event_context.event_instance_id)
+        facts = dict(getattr(evaluation, "facts", {}) or {})
+        facts.update(self._certification_transition_facts(event_context=event_context))
         adapter.trigger_event_transition(
             source_event_instance_id=event_context.event_instance_id,
-            facts=self._certification_transition_facts(event_context=event_context),
+            facts=facts,
             actor_user_id=actor_user_id,
             trigger_source="datacapture_event_certification",
         )
@@ -270,6 +276,12 @@ class DataCaptureEventAttestationService:
         if event_context is None:
             raise DataCaptureValidationError("Event instance not found.")
         return event_context
+
+    @staticmethod
+    def _default_event_fact_evaluator(*, event_instance_id: int):
+        from apps.datacapture.public import evaluate_facts_for_event_instance
+
+        return evaluate_facts_for_event_instance(event_instance_id=event_instance_id)
 
     def _policies(
         self,

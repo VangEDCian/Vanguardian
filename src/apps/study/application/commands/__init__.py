@@ -61,6 +61,7 @@ from apps.study.application.commands.import_event_attestation_policies_template 
 )
 from apps.study.application.commands.import_fact_mappings_template import (
     FactMappingImportDependencyError,
+    FactMappingImportConflictError,
     FactMappingImportFormatError,
     ImportStudyFactMappingsTemplateCommand,
     ImportStudyFactMappingsTemplateResult,
@@ -106,6 +107,7 @@ __all__ = [
     "EventFormBindingImportDependencyError",
     "EventFormBindingImportFormatError",
     "FactMappingImportDependencyError",
+    "FactMappingImportConflictError",
     "FactMappingImportFormatError",
     "ImportStudyCrfTemplatesTemplateCommand",
     "ImportStudyCrfTemplatesTemplateResult",

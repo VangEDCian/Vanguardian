@@ -204,8 +204,7 @@ class SubjectWorkflowActionService:
                 reason="eligibility_source_event_certification_required",
             )
 
-        source_page_state_id = self.source_page_state_resolver(event_instance_id=source_event_instance_id)
-        if source_page_state_id is None:
+        if self.source_page_state_resolver(event_instance_id=source_event_instance_id) is None:
             return SubjectWorkflowActionResult(
                 event_instance_id=event.event_instance_id,
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
@@ -224,12 +223,11 @@ class SubjectWorkflowActionService:
                 subject_id=event.subject_id,
                 assessment_type=_ASSESSMENT_TYPE_SCREENING,
                 source_context="datacapture",
-                source_object_type="PAGE_STATE",
-                source_object_id=source_page_state_id,
+                source_object_type="EVENT_INSTANCE",
+                source_object_id=source_event_instance_id,
                 study_version=event.study_version,
                 actor_id=actor_user_id,
                 event_instance_id=event.event_instance_id,
-                source_page_state_id=source_page_state_id,
                 rule_code=getattr(rule, "condition_code", None),
                 rule_expression_json=getattr(rule, "condition_expression_json", None),
             )

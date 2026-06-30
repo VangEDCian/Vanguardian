@@ -104,6 +104,10 @@ class _FactEvaluationService:
         self.evaluate_calls.append(page_state.id)
         return SimpleNamespace(page_state=page_state, facts={"fact.a": True})
 
+    def evaluate_for_event_instance(self, *, event_instance_id):
+        self.evaluate_calls.append(event_instance_id)
+        return SimpleNamespace(facts={"event.fact": True})
+
     def evaluate_for_page_state(self, *, page_state_id):
         self.evaluate_calls.append(page_state_id)
         return SimpleNamespace(
@@ -181,6 +185,20 @@ class DataCaptureFactEvaluationServiceTests(SimpleTestCase):
         self.assertEqual(result.skipped_reason, "page_state_not_stable")
         self.assertEqual(evaluation_service.evaluate_calls, [])
         self.assertEqual(lifecycle_adapter.calls, [])
+
+    def test_transition_service_uses_event_level_facts_when_page_state_is_stable(self):
+        evaluation_service = _FactEvaluationService(page_state=_page_state(status="verified"))
+        lifecycle_adapter = _SubjectLifecycleAdapter()
+        service = DataCapturePageStateEventTransitionService(
+            fact_evaluation_service=evaluation_service,
+            subject_event_lifecycle_adapter=lifecycle_adapter,
+        )
+
+        result = service.execute(SimpleNamespace(page_state_id=11, actor_user_id=1, trigger_source="test"))
+
+        self.assertIsNone(result.skipped_reason)
+        self.assertEqual(evaluation_service.evaluate_calls, [51])
+        self.assertEqual(lifecycle_adapter.calls[0]["facts"], {"event.fact": True})
 
     def test_snapshot_service_uses_fact_evaluation_result(self):
         page_state = _page_state()

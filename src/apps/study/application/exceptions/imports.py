@@ -55,6 +55,10 @@ class FactMappingImportFormatError(FactMappingImportTemplateError):
     """Raised when the uploaded workbook shape is invalid."""
 
 
+class FactMappingImportConflictError(FactMappingImportFormatError):
+    """Raised when a fact key conflicts with another form in the same study/event scope."""
+
+
 class EventAttestationPolicyImportTemplateError(StudyImportTemplateError):
     """Base error raised for event attestation policy import failures."""
 
@@ -104,6 +108,7 @@ __all__ = [
     "EventFormBindingImportFormatError",
     "EventFormBindingImportTemplateError",
     "FactMappingImportDependencyError",
+    "FactMappingImportConflictError",
     "FactMappingImportFormatError",
     "FactMappingImportTemplateError",
     "RandomizationImportDependencyError",

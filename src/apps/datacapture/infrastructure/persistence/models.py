@@ -601,6 +601,12 @@ class DataCaptureFactMapping(models.Model):
                 name="dcfm_tpl_fact_idx",
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["study", "study_version", "event_definition", "fact_key"],
+                name="dcfm_unique_fact_scope",
+            ),
+        ]
         verbose_name = "data capture fact mapping"
         verbose_name_plural = "data capture fact mappings"
 

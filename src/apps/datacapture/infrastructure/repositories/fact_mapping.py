@@ -26,7 +26,6 @@ class DjangoDataCaptureFactMappingRepository:
                 study_id=study_id,
                 study_version=study_version,
                 event_definition_id=event_definition_id,
-                crf_template_id=crf_template_id,
                 fact_key=fact_key,
             )
             .order_by("deleted", "id")
