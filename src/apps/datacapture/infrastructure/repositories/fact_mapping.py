@@ -87,9 +87,18 @@ class DjangoDataCaptureFactMappingRepository:
         page_state_id: int,
     ) -> DataCaptureFactSource | None:
         current_page_state = (
-            DataCapturePageState.objects.select_related("crf_template")
+            DataCapturePageState.objects.select_related("crf_template", "current_entry")
             .filter(pk=page_state_id, deleted=False)
-            .only("id", "subject_id", "visit_id", "crf_template_id", "crf_template__code")
+            .only(
+                "id",
+                "subject_id",
+                "visit_id",
+                "crf_template_id",
+                "crf_template__code",
+                "final_data",
+                "current_entry_id",
+                "current_entry__data",
+            )
             .first()
         )
         if current_page_state is None:
@@ -274,8 +283,16 @@ class DjangoDataCaptureFactMappingRepository:
             form_code = str(getattr(getattr(page_state, "crf_template", None), "code", "") or "").strip()
             if not form_code:
                 form_code = f"CRF_{int(page_state.crf_template_id)}"
+            final_data = getattr(page_state, "final_data", "")
+            current_entry = getattr(page_state, "current_entry", None)
+            current_entry_data = getattr(current_entry, "data", "") if current_entry is not None else ""
+            raw_data = (
+                final_data
+                if str(final_data or "").strip()
+                else current_entry_data
+            )
             forms[form_code] = DataCaptureFactForm.from_raw(
-                data=page_state.final_data,
+                data=raw_data,
                 status=page_state.status,
                 open_queries=open_query_counts_by_page_state_id.get(int(page_state.pk), 0),
             )

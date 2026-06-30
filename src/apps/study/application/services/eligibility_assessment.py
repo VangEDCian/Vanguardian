@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 from django.db import transaction
@@ -401,7 +402,8 @@ class EligibilityAssessmentService:
                 conclusion_value=self._string_or_none(facts.get(command.conclusion_field_key or "")),
             )
 
-        conditions = self.repository.list_active_eligibility_conditions(
+        inline_condition = self._condition_from_command(command)
+        conditions = [inline_condition] if inline_condition is not None else self.repository.list_active_eligibility_conditions(
             study_id=command.study_id,
             study_version=command.study_version,
             rule_code=command.rule_code,
@@ -433,16 +435,68 @@ class EligibilityAssessmentService:
             conclusion_value=self._string_or_none(facts.get(command.conclusion_field_key or "screening.eligibility_conclusion")),
         )
 
+    def _condition_from_command(self, command: FinalizeEligibilityAssessmentCommand):
+        if command.rule_expression_json in (None, ""):
+            return None
+        expression_json = (
+            self._to_json(command.rule_expression_json)
+            if isinstance(command.rule_expression_json, dict)
+            else str(command.rule_expression_json)
+        )
+        return SimpleNamespace(
+            code=command.rule_code or "workflow_action_condition",
+            expression_json=expression_json,
+        )
+
     def _evaluate_condition_definition(self, condition, facts: dict[str, Any]) -> list[dict[str, Any]]:
         try:
             expression = json.loads(condition.expression_json or "{}")
         except json.JSONDecodeError:
             return [self._failed_condition("eligibility.expression", "valid_json", condition.expression_json, "OTHER")]
+        if isinstance(expression, dict) and "any" in expression:
+            checks = expression.get("any")
+            if isinstance(checks, list) and any(self._expression_matches(check, facts) for check in checks):
+                return []
+            return [
+                self._failed_condition(
+                    getattr(condition, "code", None) or "eligibility.expression",
+                    "any_condition_satisfied",
+                    False,
+                    "OTHER",
+                    operator="any",
+                )
+            ]
+        if isinstance(expression, dict) and "not" in expression:
+            if not self._expression_matches(expression.get("not"), facts):
+                return []
+            return [
+                self._failed_condition(
+                    getattr(condition, "code", None) or "eligibility.expression",
+                    "not_condition_satisfied",
+                    True,
+                    "OTHER",
+                    operator="not",
+                )
+            ]
         checks = expression.get("all") if isinstance(expression, dict) else None
         if not isinstance(checks, list):
             return []
         failed_conditions = []
         for index, check in enumerate(checks, start=1):
+            if isinstance(check, dict) and any(key in check for key in ("all", "any", "not")):
+                if self._expression_matches(check, facts):
+                    continue
+                failed_conditions.append(
+                    self._failed_condition(
+                        getattr(condition, "code", None) or "eligibility.expression",
+                        "nested_condition_satisfied",
+                        False,
+                        "OTHER",
+                        operator="expression",
+                        display_order=index,
+                    )
+                )
+                continue
             fact_key = check.get("fact")
             operator = check.get("operator") or "equals"
             expected = check.get("value")
@@ -459,6 +513,26 @@ class EligibilityAssessmentService:
                     )
                 )
         return failed_conditions
+
+    def _expression_matches(self, expression, facts: dict[str, Any]) -> bool:
+        if not isinstance(expression, dict):
+            return False
+        if "all" in expression:
+            checks = expression.get("all")
+            return isinstance(checks, list) and all(self._expression_matches(check, facts) for check in checks)
+        if "any" in expression:
+            checks = expression.get("any")
+            return isinstance(checks, list) and any(self._expression_matches(check, facts) for check in checks)
+        if "not" in expression:
+            return not self._expression_matches(expression.get("not"), facts)
+        fact_key = expression.get("fact")
+        if not fact_key:
+            return False
+        return self._evaluate_operator(
+            facts.get(fact_key),
+            expression.get("operator") or "equals",
+            expression.get("value"),
+        )
 
     def _evaluate_convention_facts(self, facts: dict[str, Any]) -> list[dict[str, Any]]:
         checks = [

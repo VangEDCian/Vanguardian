@@ -532,6 +532,55 @@ class ReconcileDataQueryWriteRepositoryTests(SimpleTestCase):
         self.assertEqual(passing_issue.resolved_at, "now")
         self.assertEqual(create_snapshot.call_count, 2)
 
+    def test_soft_validation_issue_defaults_missing_snapshot_values_to_empty_object(self):
+        repository = DjangoReconcileDataQueryWriteRepository()
+
+        with (
+            patch.object(DjangoReconcileDataQueryWriteRepository, "get_current_field_entry_id", return_value=301),
+            patch.object(
+                DjangoReconcileDataQueryWriteRepository,
+                "_list_reusable_validation_issues_by_signature",
+                return_value={},
+            ),
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssueSnapshot.objects.create",
+            ) as create_snapshot,
+            patch(
+                "apps.reconcile.infrastructure.repositories.dataquery_write.ReconcileValidationIssue.objects.create",
+                return_value=SimpleNamespace(pk=701),
+            ),
+        ):
+            created_count = repository.bulk_create_soft_validation_issues(
+                page_state_id=23,
+                items=[
+                    {
+                        "rule_id": 801,
+                        "field_template_id": 11,
+                        "message": "Needs ACK",
+                        "severity": "major",
+                        "failed_value": "new",
+                    }
+                ],
+                actor_user_id=7,
+                now="now",
+                validation_run_id=8801,
+                evaluated_values_by_field_template_id={},
+                data_version=9,
+            )
+
+        self.assertEqual(created_count, 1)
+        create_snapshot.assert_called_once_with(
+            validation_issue_id=701,
+            validation_run_id=8801,
+            result="FAIL",
+            evaluated_values_json={},
+            message="Needs ACK",
+            severity="major",
+            data_version=9,
+            created_at="now",
+            related_audit_event_id=None,
+        )
+
     def test_soft_validation_issue_does_not_append_pass_snapshot_for_already_corrected_issue(self):
         repository = DjangoReconcileDataQueryWriteRepository()
         corrected_issue = SimpleNamespace(

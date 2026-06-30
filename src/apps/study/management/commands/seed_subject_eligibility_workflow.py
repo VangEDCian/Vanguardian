@@ -129,21 +129,6 @@ class Command(BaseCommand):
                 actor_id=actor_id,
                 now=now,
             ),
-            "ELIGIBILITY_RULE_V1": self._upsert_condition(
-                study_id=study_id,
-                study_version=study_version,
-                code="ELIGIBILITY_RULE_V1",
-                scope=StudyConditionDefinitionScopeChoices.ELIGIBILITY,
-                expression={
-                    "all": [
-                        {"fact": "screening.inclusion.all_required_passed", "operator": "equals", "value": True},
-                        {"fact": "screening.exclusion.any_exclusion_present", "operator": "equals", "value": False},
-                        {"fact": "screening.eligibility_conclusion", "operator": "equals", "value": "yes"},
-                    ]
-                },
-                actor_id=actor_id,
-                now=now,
-            ),
             "ELIGIBILITY_FINAL_ELIGIBLE": self._upsert_condition(
                 study_id=study_id,
                 study_version=study_version,

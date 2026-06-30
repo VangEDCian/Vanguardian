@@ -6,7 +6,10 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
-from apps.subject.infrastructure.repositories.workflow_action import SubjectEventWorkflowContext
+from apps.subject.infrastructure.repositories.workflow_action import (
+    SubjectEventWorkflowContext,
+    SubjectWorkflowActionRuleContext,
+)
 
 
 class SubjectWorkflowActionServiceTests(SimpleTestCase):
@@ -155,7 +158,11 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(result.action, "eligibility_assessment")
         self.assertEqual(finalizer.commands[0].source_page_state_id, 13)
         self.assertEqual(finalizer.commands[0].event_instance_id, 60)
-        self.assertEqual(finalizer.commands[0].rule_code, "ELIGIBILITY_RULE_V1")
+        self.assertEqual(finalizer.commands[0].rule_code, "screening_source_ready")
+        self.assertEqual(
+            finalizer.commands[0].rule_expression_json,
+            '{"all":[{"fact":"screening.eligibility_conclusion","operator":"equals","value":true}]}',
+        )
         self.assertEqual(repository.completed_events[0]["reason"], "eligibility_assessment_finalized")
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 60)
         self.assertEqual(transition_service.commands[0].facts["eligibility.latest.result"], "ELIGIBLE")
@@ -283,6 +290,7 @@ class _WorkflowRepositoryStub:
         has_randomization=False,
         resolved_source_event_instance_id=None,
         triggerable_event_map=None,
+        workflow_action_rule=None,
     ):
         self.event = event or SubjectEventWorkflowContext(
             event_instance_id=30,
@@ -300,6 +308,10 @@ class _WorkflowRepositoryStub:
         self._has_randomization = has_randomization
         self._resolved_source_event_instance_id = resolved_source_event_instance_id
         self._triggerable_event_map = triggerable_event_map or {}
+        self._workflow_action_rule = workflow_action_rule or SubjectWorkflowActionRuleContext(
+            condition_code="screening_source_ready",
+            condition_expression_json='{"all":[{"fact":"screening.eligibility_conclusion","operator":"equals","value":true}]}',
+        )
         self.created_randomizations = []
         self.completed_events = []
         self.resolved_source_event_calls = []
@@ -321,6 +333,9 @@ class _WorkflowRepositoryStub:
     def resolve_source_event_instance_id_for_workflow_event(self, *, event_instance_id):
         self.resolved_source_event_calls.append(event_instance_id)
         return self._resolved_source_event_instance_id
+
+    def resolve_workflow_action_rule_for_event(self, *, event_instance_id):
+        return self._workflow_action_rule
 
     def create_subject_randomization(self, **kwargs):
         self.created_randomizations.append(kwargs)

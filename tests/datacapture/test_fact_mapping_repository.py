@@ -15,6 +15,7 @@ class DjangoDataCaptureFactMappingRepositoryTests(SimpleTestCase):
                 crf_template_id=101,
                 crf_template=SimpleNamespace(code="SCREENING_DEMOGRAPHICS"),
                 status="submitted",
+                current_entry=SimpleNamespace(data=""),
                 final_data='{"format":"edc.form_data.v1","groups":{"DEMOGRAPHICS":{"kind":"single","items":{"AGE":"900"}}}}',
             ),
             SimpleNamespace(
@@ -22,6 +23,7 @@ class DjangoDataCaptureFactMappingRepositoryTests(SimpleTestCase):
                 crf_template_id=102,
                 crf_template=SimpleNamespace(code="SCREENING_INCLUSION_CRITERIA"),
                 status="verified",
+                current_entry=SimpleNamespace(data=""),
                 final_data='{"format":"edc.form_data.v1","groups":{"INCLUSION":{"kind":"single","items":{"ELIGIBLE":true}}}}',
             ),
         ]
@@ -62,6 +64,86 @@ class DjangoDataCaptureFactMappingRepositoryTests(SimpleTestCase):
                     "status": "verified",
                     "open_queries": 0,
                 },
+            },
+        )
+
+    def test_build_fact_source_prefers_current_entry_data_when_final_data_is_empty(self):
+        repository = DjangoDataCaptureFactMappingRepository()
+        page_states = [
+            SimpleNamespace(
+                pk=11,
+                crf_template_id=101,
+                crf_template=SimpleNamespace(code="SCREENING_ELIGIBILITY"),
+                status="submitted",
+                current_entry=SimpleNamespace(
+                    data='{"format":"edc.form_data.v1","groups":{"ELIGIBILITY":{"kind":"single","items":{"ELIGIBLE":1}}}}'
+                ),
+                final_data="",
+            ),
+        ]
+
+        fact_source = repository._build_fact_source_from_page_states(
+            page_states=page_states,
+            current_page_state_id=11,
+            open_query_counts_by_page_state_id={},
+        )
+
+        self.assertEqual(
+            fact_source.to_jsonpath_context(),
+            {
+                "SCREENING_ELIGIBILITY": {
+                    "data": {
+                        "format": "edc.form_data.v1",
+                        "groups": {
+                            "ELIGIBILITY": {
+                                "kind": "single",
+                                "items": {"ELIGIBLE": 1},
+                            }
+                        },
+                    },
+                    "status": "submitted",
+                    "open_queries": 0,
+                }
+            },
+        )
+
+    def test_build_fact_source_prefers_final_data_when_current_entry_data_is_present(self):
+        repository = DjangoDataCaptureFactMappingRepository()
+        page_states = [
+            SimpleNamespace(
+                pk=11,
+                crf_template_id=101,
+                crf_template=SimpleNamespace(code="SCREENING_ELIGIBILITY"),
+                status="submitted",
+                current_entry=SimpleNamespace(
+                    data='{"format":"edc.form_data.v1","groups":{"ELIGIBILITY":{"kind":"single","items":{"ELIGIBLE":0}}}}'
+                ),
+                final_data='{"format":"edc.form_data.v1","groups":{"ELIGIBILITY":{"kind":"single","items":{"ELIGIBLE":1}}}}',
+            ),
+        ]
+
+        fact_source = repository._build_fact_source_from_page_states(
+            page_states=page_states,
+            current_page_state_id=11,
+            open_query_counts_by_page_state_id={},
+        )
+
+        self.assertEqual(
+            fact_source.to_jsonpath_context(),
+            {
+                "SCREENING_ELIGIBILITY": {
+                    "data": {
+                        "format": "edc.form_data.v1",
+                        "groups": {
+                            "ELIGIBILITY": {
+                                "kind": "single",
+                                "items": {"ELIGIBLE": 1},
+                            }
+                        },
+                    },
+                    "status": "submitted",
+                    "open_queries": 0,
+                }
             },
         )
 

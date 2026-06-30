@@ -14,7 +14,6 @@ _EVENT_CATEGORY_RANDOMIZATION = "randomization"
 _EVENT_CODE_ELIGIBILITY_ASSESSMENT = "eligibility_assessment"
 _EVENT_CODE_ENROLLMENT = "enrollment"
 _ASSESSMENT_TYPE_SCREENING = "SCREENING"
-_ELIGIBILITY_ASSESSMENT_RULE_CODE = "ELIGIBILITY_RULE_V1"
 
 
 @dataclass(frozen=True)
@@ -212,6 +211,9 @@ class SubjectWorkflowActionService:
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
                 reason="eligibility_source_page_state_not_found",
             )
+        rule = self.repository.resolve_workflow_action_rule_for_event(
+            event_instance_id=event.event_instance_id,
+        )
 
         from apps.study.public import FinalizeEligibilityAssessmentCommand
 
@@ -228,7 +230,8 @@ class SubjectWorkflowActionService:
                 actor_id=actor_user_id,
                 event_instance_id=event.event_instance_id,
                 source_page_state_id=source_page_state_id,
-                rule_code=_ELIGIBILITY_ASSESSMENT_RULE_CODE,
+                rule_code=getattr(rule, "condition_code", None),
+                rule_expression_json=getattr(rule, "condition_expression_json", None),
             )
         )
         now = self.repository.now()

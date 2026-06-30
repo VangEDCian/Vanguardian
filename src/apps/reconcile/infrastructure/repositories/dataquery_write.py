@@ -248,6 +248,8 @@ class DjangoReconcileDataQueryWriteRepository:
         created_at: datetime,
         related_audit_event_id: int | None,
     ) -> None:
+        if evaluated_values_json is None:
+            evaluated_values_json = {}
         ReconcileValidationIssueSnapshot.objects.create(
             validation_issue_id=validation_issue_id,
             validation_run_id=validation_run_id,
@@ -470,7 +472,7 @@ class DjangoReconcileDataQueryWriteRepository:
                 validation_issue_id=int(issue.pk),
                 validation_run_id=int(validation_run_id),
                 result=ReconcileValidationIssueSnapshotResultChoices.PASS,
-                evaluated_values_json=issue.failed_value,
+                evaluated_values_json=issue.failed_value if issue.failed_value is not None else {},
                 message=acknowledgement_comment or str(issue.message or "").strip(),
                 severity=str(issue.severity or "").strip(),
                 data_version=int(getattr(issue.form_instance, "data_version", 0) or 0),

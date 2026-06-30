@@ -31,6 +31,12 @@ class SubjectEventWorkflowContext:
     execution_mode: str
 
 
+@dataclass(frozen=True)
+class SubjectWorkflowActionRuleContext:
+    condition_code: str | None
+    condition_expression_json: str | None
+
+
 class DjangoSubjectWorkflowActionRepository:
     def now(self):
         return timezone.now()
@@ -159,6 +165,42 @@ class DjangoSubjectWorkflowActionRepository:
             .first()
         )
 
+    def resolve_workflow_action_rule_for_event(self, *, event_instance_id: int) -> SubjectWorkflowActionRuleContext | None:
+        event_instance = (
+            SubjectEventInstance.objects.filter(pk=event_instance_id, deleted=False)
+            .only("id", "study_id", "study_version", "event_definition_id")
+            .first()
+        )
+        if event_instance is None:
+            return None
+
+        transition_rule = (
+            EventTransitionRule.objects.select_related("condition_definition")
+            .filter(
+                study_id=event_instance.study_id,
+                study_version=event_instance.study_version,
+                to_event_definition_id=event_instance.event_definition_id,
+                deleted=False,
+                is_enabled=True,
+            )
+            .order_by("display_order", "id")
+            .first()
+        )
+        if transition_rule is None:
+            return None
+
+        condition_definition = getattr(transition_rule, "condition_definition", None)
+        condition_code = (
+            getattr(condition_definition, "code", None)
+            or transition_rule.condition_code
+            or None
+        )
+        condition_expression_json = getattr(condition_definition, "expression_json", None)
+        return SubjectWorkflowActionRuleContext(
+            condition_code=condition_code,
+            condition_expression_json=condition_expression_json,
+        )
+
     def create_subject_randomization(
         self,
         *,
@@ -242,5 +284,6 @@ class DjangoSubjectWorkflowActionRepository:
 
 __all__ = [
     "DjangoSubjectWorkflowActionRepository",
+    "SubjectWorkflowActionRuleContext",
     "SubjectEventWorkflowContext",
 ]
