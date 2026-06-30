@@ -16,6 +16,6 @@ class SubjectListQueryRepository:
                 ),
                 event_definition__event_type=EventDefinitionTypeChoices.VISIT_BASED,
             )
-            .order_by("-id")
+            .order_by("id")
             .values("event_definition__name")[:1]
         )
