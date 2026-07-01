@@ -1,4 +1,4 @@
-{% load i18n subject_form_tags %}
+{% load i18n static subject_form_tags %}
 <article class="subject-form-field-card {% if field.active_query_id or field.has_query_history %}subject-form-field--has-open-query{% endif %} {% if field.validation_issue_count or field.has_validation_issue_history %}subject-form-field--has-validation-issue{% endif %} {% if field.classes %}{{ field.classes }}{% endif %}"
          data-field-key="{{ field.field_key }}"
          data-repeat-base-field-key="{{ field.repeat_base_field_key|default:field.field_key }}"
@@ -16,6 +16,22 @@
             <span class="subject-form-field-card__required">*</span>
         {% endif %}
         {% include "subject/components/_field_query_indicator.html" with field=field %}
+        {% if field_audit_history_url %}
+            <button type="button"
+                    class="subject-form-query-indicator subject-form-query-indicator--audit-history"
+                    data-field-audit-history-modal-trigger
+                    data-audit-history-url="{{ field_audit_history_url|escape }}"
+                    data-field-template-id="{{ field.id|default:'' }}"
+                    data-field-key="{{ field.field_key|escape }}"
+                    data-field-label="{{ field.label|escape }}"
+                    title="{% trans 'Audit History' %}"
+                    aria-label="{% trans 'Audit History' %}">
+                <span class="svg-icon"
+                      aria-hidden="true"
+                      style="--icon-url: url('{% static 'images/datacapture/history.svg' %}')"></span>
+                <span class="subject-form-query-indicator__sr-only">{% trans "Audit History" %}</span>
+            </button>
+        {% endif %}
         {% if field.helper_text %}
             <p class="subject-form-field-card__helper">{{ field.helper_text }}</p>
         {% endif %}

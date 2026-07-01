@@ -64,6 +64,22 @@
                                 {% if control_template %}
                                     {% include control_template with field=field input_class="subject-form-repeat-table-row__input" textarea_class="subject-form-repeat-table-row__textarea" choice_list_class="subject-form-repeat-table-row__choice-list" readonly_input_class="subject-form-repeat-table-row__input subject-form-repeat-table-row__input--readonly" %}
                                     {% include "subject/components/_field_query_indicator.html" with field=field %}
+                                    {% if field_audit_history_url %}
+                                        <button type="button"
+                                                class="subject-form-query-indicator subject-form-query-indicator--audit-history"
+                                                data-field-audit-history-modal-trigger
+                                                data-audit-history-url="{{ field_audit_history_url|escape }}"
+                                                data-field-template-id="{{ field.id|default:'' }}"
+                                                data-field-key="{{ field.field_key|escape }}"
+                                                data-field-label="{{ field.label|escape }}"
+                                                title="{% trans 'Audit History' %}"
+                                                aria-label="{% trans 'Audit History' %}">
+                                            <span class="svg-icon"
+                                                  aria-hidden="true"
+                                                  style="--icon-url: url('{% static 'images/datacapture/history.svg' %}')"></span>
+                                            <span class="subject-form-query-indicator__sr-only">{% trans "Audit History" %}</span>
+                                        </button>
+                                    {% endif %}
                                     <p class="subject-form-field__error"
                                        data-field-error
                                        hidden></p>

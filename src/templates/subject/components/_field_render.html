@@ -11,7 +11,7 @@
     {% include 'subject/components/_field_query_indicator.html' with field=field %}
     {% if field_audit_history_url %}
       <button type="button"
-              class="subject-form-query-indicator"
+              class="subject-form-query-indicator subject-form-query-indicator--audit-history"
               data-field-audit-history-modal-trigger
               data-audit-history-url="{{ field_audit_history_url|escape }}"
               data-field-template-id="{{ field.id|default:'' }}"

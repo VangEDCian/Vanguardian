@@ -779,6 +779,10 @@
   vertical-align: middle;
 }
 
+.subject-form-query-indicator--audit-history {
+  color: #000000;
+}
+
 .subject-form-query-indicator[hidden] {
   display: none;
 }
