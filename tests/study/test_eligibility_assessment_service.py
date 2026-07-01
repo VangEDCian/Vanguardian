@@ -2,9 +2,9 @@ from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
-from unittest.mock import patch
 
 from apps.core.choices import EligibilityAssessmentStatusChoices, EligibilityResultChoices
 from apps.study.application.commands import (

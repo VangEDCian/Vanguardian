@@ -6,8 +6,8 @@ from django.test import SimpleTestCase
 from django.urls import resolve, reverse
 
 from apps.core.choices import DataCapturePageEntryStatusChoices
-from apps.subject.application.services.field_audit_history import SubjectFieldAuditHistoryQueryService
 from apps.datacapture.infrastructure.persistence.models import DataCapturePageEntry
+from apps.subject.application.services.field_audit_history import SubjectFieldAuditHistoryQueryService
 from apps.subject.infrastructure.repositories.field_audit_history import DjangoSubjectFieldAuditHistoryRepository
 from apps.subject.presentation.web.views.field_audit_history import SubjectFieldAuditHistoryView
 
