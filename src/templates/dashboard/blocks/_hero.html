@@ -1,0 +1,20 @@
+{% load i18n %}
+<article class="dashboard-home__hero">
+    <div>
+        <p class="dashboard-home__eyebrow">{% trans "Dashboard" %}</p>
+        <h1 class="dashboard-home__title">{% trans "Current study status" %}</h1>
+        <p class="dashboard-home__subtitle">
+            {% trans "Choose a site filter to switch the whole dashboard scope." %}
+        </p>
+    </div>
+    <dl class="dashboard-home__scope">
+        <div>
+            <dt>{% trans "Study" %}</dt>
+            <dd>{{ dashboard_selected_study_label }}</dd>
+        </div>
+        <div>
+            <dt>{% trans "Scope" %}</dt>
+            <dd>{{ dashboard_scope_summary.scope_label }}</dd>
+        </div>
+    </dl>
+</article>

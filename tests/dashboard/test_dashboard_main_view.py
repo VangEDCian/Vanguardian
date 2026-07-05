@@ -4,7 +4,6 @@ from unittest.mock import Mock, patch
 from django.test import RequestFactory, SimpleTestCase
 
 from apps.dashboard.presentation.web.views import DashboardMainView
-from apps.reconcile.application.services.query_workbench import QueryWorkbenchSummaryDTO
 
 
 class DashboardMainViewTests(SimpleTestCase):
@@ -13,28 +12,28 @@ class DashboardMainViewTests(SimpleTestCase):
 
     @patch("apps.dashboard.presentation.web.views.SiteDropdownHandler")
     @patch("apps.dashboard.presentation.web.views.StudyDropdownHandler")
-    def test_get_context_data_builds_query_summary_card(
+    def test_get_context_data_uses_dashboard_service_for_selected_scope(
         self,
         study_dropdown_handler,
         site_dropdown_handler,
     ):
-        reader = Mock()
-        reader.read.return_value = SimpleNamespace(
-            summary=QueryWorkbenchSummaryDTO(
-                total=8,
-                open=3,
-                awaiting_site_response=0,
-                awaiting_review=2,
-                blocking_open=1,
-                resolved=1,
-                closed=1,
-                validation_issues_open=0,
-                hard_validation_issues_open=0,
-                actionable_for_current_user=0,
-            )
+        dashboard_service = Mock()
+        dashboard_service.build.return_value = {
+            "dashboard_scope_summary": {"scope_label": "All Sites", "scope_code": "Study Total"},
+            "dashboard_site_filter_options": (),
+            "dashboard_overview_cards": ({"label": "Subjects in Scope", "value": 12},),
+            "dashboard_query_rows": (),
+            "dashboard_query_total": 0,
+            "dashboard_enrollment_rows": (),
+            "dashboard_execution_rows": (),
+            "dashboard_randomization_rows": (),
+            "dashboard_priority_rows": (),
+        }
+        study_dropdown_handler.return_value.build.return_value = SimpleNamespace(
+            selected_id=11,
+            select_display_text="NNG-301",
         )
-        study_dropdown_handler.return_value.build.return_value = SimpleNamespace(selected_id=11)
-        site_dropdown_handler.return_value.build.return_value = SimpleNamespace(selected_id=17)
+        site_dropdown_handler.return_value.get_objects.return_value.filter.return_value.exists.return_value = False
         request = self.factory.get("/dashboard/")
         request.user = SimpleNamespace(
             is_authenticated=True,
@@ -52,25 +51,15 @@ class DashboardMainViewTests(SimpleTestCase):
         view.request = request
         view.args = ()
         view.kwargs = {}
-        view.get_query_workbench_reader = Mock(return_value=reader)
+        view.get_dashboard_service = Mock(return_value=dashboard_service)
 
         context = view.get_context_data()
 
-        self.assertEqual(context["query_summary_total"], 8)
-        self.assertEqual(
-            [str(row["label"]) for row in context["query_summary_rows"]],
-            [
-                "Open",
-                "Waiting CRA Review",
-                "Blocking",
-                "Resolved",
-                "Closed",
-            ],
-        )
-        self.assertEqual([row["count"] for row in context["query_summary_rows"]], [3, 2, 1, 1, 1])
-        reader.read.assert_called_once_with(
+        self.assertEqual(context["dashboard_selected_study_label"], "NNG-301")
+        self.assertIsNone(context["dashboard_selected_site_id"])
+        self.assertEqual(context["dashboard_overview_cards"][0]["value"], 12)
+        dashboard_service.build.assert_called_once_with(
+            user=request.user,
             study_id=11,
-            site_id=17,
-            current_user_id=99,
-            can_view_internal_thread=False,
+            site_id=None,
         )

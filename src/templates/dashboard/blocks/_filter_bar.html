@@ -1,0 +1,18 @@
+{% load i18n %}
+<section class="dashboard-filter-bar">
+    <form method="get" class="dashboard-filter-bar__form" data-dashboard-filter-form>
+        <div class="dashboard-filter-bar__field">
+            <label for="dashboard-site-filter">{% trans "Site Filter" %}</label>
+            <select id="dashboard-site-filter"
+                    name="site"
+                    class="old-select2-single-choice"
+                    data-dashboard-site-filter
+                    data-placeholder=""
+                    aria-label="{% trans 'Filter dashboard by site' %}">
+                {% for option in dashboard_site_filter_options %}
+                    <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</section>

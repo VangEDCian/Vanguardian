@@ -1,36 +1,36 @@
 {% extends "shared/_layout.html" %}
-{% load i18n static %}
+{% load dashboard_tags i18n static %}
 {% block title %}
     {% trans "Dashboard Main | Vanguardian" %}
 {% endblock %}
 {% block extra_css %}
     {{ block.super }}
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/_old_select2_single_choice.css' %}" />
     <link rel="stylesheet" href="{% static 'dashboard/css/main.css' %}">
 {% endblock %}
 {% block dashboard_content %}
+    {% dashboard_i18n_labels as dashboard_i18n %}
+    {{ dashboard_i18n|json_script:"dashboard-i18n-data" }}
     <section class="dashboard-home">
+        {% render_dashboard_hero %}
+        {% render_dashboard_filter_bar %}
+        {% render_dashboard_overview_cards %}
+
         <div class="dashboard-home__grid">
-            <article class="dashboard-query-summary">
-                <h2 class="dashboard-query-summary__title">
-                    {% trans "Summary count by status" %} ({% trans "based on table filters" %})
-                </h2>
-                <div class="dashboard-query-summary__table">
-                    {% for row in query_summary_rows %}
-                        <div class="dashboard-query-summary__row">
-                            <span class="dashboard-query-summary__label">{{ row.label }}</span>
-                            <span class="dashboard-query-summary__icon {{ row.icon_class }}"
-                                  aria-hidden="true"
-                                  {% if row.icon_class != "dashboard-query-summary__icon--outline" %}style="--icon-url: url('{% static 'images/table/query.svg' %}');"{% endif %}></span>
-                            <span class="dashboard-query-summary__count">{{ row.count }}</span>
-                        </div>
-                    {% endfor %}
-                    <div class="dashboard-query-summary__row dashboard-query-summary__row--total">
-                        <span class="dashboard-query-summary__label">{% trans "Total" %}</span>
-                        <span aria-hidden="true"></span>
-                        <span class="dashboard-query-summary__count">{{ query_summary_total }}</span>
-                    </div>
-                </div>
-            </article>
+            {% render_dashboard_query_panel %}
+            {% render_dashboard_enrollment_panel %}
+            {% render_dashboard_execution_panel %}
+            {% render_dashboard_priority_panel %}
+            {% render_dashboard_randomization_panel %}
         </div>
     </section>
+{% endblock %}
+{% block extra_js %}
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{% static 'dashboard/js/main.js' %}"></script>
 {% endblock %}

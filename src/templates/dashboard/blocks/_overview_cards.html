@@ -1,0 +1,9 @@
+<div class="dashboard-home__stats">
+    {% for card in dashboard_overview_cards %}
+        <article class="dashboard-kpi-card">
+            <span class="dashboard-kpi-card__accent {{ card.accent_class }}" aria-hidden="true"></span>
+            <div class="dashboard-kpi-card__value">{{ card.value }}</div>
+            <div class="dashboard-kpi-card__label">{{ card.label }}</div>
+        </article>
+    {% endfor %}
+</div>

@@ -1,0 +1,15 @@
+{% load i18n %}
+<article class="dashboard-panel dashboard-panel--priorities">
+    <div class="dashboard-panel__header">
+        <h2>{% trans "Operational Priorities" %}</h2>
+        <p>{% trans "Priority alerts for the selected scope." %}</p>
+    </div>
+    <div class="dashboard-priority-list">
+        {% for item in dashboard_priority_rows %}
+            <div class="dashboard-priority dashboard-priority--{{ item.tone }}">
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.detail }}</p>
+            </div>
+        {% endfor %}
+    </div>
+</article>
