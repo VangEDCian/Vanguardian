@@ -50,7 +50,7 @@ class StudyCrfTemplateListView(
     AuthenticateTemplateContextMixin,
     SingleTableMixin, FilterView, ListView,
 ):
-    permission_required = "study.view_study_detail"
+    permission_required = "STUDY_CONFIG.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/crf_templates.html"
@@ -96,7 +96,7 @@ class StudyCrfTemplateListView(
     def dispatch(self, request, *args, **kwargs):
         # GET lists CRF templates; POST imports template definitions.
         if request.method.upper() == "POST":
-            self.permission_required = "study.manage_crf_template"
+            self.permission_required = "STUDY_CONFIG.MANAGE"
         unauthenticated_response = self.dispatch_authenticated(request)
         if unauthenticated_response is not None:
             return unauthenticated_response
@@ -259,7 +259,7 @@ class StudyCrfTemplateListView(
 
 
 class StudyCrfTemplateImportTemplateView(StudyCrfTemplateListView):
-    permission_required = "study.manage_crf_template"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 
@@ -270,7 +270,7 @@ class StudyCrfTemplateImportTemplateView(StudyCrfTemplateListView):
 
 
 class StudyCrfTemplateFieldImportTemplateView(StudyCrfTemplateListView):
-    permission_required = "study.manage_crf_template"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 
@@ -370,7 +370,7 @@ class StudyCrfTemplateFieldImportTemplateView(StudyCrfTemplateListView):
 
 
 class StudyCrfSectionLayoutConfigImportTemplateView(StudyCrfTemplateListView):
-    permission_required = "study.manage_crf_template"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 
@@ -424,7 +424,7 @@ class StudyCrfSectionLayoutConfigImportTemplateView(StudyCrfTemplateListView):
 
 
 class StudyCrfValidationRuleImportTemplateView(StudyCrfTemplateListView):
-    permission_required = "study.manage_crf_template"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 
@@ -478,7 +478,7 @@ class StudyCrfValidationRuleImportTemplateView(StudyCrfTemplateListView):
 
 
 class StudyEventAttestationPolicyImportTemplateView(StudyCrfTemplateListView):
-    permission_required = "study.manage_crf_template"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 

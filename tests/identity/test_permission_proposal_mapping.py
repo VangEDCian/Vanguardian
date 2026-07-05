@@ -88,20 +88,20 @@ class PermissionProposalMappingTests(SimpleTestCase):
     def test_new_route_permissions_are_declared_on_views(self):
         expected_permissions = {
             DashboardMainView: "dashboard.view_dashboard",
-            IdentityUsersView: "identity.view_user_list",
-            IdentityUserCreateView: "identity.create_user",
-            IdentityUserDetailView: "identity.view_user_detail",
-            IdentityUserDeleteView: "identity.delete_user",
-            IdentityUserRestoreView: "identity.restore_user",
-            IdentityStudyOptionsApiView: "study.view_study_list",
-            IdentityStudySiteOptionsApiView: ("study.view_study_list", "site.view_site_list"),
+            IdentityUsersView: "USER_ACCESS.VIEW",
+            IdentityUserCreateView: "USER_ACCESS.MANAGE",
+            IdentityUserDetailView: "USER_ACCESS.VIEW",
+            IdentityUserDeleteView: "USER_ACCESS.MANAGE",
+            IdentityUserRestoreView: "USER_ACCESS.MANAGE",
+            IdentityStudyOptionsApiView: "STUDY_CONFIG.VIEW",
+            IdentityStudySiteOptionsApiView: ("STUDY_CONFIG.VIEW", "site.view_site_list"),
             SiteMembershipOptionsApiView: "site.view_site_membership_list",
-            SubjectFormVerificationQueryThreadView: "subject.verify_form",
-            CrfFormBuilderView: "study.manage_crf_template",
-            CrfFieldUpdateView: "study.manage_crf_template",
-            StudyCrfTemplateImportTemplateView: "study.manage_crf_template",
-            StudyCrfTemplateFieldImportTemplateView: "study.manage_crf_template",
-            StudyCrfSectionLayoutConfigImportTemplateView: "study.manage_crf_template",
+            SubjectFormVerificationQueryThreadView: "SDV.MARK",
+            CrfFormBuilderView: "STUDY_CONFIG.MANAGE",
+            CrfFieldUpdateView: "STUDY_CONFIG.MANAGE",
+            StudyCrfTemplateImportTemplateView: "STUDY_CONFIG.MANAGE",
+            StudyCrfTemplateFieldImportTemplateView: "STUDY_CONFIG.MANAGE",
+            StudyCrfSectionLayoutConfigImportTemplateView: "STUDY_CONFIG.MANAGE",
             DataCaptureSaveAPIView: "CRF.ENTER",
             DataCaptureSubmitAPIView: "CRF.SUBMIT",
             DataCaptureDeleteDraftAPIView: "CRF.UPDATE",
@@ -110,8 +110,8 @@ class PermissionProposalMappingTests(SimpleTestCase):
             SubjectValidationIssueAcknowledgeView: "VALIDATION_ISSUE.ACKNOWLEDGE",
             StudyRolesContextMixin: "USER_ACCESS.VIEW",
             StudyRoleCreateView: "USER_ACCESS.MANAGE",
-            SubjectEventInstanceFileImportView: "subject.update_subject",
-            SubjectAddRepeatingEventInstanceView: "subject.update_subject",
+            SubjectEventInstanceFileImportView: "SUBJECT.UPDATE",
+            SubjectAddRepeatingEventInstanceView: "SUBJECT.UPDATE",
         }
 
         for view_class, permission_required in expected_permissions.items():
@@ -155,7 +155,7 @@ class PermissionProposalMappingTests(SimpleTestCase):
         original_dispatch_authenticated = StudyCrfTemplateListView.dispatch_authenticated
         try:
             StudyCrfTemplateListView.dispatch_authenticated = fake_dispatch_authenticated
-            self.assertEqual(view.dispatch(request, study_id=1), "study.manage_crf_template")
+            self.assertEqual(view.dispatch(request, study_id=1), "STUDY_CONFIG.MANAGE")
         finally:
             StudyCrfTemplateListView.dispatch_authenticated = original_dispatch_authenticated
 

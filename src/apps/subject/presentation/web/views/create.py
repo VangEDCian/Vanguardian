@@ -13,7 +13,7 @@ class SubjectCreateView(
     AuthenticateTemplateContextMixin,
     SubjectAbstractVerifyStudy,
 ):
-    permission_required = "subject.create_subject"
+    permission_required = "SUBJECT.CREATE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

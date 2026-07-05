@@ -142,15 +142,19 @@ class SubjectSummaryQueryService:
 
     @classmethod
     def _build_section(cls, *, title: str, items) -> dict | None:
-        rows = [
-            {
+        rows = []
+        for label, value in items:
+            if not cls._has_value(value):
+                continue
+            is_temporal = isinstance(value, (date, datetime))
+            row = {
                 "label": label,
                 "value": value,
-                "is_temporal": isinstance(value, (date, datetime)),
+                "is_temporal": is_temporal,
             }
-            for label, value in items
-            if cls._has_value(value)
-        ]
+            if is_temporal:
+                row["format_name"] = cls._temporal_format_name(value)
+            rows.append(row)
         if not rows:
             return None
         return {
@@ -165,6 +169,12 @@ class SubjectSummaryQueryService:
         if isinstance(value, str):
             return bool(value.strip())
         return True
+
+    @staticmethod
+    def _temporal_format_name(value) -> str:
+        if isinstance(value, datetime):
+            return "DATETIME_FORMAT"
+        return "DATE_FORMAT"
 
     @staticmethod
     def _humanize_value(value: str) -> str:

@@ -171,17 +171,17 @@ class AuthorizationServiceTests(TestCase):
 
         self.assertTrue(self._can("CRF.UPDATE", self.study_a, self.hcm_a).is_allowed)
 
-    def test_legacy_permission_alias_resolves_to_edc_permission(self):
+    def test_user_access_manage_permission_is_allowed_when_granted(self):
         self._assign_study_role(self.user, self.study_a, "STUDY_ADMIN", ["USER_ACCESS.MANAGE"])
 
-        result = self._can("identity.create_user", self.study_a, self.hcm_a)
+        result = self._can("USER_ACCESS.MANAGE", self.study_a, self.hcm_a)
 
         self.assertTrue(result.is_allowed)
 
-    def test_legacy_verify_permission_alias_resolves_to_sdv_mark(self):
+    def test_sdv_mark_permission_is_allowed_when_granted(self):
         self._assign_site_role(self.user, self.study_a, self.hcm_a, "CRA_MONITOR", ["SDV.MARK"])
 
-        result = self._can("subject.verify_form", self.study_a, self.hcm_a)
+        result = self._can("SDV.MARK", self.study_a, self.hcm_a)
 
         self.assertTrue(result.is_allowed)
 

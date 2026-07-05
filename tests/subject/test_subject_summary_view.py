@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
 
 from django.test import SimpleTestCase
@@ -124,4 +124,31 @@ class SubjectSummaryViewTests(SimpleTestCase):
                     {"label": "Screening Code", "value": "SCR-001", "is_temporal": False},
                 ],
             },
+        )
+
+    def test_build_section_uses_date_format_for_date_objects(self):
+        section = SubjectSummaryQueryService._build_section(
+            title="Enrollment",
+            items=(
+                ("Enrollment Date", date(2026, 6, 17)),
+                ("Status Datetime", datetime(2026, 6, 17, 10, 30)),
+            ),
+        )
+
+        self.assertEqual(
+            section["items"],
+            [
+                {
+                    "label": "Enrollment Date",
+                    "value": date(2026, 6, 17),
+                    "is_temporal": True,
+                    "format_name": "DATE_FORMAT",
+                },
+                {
+                    "label": "Status Datetime",
+                    "value": datetime(2026, 6, 17, 10, 30),
+                    "is_temporal": True,
+                    "format_name": "DATETIME_FORMAT",
+                },
+            ],
         )

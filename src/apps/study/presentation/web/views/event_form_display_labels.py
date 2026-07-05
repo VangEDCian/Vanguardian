@@ -20,7 +20,7 @@ from apps.study.presentation.web.views.helpers import _user_has_study_access
 
 
 class StudyEventFormDisplayLabelConfigView(AuthenticateTemplateContextMixin, TemplateView):
-    permission_required = "study.create_study_eventdefinition"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/event_form_display_labels.html"

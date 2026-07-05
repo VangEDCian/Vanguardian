@@ -1,5 +1,5 @@
 
-VERIFY_FORM_PERMISSION = "subject.verify_form"
+VERIFY_FORM_PERMISSION = "SDV.MARK"
 
 
 class SubjectListVerifyFormVisibilityService:

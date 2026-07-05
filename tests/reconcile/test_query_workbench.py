@@ -435,7 +435,7 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
     def test_query_nav_is_rendered_after_subjects(self):
         layout_source = Path("src/templates/shared/_layout.html").read_text()
 
-        subject_index = layout_source.index("ui_permissions.SUBJECTS_VIEW_LIST")
+        subject_index = layout_source.index("ui_permissions.SUBJECT_VIEW")
         query_index = layout_source.index("ui_permissions.QUERIES_VIEW")
         sites_index = layout_source.index("ui_permissions.SITES_VIEW_LIST")
         self.assertLess(subject_index, query_index)

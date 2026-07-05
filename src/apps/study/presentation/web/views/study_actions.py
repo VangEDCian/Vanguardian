@@ -115,7 +115,7 @@ class StudyCreateView(
 class StudyUpdateView(
     AuthenticateTemplateView
 ):
-    permission_required = "study.update_study"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/study_form.html"

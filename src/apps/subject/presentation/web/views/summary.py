@@ -11,7 +11,7 @@ class SubjectSummaryView(
     AuthenticateTemplateView,
     SubjectAbstractVerifyStudy,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "SUBJECT.VIEW"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

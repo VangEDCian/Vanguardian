@@ -47,7 +47,7 @@
                                 <dt class="subject-summary-card__label">{{ item.label }}</dt>
                                 <dd class="subject-summary-card__value">
                                     {% if item.is_temporal %}
-                                        {{ item.value|date:"DATETIME_FORMAT" }}
+                                        {{ item.value|date:item.format_name }}
                                     {% else %}
                                         {{ item.value }}
                                     {% endif %}

@@ -245,7 +245,7 @@ class SubjectFormVerificationVerifyCheckedView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -331,7 +331,7 @@ class SubjectFormVerificationReopenView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -366,7 +366,7 @@ class SubjectFormVerificationFinalizePageDataView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -435,7 +435,7 @@ class SubjectFormVerificationQueryThreadView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -545,7 +545,7 @@ class SubjectFormVerificationOpenQueryView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

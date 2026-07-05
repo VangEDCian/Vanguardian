@@ -10,7 +10,7 @@ from apps.shared.views.generic.authenticate_template_view import AuthenticateTem
 
 
 class ProtectedView(AuthenticateTemplateContextMixin, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "SUBJECT.VIEW"
     raise_exception = True
 
     def get(self, request, *args, **kwargs):
@@ -92,7 +92,7 @@ class AuthenticateTemplateContextMixinTests(SimpleTestCase):
         self.assertEqual(authorization_service.return_value.can.call_args.kwargs["user"], request.user)
         self.assertEqual(
             authorization_service.return_value.can.call_args.kwargs["permission"],
-            "subject.view_subject_detail",
+            "SUBJECT.VIEW",
         )
         self.assertEqual(authorization_service.return_value.can.call_args.kwargs["study_id"], 1)
 

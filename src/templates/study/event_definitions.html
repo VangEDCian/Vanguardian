@@ -24,7 +24,7 @@
         {% render_event_definitions_diagram_panel %}
         {% render_table event_definitions_table %}
         <div class="entity-table__footer entity-table__footer--actions">
-            {% if perms.study.create_study_eventdefinition %}
+            {% if ui_permissions.STUDY_CONFIG_MANAGE %}
                 <a href="{% url 'study:study_event_definition_create' study_id=detail_study.id %}"
                    class="entity-table__footer-button entity-table__footer-button--primary">
                     {% trans "Add New Event Definition" %}
@@ -49,7 +49,7 @@
             {% endif %}
         </div>
     </section>
-    {% if perms.study.create_study_eventdefinition %}
+    {% if ui_permissions.STUDY_CONFIG_MANAGE %}
         {% include "study/components/_event_definition_import_modal.html" %}
         {% include "study/components/_event_form_binding_import_modal.html" %}
         {% include "study/components/_fact_mapping_import_modal.html" %}

@@ -1,0 +1,78 @@
+{
+  "startPaths": [
+    "/",
+    "/dashboard/",
+    "/studies",
+    "/users"
+  ],
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 1000
+    }
+  ],
+  "maxPagesTotal": 120,
+  "maxPagesPerApp": 30,
+  "navigationTimeoutMs": 30000,
+  "settleTimeoutMs": 750,
+  "appRules": [
+    {
+      "app": "dashboard",
+      "patterns": [
+        "^/dashboard/?$"
+      ]
+    },
+    {
+      "app": "identity",
+      "patterns": [
+        "^/users(?:/|$)",
+        "^/account(?:/|$)"
+      ]
+    },
+    {
+      "app": "datacapture",
+      "patterns": [
+        "^/studies/\\d+/subjects/\\d+/events/\\d+/forms/\\d+(?:/|$)"
+      ]
+    },
+    {
+      "app": "subject",
+      "patterns": [
+        "^/studies/\\d+/subjects(?:/|$)"
+      ]
+    },
+    {
+      "app": "reconcile",
+      "patterns": [
+        "^/studies/\\d+/queries(?:/|$)"
+      ]
+    },
+    {
+      "app": "crf",
+      "patterns": [
+        "^/crf(?:/|$)"
+      ]
+    },
+    {
+      "app": "study",
+      "patterns": [
+        "^/studies(?:/|$)"
+      ]
+    }
+  ],
+  "excludePathPatterns": [
+    "^/api(?:/|$)",
+    "^/i18n(?:/|$)",
+    "^/logout/?$",
+    "/delete/?$",
+    "/restore/?$",
+    "/save/?$",
+    "/submit/?$",
+    "/trigger-workflow/?$",
+    "/add-another/?$",
+    "/early-termination/request/?$",
+    "/validation-issues/",
+    "/files/.*/content/?$"
+  ]
+}

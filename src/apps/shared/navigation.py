@@ -25,7 +25,7 @@ def get_layout_nav_permissions(user, *, study_id=None, site_id=None):
     return {
         "subjects": user_can_access_permission(
             user,
-            "subject.view_subject_list",
+            "SUBJECT.VIEW",
             study_id=study_id,
             site_id=site_id,
         ),
@@ -43,13 +43,13 @@ def get_layout_nav_permissions(user, *, study_id=None, site_id=None):
         ),
         "studies": user_can_access_permission(
             user,
-            "study.view_study_list",
+            "STUDY_CONFIG.VIEW",
             study_id=study_id,
             site_id=site_id,
         ),
         "users": user_can_access_permission(
             user,
-            "identity.view_user_list",
+            "USER_ACCESS.VIEW",
             study_id=study_id,
             site_id=site_id,
         ),
@@ -71,13 +71,13 @@ def get_default_authenticated_url(request):
 
     if study_id is not None and user_can_access_permission(
         request.user,
-        "subject.view_subject_list",
+        "SUBJECT.VIEW",
         study_id=study_id,
         site_id=site_id,
     ):
         return reverse("subject:subject_list", kwargs={"study_id": study_id})
 
-    if user_can_access_permission(request.user, "identity.view_user_list", study_id=study_id):
+    if user_can_access_permission(request.user, "USER_ACCESS.VIEW", study_id=study_id):
         return reverse("identity:users")
 
     if user_can_access_permission(

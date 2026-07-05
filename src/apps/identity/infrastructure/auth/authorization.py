@@ -59,26 +59,6 @@ DELEGATION_TASK_BY_PERMISSION = {
     "SUBJECT.RANDOMIZE": "RANDOMIZATION",
 }
 
-LEGACY_PERMISSION_ALIASES = {
-    "identity.view_user_list": "USER_ACCESS.VIEW",
-    "identity.view_user_detail": "USER_ACCESS.VIEW",
-    "identity.create_user": "USER_ACCESS.MANAGE",
-    "identity.update_user": "USER_ACCESS.MANAGE",
-    "identity.delete_user": "USER_ACCESS.MANAGE",
-    "identity.restore_user": "USER_ACCESS.MANAGE",
-    "study.view_study_list": "STUDY_CONFIG.VIEW",
-    "study.view_study_detail": "STUDY_CONFIG.VIEW",
-    "study.update_study": "STUDY_CONFIG.MANAGE",
-    "study.manage_crf_template": "STUDY_CONFIG.MANAGE",
-    "study.create_study_eventdefinition": "STUDY_CONFIG.MANAGE",
-    "subject.view_subject_list": "SUBJECT.VIEW",
-    "subject.view_subject_detail": "SUBJECT.VIEW",
-    "subject.create_subject": "SUBJECT.CREATE",
-    "subject.update_subject": "SUBJECT.UPDATE",
-    "subject.verify_form": "SDV.MARK",
-}
-
-
 @dataclass(frozen=True)
 class ResourceContext:
     study_id: int
@@ -652,8 +632,6 @@ def permission_code_for(permission: IdentityPermission):
 
 def normalize_permission_code(permission_code: str):
     permission_code = str(permission_code or "").strip()
-    if permission_code in LEGACY_PERMISSION_ALIASES:
-        return LEGACY_PERMISSION_ALIASES[permission_code]
     if "." in permission_code and permission_code == permission_code.upper():
         return permission_code
     return permission_code

@@ -37,7 +37,7 @@ from apps.study.presentation.web.views.helpers import (
 class StudyListView(
     AuthenticateTemplateView
 ):
-    permission_required = "study.view_study_list"
+    permission_required = "STUDY_CONFIG.VIEW"
     authorization_scope = "STUDY"
     require_study_context = False
     raise_exception = True
@@ -96,7 +96,7 @@ class StudyListView(
 class StudyDetailView(
     AuthenticateTemplateView
 ):
-    permission_required = "study.view_study_detail"
+    permission_required = "STUDY_CONFIG.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/study_detail.html"

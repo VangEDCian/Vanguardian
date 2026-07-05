@@ -118,7 +118,7 @@ class SubjectEventInstanceFileImportView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.update_subject"
+    permission_required = "SUBJECT.UPDATE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -186,7 +186,7 @@ class SubjectEventInstanceFilePreviewView(
     SubjectAbstractVerifyStudy,
     TemplateView,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "SUBJECT.VIEW"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -247,7 +247,7 @@ class SubjectEventInstanceFileContentView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "SUBJECT.VIEW"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

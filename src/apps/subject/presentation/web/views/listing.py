@@ -30,7 +30,7 @@ class SubjectListView(
     ListView,
     SubjectAbstractVerifyStudy,
 ):
-    permission_required = "subject.view_subject_list"
+    permission_required = "SUBJECT.VIEW"
     raise_exception = True
     layout_nav_key = "SUBJECTS"
     layout_breadcrumb_label = _("SUBJECTS")
@@ -98,7 +98,7 @@ class SubjectListView(
         )
         can_update_subject = user_can_access_permission(
             self.request.user,
-            "subject.update_subject",
+            "SUBJECT.UPDATE",
             study_id=self.get_study_id(),
             site_id=self.get_selected_site_id(),
         )
@@ -127,7 +127,7 @@ class SubjectListView(
         context = super().get_context_data(**kwargs)
         context["can_create_subject"] = user_can_access_permission(
             self.request.user,
-            "subject.create_subject",
+            "SUBJECT.CREATE",
             study_id=self.get_study_id(),
             site_id=self.get_selected_site_id(),
         )

@@ -78,7 +78,7 @@ class StudyRandomizationView(
     StudyRandomizationAccessMixin,
     AuthenticateTemplateView,
 ):
-    permission_required = "study.view_study_detail"
+    permission_required = "STUDY_CONFIG.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/randomization.html"
@@ -157,7 +157,7 @@ class StudyRandomizationView(
         )
         context["can_manage_randomization_import"] = user_can_access_permission(
             self.request.user,
-            "study.update_study",
+            "STUDY_CONFIG.MANAGE",
             study_id=self._study.pk,
         )
         context["randomization_scheme_preview_url"] = reverse(
@@ -197,7 +197,7 @@ class StudyRandomizationImportBaseView(
     AuthenticateTemplateContextMixin,
     View,
 ):
-    permission_required = "study.update_study"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     import_form_class = RandomizationImportFileForm
