@@ -279,9 +279,13 @@ class DataCaptureEventAttestationService:
 
     @staticmethod
     def _default_event_fact_evaluator(*, event_instance_id: int):
-        from apps.datacapture.public import evaluate_facts_for_event_instance
+        from apps.datacapture.application.services.fact_evaluation import (
+            DataCaptureFactEvaluationService,
+        )
 
-        return evaluate_facts_for_event_instance(event_instance_id=event_instance_id)
+        return DataCaptureFactEvaluationService().evaluate_for_event_instance(
+            event_instance_id=event_instance_id,
+        )
 
     def _policies(
         self,

@@ -283,6 +283,23 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
         self.assertTrue(adapter.calls[0]["facts"]["source_event.certified"])
         self.assertTrue(adapter.calls[0]["facts"]["screening.event_certified"])
 
+    def test_default_event_fact_evaluator_uses_application_fact_evaluation_service(self):
+        evaluation = SimpleNamespace(facts={"screening.page_state_is_verified": True})
+        with patch(
+            "apps.datacapture.application.services.fact_evaluation.DataCaptureFactEvaluationService"
+        ) as service_class:
+            service_class.return_value.evaluate_for_event_instance.return_value = evaluation
+
+            result = DataCaptureEventAttestationService._default_event_fact_evaluator(
+                event_instance_id=11,
+            )
+
+        self.assertIs(result, evaluation)
+        service_class.assert_called_once_with()
+        service_class.return_value.evaluate_for_event_instance.assert_called_once_with(
+            event_instance_id=11,
+        )
+
     def test_signature_policy_uses_confirmation_checkbox_until_signature_is_implemented(self):
         repository = _EventAttestationRepository()
         service = self._service(

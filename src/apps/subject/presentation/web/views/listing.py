@@ -12,11 +12,11 @@ from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHan
 from apps.shared.navigation import get_default_authenticated_url, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.subject_list_query import build_current_visit_subquery
-from apps.subject.application.services.treatment_timeline import SubjectTreatmentTimelineService
 from apps.subject.application.services.subject_list_verify_form_visibility import (
     VERIFY_FORM_PERMISSION,
     SubjectListVerifyFormVisibilityService,
 )
+from apps.subject.application.services.treatment_timeline import SubjectTreatmentTimelineService
 from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
 from apps.subject.presentation.web.forms import SubjectsToolbarForm
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
