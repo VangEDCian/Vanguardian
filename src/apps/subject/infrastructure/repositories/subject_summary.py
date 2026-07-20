@@ -1,7 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 
-from apps.subject.models import Subject, SubjectEventInstance
+from apps.subject.models import Subject, SubjectEventInstance, SubjectPeriod
 
 _RANDOMIZATION_EVENT_CATEGORY = "randomization"
 
@@ -14,6 +14,7 @@ class DjangoSubjectSummaryRepository:
         subject_id: int,
         snapshot_class,
         randomization_event_class,
+        period_class,
     ):
         randomization_events = (
             SubjectEventInstance.objects.select_related("event_definition")
@@ -23,6 +24,7 @@ class DjangoSubjectSummaryRepository:
             )
             .order_by("-opened_at", "-created_at", "-id")
         )
+        subject_periods = SubjectPeriod.objects.filter(deleted=False).order_by("period_no", "id")
         subject = (
             Subject.objects.filter(study_id=study_id, pk=subject_id, deleted=False)
             .select_related(
@@ -39,7 +41,8 @@ class DjangoSubjectSummaryRepository:
                     "event_instances",
                     queryset=randomization_events,
                     to_attr="summary_randomization_events",
-                )
+                ),
+                Prefetch("periods", queryset=subject_periods, to_attr="summary_periods"),
             )
             .first()
         )
@@ -56,6 +59,7 @@ class DjangoSubjectSummaryRepository:
         return snapshot_class(
             subject_id=subject.pk,
             study_id=subject.study_id,
+            site_id=subject.site_id,
             study_code=getattr(subject.study, "code", ""),
             site_code=getattr(subject.site, "code", ""),
             screening_code=subject.screening_code or "",
@@ -94,6 +98,14 @@ class DjangoSubjectSummaryRepository:
                 else None
             ),
             randomization_event=randomization_event,
+            periods=tuple(
+                period_class(
+                    period_no=period.period_no,
+                    treatment_code=period.treatment_code,
+                    kit_code=period.kit_code or "",
+                )
+                for period in getattr(subject, "summary_periods", ())
+            ),
         )
 
     @staticmethod

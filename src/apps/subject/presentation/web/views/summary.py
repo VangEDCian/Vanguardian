@@ -2,6 +2,7 @@ from django.http import Http404
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.navigation import user_can_access_permission
 from apps.shared.views import AuthenticateTemplateView
 from apps.subject.application.services.subject_summary import SubjectSummaryQueryService
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
@@ -28,7 +29,19 @@ class SubjectSummaryView(
             self.summary_model = self.get_service().get_subject_summary(
                 study_id=self.get_study_id(),
                 subject_id=self.kwargs["subject_id"],
+                include_assignment=False,
             )
+            if self.summary_model and user_can_access_permission(
+                self.request.user,
+                "RANDOMIZATION.ASSIGNMENT.VIEW",
+                study_id=self.get_study_id(),
+                site_id=self.summary_model["site_id"],
+            ):
+                self.summary_model = self.get_service().get_subject_summary(
+                    study_id=self.get_study_id(),
+                    subject_id=self.kwargs["subject_id"],
+                    include_assignment=True,
+                )
         if self.summary_model is None:
             raise Http404
         return self.summary_model

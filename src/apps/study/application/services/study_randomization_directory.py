@@ -56,6 +56,7 @@ class StudyRandomizationDirectoryQueryService:
     randomization_slot_headers = (
         {"label": _("SCHEME")},
         {"label": _("SEQUENCE")},
+        {"label": _("RANDOMIZATION ID")},
         {"label": _("ARM")},
         {"label": _("STATUS")},
         {"label": _("BLOCK")},
@@ -221,6 +222,7 @@ class StudyRandomizationDirectoryQueryService:
             "cells": [
                 self._build_text_cell(slot.scheme.code if slot.scheme_id else ""),
                 self._build_text_cell(str(slot.sequence_no)),
+                self._build_text_cell(slot.randomization_code),
                 self._build_text_cell(slot.arm.arm_code if slot.arm_id else ""),
                 self._build_text_cell(self._humanize_choice_value(slot.status)),
                 self._build_text_cell(

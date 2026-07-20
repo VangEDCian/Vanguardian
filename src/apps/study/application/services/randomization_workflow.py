@@ -22,6 +22,7 @@ class RandomizationSlotAssignment:
     arm_code: str
     arm_name: str
     sequence_no: int
+    randomization_code: str
 
 
 class StudyRandomizationSlotAssignmentService:
@@ -84,6 +85,7 @@ class StudyRandomizationSlotAssignmentService:
                 arm_code=str(result["arm_code"] or ""),
                 arm_name=str(result["arm_name"] or ""),
                 sequence_no=int(result["sequence_no"]),
+                randomization_code=str(result.get("randomization_code") or ""),
             )
 
         raise RandomizationSlotAssignmentError("Unable to assign an available randomization slot after retries.")

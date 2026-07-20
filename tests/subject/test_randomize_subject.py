@@ -10,6 +10,9 @@ from apps.subject.application.services.randomize_subject import (
     RandomizeSubject,
     RandomizeSubjectCommand,
 )
+from apps.subject.infrastructure.repositories.randomization import (
+    DjangoSubjectRandomizationRepository,
+)
 
 
 class RandomizeSubjectTests(SimpleTestCase):
@@ -39,7 +42,7 @@ class RandomizeSubjectTests(SimpleTestCase):
 
         self.assertEqual(summary.slot_id, 5)
         self.assertEqual(summary.arm_code, "SEQ_E_N")
-        self.assertEqual(summary.randomization_number, "1")
+        self.assertEqual(summary.randomization_number, "R-001")
         self.assertEqual(repository.recorded_assignments[0]["assignment"].slot_id, 5)
         self.assertEqual(repository.period_materializations, [])
         self.assertEqual(audit.events[0]["action"], "subject.randomized")
@@ -60,7 +63,7 @@ class RandomizeSubjectTests(SimpleTestCase):
             randomization_event_id=None,
             randomization_status="assigned",
             randomization_datetime=datetime(2026, 5, 20, 8, 0, tzinfo=timezone.utc),
-            randomization_number="1",
+            randomization_number="R-001",
             randomization_source="workflow_action",
             period_count=2,
         )
@@ -76,6 +79,7 @@ class RandomizeSubjectTests(SimpleTestCase):
         self.assertEqual(summary.slot_id, 5)
         self.assertEqual(slot_assigner.calls, [])
         self.assertEqual(repository.period_materializations[0]["arm_id"], 11)
+        self.assertEqual(repository.period_materializations[0]["subject_code"], "NNG31-001")
 
     def test_materializes_sequence_arm_periods_for_seq_e_n(self):
         repository = _RandomizeRepositoryStub(period_count_by_arm={11: 2})
@@ -114,7 +118,12 @@ class RandomizeSubjectTests(SimpleTestCase):
 
 class _RandomizeRepositoryStub:
     def __init__(self, *, existing=None, period_count_by_arm=None):
-        self.subject = SimpleNamespace(pk=20, study_id=1, site_id=2)
+        self.subject = SimpleNamespace(
+            pk=20,
+            study_id=1,
+            site_id=2,
+            subject_code="NNG31-001",
+        )
         self.existing = existing
         self.period_count_by_arm = period_count_by_arm or {11: 2, 12: 2}
         self.recorded_assignments = []
@@ -154,18 +163,26 @@ class _RandomizeRepositoryStub:
             randomization_event_id=1000,
             randomization_status="assigned",
             randomization_datetime=kwargs["now"],
-            randomization_number=str(assignment.sequence_no),
+            randomization_number=str(assignment.randomization_code),
             randomization_source=kwargs["source"],
             period_count=period_count,
         )
 
 
 class _SlotAssignerStub:
-    def __init__(self, *, arm_id=11, arm_code="SEQ_E_N", sequence_no=1):
+    def __init__(
+        self,
+        *,
+        arm_id=11,
+        arm_code="SEQ_E_N",
+        sequence_no=1,
+        randomization_code="R-001",
+    ):
         self.calls = []
         self.arm_id = arm_id
         self.arm_code = arm_code
         self.sequence_no = sequence_no
+        self.randomization_code = randomization_code
 
     def __call__(self, **kwargs):
         self.calls.append(kwargs)
@@ -177,6 +194,7 @@ class _SlotAssignerStub:
             arm_code=self.arm_code,
             arm_name="Sequence arm",
             sequence_no=self.sequence_no,
+            randomization_code=self.randomization_code,
         )
 
 
@@ -186,3 +204,21 @@ class _AuditStub:
 
     def record_event(self, **kwargs):
         self.events.append(kwargs)
+
+
+class SubjectKitCodeTests(SimpleTestCase):
+    def test_builds_kit_codes_from_subject_code_not_randomization_code(self):
+        self.assertEqual(
+            DjangoSubjectRandomizationRepository._build_kit_code(
+                subject_code="NNG31-001",
+                period_no=1,
+            ),
+            "NNG31-001",
+        )
+        self.assertEqual(
+            DjangoSubjectRandomizationRepository._build_kit_code(
+                subject_code="NNG31-001",
+                period_no=2,
+            ),
+            "R-NNG31-001",
+        )

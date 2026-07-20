@@ -15,6 +15,13 @@ class SubjectSummaryRandomizationEventDTO:
 
 
 @dataclass(frozen=True)
+class SubjectSummaryPeriodDTO:
+    period_no: int
+    treatment_code: str
+    kit_code: str
+
+
+@dataclass(frozen=True)
 class SubjectSummarySnapshotDTO:
     subject_id: int
     study_id: int
@@ -36,6 +43,8 @@ class SubjectSummarySnapshotDTO:
     randomization_arm_name: str
     randomization_slot_sequence: int | None
     randomization_event: SubjectSummaryRandomizationEventDTO | None
+    site_id: int = 0
+    periods: tuple[SubjectSummaryPeriodDTO, ...] = ()
 
 
 class SubjectSummaryQueryService:
@@ -44,12 +53,19 @@ class SubjectSummaryQueryService:
     def __init__(self, repository=None):
         self.repository = repository or self.repository_class()
 
-    def get_subject_summary(self, *, study_id: int, subject_id: int) -> dict | None:
+    def get_subject_summary(
+        self,
+        *,
+        study_id: int,
+        subject_id: int,
+        include_assignment: bool = True,
+    ) -> dict | None:
         snapshot = self.repository.get_subject_summary_snapshot(
             study_id=study_id,
             subject_id=subject_id,
             snapshot_class=SubjectSummarySnapshotDTO,
             randomization_event_class=SubjectSummaryRandomizationEventDTO,
+            period_class=SubjectSummaryPeriodDTO,
         )
         if snapshot is None:
             return None
@@ -57,13 +73,14 @@ class SubjectSummaryQueryService:
         sections = [
             self._build_screening_section(snapshot),
             self._build_enrollment_section(snapshot),
-            self._build_randomization_section(snapshot),
+            self._build_randomization_section(snapshot, include_assignment=include_assignment),
         ]
         return {
             "subject_id": snapshot.subject_id,
             "study_id": snapshot.study_id,
             "study_code": snapshot.study_code,
             "site_code": snapshot.site_code,
+            "site_id": snapshot.site_id,
             "title": snapshot.subject_code or snapshot.screening_code or "Subject Summary",
             "subtitle": self._build_subject_stage_label(snapshot),
             "screening_code": snapshot.screening_code,
@@ -108,7 +125,12 @@ class SubjectSummaryQueryService:
         )
 
     @classmethod
-    def _build_randomization_section(cls, snapshot: SubjectSummarySnapshotDTO) -> dict | None:
+    def _build_randomization_section(
+        cls,
+        snapshot: SubjectSummarySnapshotDTO,
+        *,
+        include_assignment: bool = True,
+    ) -> dict | None:
         if not cls._should_show_randomization(snapshot):
             return None
 
@@ -116,6 +138,34 @@ class SubjectSummaryQueryService:
         assignment_status = (
             cls._humanize_value(snapshot.randomization_status) if snapshot.randomization_status else "Not assigned"
         )
+        assignment_items = ()
+        if include_assignment:
+            period_items = []
+            for period in snapshot.periods:
+                period_items.extend(
+                    (
+                        (f"Period {period.period_no} Treatment", cls._humanize_value(period.treatment_code)),
+                        (f"Period {period.period_no} Kit Code", period.kit_code),
+                    )
+                )
+            if len(snapshot.periods) >= 2:
+                second_period = snapshot.periods[1]
+                period_items.append(
+                    (
+                        "Period 2 Instruction",
+                        (
+                            f"Continue period 2 with {cls._humanize_value(second_period.treatment_code)} "
+                            f"using kit {second_period.kit_code}, without re-screening."
+                        ),
+                    )
+                )
+            assignment_items = (
+                ("Randomization Number", snapshot.randomization_number),
+                ("Scheme", snapshot.randomization_scheme_code),
+                ("Arm", snapshot.randomization_arm_name),
+                ("Slot", snapshot.randomization_slot_sequence),
+                *period_items,
+            )
         return cls._build_section(
             title="Randomization",
             items=(
@@ -125,10 +175,7 @@ class SubjectSummaryQueryService:
                 ("Planned Date", getattr(event, "planned_date", None)),
                 ("Assignment Status", assignment_status),
                 ("Randomization Date", snapshot.randomization_datetime),
-                ("Randomization Number", snapshot.randomization_number),
-                ("Scheme", snapshot.randomization_scheme_code),
-                ("Arm", snapshot.randomization_arm_name),
-                ("Slot", snapshot.randomization_slot_sequence),
+                *assignment_items,
             ),
         )
 
@@ -186,6 +233,7 @@ class SubjectSummaryQueryService:
 
 __all__ = [
     "SubjectSummaryQueryService",
+    "SubjectSummaryPeriodDTO",
     "SubjectSummaryRandomizationEventDTO",
     "SubjectSummarySnapshotDTO",
 ]

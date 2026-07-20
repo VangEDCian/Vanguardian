@@ -10,6 +10,7 @@ class TriggerSubjectEventTransitionCommand:
     facts: dict[str, Any] = field(default_factory=dict)
     actor_user_id: int | None = None
     trigger_source: str = "system"
+    target_event_definition_id: int | None = None
 
 
 __all__ = [

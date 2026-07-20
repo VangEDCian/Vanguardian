@@ -248,6 +248,25 @@ class DjangoRandomizationRepository:
                 status=RandomizationSlotStatusChoice.AVAILABLE,
             )
         )
+        queryset = queryset.exclude(
+            scheme__randomization_type__iexact="blocked",
+            scheme__master_list_approved_at__isnull=True,
+        ).exclude(
+            scheme__randomization_type__iexact="blocked",
+            scheme__master_list_locked_at__isnull=True,
+        ).exclude(
+            scheme__randomization_type__iexact="blocked",
+            scheme__master_list_checksum__isnull=True,
+        ).exclude(
+            scheme__randomization_type__iexact="blocked",
+            scheme__master_list_checksum="",
+        ).exclude(
+            scheme__randomization_type__iexact="blocked",
+            randomization_code__isnull=True,
+        ).exclude(
+            scheme__randomization_type__iexact="blocked",
+            randomization_code="",
+        )
         if scheme_id is not None:
             queryset = queryset.filter(scheme_id=scheme_id)
         if stratum_code:
@@ -278,6 +297,7 @@ class DjangoRandomizationRepository:
             "arm_code": slot.arm.arm_code,
             "arm_name": slot.arm.arm_name,
             "sequence_no": slot.sequence_no,
+            "randomization_code": slot.randomization_code,
         }
 
     def list_sequence_periods_for_arm(self, *, arm_id):

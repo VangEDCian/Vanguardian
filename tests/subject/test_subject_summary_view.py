@@ -4,12 +4,87 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from apps.subject.application.services.subject_summary import (
+    SubjectSummaryPeriodDTO,
     SubjectSummaryQueryService,
     SubjectSummarySnapshotDTO,
 )
 
 
 class SubjectSummaryViewTests(SimpleTestCase):
+    def test_randomization_assignment_is_hidden_without_assignment_permission(self):
+        snapshot = SubjectSummarySnapshotDTO(
+            subject_id=20,
+            study_id=1,
+            study_code="NNG31",
+            site_code="SITE01",
+            screening_code="NNG31-S001",
+            subject_code="NNG31-001",
+            screening_date=datetime(2026, 6, 17),
+            enrollment_is_enrolled=True,
+            enrollment_status="enrolled",
+            enrollment_date=date(2026, 6, 17),
+            enrollment_status_datetime=datetime(2026, 6, 17),
+            enrollment_reason_code="",
+            enrollment_reason_text="",
+            randomization_status="assigned",
+            randomization_datetime=datetime(2026, 6, 17),
+            randomization_number="R-001",
+            randomization_scheme_code="NNG31_XOVER",
+            randomization_arm_name="NANOKINE -> Eprex 4000 U",
+            randomization_slot_sequence=1,
+            randomization_event=None,
+            periods=(
+                SubjectSummaryPeriodDTO(1, "NANOKINE", "NNG31-001"),
+                SubjectSummaryPeriodDTO(2, "EPREX_4000U", "R-NNG31-001"),
+            ),
+        )
+
+        section = SubjectSummaryQueryService._build_randomization_section(
+            snapshot,
+            include_assignment=False,
+        )
+        labels = {item["label"] for item in section["items"]}
+
+        self.assertNotIn("Randomization Number", labels)
+        self.assertNotIn("Arm", labels)
+        self.assertNotIn("Period 1 Treatment", labels)
+
+    def test_randomization_assignment_shows_two_period_treatments_and_kit_codes(self):
+        snapshot = SubjectSummarySnapshotDTO(
+            subject_id=20,
+            study_id=1,
+            study_code="NNG31",
+            site_code="SITE01",
+            screening_code="NNG31-S001",
+            subject_code="NNG31-001",
+            screening_date=datetime(2026, 6, 17),
+            enrollment_is_enrolled=True,
+            enrollment_status="enrolled",
+            enrollment_date=date(2026, 6, 17),
+            enrollment_status_datetime=datetime(2026, 6, 17),
+            enrollment_reason_code="",
+            enrollment_reason_text="",
+            randomization_status="assigned",
+            randomization_datetime=datetime(2026, 6, 17),
+            randomization_number="R-001",
+            randomization_scheme_code="NNG31_XOVER",
+            randomization_arm_name="NANOKINE -> Eprex 4000 U",
+            randomization_slot_sequence=1,
+            randomization_event=None,
+            periods=(
+                SubjectSummaryPeriodDTO(1, "NANOKINE", "NNG31-001"),
+                SubjectSummaryPeriodDTO(2, "EPREX_4000U", "R-NNG31-001"),
+            ),
+        )
+
+        section = SubjectSummaryQueryService._build_randomization_section(snapshot)
+        rows = {item["label"]: item["value"] for item in section["items"]}
+
+        self.assertEqual(rows["Randomization Number"], "R-001")
+        self.assertEqual(rows["Period 1 Kit Code"], "NNG31-001")
+        self.assertEqual(rows["Period 2 Kit Code"], "R-NNG31-001")
+        self.assertIn("without re-screening", rows["Period 2 Instruction"])
+
     def test_enrollment_section_is_hidden_when_subject_is_not_enrolled(self):
         section = SubjectSummaryQueryService._build_enrollment_section(
             SubjectSummarySnapshotDTO(

@@ -89,6 +89,12 @@ class SubjectEventTransitionService:
                 study_version=source_event.study_version,
                 from_event_definition_id=source_event.event_definition_id,
             )
+            if command.target_event_definition_id is not None:
+                transition_rules = [
+                    transition_rule
+                    for transition_rule in transition_rules
+                    if transition_rule.to_event_definition_id == command.target_event_definition_id
+                ]
             if not transition_rules:
                 return SubjectEventTransitionResult(
                     source_event_instance_id=source_event.id,

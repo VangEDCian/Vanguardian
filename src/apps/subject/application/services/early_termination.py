@@ -41,22 +41,23 @@ class SubjectEarlyTerminationRequestService:
                 reason="final_visit_already_started",
             )
 
-        source_event = self.repository.get_active_visit_event_instance(
+        transition_context = self.repository.get_early_termination_transition_context(
             study_id=study_id,
             subject_id=subject_id,
         )
-        if source_event is None:
+        if transition_context is None:
             return SubjectEarlyTerminationRequestResult(
                 requested=False,
-                reason="active_visit_not_found",
+                reason="early_termination_transition_not_available",
             )
 
         result = self.transition_service.execute(
             TriggerSubjectEventTransitionCommand(
-                source_event_instance_id=source_event.id,
+                source_event_instance_id=transition_context.source_event_instance_id,
                 facts={"early_termination.requested": True},
                 actor_user_id=actor_user_id,
                 trigger_source="early_termination",
+                target_event_definition_id=transition_context.target_event_definition_id,
             )
         )
         opened_event_instance_ids = tuple(
@@ -66,7 +67,7 @@ class SubjectEarlyTerminationRequestService:
         if opened_event_instance_ids:
             return SubjectEarlyTerminationRequestResult(
                 requested=True,
-                source_event_instance_id=source_event.id,
+                source_event_instance_id=transition_context.source_event_instance_id,
                 opened_event_instance_ids=opened_event_instance_ids,
                 reason="early_termination_requested",
             )
@@ -77,7 +78,7 @@ class SubjectEarlyTerminationRequestService:
         )
         return SubjectEarlyTerminationRequestResult(
             requested=False,
-            source_event_instance_id=source_event.id,
+            source_event_instance_id=transition_context.source_event_instance_id,
             reason=skipped_reason,
         )
 

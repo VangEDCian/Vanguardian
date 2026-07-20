@@ -82,6 +82,8 @@ class StudyRandomizationSlotGenerationService:
             RandomizationSlotGenerationError: on invalid ratio references or
                 impossible totals (assigned+void greater than target).
         """
+        if str(getattr(scheme, "randomization_type", "") or "").strip().lower() == "blocked":
+            return None
         if not RandomizationScheme.is_active(getattr(scheme, "status", None)):
             return None
 

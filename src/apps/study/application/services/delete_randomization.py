@@ -39,6 +39,11 @@ class DeleteRandomizationSchemeService:
         if scheme is None:
             raise RandomizationSchemeNotFoundError(command.scheme_id)
 
+        if getattr(scheme, "master_list_locked_at", None) is not None:
+            raise RandomizationDeleteBlockedError(
+                _("Cannot delete this randomization scheme because its approved master list is locked."),
+            )
+
         if self.repository.scheme_has_assigned_slots(scheme_id=scheme.pk):
             raise RandomizationDeleteBlockedError(
                 _("Cannot delete this randomization scheme because it has assigned slots."),
@@ -91,6 +96,11 @@ class DeleteRandomizationArmService:
         arm = self.repository.get_arm(study_id=command.study_id, arm_id=command.arm_id)
         if arm is None:
             raise RandomizationArmNotFoundError(command.arm_id)
+
+        if getattr(getattr(arm, "scheme", None), "master_list_locked_at", None) is not None:
+            raise RandomizationDeleteBlockedError(
+                _("Cannot delete this randomization arm because its approved master list is locked."),
+            )
 
         if self.repository.arm_has_assigned_slots(arm_id=arm.pk):
             raise RandomizationDeleteBlockedError(

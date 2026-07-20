@@ -7,7 +7,7 @@ from apps.subject.models import Subject
 
 
 class SubjectEligibilityWorkflowRepositoryTests(TestCase):
-    def test_enrollment_initializes_subject_code_from_enrollment_sequence(self):
+    def test_nng31_enrollment_assigns_subject_identifiers_separately_from_randomization(self):
         study = self._create_study(code="NNG31")
         site = self._create_site(study=study)
         first_subject = self._create_subject(study=study, site=site, current_sequence=1)
@@ -77,6 +77,29 @@ class SubjectEligibilityWorkflowRepositoryTests(TestCase):
         subject.refresh_from_db()
         self.assertEqual(subject.enrollment_current_sequence, 10)
         self.assertEqual(subject.subject_code, "NNG31-010")
+
+    def test_other_studies_keep_enrollment_based_subject_codes(self):
+        study = self._create_study(code="ABC")
+        site = self._create_site(study=study)
+        subject = self._create_subject(study=study, site=site, current_sequence=1)
+
+        DjangoSubjectEligibilityWorkflowRepository().transition_enrollment_status(
+            study_id=study.pk,
+            site_id=site.pk,
+            subject_id=subject.pk,
+            to_status="Enrolled",
+            is_enrolled=True,
+            actor_user_id=7,
+            source="eligibility",
+            reason_code=None,
+            reason_text=None,
+            screen_failure_status="ScreenFailure",
+            screened_status="Screened",
+        )
+
+        subject.refresh_from_db()
+        self.assertEqual(subject.enrollment_current_sequence, 1)
+        self.assertEqual(subject.subject_code, "ABC-001")
 
     @staticmethod
     def _create_study(*, code: str):

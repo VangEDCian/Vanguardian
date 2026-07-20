@@ -237,6 +237,7 @@ class SubjectPeriod(models.Model):
 
     period_no = models.SmallIntegerField()
     treatment_code = models.CharField(max_length=64)
+    kit_code = models.CharField(max_length=64, null=True, blank=True)
     status = models.CharField(max_length=16, default="Planned")
 
     sequence_period = models.ForeignKey(

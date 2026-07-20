@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
@@ -128,6 +129,7 @@ class DeleteSiteServiceTests(SimpleTestCase):
 class DeleteRandomizationSchemeServiceTests(SimpleTestCase):
     def test_raises_when_scheme_has_assigned_slots(self):
         scheme = MagicMock(pk=13, code="SCH-001", deleted=False)
+        scheme.master_list_locked_at = None
         repository = MagicMock()
         repository.get_scheme.return_value = scheme
         repository.scheme_has_assigned_slots.return_value = True
@@ -148,6 +150,7 @@ class DeleteRandomizationSchemeServiceTests(SimpleTestCase):
         now = MagicMock()
         mock_suffix_builder.return_value = "SCH-001_deleted_deadbeef"
         scheme = MagicMock(pk=13, study_id=2, code="SCH-001", deleted=False)
+        scheme.master_list_locked_at = None
         repository = MagicMock()
         repository.get_scheme.return_value = scheme
         repository.scheme_has_assigned_slots.return_value = False
@@ -173,10 +176,22 @@ class DeleteRandomizationSchemeServiceTests(SimpleTestCase):
         repository.save_scheme.assert_called_once_with(scheme, update_fields=["code", "deleted", "updated_at"])
         audit_service.record_scheme_deleted.assert_called_once()
 
+    def test_blocks_deleting_scheme_with_approved_locked_master_list(self):
+        scheme = SimpleNamespace(pk=13, master_list_locked_at=object())
+        repository = MagicMock()
+        repository.get_scheme.return_value = scheme
+
+        with self.assertRaisesMessage(RandomizationDeleteBlockedError, "approved master list is locked"):
+            DeleteRandomizationSchemeService.execute.__wrapped__(
+                DeleteRandomizationSchemeService(repository=repository),
+                DeleteRandomizationSchemeCommand(actor_user_id=5, study_id=2, scheme_id=13),
+            )
+
 
 class DeleteRandomizationArmServiceTests(SimpleTestCase):
     def test_raises_when_arm_has_assigned_slots(self):
         arm = MagicMock(pk=19, arm_code="ARM-A", deleted=False)
+        arm.scheme = SimpleNamespace(master_list_locked_at=None)
         repository = MagicMock()
         repository.get_arm.return_value = arm
         repository.arm_has_assigned_slots.return_value = True
@@ -197,6 +212,7 @@ class DeleteRandomizationArmServiceTests(SimpleTestCase):
         now = MagicMock()
         mock_suffix_builder.return_value = "ARM-A_deleted_deadbeef"
         arm = MagicMock(pk=19, arm_code="ARM-A", deleted=False)
+        arm.scheme = SimpleNamespace(master_list_locked_at=None)
         repository = MagicMock()
         repository.get_arm.return_value = arm
         repository.arm_has_assigned_slots.return_value = False
@@ -220,3 +236,17 @@ class DeleteRandomizationArmServiceTests(SimpleTestCase):
         self.assertFalse(arm.is_active)
         repository.save_arm.assert_called_once_with(arm, update_fields=["arm_code", "deleted", "is_active", "updated_at"])
         audit_service.record_arm_deleted.assert_called_once()
+
+    def test_blocks_deleting_arm_with_approved_locked_master_list(self):
+        arm = SimpleNamespace(
+            pk=19,
+            scheme=SimpleNamespace(master_list_locked_at=object()),
+        )
+        repository = MagicMock()
+        repository.get_arm.return_value = arm
+
+        with self.assertRaisesMessage(RandomizationDeleteBlockedError, "approved master list is locked"):
+            DeleteRandomizationArmService.execute.__wrapped__(
+                DeleteRandomizationArmService(repository=repository),
+                DeleteRandomizationArmCommand(actor_user_id=6, study_id=2, arm_id=19),
+            )

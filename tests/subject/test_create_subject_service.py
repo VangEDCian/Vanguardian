@@ -109,6 +109,36 @@ class CreateSubjectEventInstanceScheduleTests(SimpleTestCase):
 
 
 class SubjectEventTransitionScheduleTests(SimpleTestCase):
+    def test_can_scope_transition_to_one_target_event_definition(self):
+        transition_rules = [
+            _transition_rule(rule_id=1, target_event_definition_id=101),
+            _transition_rule(rule_id=2, target_event_definition_id=102),
+        ]
+        repository = _SubjectEventLifecycleRepositoryStub(
+            now=datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc),
+            transition_rules=transition_rules,
+        )
+        transition_policy = _TransitionPolicySpy()
+
+        with patch("apps.subject.application.services.event_lifecycle.transaction.atomic", return_value=nullcontext()):
+            SubjectEventTransitionService(
+                repository=repository,
+                transition_policy=transition_policy,
+                workflow_action_service=_WorkflowActionServiceStub(),
+                gate_evaluation_recorder=_GateEvaluationRecorderStub(),
+                source_event_certification_checker=lambda **kwargs: False,
+            ).execute(
+                TriggerSubjectEventTransitionCommand(
+                    source_event_instance_id=10,
+                    target_event_definition_id=102,
+                )
+            )
+
+        self.assertEqual(
+            [rule.to_event_definition_id for rule in transition_policy.transition_rules],
+            [102],
+        )
+
     def test_auto_created_target_event_uses_rule_offset_days_as_planned_date(self):
         anchor_datetime = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)
         repository = _SubjectEventLifecycleRepositoryStub(now=anchor_datetime)
@@ -344,10 +374,11 @@ class _GateEvaluationRecorderStub:
 
 
 class _SubjectEventLifecycleRepositoryStub:
-    def __init__(self, *, now, transition_rule=None, target_event=None):
+    def __init__(self, *, now, transition_rule=None, transition_rules=None, target_event=None):
         self._now = now
         self.created_planned_date = None
         self.transition_rule = transition_rule
+        self.transition_rules = transition_rules
         self.target_event = target_event
 
     def now(self):
@@ -368,6 +399,8 @@ class _SubjectEventLifecycleRepositoryStub:
         )
 
     def list_enabled_transition_rules_from(self, *, study_id, study_version, from_event_definition_id):
+        if self.transition_rules is not None:
+            return self.transition_rules
         if self.transition_rule is not None:
             return [self.transition_rule]
         return [
@@ -420,3 +453,29 @@ class _SubjectEventLifecycleRepositoryStub:
 
     def record_transition_log(self, **kwargs):
         return None
+
+
+class _TransitionPolicySpy:
+    def __init__(self):
+        self.transition_rules = []
+
+    def decide(self, *, source_event, transition_rules, target_events_by_definition, facts):
+        self.transition_rules = transition_rules
+        return []
+
+
+def _transition_rule(*, rule_id, target_event_definition_id):
+    return StudyEventTransitionRuleSnapshot(
+        id=rule_id,
+        from_event_definition_id=100,
+        to_event_definition_id=target_event_definition_id,
+        transition_type="conditional",
+        condition_scope="subject_event",
+        condition_code=None,
+        condition_definition_id=None,
+        auto_open=True,
+        auto_create=True,
+        requires_previous_completion=True,
+        allow_skip=False,
+        display_order=rule_id,
+    )

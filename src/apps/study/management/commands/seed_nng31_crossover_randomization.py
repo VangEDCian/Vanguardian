@@ -1,7 +1,7 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
-from apps.core.choices import RandomizationSchemeStatusChoice
+from apps.core.choices.study import RandomizationSchemeStatusChoice
 from apps.study.models import (
     EventDefinition,
     RandomizationArm,
@@ -17,10 +17,10 @@ class Command(BaseCommand):
         parser.add_argument("--study-id", required=True, type=int)
         parser.add_argument("--study-version", required=True)
         parser.add_argument("--actor-id", type=int, default=None)
-        parser.add_argument("--period1-start-code", default="")
-        parser.add_argument("--period1-end-code", default="")
-        parser.add_argument("--period2-start-code", default="")
-        parser.add_argument("--period2-end-code", default="")
+        parser.add_argument("--period1-start-code", required=True)
+        parser.add_argument("--period1-end-code", required=True)
+        parser.add_argument("--period2-start-code", required=True)
+        parser.add_argument("--period2-end-code", required=True)
 
     def handle(self, *args, **options):
         study_id = options["study_id"]
@@ -33,7 +33,7 @@ class Command(BaseCommand):
             "SEQ_E_N": self._upsert_arm(
                 scheme=scheme,
                 arm_code="SEQ_E_N",
-                arm_name="Eprex -> NANOKINE",
+                arm_name="Eprex 4000 U -> NANOKINE",
                 target_count=22,
                 display_order=1,
                 actor_id=actor_id,
@@ -42,7 +42,7 @@ class Command(BaseCommand):
             "SEQ_N_E": self._upsert_arm(
                 scheme=scheme,
                 arm_code="SEQ_N_E",
-                arm_name="NANOKINE -> Eprex",
+                arm_name="NANOKINE -> Eprex 4000 U",
                 target_count=22,
                 display_order=2,
                 actor_id=actor_id,
@@ -54,7 +54,7 @@ class Command(BaseCommand):
             scheme=scheme,
             arm=arms["SEQ_E_N"],
             period_no=1,
-            treatment_code="EPREX",
+            treatment_code="EPREX_4000U",
             start_event_definition_id=event_ids["period1_start"],
             end_event_definition_id=event_ids["period1_end"],
             actor_id=actor_id,
@@ -84,7 +84,7 @@ class Command(BaseCommand):
             scheme=scheme,
             arm=arms["SEQ_N_E"],
             period_no=2,
-            treatment_code="EPREX",
+            treatment_code="EPREX_4000U",
             start_event_definition_id=event_ids["period2_start"],
             end_event_definition_id=event_ids["period2_end"],
             actor_id=actor_id,
@@ -234,7 +234,7 @@ class Command(BaseCommand):
         code = str(code or "").strip()
         if not code:
             return None
-        return (
+        event_id = (
             EventDefinition.objects.filter(
                 study_id=study_id,
                 study_version=study_version,
@@ -244,3 +244,8 @@ class Command(BaseCommand):
             .values_list("id", flat=True)
             .first()
         )
+        if event_id is None:
+            raise CommandError(
+                f"Event definition '{code}' was not found for study {study_id}, version '{study_version}'."
+            )
+        return event_id

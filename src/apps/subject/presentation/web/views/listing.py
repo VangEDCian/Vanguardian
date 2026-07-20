@@ -12,6 +12,7 @@ from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHan
 from apps.shared.navigation import get_default_authenticated_url, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.subject_list_query import build_current_visit_subquery
+from apps.subject.application.services.treatment_timeline import SubjectTreatmentTimelineService
 from apps.subject.application.services.subject_list_verify_form_visibility import (
     VERIFY_FORM_PERMISSION,
     SubjectListVerifyFormVisibilityService,
@@ -41,6 +42,7 @@ class SubjectListView(
     filterset_class = SubjectsToolbarForm
     paginate_by = 25
     workflow_action_service_class = SubjectWorkflowActionService
+    treatment_timeline_service_class = SubjectTreatmentTimelineService
 
     @staticmethod
     def _get_resolved_study_id(request):
@@ -80,7 +82,7 @@ class SubjectListView(
                 ),
                 current_visit=build_current_visit_subquery(),
             )
-            .select_related("site", "study", "enrollment", "randomization", "randomization__arm")
+            .select_related("site", "study", "enrollment", "randomization", "randomization__slot")
             .order_by("current_sequence", "id")
         )
 
@@ -107,6 +109,11 @@ class SubjectListView(
             has_verify_form_permission=can_verify_form,
             subject_ids=subject_ids,
         )
+        current_treatment_map = (
+            self.treatment_timeline_service_class().map_current_subject_treatment_by_subject_id(
+                subject_ids=subject_ids,
+            )
+        )
         workflow_action_event_map = {}
         if can_update_subject:
             workflow_service = self.workflow_action_service_class()
@@ -117,6 +124,7 @@ class SubjectListView(
         table = table_class(
             table_data,
             verify_show_by_subject_id=verify_map,
+            current_treatment_by_subject_id=current_treatment_map,
             workflow_action_event_id_by_subject_id=workflow_action_event_map,
             can_update_subject=can_update_subject,
             **kwargs,

@@ -18,6 +18,8 @@ DEFAULT_EDC_ROLES = (
         "scope_level": "STUDY_SITE",
         "permissions": (
             "SUBJECT.VIEW",
+            "SUBJECT.RANDOMIZE",
+            "RANDOMIZATION.ASSIGNMENT.VIEW",
             "CRF.VIEW",
             "QUERY.VIEW",
             "CASEBOOK.VIEW",
@@ -34,6 +36,8 @@ DEFAULT_EDC_ROLES = (
             "SUBJECT.VIEW",
             "SUBJECT.CREATE",
             "SUBJECT.UPDATE",
+            "SUBJECT.RANDOMIZE",
+            "RANDOMIZATION.ASSIGNMENT.VIEW",
             "CRF.VIEW",
             "CRF.ENTER",
             "CRF.UPDATE",
@@ -89,6 +93,9 @@ DEFAULT_EDC_ROLES = (
         "permissions": (
             "STUDY_CONFIG.VIEW",
             "STUDY_CONFIG.MANAGE",
+            "RANDOMIZATION.LIST.VIEW",
+            "RANDOMIZATION.LIST.MANAGE",
+            "RANDOMIZATION.ASSIGNMENT.VIEW",
             "SUBJECT.VIEW",
             "CRF.VIEW",
             "CRF.UPDATE",

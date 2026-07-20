@@ -23,7 +23,7 @@ class DjangoSubjectRandomizationRepository:
         return (
             Subject.objects.select_related("study", "site")
             .filter(pk=subject_id, deleted=False)
-            .only("id", "study_id", "site_id")
+            .only("id", "study_id", "site_id", "subject_code")
             .first()
         )
 
@@ -87,7 +87,8 @@ class DjangoSubjectRandomizationRepository:
             .first()
         )
         before_data = self._serialize_subject_randomization(randomization)
-        randomization_number = str(assignment.sequence_no)
+        randomization_code = str(getattr(assignment, "randomization_code", None) or "").strip()
+        randomization_number = randomization_code or str(assignment.sequence_no)
         event = RandomizationEvent.objects.create(
             created_at=now,
             event_type="Assigned",
@@ -142,6 +143,9 @@ class DjangoSubjectRandomizationRepository:
         period_count = self.ensure_subject_periods(
             subject_id=subject.pk,
             arm_id=assignment.arm_id,
+            subject_code=(
+                subject.subject_code if assignment.scheme_code == "NNG31_XOVER" else None
+            ),
             actor_user_id=actor_user_id,
             now=now,
         )
@@ -178,7 +182,15 @@ class DjangoSubjectRandomizationRepository:
             period_count=period_count,
         )
 
-    def ensure_subject_periods(self, *, subject_id: int, arm_id: int | None, actor_user_id: int | None, now) -> int:
+    def ensure_subject_periods(
+        self,
+        *,
+        subject_id: int,
+        arm_id: int | None,
+        subject_code: str | None = None,
+        actor_user_id: int | None,
+        now,
+    ) -> int:
         if arm_id is None:
             return 0
         sequence_periods = list(
@@ -204,6 +216,10 @@ class DjangoSubjectRandomizationRepository:
                     "updated_at": now,
                     "deleted": False,
                     "treatment_code": sequence_period.treatment_code,
+                    "kit_code": self._build_kit_code(
+                        subject_code=subject_code,
+                        period_no=sequence_period.period_no,
+                    ),
                     "status": "Planned",
                     "sequence_period_id": sequence_period.pk,
                     "start_event_instance_id": getattr(start_event, "pk", None),
@@ -216,6 +232,10 @@ class DjangoSubjectRandomizationRepository:
                 updates = {
                     "updated_at": now,
                     "treatment_code": sequence_period.treatment_code,
+                    "kit_code": self._build_kit_code(
+                        subject_code=subject_code,
+                        period_no=sequence_period.period_no,
+                    ),
                     "sequence_period_id": sequence_period.pk,
                     "start_event_instance_id": getattr(start_event, "pk", None),
                     "end_event_instance_id": getattr(end_event, "pk", None),
@@ -233,7 +253,19 @@ class DjangoSubjectRandomizationRepository:
                 actor_user_id=actor_user_id,
                 now=now,
             )
+
         return len(sequence_periods)
+
+    @staticmethod
+    def _build_kit_code(*, subject_code: str | None, period_no: int) -> str | None:
+        code = str(subject_code or "").strip()
+        if not code:
+            return None
+        if int(period_no) == 1:
+            return code
+        if int(period_no) == 2:
+            return f"R-{code}"
+        return f"P{period_no}-{code}"
 
     def count_subject_periods(self, *, subject_id: int) -> int:
         return SubjectPeriod.objects.filter(subject_id=subject_id, deleted=False).count()

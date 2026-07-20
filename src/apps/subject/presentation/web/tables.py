@@ -21,6 +21,11 @@ class SubjectListTable(tables.Table):
     screening_code = tables.Column(
         verbose_name=_("SCREENING CODE"),
     )
+    randomization_code = tables.Column(
+        empty_values=(),
+        verbose_name=_("RANDOMIZE CODE"),
+        orderable=False,
+    )
     current_visit = tables.Column(
         empty_values=(),
         verbose_name=_("Current Visit"),
@@ -71,6 +76,7 @@ class SubjectListTable(tables.Table):
 
     def __init__(self, *args, **kwargs):
         self._verify_show_by_subject_id = kwargs.pop("verify_show_by_subject_id", None) or {}
+        self._current_treatment_by_subject_id = kwargs.pop("current_treatment_by_subject_id", None) or {}
         self.workflow_action_event_id_by_subject_id = (
             kwargs.pop("workflow_action_event_id_by_subject_id", None) or {}
         )
@@ -106,12 +112,21 @@ class SubjectListTable(tables.Table):
             return "—"
         return date_format(created_at, "DATETIME_FORMAT") if created_at else "—"
 
-    def render_arm(self, record):
+    @staticmethod
+    def render_randomization_code(record):
         try:
-            arm_name = record.randomization.arm.arm_name
+            randomization_code = record.randomization.slot.randomization_code
         except (AttributeError, ObjectDoesNotExist):
             return "—"
-        return arm_name or "—"
+        return randomization_code or "—"
+
+    def render_arm(self, record):
+        current_treatment = self._current_treatment_by_subject_id.get(record.pk)
+        return (
+            getattr(current_treatment, "treatment_code", None)
+            or getattr(current_treatment, "last_treatment", None)
+            or "—"
+        )
 
     @staticmethod
     def render_current_visit(record):
@@ -134,6 +149,7 @@ class SubjectListTable(tables.Table):
         fields = (
             "subject_code",
             "screening_code",
+            "randomization_code",
             "current_visit",
             "screening",
             "enrollment",

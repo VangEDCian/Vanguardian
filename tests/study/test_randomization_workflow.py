@@ -36,6 +36,7 @@ class StudyRandomizationSlotAssignmentServiceTests(SimpleTestCase):
                     "arm_code": "B",
                     "arm_name": "Arm B",
                     "sequence_no": 2,
+                    "randomization_code": "R-002",
                 },
             ]
         )
@@ -52,6 +53,7 @@ class StudyRandomizationSlotAssignmentServiceTests(SimpleTestCase):
             )
 
         self.assertEqual(assignment.slot_id, 2)
+        self.assertEqual(assignment.randomization_code, "R-002")
         self.assertEqual(repository.excluded_slot_ids_by_call, [(), (1,)])
 
     def test_assign_random_available_slot_retries_database_lock_error(self):

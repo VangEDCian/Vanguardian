@@ -28,6 +28,21 @@ from apps.study.domain import RandomizationScheme
 from apps.study.infrastructure.repositories import DjangoRandomizationRepository
 
 
+def _ensure_master_list_unlocked(*, scheme, parsed_row):
+    if getattr(scheme, "master_list_locked_at", None) is None:
+        return
+    raise RandomizationImportValidationError(
+        (
+            RandomizationImportIssue(
+                row_number=parsed_row.row_number,
+                identifier=parsed_row.identifier,
+                column_label="Scheme Code",
+                reason="The approved randomization master list is locked and cannot be changed.",
+            ),
+        ),
+    )
+
+
 class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValidationService):
     preview_service_class = PreviewStudyRandomizationSchemesImportService
     repository_class = DjangoRandomizationRepository
@@ -129,6 +144,7 @@ class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValida
             )
             return "created", scheme, {}
 
+        _ensure_master_list_unlocked(scheme=scheme, parsed_row=parsed_row)
         before_data = serialize_randomization_scheme_snapshot(scheme)
         for field_name, value in defaults.items():
             setattr(scheme, field_name, value)
@@ -235,6 +251,7 @@ class CommitStudyRandomizationArmsImportService(BaseRandomizationImportValidatio
     def _upsert_arm(self, *, parsed_row, scheme_map, now):
         values = parsed_row.values
         scheme = scheme_map[str(values["scheme_code"]).strip().lower()]
+        _ensure_master_list_unlocked(scheme=scheme, parsed_row=parsed_row)
         arm = self.repository.get_arm_by_code(
             scheme_id=scheme.pk,
             arm_code=values["arm_code"],
@@ -367,6 +384,7 @@ class CommitStudyRandomizationSequencePeriodsImportService(BaseRandomizationImpo
         scheme_key = str(values["scheme_code"]).strip().lower()
         arm_key = (scheme_key, str(values["arm_code"]).strip().lower())
         scheme = scheme_map[scheme_key]
+        _ensure_master_list_unlocked(scheme=scheme, parsed_row=parsed_row)
         arm = arm_map[arm_key]
         start_event_definition = PreviewStudyRandomizationSequencePeriodsImportService._resolve_event_definition(
             values["start_event_code"],
