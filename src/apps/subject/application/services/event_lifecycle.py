@@ -95,6 +95,20 @@ class SubjectEventTransitionService:
                     for transition_rule in transition_rules
                     if transition_rule.to_event_definition_id == command.target_event_definition_id
                 ]
+            target_guard = getattr(
+                self.repository,
+                "is_transition_target_allowed",
+                None,
+            )
+            if target_guard is not None:
+                transition_rules = [
+                    transition_rule
+                    for transition_rule in transition_rules
+                    if target_guard(
+                        subject_id=source_event.subject_id,
+                        event_definition_id=transition_rule.to_event_definition_id,
+                    )
+                ]
             if not transition_rules:
                 return SubjectEventTransitionResult(
                     source_event_instance_id=source_event.id,

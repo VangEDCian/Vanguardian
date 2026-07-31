@@ -11,7 +11,9 @@ from apps.reconcile.models import ReconcileDataQueryStatusChoices, ReconcileVali
 from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHandler
 from apps.shared.navigation import get_default_authenticated_url, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
-from apps.subject.application.services.subject_list_query import build_current_visit_subquery
+from apps.subject.application.services.early_termination import (
+    SubjectEarlyTerminationAvailabilityService,
+)
 from apps.subject.application.services.subject_list_verify_form_visibility import (
     VERIFY_FORM_PERMISSION,
     SubjectListVerifyFormVisibilityService,
@@ -21,7 +23,10 @@ from apps.subject.application.services.workflow_action import SubjectWorkflowAct
 from apps.subject.presentation.web.forms import SubjectsToolbarForm
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
 from apps.subject.presentation.web.tables import SubjectListTable
-from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
+from apps.subject.presentation.web.views.base import (
+    CRF_DATA_CHANGE_PERMISSIONS,
+    SubjectAbstractVerifyStudy,
+)
 
 
 class SubjectListView(
@@ -43,6 +48,9 @@ class SubjectListView(
     paginate_by = 25
     workflow_action_service_class = SubjectWorkflowActionService
     treatment_timeline_service_class = SubjectTreatmentTimelineService
+    early_termination_availability_service_class = (
+        SubjectEarlyTerminationAvailabilityService
+    )
 
     @staticmethod
     def _get_resolved_study_id(request):
@@ -80,7 +88,6 @@ class SubjectListView(
                     ),
                     distinct=True,
                 ),
-                current_visit=build_current_visit_subquery(),
             )
             .select_related("site", "study", "enrollment", "randomization", "randomization__slot")
             .order_by("current_sequence", "id")
@@ -90,19 +97,29 @@ class SubjectListView(
         # OLD: return RequestConfig(...).configure(table_class(data=self.get_table_data(), **kwargs))
         table_class = self.get_table_class()
         table_data = self.get_table_data()
-        subject_ids = tuple(table_data.values_list("pk", flat=True))
+        subject_site_by_id = dict(table_data.values_list("pk", "site_id"))
+        subject_ids = tuple(subject_site_by_id)
         visibility = SubjectListVerifyFormVisibilityService()
         can_verify_form = user_can_access_permission(
             self.request.user,
             VERIFY_FORM_PERMISSION,
             study_id=self.get_study_id(),
             site_id=self.get_selected_site_id(),
+            request=self.request,
         )
         can_update_subject = user_can_access_permission(
             self.request.user,
             "SUBJECT.UPDATE",
             study_id=self.get_study_id(),
             site_id=self.get_selected_site_id(),
+            request=self.request,
+        )
+        can_early_terminate = user_can_access_permission(
+            self.request.user,
+            "SUBJECT.EARLY_TERMINATE",
+            study_id=self.get_study_id(),
+            site_id=self.get_selected_site_id(),
+            request=self.request,
         )
         verify_map = visibility.map_show_verify_form_by_subject_id(
             user_id=self.request.user.pk,
@@ -121,15 +138,96 @@ class SubjectListView(
                 study_id=self.get_study_id(),
                 subject_ids=subject_ids,
             )
+        early_termination_eligible_subject_ids = frozenset()
+        if can_early_terminate:
+            early_termination_eligible_subject_ids = (
+                self.early_termination_availability_service_class()
+                .list_eligible_subject_ids(
+                    study_id=self.get_study_id(),
+                    subject_ids=subject_ids,
+                )
+            )
+        detail_url_by_subject_id = self._build_detail_url_by_subject_id(
+            subject_site_by_id=subject_site_by_id,
+        )
         table = table_class(
             table_data,
             verify_show_by_subject_id=verify_map,
             current_treatment_by_subject_id=current_treatment_map,
             workflow_action_event_id_by_subject_id=workflow_action_event_map,
+            detail_url_by_subject_id=detail_url_by_subject_id,
             can_update_subject=can_update_subject,
+            can_early_terminate=can_early_terminate,
+            early_termination_eligible_subject_ids=(
+                early_termination_eligible_subject_ids
+            ),
             **kwargs,
         )
         return RequestConfig(self.request, paginate=self.get_table_pagination(table)).configure(table)
+
+    def _build_detail_url_by_subject_id(
+        self,
+        *,
+        subject_site_by_id: dict[int, int],
+    ) -> dict[int, str]:
+        permissions_by_site_id = {}
+        for site_id in set(subject_site_by_id.values()):
+            permissions_by_site_id[site_id] = {
+                "can_change_crf_data": any(
+                    user_can_access_permission(
+                        self.request.user,
+                        permission_code,
+                        study_id=self.get_study_id(),
+                        site_id=site_id,
+                        request=self.request,
+                    )
+                    for permission_code in CRF_DATA_CHANGE_PERMISSIONS
+                ),
+                "can_verify_form": user_can_access_permission(
+                    self.request.user,
+                    VERIFY_FORM_PERMISSION,
+                    study_id=self.get_study_id(),
+                    site_id=site_id,
+                    request=self.request,
+                ),
+                "can_view_subject": user_can_access_permission(
+                    self.request.user,
+                    self.permission_required,
+                    study_id=self.get_study_id(),
+                    site_id=site_id,
+                    request=self.request,
+                ),
+            }
+
+        return {
+            subject_id: self._resolve_detail_url(
+                study_id=self.get_study_id(),
+                subject_id=subject_id,
+                **permissions_by_site_id[site_id],
+            )
+            for subject_id, site_id in subject_site_by_id.items()
+        }
+
+    @staticmethod
+    def _resolve_detail_url(
+        *,
+        study_id: int,
+        subject_id: int,
+        can_change_crf_data: bool,
+        can_verify_form: bool,
+        can_view_subject: bool,
+    ) -> str:
+        base_url = reverse(
+            "subject:subject_detail",
+            kwargs={"study_id": study_id, "subject_id": subject_id},
+        )
+        if can_change_crf_data:
+            return base_url
+        if can_verify_form:
+            return f"{base_url}?mode=verification"
+        if can_view_subject:
+            return f"{base_url}?mode=viewonly"
+        return ""
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -138,6 +236,7 @@ class SubjectListView(
             "SUBJECT.CREATE",
             study_id=self.get_study_id(),
             site_id=self.get_selected_site_id(),
+            request=self.request,
         )
         return context
 

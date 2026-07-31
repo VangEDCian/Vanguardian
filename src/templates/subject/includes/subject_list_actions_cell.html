@@ -1,10 +1,12 @@
 {% load i18n static subject_list_tags %}
 {% url 'subject:subject_detail' study_id=record.study_id subject_id=record.pk as subject_detail_base_url %}
 {% url 'subject:subject_summary' study_id=record.study_id subject_id=record.pk as subject_summary_url %}
+{% url 'subject:subject_audit_history' study_id=record.study_id subject_id=record.pk as subject_audit_history_url %}
 {% url 'subject:subject_resync_stage' study_id=record.study_id subject_id=record.pk as subject_resync_stage_url %}
 {% url 'subject:subject_early_termination_request' study_id=record.study_id subject_id=record.pk as subject_early_termination_request_url %}
 {% subject_workflow_action_event_id table record.pk as workflow_action_event_id %}
 {% subject_can_update_subject table perms as can_update_subject %}
+{% subject_can_early_terminate table record.pk as can_early_terminate %}
 {% if workflow_action_event_id %}
     {% url 'subject:subject_eventinstance_trigger_workflow' study_id=record.study_id subject_id=record.pk event_instance_id=workflow_action_event_id as subject_trigger_workflow_url %}
 {% endif %}
@@ -23,6 +25,9 @@
         <a href="{{ subject_summary_url }}?next={{ request.get_full_path|urlencode }}"
            class="crf-template-actions__item"
            data-dropdown-option>{% trans "Subject Summary" %}</a>
+        <a href="{{ subject_audit_history_url }}?next={{ request.get_full_path|urlencode }}"
+           class="crf-template-actions__item"
+           data-dropdown-option>{% trans "Audit History" %}</a>
         <a href="{{ subject_detail_base_url }}?mode=viewonly"
            class="crf-template-actions__item"
            data-dropdown-option>{% trans "View Form Detail" %}</a>
@@ -51,22 +56,19 @@
                 <button type="submit" class="crf-template-actions__item" data-dropdown-option>{% trans "Trigger Workflow" %}</button>
             </form>
         {% endif %}
-        {% if can_update_subject %}
-            <form method="post"
-                  action="{{ subject_early_termination_request_url }}"
-                  class="crf-template-actions__form">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button type="submit" class="crf-template-actions__item" data-dropdown-option>{% trans "Request Early Termination" %}</button>
-            </form>
+        {% if can_early_terminate %}
+            <button type="button"
+                    class="crf-template-actions__item"
+                    data-modal-open="modal-early-termination-{{ record.pk }}"
+                    data-dropdown-option>{% trans "Start Early Termination" %}</button>
         {% else %}
             <button type="button"
                     class="crf-template-actions__item"
                     disabled
                     aria-disabled="true"
                     data-dropdown-option
-                    title="{% trans 'You do not have permission to request early termination for this subject.' %}">
-                {% trans "Request Early Termination" %}
+                    title="{% trans 'Early termination is unavailable because permission, protocol configuration, subject lifecycle, or visit state does not allow it.' %}">
+                {% trans "Start Early Termination" %}
             </button>
         {% endif %}
         {% if can_update_subject %}
@@ -88,4 +90,64 @@
             </button>
         {% endif %}
     </div>
+    {% if can_early_terminate %}
+        <div class="modal-backdrop subject-early-termination-modal-backdrop"
+             id="modal-early-termination-{{ record.pk }}"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="modal-early-termination-{{ record.pk }}-title">
+            <div class="modal modal--warning subject-early-termination-modal">
+                <div class="modal__header">
+                    <div class="modal__icon" aria-hidden="true">!</div>
+                    <h2 class="modal__title"
+                        id="modal-early-termination-{{ record.pk }}-title">{% trans "Start Early Termination" %}</h2>
+                </div>
+                <form method="post" action="{{ subject_early_termination_request_url }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <div class="modal__body subject-early-termination-modal__body">
+                        <p class="modal__message">
+                            {% blocktrans with subject_code=record.subject_code|default:record.screening_code %}
+                                End participation for {{ subject_code }}. Other open visits will be closed and cannot accept data.
+                            {% endblocktrans %}
+                        </p>
+                        <label class="subject-early-termination-modal__field">
+                            <span>{% trans "Reason" %}</span>
+                            <select name="reason_code" required>
+                                <option value="">{% trans "Select a reason" %}</option>
+                                <option value="adverse_event">{% trans "Adverse event" %}</option>
+                                <option value="subject_withdrawal">{% trans "Subject withdrawal" %}</option>
+                                <option value="investigator_decision">{% trans "Investigator decision" %}</option>
+                                <option value="lost_to_follow_up">{% trans "Lost to follow-up" %}</option>
+                                <option value="protocol_deviation">{% trans "Protocol deviation" %}</option>
+                                <option value="other">{% trans "Other" %}</option>
+                            </select>
+                        </label>
+                        <label class="subject-early-termination-modal__field">
+                            <span>{% trans "Effective at" %}</span>
+                            <input type="datetime-local"
+                                   name="effective_at"
+                                   value="{% now 'Y-m-d\TH:i' %}"
+                                   required>
+                        </label>
+                        <label class="subject-early-termination-modal__field">
+                            <span>{% trans "Details" %}</span>
+                            <textarea name="reason_text" rows="3" maxlength="1000" required></textarea>
+                        </label>
+                    </div>
+                    <div class="modal__footer">
+                        <button type="button"
+                                class="modal__cancel"
+                                data-modal-close="modal-early-termination-{{ record.pk }}">
+                            {% trans "Cancel" %}
+                        </button>
+                        <button type="submit"
+                                class="entity-table__footer-button entity-table__footer-button--warning">
+                            {% trans "Confirm termination" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 </div>

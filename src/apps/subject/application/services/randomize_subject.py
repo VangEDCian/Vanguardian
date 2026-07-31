@@ -4,6 +4,9 @@ from django.db import transaction
 
 from apps.audit.public import AuditContextAdapter
 from apps.study.public import assign_randomization_slot_for_subject
+from apps.subject.application.services.period_lifecycle import (
+    SubjectPeriodLifecycleService,
+)
 from apps.subject.infrastructure.repositories.randomization import (
     DjangoSubjectRandomizationRepository,
 )
@@ -64,6 +67,7 @@ class SubjectRandomized:
 class RandomizeSubject:
     repository_class = DjangoSubjectRandomizationRepository
     audit_adapter_class = AuditContextAdapter
+    period_lifecycle_service_class = SubjectPeriodLifecycleService
     slot_assigner = staticmethod(assign_randomization_slot_for_subject)
 
     def __init__(
@@ -73,11 +77,15 @@ class RandomizeSubject:
         audit_adapter=None,
         slot_assigner=None,
         event_publisher=None,
+        period_lifecycle_service=None,
     ):
         self.repository = repository or self.repository_class()
         self.audit_adapter = audit_adapter or self.audit_adapter_class()
         self.slot_assigner = slot_assigner or self.__class__.slot_assigner
         self.event_publisher = event_publisher or (lambda event: None)
+        self.period_lifecycle_service = (
+            period_lifecycle_service or self.period_lifecycle_service_class()
+        )
 
     def execute(self, command: RandomizeSubjectCommand) -> RandomizationSummary | None:
         subject = self.repository.get_subject_scope(subject_id=command.subject_id)
@@ -97,6 +105,10 @@ class RandomizeSubject:
                 ),
                 actor_user_id=command.actor_id,
                 now=self.repository.now(),
+            )
+            self.period_lifecycle_service.initialize_after_randomization(
+                subject_id=command.subject_id,
+                actor_user_id=command.actor_id,
             )
             return existing
 
@@ -129,6 +141,10 @@ class RandomizeSubject:
                 reason_text=command.reason_text,
                 now=now,
                 summary_class=RandomizationSummary,
+            )
+            self.period_lifecycle_service.initialize_after_randomization(
+                subject_id=subject.pk,
+                actor_user_id=command.actor_id,
             )
             self.audit_adapter.record_event(
                 action="subject.randomized",

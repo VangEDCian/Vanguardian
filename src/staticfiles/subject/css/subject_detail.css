@@ -692,6 +692,15 @@
   background-color: #d2d8de;
 }
 
+.subject-form-verification-review__table--styled tbody tr.subject-form-verification-review__row--has-validation-issue {
+  background-color: #fff4e5;
+  box-shadow: inset 4px 0 #b54708;
+}
+
+.subject-form-verification-review__table--styled tbody tr.subject-form-verification-review__row--has-validation-issue:hover {
+  background-color: #ffe6c7;
+}
+
 .subject-form-verification-review__field-context {
   display: flex;
   flex-wrap: wrap;
@@ -733,6 +742,10 @@
 .subject-form-verification-review__action-btn:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.subject-form-verification-review__validation-issue-btn {
+  color: #b54708;
 }
 
 .subject-form-verification-review__action-group {
@@ -1274,6 +1287,47 @@
   gap: 6px;
   margin: 8px 0 0;
   padding-left: 18px;
+}
+
+.subject-period-override-modal__body {
+  display: grid;
+  gap: 14px;
+}
+
+.subject-period-override-modal__field {
+  display: grid;
+  gap: 6px;
+  color: #253544;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subject-period-override-modal__field input,
+.subject-period-override-modal__field select,
+.subject-period-override-modal__field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #b8c4cf;
+  border-radius: 4px;
+  background: #fff;
+  color: #172b3a;
+  font: inherit;
+  font-weight: 400;
+}
+
+.subject-period-override-modal__confirmation {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: #253544;
+  font-size: 13px;
+}
+
+.subject-period-override-modal__confirmation input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
 }
 
 @media (max-width: 1200px) {

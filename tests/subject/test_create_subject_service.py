@@ -173,6 +173,47 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
         self.assertEqual(gate_command.condition_results[0]["operator"], "evaluate_rule")
         self.assertEqual(gate_command.condition_results[0]["result"], "pass")
 
+    def test_enrollment_transition_can_open_all_protocol_visits(self):
+        anchor_datetime = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)
+        transition_rules = [
+            _transition_rule(
+                rule_id=index,
+                target_event_definition_id=target_event_definition_id,
+            )
+            for index, target_event_definition_id in enumerate(
+                range(101, 118),
+                start=1,
+            )
+        ]
+        repository = _SubjectEventLifecycleRepositoryStub(
+            now=anchor_datetime,
+            transition_rules=transition_rules,
+            source_status="completed",
+        )
+
+        with patch(
+            "apps.subject.application.services.event_lifecycle.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            result = SubjectEventTransitionService(
+                repository=repository,
+                workflow_action_service=_WorkflowActionServiceStub(),
+                gate_evaluation_recorder=_GateEvaluationRecorderStub(),
+                source_event_certification_checker=lambda **kwargs: False,
+            ).execute(
+                TriggerSubjectEventTransitionCommand(
+                    source_event_instance_id=10,
+                    actor_user_id=99,
+                    trigger_source="workflow_action",
+                )
+            )
+
+        self.assertEqual(len(result.applied_events), 17)
+        self.assertEqual(
+            repository.created_event_definition_ids,
+            list(range(101, 118)),
+        )
+
     def test_failed_transition_rule_is_recorded_as_gate_evaluation(self):
         repository = _SubjectEventLifecycleRepositoryStub(
             now=datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc),
@@ -374,9 +415,19 @@ class _GateEvaluationRecorderStub:
 
 
 class _SubjectEventLifecycleRepositoryStub:
-    def __init__(self, *, now, transition_rule=None, transition_rules=None, target_event=None):
+    def __init__(
+        self,
+        *,
+        now,
+        transition_rule=None,
+        transition_rules=None,
+        target_event=None,
+        source_status="verified",
+    ):
         self._now = now
+        self.source_status = source_status
         self.created_planned_date = None
+        self.created_event_definition_ids = []
         self.transition_rule = transition_rule
         self.transition_rules = transition_rules
         self.target_event = target_event
@@ -392,7 +443,7 @@ class _SubjectEventLifecycleRepositoryStub:
             event_definition_id=100,
             study_version="1.0",
             repeat_index=1,
-            status="verified",
+            status=self.source_status,
             event_code="SCREENING",
             event_name="Screening",
             event_type="visit_based",
@@ -436,18 +487,25 @@ class _SubjectEventLifecycleRepositoryStub:
             event_type="visit_based",
         )
 
-    def create_open_event_instance(self, *, planned_date=None, **kwargs):
+    def create_open_event_instance(
+        self,
+        *,
+        event_definition,
+        planned_date=None,
+        **kwargs,
+    ):
         self.created_planned_date = planned_date
+        self.created_event_definition_ids.append(event_definition.id)
         return SubjectEventInstanceSnapshot(
-            id=11,
+            id=event_definition.id - 90,
             study_id=1,
             subject_id=20,
-            event_definition_id=101,
+            event_definition_id=event_definition.id,
             study_version="1.0",
             repeat_index=1,
             status="open",
-            event_code="VISIT_2",
-            event_name="Visit 2",
+            event_code=event_definition.code,
+            event_name=event_definition.name,
             event_type="visit_based",
         )
 

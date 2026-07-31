@@ -357,6 +357,12 @@ class TestDataCaptureFormInstanceService(SimpleTestCase):
                 }
             ),
             repository=SimpleNamespace(),
+            subject_capture_eligibility_reader=SimpleNamespace(
+                get=lambda **kwargs: SimpleNamespace(
+                    allowed=True,
+                    reason="subject_active",
+                )
+            ),
         )
 
         class _FakeQuerySet(list):

@@ -1,11 +1,14 @@
 import django_tables2 as tables
 from django.core.exceptions import ObjectDoesNotExist
-from django.urls import reverse
-from django.utils.html import format_html_join
+from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.shared.datetime_formatting import date_format
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
+
+
+def _subject_detail_row_href(table, record):
+    return table.detail_url_by_subject_id.get(record.pk, "")
 
 
 class SubjectListTable(tables.Table):
@@ -13,23 +16,9 @@ class SubjectListTable(tables.Table):
         verbose_name=_("Subject"),
         attrs={"td": {"class": "entity-table__primary"}},
         empty_values=(),
-        linkify=lambda record: reverse(
-            "subject:subject_detail",
-            kwargs={"study_id": record.study_id, "subject_id": record.pk},
-        ),
     )
     screening_code = tables.Column(
         verbose_name=_("SCREENING CODE"),
-    )
-    randomization_code = tables.Column(
-        empty_values=(),
-        verbose_name=_("RANDOMIZE CODE"),
-        orderable=False,
-    )
-    current_visit = tables.Column(
-        empty_values=(),
-        verbose_name=_("Current Visit"),
-        orderable=False,
     )
     screening = tables.Column(
         empty_values=(),
@@ -40,6 +29,10 @@ class SubjectListTable(tables.Table):
         empty_values=(),
         verbose_name=_("Enrollment"),
         orderable=False,
+    )
+    lifecycle_status = tables.Column(
+        verbose_name=_("Participation"),
+        order_by=("lifecycle_status", "current_sequence", "id"),
     )
     randomization = tables.Column(
         empty_values=(),
@@ -80,16 +73,26 @@ class SubjectListTable(tables.Table):
         self.workflow_action_event_id_by_subject_id = (
             kwargs.pop("workflow_action_event_id_by_subject_id", None) or {}
         )
+        self.detail_url_by_subject_id = (
+            kwargs.pop("detail_url_by_subject_id", None) or {}
+        )
         self.can_update_subject = kwargs.pop("can_update_subject", False)
+        self.can_early_terminate = kwargs.pop("can_early_terminate", False)
+        self.early_termination_eligible_subject_ids = frozenset(
+            kwargs.pop("early_termination_eligible_subject_ids", ())
+        )
         # For template: {% if record.pk in table.verify_eligible_subject_ids %} (no custom filter).
         self.verify_eligible_subject_ids = frozenset(
             sid for sid, ok in self._verify_show_by_subject_id.items() if ok
         )
         super().__init__(*args, **kwargs)
 
-    @staticmethod
-    def render_subject_code(record):
-        return record.subject_code or record.screening_code or "—"
+    def render_subject_code(self, record):
+        label = record.subject_code or record.screening_code or "—"
+        detail_url = self.detail_url_by_subject_id.get(record.pk, "")
+        if not detail_url:
+            return label
+        return format_html('<a href="{}">{}</a>', detail_url, label)
 
     @staticmethod
     def render_screening(record):
@@ -105,20 +108,16 @@ class SubjectListTable(tables.Table):
             return "—"
         return date_format(enrollment_date, "DATE_FORMAT")
 
+    @staticmethod
+    def render_lifecycle_status(record):
+        return record.get_lifecycle_status_display()
+
     def render_randomization(self, record):
         try:
             created_at = record.randomization.created_at
         except ObjectDoesNotExist:
             return "—"
         return date_format(created_at, "DATETIME_FORMAT") if created_at else "—"
-
-    @staticmethod
-    def render_randomization_code(record):
-        try:
-            randomization_code = record.randomization.slot.randomization_code
-        except (AttributeError, ObjectDoesNotExist):
-            return "—"
-        return randomization_code or "—"
 
     def render_arm(self, record):
         current_treatment = self._current_treatment_by_subject_id.get(record.pk)
@@ -127,10 +126,6 @@ class SubjectListTable(tables.Table):
             or getattr(current_treatment, "last_treatment", None)
             or "—"
         )
-
-    @staticmethod
-    def render_current_visit(record):
-        return getattr(record, "current_visit", None) or "—"
 
     @staticmethod
     def render_completion(record):
@@ -146,13 +141,15 @@ class SubjectListTable(tables.Table):
 
     class Meta:
         model = get_subject_list_row_model()
+        row_attrs = {
+            "data-detail-href": _subject_detail_row_href,
+        }
         fields = (
             "subject_code",
             "screening_code",
-            "randomization_code",
-            "current_visit",
             "screening",
             "enrollment",
+            "lifecycle_status",
             "randomization",
             "arm",
             "completion",

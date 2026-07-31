@@ -69,6 +69,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
         has_verified_query: bool = False,
         open_query_count: int = 0,
         validation_issue_count: int = 0,
+        validation_issues: list[dict] | None = None,
+        validation_issue_histories: list[dict] | None = None,
         closed_query_histories: list[dict] | None = None,
         active_query_is_answered: bool = False,
         active_query_can_respond: bool = True,
@@ -98,7 +100,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
                             "display_value": "Value 1",
                             "open_query_count": open_query_count,
                             "validation_issue_count": validation_issue_count,
-                            "validation_issues": [],
+                            "validation_issues": validation_issues or [],
+                            "validation_issue_histories": validation_issue_histories or [],
                             "active_query_id": active_query_id,
                             "active_query_is_answered": active_query_is_answered,
                             "active_query_can_respond": active_query_can_respond,
@@ -192,6 +195,61 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("I reviewed this visit.", rendered)
         self.assertIn("data-event-attestation-submit", rendered)
         self.assertIn("subject_event_attestation.js", rendered)
+
+    def test_verification_screen_loads_readonly_validation_issue_modal(self):
+        rendered = self._render_subject_detail_verification_screen()
+
+        self.assertIn("data-validation-issue-modal", rendered)
+        self.assertIn("subject_validation_issue_modal.js", rendered)
+        self.assertNotIn("data-validation-issue-modal-submit", rendered)
+
+    def test_field_review_table_highlights_validation_issue_and_renders_action(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            validation_issue_count=1,
+            validation_issues=[
+                {
+                    "id": 200,
+                    "rule_id": 31,
+                    "message": "Age is outside the eligible range.",
+                    "failed_value_display": "999",
+                    "mode": "soft_warning",
+                    "severity": "warning",
+                    "status": "OPEN",
+                    "created_at": "07/31/2026 08:34",
+                }
+            ],
+            validation_issue_histories=[
+                {
+                    "dataquery_id": "validation_issue_200_snapshot_341",
+                    "status": "FAIL",
+                    "label": "Validation Issue #200",
+                    "value_snapshot": "999",
+                    "opened_at": "07/31/2026 08:34",
+                    "closed_at": "",
+                    "messages": [
+                        {
+                            "dataquery_id": "validation_issue_200_snapshot_341",
+                            "text": "Age is outside the eligible range.",
+                            "status": "FAIL",
+                            "tone": "warning",
+                            "opened_by": "",
+                            "opened_at": "07/31/2026 08:34",
+                        }
+                    ],
+                }
+            ],
+        )
+
+        self.assertIn("subject-form-verification-review__row--has-validation-issue", rendered)
+        self.assertIn('data-has-validation-issue="true"', rendered)
+        self.assertIn("data-validation-issue-modal-trigger", rendered)
+        self.assertIn("images/datacapture/warning.svg", rendered)
+        self.assertIn("data-validation-issue-badge", rendered)
+        self.assertIn("data-validation-issue-source", rendered)
+        self.assertIn('data-issue-message="Age is outside the eligible range."', rendered)
+        self.assertIn('data-history-value="999"', rendered)
+        self.assertIn('data-message-text="Age is outside the eligible range."', rendered)
 
     def test_field_review_table_hides_actions_column_without_submitted_entry(self):
         rendered = self._render_field_review_table(

@@ -20,6 +20,7 @@ class RandomizeSubjectTests(SimpleTestCase):
         repository = _RandomizeRepositoryStub()
         slot_assigner = _SlotAssignerStub(arm_code="SEQ_E_N", sequence_no=1)
         audit = _AuditStub()
+        period_lifecycle = _PeriodLifecycleStub()
         published_events = []
 
         with (
@@ -31,6 +32,7 @@ class RandomizeSubjectTests(SimpleTestCase):
                 slot_assigner=slot_assigner,
                 audit_adapter=audit,
                 event_publisher=published_events.append,
+                period_lifecycle_service=period_lifecycle,
             ).execute(
                 RandomizeSubjectCommand(
                     subject_id=20,
@@ -46,6 +48,7 @@ class RandomizeSubjectTests(SimpleTestCase):
         self.assertEqual(repository.recorded_assignments[0]["assignment"].slot_id, 5)
         self.assertEqual(repository.period_materializations, [])
         self.assertEqual(audit.events[0]["action"], "subject.randomized")
+        self.assertEqual(period_lifecycle.initialized_subject_ids, [20])
         self.assertEqual(published_events[0].slot_id, 5)
 
     def test_is_idempotent_for_existing_randomized_subject(self):
@@ -74,6 +77,7 @@ class RandomizeSubjectTests(SimpleTestCase):
             repository=repository,
             slot_assigner=slot_assigner,
             audit_adapter=_AuditStub(),
+            period_lifecycle_service=_PeriodLifecycleStub(),
         ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
 
         self.assertEqual(summary.slot_id, 5)
@@ -93,6 +97,7 @@ class RandomizeSubjectTests(SimpleTestCase):
                 repository=repository,
                 slot_assigner=slot_assigner,
                 audit_adapter=_AuditStub(),
+                period_lifecycle_service=_PeriodLifecycleStub(),
             ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
 
         self.assertEqual(summary.arm_code, "SEQ_E_N")
@@ -110,6 +115,7 @@ class RandomizeSubjectTests(SimpleTestCase):
                 repository=repository,
                 slot_assigner=slot_assigner,
                 audit_adapter=_AuditStub(),
+                period_lifecycle_service=_PeriodLifecycleStub(),
             ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
 
         self.assertEqual(summary.arm_code, "SEQ_N_E")
@@ -196,6 +202,14 @@ class _SlotAssignerStub:
             sequence_no=self.sequence_no,
             randomization_code=self.randomization_code,
         )
+
+
+class _PeriodLifecycleStub:
+    def __init__(self):
+        self.initialized_subject_ids = []
+
+    def initialize_after_randomization(self, *, subject_id, actor_user_id):
+        self.initialized_subject_ids.append(subject_id)
 
 
 class _AuditStub:

@@ -70,6 +70,14 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
             reverse("subject:subject_summary", kwargs={"study_id": 1, "subject_id": 20}),
             rendered,
         )
+        self.assertIn("Audit History", rendered)
+        self.assertIn(
+            reverse(
+                "subject:subject_audit_history",
+                kwargs={"study_id": 1, "subject_id": 20},
+            ),
+            rendered,
+        )
 
     def test_actions_cell_renders_resync_stage_post_action_when_permitted(self):
         rendered = render_to_string(
@@ -127,6 +135,45 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
         )
 
         self.assertNotIn("Trigger Workflow", rendered)
+
+    def test_actions_cell_renders_early_termination_confirmation_fields_only_when_eligible(
+        self,
+    ):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": {},
+                "record": SimpleNamespace(
+                    pk=20,
+                    study_id=1,
+                    subject_code="SUBJ-020",
+                    screening_code="SCR-020",
+                ),
+                "request": SimpleNamespace(
+                    get_full_path="/studies/1/subjects/?page=2"
+                ),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={},
+                    can_update_subject=False,
+                    can_early_terminate=True,
+                    early_termination_eligible_subject_ids=frozenset({20}),
+                ),
+            },
+        )
+
+        self.assertIn("Start Early Termination", rendered)
+        self.assertIn('name="reason_code"', rendered)
+        self.assertIn('name="effective_at"', rendered)
+        self.assertIn('name="reason_text"', rendered)
+        self.assertIn(
+            reverse(
+                "subject:subject_early_termination_request",
+                kwargs={"study_id": 1, "subject_id": 20},
+            ),
+            rendered,
+        )
 
 
 class _ChangedResyncService:

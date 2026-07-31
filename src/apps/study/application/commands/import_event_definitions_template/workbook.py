@@ -48,9 +48,10 @@ class EventDefinitionWorkbookMixin:
             raise EventDefinitionImportFormatError("The workbook is empty.")
 
         headers = [self._normalize_header(value) for value in rows[0]]
+        required_columns = getattr(self, "required_columns", self.expected_columns)
         missing_headers = [
             header
-            for header in self.expected_columns
+            for header in required_columns
             if self._normalize_header(header) not in headers
         ]
         if missing_headers:

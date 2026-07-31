@@ -39,6 +39,11 @@
                     <span class="subject-detail-screen__label">{% trans "Screening Code" %}</span>
                     <strong>{{ subject_obj.screening_code|default:"—" }}</strong>
                 </span>
+                <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Participation" %}</span>
+                    <strong>{{ subject_obj.get_lifecycle_status_display }}</strong>
+                </span>
             </div>
             <div class="subject-detail-screen__summary-actions">
                 <strong class="subject-detail-screen__study-name">{{ study_header_label }}</strong>
@@ -46,8 +51,105 @@
                     <a href="{{ audit_history_url }}"
                        class="subject-detail-screen__audit-link">{% trans "Audit History" %}</a>
                 {% endif %}
+                {% if period_override %}
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--warning"
+                            data-modal-open="modal-period-override-{{ subject_obj.pk }}">
+                        {% trans "Advance Period" %}
+                    </button>
+                {% endif %}
             </div>
         </header>
+        {% if period_override %}
+            <div class="modal-backdrop"
+                 id="modal-period-override-{{ subject_obj.pk }}"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="modal-period-override-{{ subject_obj.pk }}-title">
+                <div class="modal modal--warning">
+                    <div class="modal__header">
+                        <div class="modal__icon" aria-hidden="true">!</div>
+                        <h2 class="modal__title"
+                            id="modal-period-override-{{ subject_obj.pk }}-title">
+                            {% blocktrans trimmed with period_no=period_override.next_period_no %}
+                                Activate Period {{ period_no }}
+                            {% endblocktrans %}
+                        </h2>
+                    </div>
+                    <form method="post" action="{{ period_override.submit_url }}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="modal__body subject-period-override-modal__body">
+                            <p class="modal__message">
+                                {% blocktrans trimmed with current_period=period_override.current_period_no current_treatment=period_override.current_treatment_code next_period=period_override.next_period_no next_treatment=period_override.next_treatment_code %}
+                                    Transition from Period {{ current_period }} ({{ current_treatment }}) to Period {{ next_period }} ({{ next_treatment }}). Existing CRF and event statuses will not be changed.
+                                {% endblocktrans %}
+                            </p>
+                            {% if period_override.source_event_status %}
+                                <p class="modal__message">
+                                    {% blocktrans trimmed with event_status=period_override.source_event_status|upper %}
+                                        Current period end event status: {{ event_status }}
+                                    {% endblocktrans %}
+                                </p>
+                            {% endif %}
+                            <label class="subject-period-override-modal__field">
+                                <span>{% trans "Current period ended at" %}</span>
+                                <input type="datetime-local"
+                                       name="period_end_at"
+                                       value="{% now 'Y-m-d\TH:i' %}"
+                                       required>
+                            </label>
+                            <label class="subject-period-override-modal__field">
+                                <span>{% trans "Next period started at" %}</span>
+                                <input type="datetime-local"
+                                       name="next_period_start_at"
+                                       value="{% now 'Y-m-d\TH:i' %}"
+                                       required>
+                            </label>
+                            <label class="subject-period-override-modal__field">
+                                <span>{% trans "Reason" %}</span>
+                                <select name="reason_code" required>
+                                    <option value="">{% trans "Select a reason" %}</option>
+                                    <option value="paper_crf_delayed">{% trans "Paper CRF delayed" %}</option>
+                                    <option value="source_document_issue">{% trans "Source document issue" %}</option>
+                                    <option value="data_entry_backlog">{% trans "Data entry backlog" %}</option>
+                                    <option value="protocol_deviation">{% trans "Protocol deviation" %}</option>
+                                    <option value="other">{% trans "Other" %}</option>
+                                </select>
+                            </label>
+                            <label class="subject-period-override-modal__field">
+                                <span>{% trans "Details" %}</span>
+                                <textarea name="reason_text" rows="3" maxlength="1000" required></textarea>
+                            </label>
+                            <label class="subject-period-override-modal__confirmation">
+                                <input type="checkbox" name="pending_data_acknowledged" value="on" required>
+                                <span>{% trans "I acknowledge that current-period data may remain incomplete." %}</span>
+                            </label>
+                            <label class="subject-period-override-modal__confirmation">
+                                <input type="checkbox"
+                                       name="clinical_transition_confirmed"
+                                       value="on"
+                                       required>
+                                <span>{% trans "I confirm the clinical transition and required washout were satisfied." %}</span>
+                            </label>
+                        </div>
+                        <div class="modal__footer">
+                            <button type="button"
+                                    class="modal__cancel"
+                                    data-modal-close="modal-period-override-{{ subject_obj.pk }}">
+                                {% trans "Cancel" %}
+                            </button>
+                            <button type="submit"
+                                    class="entity-table__footer-button entity-table__footer-button--warning">
+                                {% blocktrans trimmed with period_no=period_override.next_period_no %}
+                                    Activate Period {{ period_no }}
+                                {% endblocktrans %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
         {% if focused_forms %}
             <nav class="subject-detail-screen__tabs"
                  hidden
@@ -250,9 +352,7 @@
                                     </thead>
                                     <tbody data-field-audit-history-table-body>
                                         <tr data-field-audit-history-empty-row>
-                                            <td colspan="6" class="subject-detail-screen__audit-history-empty">
-                                                {% trans "No audit history available." %}
-                                            </td>
+                                            <td colspan="6" class="subject-detail-screen__audit-history-empty">{% trans "No audit history available." %}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -397,10 +497,11 @@
             <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
         {% endif %}
     {% endif %}
-    {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode and page_entry_has_open_validation_issues %}
+    {% if focused_form and not is_form_verification_mode and not is_subject_detail_viewonly_mode and page_entry_has_validation_issue_records %}
         <script src="{% static 'subject/js/subject_validation_issue_modal.js' %}"></script>
     {% endif %}
     {% if is_form_verification_mode %}
+        <script src="{% static 'subject/js/subject_validation_issue_modal.js' %}"></script>
         {% if form_verification_verify_checked_url or form_verification_reopen_url %}
             <script src="{% static 'subject/js/subject_form_verification_verify_all.js' %}"></script>
         {% endif %}

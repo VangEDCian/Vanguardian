@@ -45,8 +45,13 @@ class ContextualAuthorizationService:
     """
 
     def __init__(self, *, repository=None, request=None):
-        self.repository = repository or ContextualAuthorizationRepository()
         self.request = request
+        if repository is None and request is not None:
+            repository = getattr(request, "_contextual_authorization_repository", None)
+            if repository is None:
+                repository = ContextualAuthorizationRepository(use_request_cache=True)
+                request._contextual_authorization_repository = repository
+        self.repository = repository or ContextualAuthorizationRepository()
 
     def can(
         self,

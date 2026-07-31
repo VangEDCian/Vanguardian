@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from apps.core.choices import SubjectPeriodStatusChoices
 from apps.study.models import RandomizationEvent, RandomizationSequencePeriod
 from apps.subject.models import (
     Subject,
@@ -220,7 +221,7 @@ class DjangoSubjectRandomizationRepository:
                         subject_code=subject_code,
                         period_no=sequence_period.period_no,
                     ),
-                    "status": "Planned",
+                    "status": SubjectPeriodStatusChoices.PLANNED,
                     "sequence_period_id": sequence_period.pk,
                     "start_event_instance_id": getattr(start_event, "pk", None),
                     "end_event_instance_id": getattr(end_event, "pk", None),

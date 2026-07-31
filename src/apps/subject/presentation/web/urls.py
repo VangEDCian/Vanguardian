@@ -11,6 +11,7 @@ from apps.subject.presentation.web.views import (
     SubjectEventInstanceFilePreviewView,
     SubjectFieldAuditHistoryView,
     SubjectListView,
+    SubjectPeriodOverrideView,
     SubjectResyncStageView,
     SubjectSummaryView,
     SubjectTriggerWorkflowView,
@@ -47,6 +48,11 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/<int:subject_id>/early-termination/request/",
         SubjectEarlyTerminationRequestView.as_view(),
         name="subject_early_termination_request",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/period-transition/override/",
+        SubjectPeriodOverrideView.as_view(),
+        name="subject_period_override",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/summary/",

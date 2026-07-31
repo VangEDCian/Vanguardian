@@ -2,6 +2,7 @@ from django.db import models
 
 from apps.core.choices import (
     EventDefinitionCategoryChoices,
+    EventDefinitionLifecycleRoleChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
     EventExecutionModeChoices,
@@ -46,6 +47,11 @@ class EventDefinition(models.Model):
         choices=EventDefinitionCategoryChoices.choices,
         null=True,
         blank=True,
+    )
+    lifecycle_role = models.CharField(
+        max_length=32,
+        choices=EventDefinitionLifecycleRoleChoices.choices,
+        default=EventDefinitionLifecycleRoleChoices.REGULAR,
     )
     execution_mode = models.CharField(
         max_length=32,

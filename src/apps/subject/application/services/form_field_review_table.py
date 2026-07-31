@@ -366,8 +366,6 @@ class FormFieldReviewTableService:
             control_norm=control_norm,
             label_by_value=label_by_value,
         )
-        if validation_issue_histories:
-            closed_query_histories.extend(validation_issue_histories)
         return {
             "field_template_id": field_template_id,
             "field_key": display_field_key,

@@ -39,6 +39,7 @@ from apps.study.presentation.web.views.studies import (
     StudyRolesContextMixin,
 )
 from apps.subject.presentation.web.views.event_instance_files import SubjectEventInstanceFileImportView
+from apps.subject.presentation.web.views.period_override import SubjectPeriodOverrideView
 from apps.subject.presentation.web.views.repeating_event_instance import SubjectAddRepeatingEventInstanceView
 from apps.subject.presentation.web.views.verification_verify_checked import SubjectFormVerificationQueryThreadView, SubjectValidationIssueAcknowledgeView
 
@@ -112,6 +113,7 @@ class PermissionProposalMappingTests(SimpleTestCase):
             StudyRoleCreateView: "USER_ACCESS.MANAGE",
             SubjectEventInstanceFileImportView: "SUBJECT.UPDATE",
             SubjectAddRepeatingEventInstanceView: "SUBJECT.UPDATE",
+            SubjectPeriodOverrideView: "SUBJECT.PERIOD_OVERRIDE",
         }
 
         for view_class, permission_required in expected_permissions.items():
@@ -159,7 +161,7 @@ class PermissionProposalMappingTests(SimpleTestCase):
         finally:
             StudyCrfTemplateListView.dispatch_authenticated = original_dispatch_authenticated
 
-    def test_route_permissions_are_registered_for_seed(self):
+    def test_route_permissions_are_registered_in_permission_registry(self):
         permission_codes = {
             definition.permission_code
             for definition in ALL_PERMISSION_DEFINITIONS

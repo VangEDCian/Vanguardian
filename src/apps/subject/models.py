@@ -7,6 +7,8 @@ from apps.subject.infrastructure.persistence.models import (
     SubjectMilestone,
     SubjectPeriod,
     SubjectPeriodMilestone,
+    SubjectPeriodTransitionLog,
+    SubjectPeriodTransitionOverride,
     SubjectRandomization,
     SubjectStatusHistory,
 )
@@ -20,6 +22,8 @@ __all__ = [
     "SubjectMilestone",
     "SubjectPeriod",
     "SubjectPeriodMilestone",
+    "SubjectPeriodTransitionLog",
+    "SubjectPeriodTransitionOverride",
     "SubjectRandomization",
     "SubjectStatusHistory",
 ]

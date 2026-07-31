@@ -24,6 +24,12 @@ class EventDefinitionCategoryChoices(models.TextChoices):
     UNSCHEDULED = "unscheduled", _("Unscheduled")
 
 
+class EventDefinitionLifecycleRoleChoices(models.TextChoices):
+    REGULAR = "regular", _("Regular")
+    REGULAR_COMPLETION = "regular_completion", _("Regular completion")
+    EARLY_TERMINATION = "early_termination", _("Early termination")
+
+
 class EventExecutionModeChoices(models.TextChoices):
     FORM_ENTRY = "form_entry", _("Form entry")
     WORKFLOW_ACTION = "workflow_action", _("Workflow action")
@@ -69,6 +75,25 @@ class EventInstanceStatusChoices(models.TextChoices):
     LOCKED = "locked", _("Locked")
     FINALIZED = "finalized", _("Finalized")
     SKIPPED = "skipped", _("Skipped")
+    CANCELLED = "cancelled", _("Cancelled")
+
+
+class SubjectLifecycleStatusChoices(models.TextChoices):
+    ACTIVE = "active", _("Active")
+    EARLY_TERMINATION_IN_PROGRESS = (
+        "early_termination_in_progress",
+        _("Early termination in progress"),
+    )
+    EARLY_TERMINATED = "early_terminated", _("Early terminated")
+    COMPLETED_NORMALLY = "completed_normally", _("Completed normally")
+
+
+class SubjectPeriodStatusChoices(models.TextChoices):
+    PLANNED = "planned", _("Planned")
+    ACTIVE = "active", _("Active")
+    WASHOUT = "washout", _("Washout")
+    COMPLETED = "completed", _("Completed")
+    REVIEW_REQUIRED = "review_required", _("Review Required")
     CANCELLED = "cancelled", _("Cancelled")
 
 

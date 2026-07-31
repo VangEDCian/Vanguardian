@@ -13,6 +13,7 @@ from apps.audit.public import AuditContextAdapter
 from apps.core.choices import DataCapturePageStateStatusChoices
 from apps.core.form_data_document import flatten_form_data_for_export, normalize_form_data
 from apps.crf.public import CrfContextAdapter
+from apps.datacapture.application.exceptions import DataCaptureSubjectLifecycleError
 from apps.datacapture.infrastructure.persistence.models import (
     DataCapturePageState,
     DataCapturePageStateTransitionLog,
@@ -25,6 +26,17 @@ from apps.study.public import (
     StudyEventFormBindingReader,
 )
 from apps.subject.public import get_event_instance_snapshot
+
+
+class SubjectCaptureEligibilityReader:
+    def get(self, *, subject_id: int, event_instance_id: int):
+        from apps.subject.public import get_subject_capture_eligibility
+
+        return get_subject_capture_eligibility(
+            subject_id=subject_id,
+            event_instance_id=event_instance_id,
+            for_update=True,
+        )
 
 
 @dataclass(frozen=True)
@@ -46,6 +58,7 @@ class DataCaptureFormInstanceService:
     audit_context_adapter_class = AuditContextAdapter
     binding_reader_class = StudyEventFormBindingReader
     repository_class = DjangoDataCapturePageRepository
+    subject_capture_eligibility_reader_class = SubjectCaptureEligibilityReader
 
     def __init__(
         self,
@@ -56,6 +69,7 @@ class DataCaptureFormInstanceService:
         audit_context_adapter=None,
         binding_reader=None,
         repository=None,
+        subject_capture_eligibility_reader=None,
     ):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
         self.config_reader = config_reader or self.config_reader_class()
@@ -63,6 +77,10 @@ class DataCaptureFormInstanceService:
         self.audit_context_adapter = audit_context_adapter or self.audit_context_adapter_class()
         self.binding_reader = binding_reader or self.binding_reader_class()
         self.repository = repository or self.repository_class()
+        self.subject_capture_eligibility_reader = (
+            subject_capture_eligibility_reader
+            or self.subject_capture_eligibility_reader_class()
+        )
         self._display_config_cache: dict[int, object | None] = {}
         self._field_schema_cache: dict[int, list[dict]] = {}
         self._choice_label_maps_cache: dict[int, dict[str, dict[str, str]]] = {}
@@ -78,6 +96,15 @@ class DataCaptureFormInstanceService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> DataCaptureFormInstanceDTO:
+        eligibility = self.subject_capture_eligibility_reader.get(
+            subject_id=subject_id,
+            event_instance_id=visit_id,
+        )
+        if not eligibility.allowed:
+            raise DataCaptureSubjectLifecycleError(
+                "Form creation is not allowed for this subject visit "
+                f"({eligibility.reason})."
+            )
         binding = self.binding_reader.get_binding_snapshot(binding_id=event_form_binding_id)
         if binding is None:
             raise ValueError("Event form binding was not found.")

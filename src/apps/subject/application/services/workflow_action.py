@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from django.db import transaction
 
 from apps.study.public import randomize_subject
+from apps.subject.application.services.period_lifecycle import (
+    SubjectPeriodLifecycleService,
+)
 from apps.subject.infrastructure.repositories.workflow_action import (
     DjangoSubjectWorkflowActionRepository,
 )
@@ -11,6 +14,7 @@ _EVENT_STATUS_OPEN = "open"
 _EVENT_TYPE_OPERATIONAL = "operational"
 _EXECUTION_MODE_WORKFLOW_ACTION = "workflow_action"
 _EVENT_CATEGORY_RANDOMIZATION = "randomization"
+_EVENT_CATEGORY_WASHOUT = "washout"
 _EVENT_CODE_ELIGIBILITY_ASSESSMENT = "eligibility_assessment"
 _EVENT_CODE_ENROLLMENT = "enrollment"
 _ASSESSMENT_TYPE_SCREENING = "SCREENING"
@@ -52,6 +56,7 @@ def _default_source_event_certification_checker(*, event_instance_id: int) -> bo
 
 class SubjectWorkflowActionService:
     repository_class = DjangoSubjectWorkflowActionRepository
+    period_lifecycle_service_class = SubjectPeriodLifecycleService
 
     def __init__(
         self,
@@ -62,6 +67,7 @@ class SubjectWorkflowActionService:
         subject_enroller=None,
         source_event_certification_checker=None,
         transition_service=None,
+        period_lifecycle_service=None,
     ):
         self.repository = repository or self.repository_class()
         self.randomize_subject = randomization_slot_assigner or randomize_subject
@@ -74,6 +80,9 @@ class SubjectWorkflowActionService:
             source_event_certification_checker or _default_source_event_certification_checker
         )
         self.transition_service = transition_service
+        self.period_lifecycle_service = (
+            period_lifecycle_service or self.period_lifecycle_service_class()
+        )
 
     def can_trigger_event_instance(
         self,
@@ -128,7 +137,13 @@ class SubjectWorkflowActionService:
                     event=event,
                     actor_user_id=actor_user_id,
                 )
-            if (event.event_category or "").strip().lower() != _EVENT_CATEGORY_RANDOMIZATION:
+            event_category = (event.event_category or "").strip().lower()
+            if event_category == _EVENT_CATEGORY_WASHOUT:
+                return self._execute_washout_workflow(
+                    event=event,
+                    actor_user_id=actor_user_id,
+                )
+            if event_category != _EVENT_CATEGORY_RANDOMIZATION:
                 return SubjectWorkflowActionResult(event_instance_id=event_instance_id, reason="unsupported_workflow_action")
             assignment = self.randomize_subject(
                 subject_id=event.subject_id,
@@ -295,6 +310,44 @@ class SubjectWorkflowActionService:
             executed=True,
             action=_EVENT_CODE_ENROLLMENT,
             reason="subject_enrolled",
+        )
+
+    def _execute_washout_workflow(
+        self,
+        *,
+        event,
+        actor_user_id: int | None,
+    ) -> SubjectWorkflowActionResult:
+        period_result = self.period_lifecycle_service.advance_after_washout(
+            subject_id=event.subject_id,
+            actor_user_id=actor_user_id,
+            source_event_instance_id=event.event_instance_id,
+            trigger_source="workflow_action",
+        )
+        if not period_result.has_changes:
+            return SubjectWorkflowActionResult(
+                event_instance_id=event.event_instance_id,
+                action=_EVENT_CATEGORY_WASHOUT,
+                reason="washout_not_due_or_period_not_ready",
+            )
+
+        completed = self.repository.complete_workflow_event_instance(
+            event_instance_id=event.event_instance_id,
+            actor_user_id=actor_user_id,
+            now=self.repository.now(),
+            reason="washout_completed",
+        )
+        if completed:
+            self._trigger_downstream_transition(
+                event_instance_id=event.event_instance_id,
+                facts={"subject_period.transitioned": True},
+                actor_user_id=actor_user_id,
+            )
+        return SubjectWorkflowActionResult(
+            event_instance_id=event.event_instance_id,
+            executed=completed,
+            action=_EVENT_CATEGORY_WASHOUT,
+            reason="washout_completed" if completed else "washout_event_not_open",
         )
 
     def _trigger_downstream_transition(self, *, event_instance_id: int, facts: dict, actor_user_id: int | None) -> None:

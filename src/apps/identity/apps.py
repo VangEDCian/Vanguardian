@@ -6,8 +6,3 @@ class IdentityConfig(AppConfig):
     name = "apps.identity"
     label = "identity"
     verbose_name = "Identity"
-
-    def ready(self):
-        from apps.identity.application.services.default_role_seed import register_default_role_seed
-
-        register_default_role_seed()

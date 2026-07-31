@@ -4,7 +4,6 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from apps.shared.filters import SharedSearch, SharedTotal
-from apps.shared.widgets import ToolbarSearchInputWidget
 from apps.subject.models import Subject
 
 MAX_EVENT_INSTANCE_IMPORT_FILE_SIZE_BYTES = 10 * 1024 * 1024
@@ -27,6 +26,22 @@ ALLOWED_EVENT_INSTANCE_UPLOAD_MIME_TYPES = (
     ALLOWED_EVENT_INSTANCE_IMAGE_MIME_TYPES | ALLOWED_EVENT_INSTANCE_PDF_MIME_TYPES
 )
 
+EARLY_TERMINATION_REASON_CHOICES = (
+    ("adverse_event", _("Adverse event")),
+    ("subject_withdrawal", _("Subject withdrawal")),
+    ("investigator_decision", _("Investigator decision")),
+    ("lost_to_follow_up", _("Lost to follow-up")),
+    ("protocol_deviation", _("Protocol deviation")),
+    ("other", _("Other")),
+)
+PERIOD_OVERRIDE_REASON_CHOICES = (
+    ("paper_crf_delayed", _("Paper CRF delayed")),
+    ("source_document_issue", _("Source document issue")),
+    ("data_entry_backlog", _("Data entry backlog")),
+    ("protocol_deviation", _("Protocol deviation")),
+    ("other", _("Other")),
+)
+
 __all__ = [
     "ALLOWED_EVENT_INSTANCE_IMAGE_EXTENSIONS",
     "ALLOWED_EVENT_INSTANCE_IMAGE_MIME_TYPES",
@@ -37,6 +52,8 @@ __all__ = [
     "MAX_EVENT_INSTANCE_IMPORT_FILE_SIZE_BYTES",
     "SubjectAuditHistoryFilterForm",
     "SubjectEventInstanceFileImportForm",
+    "SubjectEarlyTerminationForm",
+    "SubjectPeriodOverrideForm",
     "SubjectsToolbarForm",
     "detect_event_instance_upload_kind_from_header",
 ]
@@ -109,23 +126,81 @@ class SubjectsToolbarForm(SharedSearch, SharedTotal):
 
 
 class SubjectAuditHistoryFilterForm(forms.Form):
-    field_name = forms.CharField(
+    user = forms.CharField(
         required=False,
-        label=_("Field Name"),
-        widget=forms.TextInput(
+        label=_("User"),
+        widget=forms.Select(
             attrs={
-                "class": "subject-audit-workbench__field-input",
-                "placeholder": _("Field name..."),
-                "aria-label": _("Filter audit history by field name"),
+                "class": "subject-audit-workbench__user-input",
+                "aria-label": _("Filter audit history by user"),
+                "onchange": "this.form.requestSubmit()",
             }
         ),
     )
-    search = forms.CharField(
-        required=False,
-        label=_("Search Queries"),
-        widget=ToolbarSearchInputWidget(
-            attrs={"placeholder": _("Search Queries")},
-            aria_label=_("Search audit history values, descriptions, and users"),
+    def __init__(self, *args, user_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_user_choices(user_choices)
+
+    def set_user_choices(self, user_choices):
+        self.fields["user"].widget.choices = [
+            ("", _("All Users")),
+            *((value, value) for value in user_choices),
+        ]
+
+
+class SubjectEarlyTerminationForm(forms.Form):
+    reason_code = forms.ChoiceField(
+        label=_("Reason"),
+        choices=EARLY_TERMINATION_REASON_CHOICES,
+    )
+    effective_at = forms.DateTimeField(
+        label=_("Effective at"),
+        input_formats=("%Y-%m-%dT%H:%M",),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={"type": "datetime-local"},
+        ),
+    )
+    reason_text = forms.CharField(
+        label=_("Details"),
+        max_length=1000,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+
+class SubjectPeriodOverrideForm(forms.Form):
+    period_end_at = forms.DateTimeField(
+        label=_("Period end at"),
+        input_formats=("%Y-%m-%dT%H:%M",),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={"type": "datetime-local"},
+        ),
+    )
+    next_period_start_at = forms.DateTimeField(
+        label=_("Next period start at"),
+        input_formats=("%Y-%m-%dT%H:%M",),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={"type": "datetime-local"},
+        ),
+    )
+    reason_code = forms.ChoiceField(
+        label=_("Reason"),
+        choices=PERIOD_OVERRIDE_REASON_CHOICES,
+    )
+    reason_text = forms.CharField(
+        label=_("Details"),
+        max_length=1000,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+    pending_data_acknowledged = forms.BooleanField(
+        label=_("I acknowledge that data from the current period may remain incomplete."),
+    )
+    clinical_transition_confirmed = forms.BooleanField(
+        label=_(
+            "I confirm that the participant clinically entered the next period "
+            "and the required washout was satisfied."
         ),
     )
 

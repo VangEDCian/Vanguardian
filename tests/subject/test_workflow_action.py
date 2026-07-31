@@ -283,6 +283,73 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(repository.completed_events[0]["reason"], "subject_enrolled")
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 70)
 
+    def test_washout_workflow_advances_period_and_completes_event(self):
+        repository = _WorkflowRepositoryStub(event=_washout_event())
+        period_lifecycle_service = _PeriodLifecycleServiceStub(has_changes=True)
+        transition_service = _TransitionServiceStub()
+
+        with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
+            result = SubjectWorkflowActionService(
+                repository=repository,
+                period_lifecycle_service=period_lifecycle_service,
+                transition_service=transition_service,
+            ).execute_for_open_event(
+                event_instance_id=80,
+                actor_user_id=99,
+            )
+
+        self.assertTrue(result.executed)
+        self.assertEqual(result.action, "washout")
+        self.assertEqual(
+            period_lifecycle_service.calls,
+            [
+                {
+                    "subject_id": 20,
+                    "actor_user_id": 99,
+                    "source_event_instance_id": 80,
+                    "trigger_source": "workflow_action",
+                }
+            ],
+        )
+        self.assertEqual(repository.completed_events[0]["reason"], "washout_completed")
+        self.assertEqual(transition_service.commands[0].source_event_instance_id, 80)
+
+    def test_washout_workflow_before_due_date_is_noop(self):
+        repository = _WorkflowRepositoryStub(event=_washout_event())
+        period_lifecycle_service = _PeriodLifecycleServiceStub(has_changes=False)
+        transition_service = _TransitionServiceStub()
+
+        with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
+            result = SubjectWorkflowActionService(
+                repository=repository,
+                period_lifecycle_service=period_lifecycle_service,
+                transition_service=transition_service,
+            ).execute_for_open_event(
+                event_instance_id=80,
+                actor_user_id=99,
+            )
+
+        self.assertFalse(result.executed)
+        self.assertEqual(result.reason, "washout_not_due_or_period_not_ready")
+        self.assertEqual(repository.completed_events, [])
+        self.assertEqual(transition_service.commands, [])
+
+
+def _washout_event():
+    return SubjectEventWorkflowContext(
+        event_instance_id=80,
+        study_id=1,
+        subject_id=20,
+        site_id=2,
+        study_version="v1.0",
+        status="open",
+        event_definition_id=40,
+        event_code="WASHOUT",
+        event_type="operational",
+        event_category="washout",
+        execution_mode="workflow_action",
+    )
+
 
 class _WorkflowRepositoryStub:
     def __init__(
@@ -392,6 +459,16 @@ class _EnrollmentStub:
             assessment_status="FINAL",
             is_current=True,
         )
+
+
+class _PeriodLifecycleServiceStub:
+    def __init__(self, *, has_changes):
+        self.has_changes = has_changes
+        self.calls = []
+
+    def advance_after_washout(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(has_changes=self.has_changes)
 
 
 class _TransitionServiceStub:

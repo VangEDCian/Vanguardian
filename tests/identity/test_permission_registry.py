@@ -39,7 +39,7 @@ class PermissionRegistryTests(SimpleTestCase):
             }.issubset(permission_codes)
         )
 
-    def test_seed_registry_includes_edc_permissions(self):
+    def test_permission_registry_includes_edc_permissions(self):
         edc_permission_codes = {
             definition.codename
             for definition in EDC_PERMISSION_DEFINITIONS

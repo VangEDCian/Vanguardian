@@ -11,6 +11,7 @@ from apps.core.choices.study import (
     EligibilityCriterionTypeChoices,
     EligibilityResultChoices,
     EventDefinitionCategoryChoices,
+    EventDefinitionLifecycleRoleChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
     EventExecutionModeChoices,
@@ -19,6 +20,8 @@ from apps.core.choices.study import (
     EventTransitionTypeChoices,
     StudyConditionDefinitionScopeChoices,
     StudyConditionDefinitionStatusChoices,
+    SubjectLifecycleStatusChoices,
+    SubjectPeriodStatusChoices,
 )
 
 __all__ = [
@@ -32,6 +35,7 @@ __all__ = [
     "EligibilityCriterionTypeChoices",
     "EligibilityResultChoices",
     "EventDefinitionCategoryChoices",
+    "EventDefinitionLifecycleRoleChoices",
     "EventDefinitionTimingModeChoices",
     "EventDefinitionTypeChoices",
     "EventExecutionModeChoices",
@@ -40,4 +44,6 @@ __all__ = [
     "EventTransitionTypeChoices",
     "StudyConditionDefinitionScopeChoices",
     "StudyConditionDefinitionStatusChoices",
+    "SubjectLifecycleStatusChoices",
+    "SubjectPeriodStatusChoices",
 ]

@@ -1,11 +1,238 @@
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from django.contrib.auth.models import AnonymousUser
 from django.template.loader import render_to_string
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase
+from django.utils import translation
 
 from apps.core.form_data_document import REPEAT_COUNTS_EXPORT_META_KEY
 from apps.subject.presentation.web.views import SubjectDetailView
 from apps.subject.presentation.web.views.detail import _field_has_reconcile_records
+
+
+class SubjectDetailViewReadonlyRedirectTests(SimpleTestCase):
+    def setUp(self):
+        self.request_factory = RequestFactory()
+
+    def test_user_without_crf_change_permissions_defaults_to_viewonly_first_form(self):
+        view = self._build_view()
+        request = self._build_request("/studies/1/subjects/1/")
+        view.setup(request, study_id=1, subject_id=1)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=False,
+        ):
+            response = view.get(request, study_id=1, subject_id=1)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            "/studies/1/subjects/1/?mode=viewonly&event=1&form=1",
+        )
+
+    def test_user_without_crf_change_permissions_preserves_requested_focus(self):
+        view = self._build_view()
+        request = self._build_request("/studies/1/subjects/1/?event=2&form=5")
+        view.setup(request, study_id=1, subject_id=1)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=False,
+        ):
+            response = view.get(request, study_id=1, subject_id=1)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            "/studies/1/subjects/1/?mode=viewonly&event=2&form=5",
+        )
+
+    def _build_view(self):
+        view = SubjectDetailView()
+        view.object = SimpleNamespace(pk=1, site_id=1)
+        view.get_object = lambda: view.object
+        view.get_study_id = lambda: 1
+        view._build_event_navigation = lambda: [
+            {
+                "id": "1",
+                "status": "open",
+                "forms": [{"id": "1", "form_definition_id": "11"}],
+                "repeat_event_instances": [],
+            },
+            {
+                "id": "2",
+                "status": "open",
+                "forms": [{"id": "5", "form_definition_id": "12"}],
+                "repeat_event_instances": [],
+            },
+        ]
+        return view
+
+    def _build_request(self, path):
+        request = self.request_factory.get(path)
+        request.user = SimpleNamespace(is_authenticated=True, is_superuser=False)
+        return request
+
+
+class SubjectDetailViewPeriodOverrideTests(SimpleTestCase):
+    def test_builds_override_action_only_with_permission_and_available_period(self):
+        view = SubjectDetailView()
+        view.request = SimpleNamespace(user=SimpleNamespace(pk=99))
+        view.get_study_id = lambda: 1
+        view.period_override_service_class = _PeriodOverrideAvailabilityServiceStub
+        subject = SimpleNamespace(pk=20, site_id=2)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=True,
+        ):
+            context = view._build_period_override_context(subject=subject)
+
+        self.assertEqual(context["current_period_no"], 1)
+        self.assertEqual(context["next_period_no"], 2)
+        self.assertEqual(
+            context["submit_url"],
+            "/studies/1/subjects/20/period-transition/override/",
+        )
+
+    def test_hides_override_action_without_permission(self):
+        view = SubjectDetailView()
+        view.request = SimpleNamespace(user=SimpleNamespace(pk=99))
+        view.get_study_id = lambda: 1
+        subject = SimpleNamespace(pk=20, site_id=2)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=False,
+        ):
+            context = view._build_period_override_context(subject=subject)
+
+        self.assertIsNone(context)
+
+    @translation.override("vi")
+    def test_renders_period_override_action_and_audit_warning_in_vietnamese(self):
+        request = RequestFactory().get("/studies/1/subjects/20/")
+        request.user = AnonymousUser()
+
+        rendered = render_to_string(
+            "subject/subject_detail.html",
+            {
+                "subject_obj": SimpleNamespace(
+                    pk=20,
+                    site=SimpleNamespace(code="SITE01"),
+                    screening_code="SCR-001",
+                    get_lifecycle_status_display=lambda: "Active",
+                ),
+                "subject_display_id": "SUBJ-001",
+                "study_header_label": "Study 01",
+                "auth_user": {
+                    "is_superuser": False,
+                    "display_name": "Demo User",
+                    "username": "demo",
+                    "email": "",
+                },
+                "back_url": "/studies/1/subjects/",
+                "audit_history_url": "/audit/",
+                "period_override": {
+                    "current_period_no": 1,
+                    "current_treatment_code": "TREATMENT_A",
+                    "current_status": "active",
+                    "next_period_no": 2,
+                    "next_treatment_code": "TREATMENT_B",
+                    "source_event_status": "in_progress",
+                    "submit_url": (
+                        "/studies/1/subjects/20/period-transition/override/"
+                    ),
+                },
+                "event_navigation": [],
+                "focused_forms": [],
+            },
+            request=request,
+        )
+
+        self.assertIn("Chuyển giai đoạn", rendered)
+        self.assertIn("Kích hoạt Giai đoạn 2", rendered)
+        self.assertIn(
+            "Trạng thái lần thăm khám kết thúc giai đoạn hiện tại: IN_PROGRESS",
+            rendered,
+        )
+        self.assertIn("Tồn đọng nhập liệu", rendered)
+        self.assertNotIn("Activate Period 2", rendered)
+        self.assertIn(
+            "/studies/1/subjects/20/period-transition/override/",
+            rendered,
+        )
+
+
+class SubjectDetailViewEventAttestationTests(SimpleTestCase):
+    def setUp(self):
+        self.view = SubjectDetailView()
+        self.view.get_study_id = lambda: 1
+
+    def test_hides_attestation_policy_without_required_permission(self):
+        panel = self.view._with_event_attestation_urls(
+            {
+                "has_policies": True,
+                "policies": [
+                    {
+                        "policy_id": 1,
+                        "readiness": {
+                            "permission_allowed": False,
+                            "can_submit": False,
+                        },
+                        "active_attestation": None,
+                    }
+                ],
+                "history": [],
+            },
+            subject_id=11,
+            event_instance_id=262,
+        )
+
+        self.assertFalse(panel["has_policies"])
+        self.assertEqual(panel["policies"], [])
+
+    def test_keeps_attestation_policy_with_required_permission(self):
+        panel = self.view._with_event_attestation_urls(
+            {
+                "has_policies": True,
+                "policies": [
+                    {
+                        "policy_id": 1,
+                        "readiness": {
+                            "permission_allowed": True,
+                            "can_submit": True,
+                        },
+                        "active_attestation": None,
+                    }
+                ],
+                "history": [],
+            },
+            subject_id=11,
+            event_instance_id=262,
+        )
+
+        self.assertTrue(panel["has_policies"])
+        self.assertEqual(len(panel["policies"]), 1)
+        self.assertEqual(
+            panel["policies"][0]["submit_url"],
+            "/api/studies/1/subjects/11/events/262/attestations/1/submit/",
+        )
+
+
+class _PeriodOverrideAvailabilityServiceStub:
+    def get_availability(self, *, subject_id):
+        return SimpleNamespace(
+            available=True,
+            current_period_no=1,
+            current_treatment_code="TREATMENT_A",
+            current_status="active",
+            next_period_no=2,
+            next_treatment_code="TREATMENT_B",
+            source_event_status="in_progress",
+        )
 
 
 class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
@@ -1309,3 +1536,61 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         self.assertIn('data-message-text="Please confirm value"', rendered)
         self.assertIn("data-query-modal", rendered)
         self.assertIn('data-query-thread-url="/api/query-thread/"', rendered)
+
+    def test_acknowledged_validation_issue_history_renders_readonly_modal(self):
+        rendered = render_to_string(
+            "subject/includes/subject_detail_page_entry_main.html",
+            {
+                "LANGUAGE_CODE": "en",
+                "focused_event": {"id": 1},
+                "focused_form": {"id": 6, "title": "Vitals"},
+                "focused_render_entry": {"id": 99},
+                "focused_page_status": "submitted",
+                "is_viewing_submitted_version": False,
+                "is_page_edit_locked": False,
+                "page_entry_has_open_validation_issues": False,
+                "page_entry_has_validation_issue_records": True,
+                "form_render_sections": [
+                    {
+                        "layout_type": "grid",
+                        "fields": [
+                            {
+                                "id": 11,
+                                "field_key": "AGE",
+                                "label": "Age",
+                                "control_type": "number",
+                                "value": "999",
+                                "display_value": "999",
+                                "validation_issue_count": 0,
+                                "has_validation_issue_history": True,
+                                "validation_issue_histories": [
+                                    {
+                                        "dataquery_id": "validation_issue_200_snapshot_343",
+                                        "status": "ACKNOWLEDGED",
+                                        "label": "Validation Issue #200",
+                                        "value_snapshot": "999",
+                                        "opened_at": "07/31/2026 08:37",
+                                        "closed_at": "07/31/2026 08:37",
+                                        "messages": [
+                                            {
+                                                "text": "Ok",
+                                                "status": "ACKNOWLEDGED",
+                                                "opened_by": "Data Entry",
+                                                "opened_at": "07/31/2026 08:37",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+
+        self.assertIn('title="Validation Issue History"', rendered)
+        self.assertIn("data-validation-issue-modal", rendered)
+        self.assertIn('data-history-status="ACKNOWLEDGED"', rendered)
+        self.assertIn('data-message-text="Ok"', rendered)
+        self.assertNotIn("data-validation-issue-modal-comment", rendered)
+        self.assertNotIn("data-validation-issue-modal-submit", rendered)

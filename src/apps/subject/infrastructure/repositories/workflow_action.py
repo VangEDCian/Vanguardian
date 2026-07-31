@@ -12,6 +12,7 @@ from apps.subject.models import (
 )
 
 _EVENT_CATEGORY_RANDOMIZATION = "randomization"
+_EVENT_CATEGORY_WASHOUT = "washout"
 _EVENT_CODE_ELIGIBILITY_ASSESSMENT = "eligibility_assessment"
 _EVENT_CODE_ENROLLMENT = "enrollment"
 
@@ -47,6 +48,7 @@ class DjangoSubjectWorkflowActionRepository:
             Q(event_definition__code__iexact=_EVENT_CODE_ELIGIBILITY_ASSESSMENT)
             | Q(event_definition__code__iexact=_EVENT_CODE_ENROLLMENT)
             | Q(event_definition__event_category__iexact=_EVENT_CATEGORY_RANDOMIZATION)
+            | Q(event_definition__event_category__iexact=_EVENT_CATEGORY_WASHOUT)
         )
 
     def is_open_workflow_action_event(
@@ -85,6 +87,31 @@ class DjangoSubjectWorkflowActionRepository:
                 event_definition__execution_mode=EventExecutionModeChoices.WORKFLOW_ACTION,
             )
             .filter(self._supported_workflow_action_filter())
+            .order_by("subject_id", "event_definition__sequence_no", "id")
+            .values_list("subject_id", "id")
+        )
+        for subject_id, event_instance_id in rows:
+            event_id_by_subject_id.setdefault(subject_id, event_instance_id)
+        return event_id_by_subject_id
+
+    def map_open_washout_event_id_by_subject_id(
+        self,
+        *,
+        subject_ids,
+    ) -> dict[int, int]:
+        subject_id_list = tuple(subject_ids or ())
+        if not subject_id_list:
+            return {}
+
+        event_id_by_subject_id = {}
+        rows = (
+            SubjectEventInstance.objects.filter(
+                subject_id__in=subject_id_list,
+                deleted=False,
+                status=EventInstanceStatusChoices.OPEN,
+                event_definition__event_category__iexact=_EVENT_CATEGORY_WASHOUT,
+                event_definition__execution_mode=EventExecutionModeChoices.WORKFLOW_ACTION,
+            )
             .order_by("subject_id", "event_definition__sequence_no", "id")
             .values_list("subject_id", "id")
         )

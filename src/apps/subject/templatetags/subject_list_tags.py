@@ -19,6 +19,18 @@ def subject_can_update_subject(table, perms):
     return bool(_lookup_template_value(subject_perms, "update_subject"))
 
 
+@register.simple_tag
+def subject_can_early_terminate(table, subject_id):
+    if not getattr(table, "can_early_terminate", False):
+        return False
+    eligible_subject_ids = getattr(
+        table,
+        "early_termination_eligible_subject_ids",
+        (),
+    )
+    return subject_id in eligible_subject_ids
+
+
 def _lookup_template_value(value, key):
     if value is None:
         return None

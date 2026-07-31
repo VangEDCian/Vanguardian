@@ -1,0 +1,56 @@
+.subject-early-termination-modal-backdrop {
+  align-items: flex-start;
+  overflow-y: auto;
+}
+
+.subject-early-termination-modal-backdrop .subject-early-termination-modal {
+  margin-block: auto;
+}
+
+.subject-early-termination-modal {
+  max-width: 460px;
+}
+
+.subject-early-termination-modal__body {
+  display: grid;
+  gap: 14px;
+  text-align: left;
+}
+
+.subject-early-termination-modal__body .modal__message {
+  margin-bottom: 2px;
+}
+
+.subject-early-termination-modal__field {
+  display: grid;
+  gap: 6px;
+  color: #1f2b34;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subject-early-termination-modal__field input,
+.subject-early-termination-modal__field select,
+.subject-early-termination-modal__field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #b8c0c7;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2b34;
+  font: inherit;
+  font-weight: 400;
+  padding: 8px 10px;
+}
+
+.subject-early-termination-modal__field textarea {
+  resize: vertical;
+}
+
+.subject-early-termination-modal__field input:focus,
+.subject-early-termination-modal__field select:focus,
+.subject-early-termination-modal__field textarea:focus {
+  border-color: #1565c0;
+  outline: 2px solid rgba(21, 101, 192, 0.16);
+  outline-offset: 1px;
+}

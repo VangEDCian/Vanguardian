@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 from django.urls import resolve, reverse
 
 from apps.subject.application.services.audit_history import SubjectAuditHistoryQueryService
+from apps.subject.presentation.web.forms import SubjectAuditHistoryFilterForm
 from apps.subject.presentation.web.views.audit_history import SubjectAuditHistoryView
 
 
@@ -21,8 +22,42 @@ class SubjectAuditHistoryQueryServiceTests(SimpleTestCase):
 
         self.assertIn("query-workbench subject-audit-workbench", template_source)
         self.assertIn("{% render_table table %}", template_source)
-        self.assertIn("filter_form.field_name", template_source)
-        self.assertIn("filter_form.search", template_source)
+        self.assertIn('_entity_table_toolbar_icon.html"', template_source)
+        self.assertNotIn("filter_form.field_name", template_source)
+        self.assertIn("filter_form.user", template_source)
+        self.assertNotIn("filter_form.search", template_source)
+        self.assertIn("subject-audit-workbench__search-placeholder", template_source)
+
+    def test_audit_history_filter_form_maps_user(self):
+        form = SubjectAuditHistoryFilterForm(
+            {
+                "user": "Nguyen CRC",
+            },
+            user_choices=("Nguyen CRC", "System"),
+        )
+
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data["user"], "Nguyen CRC")
+        self.assertNotIn("field_name", form.fields)
+        self.assertNotIn("search", form.fields)
+        self.assertEqual(
+            list(form.fields["user"].widget.choices),
+            [("", "All Users"), ("Nguyen CRC", "Nguyen CRC"), ("System", "System")],
+        )
+        self.assertEqual(
+            form.fields["user"].widget.attrs["onchange"],
+            "this.form.requestSubmit()",
+        )
+
+    def test_audit_history_table_rows_fit_and_wrap_long_content(self):
+        stylesheet = Path("src/staticfiles/subject/css/subject_audit_history.css").read_text()
+
+        self.assertIn("height: auto;", stylesheet)
+        self.assertIn("white-space: normal;", stylesheet)
+        self.assertIn("overflow-wrap: anywhere;", stylesheet)
+        self.assertIn("word-break: break-word;", stylesheet)
+        self.assertIn(".subject-audit-workbench__search-placeholder", stylesheet)
+        self.assertIn("flex: 0 0 220px;", stylesheet)
 
     def test_audit_history_search_uses_mariadb_compatible_audit_fields(self):
         sources = "\n".join(
@@ -52,33 +87,81 @@ class SubjectAuditHistoryQueryServiceTests(SimpleTestCase):
         result = service.get_subject_audit_history(
             study_id=1,
             subject_id=20,
-            search="nguyen",
-            field_name="status",
         )
 
         self.assertIsNotNone(result)
         self.assertEqual(result["title"], "SUBJ-001")
-        self.assertEqual(result["total_count"], 4)
+        self.assertEqual(result["total_count"], 5)
         self.assertEqual(
             [record["source"] for record in result["records"]],
-            ["Event Gate", "Page State", "Event Transition", "Subject Status"],
+            [
+                "Period Transition",
+                "Event Gate",
+                "Page State",
+                "Event Transition",
+                "Subject Status",
+            ],
         )
         self.assertEqual(
             {item["key"]: item["count"] for item in result["source_counts"]},
             {
                 "subject_status": 1,
+                "period_transition": 1,
                 "event_transition": 1,
                 "page_state": 1,
                 "event_gate": 1,
             },
         )
-        self.assertEqual(result["records"][0]["to_value"], "Fail")
-        self.assertEqual(result["records"][0]["field_name"], "baseline_ready")
-        self.assertEqual(result["records"][0]["user_display"], "System")
-        self.assertEqual(repository.status_kwargs["search"], "nguyen")
-        self.assertEqual(repository.status_kwargs["field_name"], "status")
-        self.assertEqual(datacapture_reader.kwargs["search"], "nguyen")
-        self.assertEqual(study_gate_reader.kwargs["field_name"], "status")
+        self.assertEqual(result["records"][0]["to_value"], "Period 2 / Active")
+        self.assertEqual(result["records"][0]["field_name"], "period_status")
+        self.assertEqual(result["records"][0]["user_display"], "Nguyen CRC")
+        self.assertIn(
+            {"label": "Override ID", "value": "71"},
+            result["records"][0]["details"],
+        )
+        self.assertEqual(
+            result["records"][0]["reason"],
+            "Source Document Issue: Tài liệu nguồn cần hiệu chỉnh",
+        )
+        self.assertEqual(result["user_options"], ["Nguyen CRC", "System", "User #11"])
+        self.assertEqual(repository.status_kwargs, {"search": "", "field_name": ""})
+        self.assertEqual(repository.period_kwargs, {"search": "", "field_name": ""})
+        self.assertEqual(datacapture_reader.kwargs, {"search": "", "field_name": ""})
+        self.assertEqual(study_gate_reader.kwargs, {"search": "", "field_name": ""})
+
+    def test_get_subject_audit_history_filters_visible_field_user_and_details(self):
+        service = SubjectAuditHistoryQueryService(
+            repository=_SubjectAuditHistoryRepositoryStub(),
+            datacapture_history_reader=_PageStateHistoryReaderStub(),
+            study_gate_history_reader=_EventGateHistoryReaderStub(),
+        )
+
+        result = service.get_subject_audit_history(
+            study_id=1,
+            subject_id=20,
+            field_name="period_status",
+            user="Nguyen CRC",
+            search="Override ID 71",
+        )
+
+        self.assertEqual(result["total_count"], 1)
+        self.assertEqual(result["records"][0]["source"], "Period Transition")
+        self.assertEqual(result["user_options"], ["Nguyen CRC", "System", "User #11"])
+
+    def test_get_subject_audit_history_search_does_not_match_other_columns(self):
+        service = SubjectAuditHistoryQueryService(
+            repository=_SubjectAuditHistoryRepositoryStub(),
+            datacapture_history_reader=_PageStateHistoryReaderStub(),
+            study_gate_history_reader=_EventGateHistoryReaderStub(),
+        )
+
+        result = service.get_subject_audit_history(
+            study_id=1,
+            subject_id=20,
+            search="EPREX_4000U",
+        )
+
+        self.assertEqual(result["records"], [])
 
     def test_get_subject_audit_history_returns_none_when_subject_is_missing(self):
         service = SubjectAuditHistoryQueryService(
@@ -94,6 +177,7 @@ class _SubjectAuditHistoryRepositoryStub:
     def __init__(self):
         self.status_kwargs = None
         self.event_kwargs = None
+        self.period_kwargs = None
 
     def get_subject_context(self, *, study_id, subject_id, snapshot_class):
         return snapshot_class(
@@ -151,6 +235,43 @@ class _SubjectAuditHistoryRepositoryStub:
                 reason="All required forms submitted",
                 actor_id=None,
                 transition_rule_id=7,
+            )
+        ]
+
+    def list_period_transition_history(
+        self,
+        *,
+        subject_id,
+        record_class,
+        limit,
+        search="",
+        field_name="",
+    ):
+        self.period_kwargs = {"search": search, "field_name": field_name}
+        return [
+            record_class(
+                occurred_at=datetime(2026, 6, 5, 9, 0, tzinfo=timezone.utc),
+                field_name="period_status",
+                field_description="Period 2 / EPREX_4000U",
+                value=(
+                    "planned active manual_period_transition_override "
+                    "manual_period_override"
+                ),
+                user_display="Nguyen CRC",
+                period_no=2,
+                treatment_code="EPREX_4000U",
+                from_status="planned",
+                to_status="active",
+                trigger_source="manual_period_override",
+                reason="manual_period_transition_override",
+                actor_id=10,
+                source_event_label="Visit 8",
+                facts_json=(
+                    '{"override_id": 71, "pending_form_count": 2, '
+                    '"pending_data_acknowledged": true}'
+                ),
+                override_reason_code="source_document_issue",
+                override_reason_text="Tài liệu nguồn cần hiệu chỉnh",
             )
         ]
 

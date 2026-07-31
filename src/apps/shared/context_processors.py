@@ -196,6 +196,10 @@ class SiteDropdownHandler(StudyDropdownHandler):
 
 
 def shared_select_options(request):
+    cached_context = getattr(request, "_shared_select_options_context", None)
+    if cached_context is not None:
+        return cached_context
+
     study_dd = StudyDropdownHandler(request=request).build()
     site_dd = SiteDropdownHandler(request=request, study_id=study_dd.selected_id).build()
     site_selected_id = site_dd.selected_id
@@ -203,8 +207,9 @@ def shared_select_options(request):
         request.user,
         study_id=study_dd.selected_id,
         site_id=site_selected_id,
+        request=request,
     )
-    return {
+    context = {
         # study
         "shared_study_cookies_key": StudyDropdownHandler.COOKIE_NAME,
         "shared_study_selected_id": study_dd.selected_id,
@@ -230,6 +235,8 @@ def shared_select_options(request):
             {"value": "en", "label": _("English")},
         ],
     }
+    request._shared_select_options_context = context
+    return context
 
 
 def _count_queries_need_response(

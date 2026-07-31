@@ -37,9 +37,10 @@ class SubjectAuditHistoryView(
             self.audit_history = self.get_service().get_subject_audit_history(
                 study_id=self.get_study_id(),
                 subject_id=self.kwargs["subject_id"],
-                search=cleaned.get("search") or "",
-                field_name=cleaned.get("field_name") or "",
+                user=cleaned.get("user") or "",
             )
+            if self.audit_history is not None:
+                filter_form.set_user_choices(self.audit_history["user_options"])
         if self.audit_history is None:
             raise Http404
         return self.audit_history

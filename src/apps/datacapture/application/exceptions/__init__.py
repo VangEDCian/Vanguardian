@@ -23,6 +23,9 @@ from apps.datacapture.application.exceptions.save_submit import (
     DataCaptureNoActiveDraftError,
     DataCaptureUnsupportedEntryStatusUseCaseError,
 )
+from apps.datacapture.application.exceptions.subject_lifecycle import (
+    DataCaptureSubjectLifecycleError,
+)
 
 __all__ = [
     "DataCaptureChangeReasonRequiredError",
@@ -40,6 +43,7 @@ __all__ = [
     "DataCapturePageStateRequiredError",
     "DataCapturePageVerifyStateError",
     "DataCaptureUnsupportedEntryStatusUseCaseError",
+    "DataCaptureSubjectLifecycleError",
     "DataCaptureUseCaseError",
     "DataCaptureValidationError",
 ]

@@ -143,9 +143,16 @@ def _service(repository, subject_event_lifecycle_adapter=None, reconcile_data_qu
     return DataCaptureSaveSubmitPageService(
         repository=repository,
         governance_lock_read_repository=_NoGovernanceLock(),
+        subject_capture_eligibility_reader=_AllowCaptureEligibilityReader(),
         subject_event_lifecycle_adapter=subject_event_lifecycle_adapter or _SubjectEventLifecycleAdapter(),
         reconcile_data_query_write_service=reconcile_data_query_write_service or _ReconcileDataQueryWriteService(),
     )
+
+
+class _AllowCaptureEligibilityReader:
+    @staticmethod
+    def get(**kwargs):
+        return SimpleNamespace(allowed=True, reason="subject_active")
 
 
 def _submit_without_transaction(service, command):

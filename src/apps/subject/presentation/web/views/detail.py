@@ -33,12 +33,19 @@ from apps.subject.application.services.form_field_review_table import FormFieldR
 from apps.subject.application.services.form_verification_navigation import (
     SubjectFormVerificationNavigationService,
 )
+from apps.subject.application.services.period_override import (
+    SubjectPeriodOverrideService,
+)
 from apps.subject.application.services.subject_list_verify_form_visibility import VERIFY_FORM_PERMISSION
 from apps.subject.infrastructure.repositories import DjangoSubjectEventInstanceFileRepository
 from apps.subject.models import Subject
-from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
+from apps.subject.presentation.web.views.base import (
+    CRF_DATA_CHANGE_PERMISSIONS,
+    SubjectAbstractVerifyStudy,
+)
 from apps.subject.presentation.web.views.detail_navigation import SubjectDetailNavigationMixin
 from apps.subject.presentation.web.views.detail_rendering import SubjectDetailRenderingMixin
+from apps.subject.public import get_subject_capture_eligibility
 
 
 def _same_user_id(left, right) -> bool:
@@ -75,6 +82,7 @@ class SubjectDetailView(
 
     model = Subject
     pk_url_kwarg = "subject_id"
+    period_override_service_class = SubjectPeriodOverrideService
     supported_control_type_map = {
         "text": "text",
         "entry_box": "text",
@@ -161,6 +169,20 @@ class SubjectDetailView(
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         mode = (request.GET.get("mode") or "").strip().lower()
+        if not mode and not self._user_can_change_crf_data():
+            raw_nav = self._build_event_navigation()
+            submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
+                subject_id=self.object.pk,
+                event_navigation=raw_nav,
+            )
+            readonly_url = self._readonly_mode_url_for_focus(
+                mode="viewonly",
+                event_navigation_submitted=submitted_nav,
+                focus_event_id=request.GET.get("event"),
+                focus_form_id=request.GET.get("form"),
+            )
+            if readonly_url:
+                return redirect(readonly_url)
         if mode in {"verification", "viewonly"} and not request.GET.get("event") and not request.GET.get("form"):
             raw_nav = self._build_event_navigation()
             submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
@@ -198,6 +220,21 @@ class SubjectDetailView(
         focused_event = self._resolve_focus(event_navigation, focus_event_id) if focus_event_id else None
         if focused_event is None and event_navigation:
             focused_event = self._resolve_default_focus_event(event_navigation)
+        focused_capture_eligibility = None
+        if focused_event and not is_submitted_readonly_mode:
+            try:
+                focused_event_instance_id = int(focused_event["id"])
+            except (KeyError, TypeError, ValueError):
+                focused_event_instance_id = None
+            if focused_event_instance_id is not None:
+                focused_capture_eligibility = get_subject_capture_eligibility(
+                    subject_id=subject.pk,
+                    event_instance_id=focused_event_instance_id,
+                )
+        is_focused_capture_allowed = (
+            focused_capture_eligibility is None
+            or focused_capture_eligibility.allowed
+        )
         focused_forms = focused_event["forms"] if focused_event else []
 
         focus_form_id = (self.request.GET.get("form") or "").strip()
@@ -258,6 +295,7 @@ class SubjectDetailView(
                         not focused_page_status
                         and focused_event
                         and not is_submitted_readonly_mode
+                        and is_focused_capture_allowed
                         and visit_id is not None
                     ):
                         ensure_draft_page_state_if_not_exists(
@@ -370,7 +408,11 @@ class SubjectDetailView(
                                 reason_required_field_keys.append(field_key)
                             reason_required_field_keys.append(f"field_{field_template_id}")
                     reason_required_field_keys = sorted(set(reason_required_field_keys))
-                    if focused_event and not is_submitted_readonly_mode:
+                    if (
+                        focused_event
+                        and not is_submitted_readonly_mode
+                        and is_focused_capture_allowed
+                    ):
                         url_kw = {
                             "study_id": self.get_study_id(),
                             "subject_id": subject.pk,
@@ -753,6 +795,9 @@ class SubjectDetailView(
             "subject:subject_audit_history",
             kwargs={"study_id": self.get_study_id(), "subject_id": subject.pk},
         )
+        context["period_override"] = self._build_period_override_context(
+            subject=subject,
+        )
         context["subject_obj"] = subject
         context["subject_display_id"] = subject.subject_code or subject.screening_code or "—"
         context["event_navigation"] = event_navigation
@@ -794,6 +839,9 @@ class SubjectDetailView(
         context["datacapture_save_url"] = datacapture_save_url
         context["datacapture_submit_url"] = datacapture_submit_url
         context["datacapture_delete_draft_url"] = datacapture_delete_draft_url
+        context["subject_lifecycle_blocks_capture"] = (
+            not is_focused_capture_allowed
+        )
         context["field_audit_history_url"] = field_audit_history_url
         context["can_show_datacapture_entry_actions"] = (
             bool(datacapture_save_url)
@@ -817,6 +865,9 @@ class SubjectDetailView(
         context["validation_issue_acknowledge_url"] = validation_issue_acknowledge_url
         context["page_entry_has_open_queries"] = bool(field_query_state_by_id)
         context["page_entry_has_open_validation_issues"] = bool(field_validation_issue_state_by_id)
+        context["page_entry_has_validation_issue_records"] = bool(
+            validation_issue_field_template_ids_with_records
+        )
         context["form_verification_show_field_checkboxes"] = (
             form_verification_show_field_checkboxes and form_verification_user_can_review
         )
@@ -840,6 +891,35 @@ class SubjectDetailView(
             )
         return context
 
+    def _build_period_override_context(self, *, subject):
+        if not user_can_access_permission(
+            self.request.user,
+            "SUBJECT.PERIOD_OVERRIDE",
+            study_id=self.get_study_id(),
+            site_id=subject.site_id,
+        ):
+            return None
+        availability = self.period_override_service_class().get_availability(
+            subject_id=subject.pk,
+        )
+        if not availability.available:
+            return None
+        return {
+            "current_period_no": availability.current_period_no,
+            "current_treatment_code": availability.current_treatment_code,
+            "current_status": availability.current_status,
+            "next_period_no": availability.next_period_no,
+            "next_treatment_code": availability.next_treatment_code,
+            "source_event_status": availability.source_event_status,
+            "submit_url": reverse(
+                "subject:subject_period_override",
+                kwargs={
+                    "study_id": self.get_study_id(),
+                    "subject_id": subject.pk,
+                },
+            ),
+        }
+
     def _first_readonly_mode_url(self, *, mode: str, event_navigation_submitted: list) -> str | None:
         if not event_navigation_submitted:
             return None
@@ -854,6 +934,46 @@ class SubjectDetailView(
         )
         return f"{base}?mode={mode}&event={first_event['id']}&form={first_form['id']}"
 
+    def _readonly_mode_url_for_focus(
+        self,
+        *,
+        mode: str,
+        event_navigation_submitted: list,
+        focus_event_id: str | None = None,
+        focus_form_id: str | None = None,
+    ) -> str | None:
+        if not event_navigation_submitted:
+            return None
+        focused_event = (
+            self._resolve_focus(event_navigation_submitted, str(focus_event_id))
+            if focus_event_id
+            else event_navigation_submitted[0]
+        )
+        if focused_event is None:
+            return None
+        forms = focused_event.get("forms") or []
+        if not forms:
+            return None
+        focused_form = self._resolve_focus(forms, str(focus_form_id)) if focus_form_id else forms[0]
+        if focused_form is None:
+            return None
+        base = reverse(
+            "subject:subject_detail",
+            kwargs={"study_id": self.get_study_id(), "subject_id": self.object.pk},
+        )
+        return f"{base}?mode={mode}&event={focused_event['id']}&form={focused_form['id']}"
+
+    def _user_can_change_crf_data(self) -> bool:
+        return any(
+            user_can_access_permission(
+                self.request.user,
+                permission_code,
+                study_id=self.get_study_id(),
+                site_id=self.object.site_id,
+            )
+            for permission_code in CRF_DATA_CHANGE_PERMISSIONS
+        )
+
     def _with_event_attestation_urls(
         self,
         panel: dict | None,
@@ -863,7 +983,11 @@ class SubjectDetailView(
     ) -> dict | None:
         if not panel or not panel.get("has_policies"):
             return panel
+        visible_policies = []
         for policy in panel.get("policies", []):
+            readiness = policy.get("readiness") or {}
+            if not readiness.get("permission_allowed"):
+                continue
             policy["submit_url"] = reverse(
                 "datacapture:event_attestation_submit",
                 kwargs={
@@ -886,6 +1010,9 @@ class SubjectDetailView(
                 )
             else:
                 policy["revoke_url"] = ""
+            visible_policies.append(policy)
+        panel["policies"] = visible_policies
+        panel["has_policies"] = bool(visible_policies)
         return panel
 
     @staticmethod

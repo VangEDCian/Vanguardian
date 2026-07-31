@@ -23,12 +23,13 @@
                 <div class="query-workbench__toolbar-main">
                     {% include "shared/components/_entity_table_toolbar_icon.html" %}
                     <span class="entity-table__toolbar-divider" aria-hidden="true"></span>
-                    <div class="entity-table__filter subject-audit-workbench__field-filter">
-                        <label for="{{ filter_form.field_name.id_for_label }}"
-                               class="entity-table__filter-label">{{ filter_form.field_name.label }}:</label>
-                        {{ filter_form.field_name }}
+                    <div class="entity-table__filter subject-audit-workbench__user-filter">
+                        <label for="{{ filter_form.user.id_for_label }}"
+                               class="entity-table__filter-label">{{ filter_form.user.label }}:</label>
+                        {{ filter_form.user }}
                     </div>
-                    {{ filter_form.search }}
+                    <div class="subject-audit-workbench__search-placeholder"
+                         aria-hidden="true"></div>
                 </div>
                 <div class="query-workbench__toolbar-user-filters subject-audit-workbench__meta">
                     <span>

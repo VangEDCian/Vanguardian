@@ -2,6 +2,7 @@ from django.db import transaction
 
 from apps.core.choices import (
     EventDefinitionCategoryChoices,
+    EventDefinitionLifecycleRoleChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
     EventExecutionModeChoices,
@@ -44,6 +45,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "Event Type",
         "Timing Mode",
         "Event Category",
+        "Lifecycle Role",
         "Execution Mode",
         "Sequence No",
         "Phase Code",
@@ -63,6 +65,9 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "Requires Previous Completion",
         "Allow Skip",
     )
+    required_columns = tuple(
+        column for column in expected_columns if column != "Lifecycle Role"
+    )
     expected_header_map = {
         "study code": "study_code",
         "study version": "study_version",
@@ -72,6 +77,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "event type": "event_type",
         "timing mode": "timing_mode",
         "event category": "event_category",
+        "lifecycle role": "lifecycle_role",
         "execution mode": "execution_mode",
         "sequence no": "sequence_no",
         "phase code": "phase_code",
@@ -114,6 +120,11 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "eos": EventDefinitionCategoryChoices.EOS,
         "end of study": EventDefinitionCategoryChoices.EOS,
         "unscheduled": EventDefinitionCategoryChoices.UNSCHEDULED,
+    }
+    lifecycle_role_aliases = {
+        "regular": EventDefinitionLifecycleRoleChoices.REGULAR,
+        "regular completion": EventDefinitionLifecycleRoleChoices.REGULAR_COMPLETION,
+        "early termination": EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION,
     }
     execution_mode_aliases = {
         "form_entry": EventExecutionModeChoices.FORM_ENTRY,
@@ -305,6 +316,12 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             field_label="Event Category",
             allow_blank=True,
         )
+        lifecycle_role = self._normalize_choice(
+            raw_value=row_data.get("lifecycle_role"),
+            aliases=self.lifecycle_role_aliases,
+            field_label="Lifecycle Role",
+            allow_blank=True,
+        ) or EventDefinitionLifecycleRoleChoices.REGULAR
         execution_mode = self._normalize_choice(
             raw_value=row_data.get("execution_mode"),
             aliases=self.execution_mode_aliases,
@@ -370,6 +387,32 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             requires_previous_completion = True
             allow_skip = False
 
+        if (
+            lifecycle_role
+            == EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION
+        ):
+            if (
+                event_category != EventDefinitionCategoryChoices.EOS
+                or timing_mode != EventDefinitionTimingModeChoices.CONDITIONAL
+            ):
+                raise EventDefinitionImportFormatError(
+                    "Early termination events must use Event Category 'eos' "
+                    "and Timing Mode 'conditional'."
+                )
+            if condition_code != "early_termination.requested" or not auto_open:
+                raise EventDefinitionImportFormatError(
+                    "Early termination events require Condition Code "
+                    "'early_termination.requested' and Auto Open enabled."
+                )
+        if (
+            lifecycle_role
+            == EventDefinitionLifecycleRoleChoices.REGULAR_COMPLETION
+            and event_category != EventDefinitionCategoryChoices.EOS
+        ):
+            raise EventDefinitionImportFormatError(
+                "Regular completion events must use Event Category 'eos'."
+            )
+
         now = self._now()
         defaults = {
             "study_id": study_id,
@@ -379,6 +422,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             "event_type": event_type,
             "timing_mode": timing_mode,
             "event_category": event_category,
+            "lifecycle_role": lifecycle_role,
             "execution_mode": execution_mode,
             "sequence_no": sequence_no,
             "phase_code": self._nullable_text(row_data.get("phase_code")),

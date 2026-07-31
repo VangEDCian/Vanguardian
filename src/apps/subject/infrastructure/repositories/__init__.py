@@ -7,6 +7,9 @@ from apps.subject.infrastructure.repositories.event_instance_resync import (
 from apps.subject.infrastructure.repositories.event_lifecycle import (
     DjangoSubjectEventLifecycleRepository,
 )
+from apps.subject.infrastructure.repositories.period_lifecycle import (
+    DjangoSubjectPeriodLifecycleRepository,
+)
 from apps.subject.infrastructure.repositories.eligibility_workflow import (
     DjangoSubjectEligibilityWorkflowRepository,
 )
@@ -26,6 +29,7 @@ __all__ = [
     "DjangoSubjectEventInstanceFileRepository",
     "DjangoSubjectEventInstanceResyncRepository",
     "DjangoSubjectEventLifecycleRepository",
+    "DjangoSubjectPeriodLifecycleRepository",
     "DjangoSubjectRepeatingEventInstanceRepository",
     "DjangoSubjectWorkflowActionRepository",
 ]

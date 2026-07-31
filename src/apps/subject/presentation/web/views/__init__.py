@@ -18,6 +18,9 @@ from apps.subject.presentation.web.views.early_termination import (
     SubjectEarlyTerminationRequestView,
 )
 from apps.subject.presentation.web.views.listing import SubjectListView
+from apps.subject.presentation.web.views.period_override import (
+    SubjectPeriodOverrideView,
+)
 from apps.subject.presentation.web.views.repeating_event_instance import (
     SubjectAddRepeatingEventInstanceView,
 )
@@ -37,6 +40,7 @@ __all__ = [
     "SubjectEventInstanceFilePreviewView",
     "SubjectDetailView",
     "SubjectListView",
+    "SubjectPeriodOverrideView",
     "SubjectResyncStageView",
     "SubjectSummaryView",
     "SubjectTriggerWorkflowView",

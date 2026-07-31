@@ -1,3 +1,5 @@
+import json
+
 from django.db.models import CharField, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Cast, Coalesce, Concat
 
@@ -5,6 +7,8 @@ from apps.identity.models import User
 from apps.subject.models import (
     Subject,
     SubjectEventInstanceTransitionLog,
+    SubjectPeriodTransitionLog,
+    SubjectPeriodTransitionOverride,
     SubjectStatusHistory,
 )
 
@@ -148,6 +152,105 @@ class DjangoSubjectAuditHistoryRepository:
             for row in queryset
         ]
 
+    def list_period_transition_history(
+        self,
+        *,
+        subject_id: int,
+        record_class,
+        limit: int = 200,
+        search: str = "",
+        field_name: str = "",
+    ):
+        queryset = self._annotate_audit_fields(
+            SubjectPeriodTransitionLog.objects.filter(
+                subject_id=subject_id,
+                deleted=False,
+            ).select_related(
+                "period",
+                "source_event_instance__event_definition",
+            ),
+            actor_field="actor_user_id",
+            field_name="period_status",
+            field_description=Concat(
+                Value("Period "),
+                Cast("period__period_no", output_field=CharField()),
+                Value(" / "),
+                Coalesce("period__treatment_code", Value("")),
+                output_field=CharField(),
+            ),
+            value_expression=Concat(
+                Coalesce("from_status", Value("")),
+                Value(" "),
+                Coalesce("to_status", Value("")),
+                Value(" "),
+                Coalesce("reason", Value("")),
+                Value(" "),
+                Coalesce("trigger_source", Value("")),
+                Value(" "),
+                Coalesce("facts_json", Value("")),
+                output_field=CharField(),
+            ),
+        )
+        queryset = self._apply_audit_filters(
+            queryset,
+            search=search,
+            field_name=field_name,
+        )
+        queryset = queryset.order_by("-created_at", "-id")
+        if limit:
+            queryset = queryset[:limit]
+
+        rows = list(queryset)
+        override_ids = {
+            override_id
+            for row in rows
+            if (override_id := self._period_override_id(row.facts_json)) is not None
+        }
+        overrides_by_id = SubjectPeriodTransitionOverride.objects.filter(
+            id__in=override_ids,
+            subject_id=subject_id,
+            deleted=False,
+        ).in_bulk()
+
+        return [
+            record_class(
+                occurred_at=row.created_at,
+                field_name=row.audit_field_name,
+                field_description=row.audit_field_description,
+                value=row.audit_value,
+                user_display=row.audit_user_display,
+                period_no=row.period.period_no,
+                treatment_code=row.period.treatment_code or "",
+                from_status=row.from_status or "",
+                to_status=row.to_status or "",
+                trigger_source=row.trigger_source or "",
+                reason=row.reason or "",
+                actor_id=row.actor_user_id,
+                source_event_label=self._event_label(
+                    row.source_event_instance,
+                    getattr(row.source_event_instance, "event_definition", None),
+                ),
+                facts_json=row.facts_json or "",
+                override_reason_code=getattr(
+                    overrides_by_id.get(
+                        self._period_override_id(row.facts_json)
+                    ),
+                    "reason_code",
+                    "",
+                )
+                or "",
+                override_reason_text=getattr(
+                    overrides_by_id.get(
+                        self._period_override_id(row.facts_json)
+                    ),
+                    "reason_text",
+                    "",
+                )
+                or "",
+            )
+            for row in rows
+        ]
+
     @classmethod
     def _annotate_audit_fields(
         cls,
@@ -185,6 +288,15 @@ class DjangoSubjectAuditHistoryRepository:
         if not normalized_search:
             return ()
         return tuple(term for term in normalized_search.split() if term)
+
+    @staticmethod
+    def _period_override_id(facts_json: str | None) -> int | None:
+        try:
+            facts = json.loads(facts_json or "{}")
+            override_id = facts.get("override_id")
+            return int(override_id) if override_id is not None else None
+        except (AttributeError, TypeError, ValueError):
+            return None
 
     @staticmethod
     def _user_display_expression(actor_field: str):

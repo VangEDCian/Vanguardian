@@ -5,7 +5,6 @@ from unittest.mock import patch
 from django.test import RequestFactory, SimpleTestCase
 from django.urls import resolve, reverse
 
-from apps.identity.application.default_role_permissions import DEFAULT_EDC_ROLES
 from apps.reconcile.application import ReconcileDataQueryReadService
 from apps.reconcile.application.services.query_workbench import QueryWorkbenchReader
 from apps.reconcile.infrastructure.repositories.dataquery_read import DjangoReconcileDataQueryReadRepository
@@ -464,15 +463,6 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
         self.assertIn("Cancel", detail_source)
         self.assertNotIn("Field Path", detail_source)
 
-    def test_default_cra_and_data_manager_roles_can_cancel_queries(self):
-        permissions_by_role = {
-            str(role["role_code"]): set(role["permissions"])
-            for role in DEFAULT_EDC_ROLES
-        }
-
-        self.assertIn("QUERY.CANCEL", permissions_by_role["CRA_MONITOR"])
-        self.assertIn("QUERY.CANCEL", permissions_by_role["DATA_MANAGER"])
-
     def test_shared_layout_context_counts_queries_needing_response(self):
         user = SimpleNamespace(pk=9, is_authenticated=True)
         request = SimpleNamespace(user=user)
@@ -514,6 +504,42 @@ class QueryWorkbenchRoutingTests(SimpleTestCase):
                 "user_id": 9,
             },
         )
+
+    def test_shared_layout_context_is_built_once_per_request(self):
+        user = SimpleNamespace(pk=9, is_authenticated=True)
+        first_request = SimpleNamespace(user=user)
+        second_request = SimpleNamespace(user=user)
+
+        with (
+            patch(
+                "apps.shared.context_processors.StudyDropdownHandler",
+                return_value=_SharedDropdownHandler(selected_id=1),
+            ) as study_dropdown_handler,
+            patch(
+                "apps.shared.context_processors.SiteDropdownHandler",
+                return_value=_SharedDropdownHandler(selected_id=2),
+            ) as site_dropdown_handler,
+            patch(
+                "apps.shared.context_processors.get_layout_nav_permissions",
+                return_value={
+                    "subjects": True,
+                    "queries": False,
+                    "sites": True,
+                    "studies": False,
+                    "users": False,
+                    "dashboard": False,
+                },
+            ) as get_nav_permissions,
+        ):
+            first_context = shared_select_options(first_request)
+            cached_context = shared_select_options(first_request)
+            second_context = shared_select_options(second_request)
+
+        self.assertIs(cached_context, first_context)
+        self.assertIsNot(second_context, first_context)
+        self.assertEqual(study_dropdown_handler.call_count, 2)
+        self.assertEqual(site_dropdown_handler.call_count, 2)
+        self.assertEqual(get_nav_permissions.call_count, 2)
 
 
 class QueryLifecycleActionAPIViewTests(SimpleTestCase):

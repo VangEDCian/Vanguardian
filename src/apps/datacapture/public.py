@@ -144,6 +144,21 @@ def get_page_state_status_for_subject_visit_crf(
     )
 
 
+def build_pending_period_data_snapshot(
+    *,
+    subject_id: int,
+    event_instances: tuple[dict, ...],
+) -> dict:
+    from apps.datacapture.application.services.pending_period_data import (
+        PendingPeriodDataSnapshotService,
+    )
+
+    return PendingPeriodDataSnapshotService().build_snapshot(
+        subject_id=subject_id,
+        event_instances=event_instances,
+    )
+
+
 def get_page_state_id_for_subject_visit_crf(
     *,
     subject_id: int,
@@ -578,6 +593,7 @@ __all__ = [
     "get_page_state_final_data_for_subject_visit_crf",
     "get_page_state_id_for_subject_visit_crf",
     "get_page_state_status_for_subject_visit_crf",
+    "build_pending_period_data_snapshot",
     "get_verified_field_template_ids_for_subject_visit_crf",
     "get_verified_or_waived_field_template_ids_for_subject_visit_crf",
     "has_current_event_certification_attestation",

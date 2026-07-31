@@ -17,6 +17,7 @@ from apps.datacapture.application.commands import (
 )
 from apps.datacapture.application.exceptions import (
     DataCaptureInvalidPayloadUseCaseError,
+    DataCaptureSubjectLifecycleError,
     DataCaptureUnsupportedEntryStatusUseCaseError,
 )
 from apps.datacapture.application.services.check_field_validation_rules import (
@@ -47,6 +48,17 @@ from apps.datacapture.infrastructure.repositories import DjangoDataCapturePageRe
 from apps.governance.infrastructure.repositories import DjangoGovernanceLockReadRepository
 from apps.reconcile.application import ReconcileDataQueryWriteService
 from apps.subject.public import SubjectEventLifecycleAdapter
+
+
+class SubjectCaptureEligibilityReader:
+    def get(self, *, subject_id: int, event_instance_id: int):
+        from apps.subject.public import get_subject_capture_eligibility
+
+        return get_subject_capture_eligibility(
+            subject_id=subject_id,
+            event_instance_id=event_instance_id,
+            for_update=True,
+        )
 
 
 @dataclass(frozen=True)
@@ -146,6 +158,7 @@ class DataCaptureSaveSubmitPageService:
     repository_class = DjangoDataCapturePageRepository
     validator_class = DataCaptureSaveSubmitValidator
     subject_event_lifecycle_adapter_class = SubjectEventLifecycleAdapter
+    subject_capture_eligibility_reader_class = SubjectCaptureEligibilityReader
     reconcile_data_query_write_service_class = ReconcileDataQueryWriteService
 
     def __init__(
@@ -153,12 +166,17 @@ class DataCaptureSaveSubmitPageService:
         repository=None,
         governance_lock_read_repository=None,
         subject_event_lifecycle_adapter=None,
+        subject_capture_eligibility_reader=None,
         reconcile_data_query_write_service=None,
     ):
         self.repository = repository or self.repository_class()
         self.governance_lock_read_repository = governance_lock_read_repository or DjangoGovernanceLockReadRepository()
         self.subject_event_lifecycle_adapter = (
             subject_event_lifecycle_adapter or self.subject_event_lifecycle_adapter_class()
+        )
+        self.subject_capture_eligibility_reader = (
+            subject_capture_eligibility_reader
+            or self.subject_capture_eligibility_reader_class()
         )
         self.reconcile_data_query_write_service = (
             reconcile_data_query_write_service or self.reconcile_data_query_write_service_class()
@@ -174,6 +192,22 @@ class DataCaptureSaveSubmitPageService:
             crf_template_id=crf_template_id,
         ):
             raise PermissionDenied("Data capture is locked by governance lock.")
+
+    def _assert_subject_capture_allowed(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+    ) -> None:
+        eligibility = self.subject_capture_eligibility_reader.get(
+            subject_id=subject_id,
+            event_instance_id=visit_id,
+        )
+        if not eligibility.allowed:
+            raise DataCaptureSubjectLifecycleError(
+                "Data capture is not allowed for this subject visit "
+                f"({eligibility.reason})."
+            )
 
     def _start_data_entry_page_state(self, command: SavePageCommand):
         return self.repository.upsert_page_state_for_data_entry(
@@ -460,6 +494,10 @@ class DataCaptureSaveSubmitPageService:
 
     @transaction.atomic
     def save(self, command: SavePageCommand) -> SavePageResult:
+        self._assert_subject_capture_allowed(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+        )
         self._assert_capture_not_locked(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -601,6 +639,10 @@ class DataCaptureSaveSubmitPageService:
 
     @transaction.atomic
     def submit(self, command: SubmitPageCommand) -> SubmitPageResult:
+        self._assert_subject_capture_allowed(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+        )
         self._assert_capture_not_locked(
             subject_id=command.subject_id,
             visit_id=command.visit_id,
@@ -786,6 +828,10 @@ class DataCaptureSaveSubmitPageService:
 
     @transaction.atomic
     def delete_latest_draft(self, command: DeleteDraftPageCommand) -> DeleteDraftPageResult:
+        self._assert_subject_capture_allowed(
+            subject_id=command.subject_id,
+            visit_id=command.visit_id,
+        )
         self._assert_capture_not_locked(
             subject_id=command.subject_id,
             visit_id=command.visit_id,

@@ -36,7 +36,7 @@ class Command(BaseCommand):
             deleted=False,
         ).first()
         if scheme is None:
-            raise CommandError("Run seed_nng31_crossover_randomization before importing the master list.")
+            raise CommandError("Configure the NNG31 crossover randomization scheme before importing the master list.")
         if scheme.master_list_locked_at is not None:
             raise CommandError("The randomization master list is approved and locked; it cannot be replaced.")
 

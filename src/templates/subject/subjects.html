@@ -4,6 +4,10 @@
 {% block title %}
     {% trans "Subjects | Vanguardian" %}
 {% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'subject/css/subject_list.css' %}">
+{% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
         {% include "shared/components/_entity_table_toolbar2.html" with filter_form=filter.form %}

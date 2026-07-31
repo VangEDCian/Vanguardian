@@ -436,7 +436,8 @@ class FormFieldReviewTableServiceTests(SimpleTestCase):
         row = review["rows"][0]
         self.assertEqual(row["validation_issue_count"], 1)
         self.assertEqual(row["validation_issues"][0]["message"], "Soft warning")
-        issue_history = row["closed_query_histories"][0]
+        self.assertEqual(row["closed_query_histories"], [])
+        issue_history = row["validation_issue_histories"][0]
         self.assertEqual(issue_history["label"], "Validation Issue #701")
         self.assertEqual(issue_history["messages"][0]["text"], "Soft warning")
         self.assertEqual(issue_history["messages"][1]["text"], "đang chờ trả lời")

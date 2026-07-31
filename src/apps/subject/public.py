@@ -216,6 +216,25 @@ def randomize_subject(**kwargs):
     return RandomizeSubject().execute(RandomizeSubjectCommand(**kwargs))
 
 
+def advance_subject_period_after_washout(
+    *,
+    subject_id: int,
+    actor_user_id: int | None = None,
+    source_event_instance_id: int | None = None,
+    trigger_source: str = "manual_period_transition",
+):
+    from apps.subject.application.services.period_lifecycle import (
+        SubjectPeriodLifecycleService,
+    )
+
+    return SubjectPeriodLifecycleService().advance_after_washout(
+        subject_id=subject_id,
+        actor_user_id=actor_user_id,
+        source_event_instance_id=source_event_instance_id,
+        trigger_source=trigger_source,
+    )
+
+
 def get_subject_site_id(*, study_id: int, subject_id: int) -> int | None:
     return (
         Subject.objects.filter(pk=subject_id, study_id=study_id, deleted=False)
@@ -237,6 +256,23 @@ def get_event_instance_snapshot(*, event_instance_id: int):
             "updated_at",
         )
         .first()
+    )
+
+
+def get_subject_capture_eligibility(
+    *,
+    subject_id: int,
+    event_instance_id: int,
+    for_update: bool = False,
+):
+    from apps.subject.application.services.early_termination import (
+        SubjectCaptureEligibilityService,
+    )
+
+    return SubjectCaptureEligibilityService().get_eligibility(
+        subject_id=subject_id,
+        event_instance_id=event_instance_id,
+        for_update=for_update,
     )
 
 
@@ -287,9 +323,11 @@ __all__ = [
     "SubjectPeriod",
     "SubjectPeriodMilestone",
     "SubjectScopeSnapshot",
+    "advance_subject_period_after_washout",
     "complete_subject_event_instance",
     "get_subject_site_id",
     "get_event_instance_snapshot",
+    "get_subject_capture_eligibility",
     "mark_subject_event_instance_in_progress",
     "resync_subject_active_study_version",
     "resync_subject_event_instances",

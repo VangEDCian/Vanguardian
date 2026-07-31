@@ -11,6 +11,7 @@ from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.subject.application.services.early_termination import (
     SubjectEarlyTerminationRequestService,
 )
+from apps.subject.presentation.web.forms import SubjectEarlyTerminationForm
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class SubjectEarlyTerminationRequestView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "SUBJECT.UPDATE"
+    permission_required = "SUBJECT.EARLY_TERMINATE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -31,12 +32,22 @@ class SubjectEarlyTerminationRequestView(
         study_id = kwargs["study_id"]
         subject_id = kwargs["subject_id"]
         next_url = self._resolve_next_url(request, study_id=study_id)
+        form = SubjectEarlyTerminationForm(request.POST)
+        if not form.is_valid():
+            messages.error(
+                request,
+                _("Early termination was not started. Complete all required fields."),
+            )
+            return redirect(next_url)
 
         try:
             result = self.service_class().request(
                 study_id=study_id,
                 subject_id=subject_id,
                 actor_user_id=request.user.pk,
+                effective_at=form.cleaned_data["effective_at"],
+                reason_code=form.cleaned_data["reason_code"],
+                reason_text=form.cleaned_data["reason_text"],
             )
         except Exception:
             logger.exception(
@@ -60,7 +71,13 @@ class SubjectEarlyTerminationRequestView(
             request.user.pk,
         )
         if result.requested:
-            messages.success(request, _("Early termination visit was opened."))
+            messages.success(
+                request,
+                _(
+                    "Early termination started. Other open visits were closed "
+                    "and only the early termination visit remains editable."
+                ),
+            )
             return redirect(next_url)
 
         messages.warning(

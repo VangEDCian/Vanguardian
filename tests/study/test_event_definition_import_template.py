@@ -7,6 +7,7 @@ from openpyxl import load_workbook
 
 from apps.core.choices import (
     EventDefinitionCategoryChoices,
+    EventDefinitionLifecycleRoleChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
     EventExecutionModeChoices,
@@ -137,6 +138,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             event_type=EventDefinitionTypeChoices.OPERATIONAL,
             timing_mode=EventDefinitionTimingModeChoices.CONDITIONAL,
             event_category=EventDefinitionCategoryChoices.RANDOMIZATION,
+            lifecycle_role=EventDefinitionLifecycleRoleChoices.REGULAR,
             execution_mode=EventExecutionModeChoices.WORKFLOW_ACTION,
             sequence_no=7,
             phase_code="TREATMENT",

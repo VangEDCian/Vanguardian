@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -50,10 +51,31 @@ class SubjectEventTransitionAuditHistoryRecordDTO:
     transition_rule_id: int | None
 
 
+@dataclass(frozen=True)
+class SubjectPeriodTransitionAuditHistoryRecordDTO:
+    occurred_at: datetime | None
+    field_name: str
+    field_description: str
+    value: str
+    user_display: str
+    period_no: int
+    treatment_code: str
+    from_status: str
+    to_status: str
+    trigger_source: str
+    reason: str
+    actor_id: int | None
+    source_event_label: str
+    facts_json: str
+    override_reason_code: str
+    override_reason_text: str
+
+
 class SubjectAuditHistoryQueryService:
     repository_class = DjangoSubjectAuditHistoryRepository
     source_order = (
         "subject_status",
+        "period_transition",
         "event_transition",
         "page_state",
         "event_gate",
@@ -85,6 +107,7 @@ class SubjectAuditHistoryQueryService:
         limit_per_source: int = 0,
         search: str = "",
         field_name: str = "",
+        user: str = "",
     ) -> dict | None:
         subject = self.repository.get_subject_context(
             study_id=study_id,
@@ -99,8 +122,6 @@ class SubjectAuditHistoryQueryService:
             self._build_subject_status_records(
                 subject_id=subject_id,
                 limit=limit_per_source,
-                search=search,
-                field_name=field_name,
             )
         )
         records.extend(
@@ -108,16 +129,18 @@ class SubjectAuditHistoryQueryService:
                 study_id=study_id,
                 subject_id=subject_id,
                 limit=limit_per_source,
-                search=search,
-                field_name=field_name,
+            )
+        )
+        records.extend(
+            self._build_period_transition_records(
+                subject_id=subject_id,
+                limit=limit_per_source,
             )
         )
         records.extend(
             self.datacapture_history_reader(
                 subject_id=subject_id,
                 limit=limit_per_source,
-                search=search,
-                field_name=field_name,
             )
         )
         records.extend(
@@ -125,11 +148,16 @@ class SubjectAuditHistoryQueryService:
                 study_id=study_id,
                 subject_id=subject_id,
                 limit=limit_per_source,
-                search=search,
-                field_name=field_name,
             )
         )
         normalized_records = [self._normalize_record(record) for record in records]
+        user_options = self._build_user_options(normalized_records)
+        normalized_records = self._filter_records(
+            normalized_records,
+            search=search,
+            field_name=field_name,
+            user=user,
+        )
         normalized_records.sort(
             key=lambda record: (
                 record["occurred_at"] is not None,
@@ -152,6 +180,8 @@ class SubjectAuditHistoryQueryService:
             "source_counts": self._build_source_counts(normalized_records),
             "search": str(search or "").strip(),
             "field_name": str(field_name or "").strip(),
+            "user": str(user or "").strip(),
+            "user_options": user_options,
             "records": normalized_records,
         }
 
@@ -231,6 +261,85 @@ class SubjectAuditHistoryQueryService:
             for row in rows
         ]
 
+    def _build_period_transition_records(
+        self,
+        *,
+        subject_id: int,
+        limit: int,
+        search: str = "",
+        field_name: str = "",
+    ) -> list[dict]:
+        rows = self.repository.list_period_transition_history(
+            subject_id=subject_id,
+            record_class=SubjectPeriodTransitionAuditHistoryRecordDTO,
+            limit=limit,
+            search=search,
+            field_name=field_name,
+        )
+        return [
+            {
+                "occurred_at": row.occurred_at,
+                "category": "period_transition",
+                "source": "Period Transition",
+                "field_name": row.field_name,
+                "field_description": row.field_description,
+                "value": self._period_transition_value(row),
+                "user_display": (
+                    row.user_display or self._format_actor(row.actor_id)
+                ),
+                "scope": self._period_label(row),
+                "action": "Period status transition",
+                "from_value": self._join_parts(
+                    f"Period {row.period_no}",
+                    self._humanize_value(row.from_status),
+                ),
+                "to_value": self._join_parts(
+                    f"Period {row.period_no}",
+                    self._humanize_value(row.to_status),
+                ),
+                "actor": self._format_actor(row.actor_id),
+                "reason": (
+                    self._format_reason(
+                        row.override_reason_code,
+                        row.override_reason_text,
+                    )
+                    or self._humanize_value(row.reason)
+                ),
+                "details": self._period_transition_details(row),
+            }
+            for row in rows
+        ]
+
+    @classmethod
+    def _period_transition_details(
+        cls,
+        row: SubjectPeriodTransitionAuditHistoryRecordDTO,
+    ) -> list[dict[str, str]]:
+        details = [
+            ("Trigger Source", cls._humanize_value(row.trigger_source)),
+            ("Source Event", row.source_event_label),
+            ("Transition Reason", cls._humanize_value(row.reason)),
+        ]
+        facts = cls._parse_json_object(row.facts_json)
+        fact_labels = (
+            ("override_id", "Override ID"),
+            ("period_end_at", "Period End At"),
+            ("next_period_start_at", "Next Period Start At"),
+            ("pending_form_count", "Pending Form Count"),
+            ("pending_data_acknowledged", "Pending Data Acknowledged"),
+            ("clinical_transition_confirmed", "Clinical Transition Confirmed"),
+            ("end_event_status", "End Event Status"),
+        )
+        details.extend(
+            (label, cls._format_fact_value(facts.get(key)))
+            for key, label in fact_labels
+        )
+        return [
+            {"label": label, "value": str(value)}
+            for label, value in details
+            if cls._has_value(value)
+        ]
+
     @classmethod
     def _event_transition_details(
         cls,
@@ -266,9 +375,32 @@ class SubjectAuditHistoryQueryService:
         )
 
     @classmethod
+    def _period_transition_value(
+        cls,
+        row: SubjectPeriodTransitionAuditHistoryRecordDTO,
+    ) -> str:
+        return cls._join_parts(
+            cls._humanize_value(row.from_status),
+            cls._humanize_value(row.to_status),
+            cls._humanize_value(row.reason),
+            cls._humanize_value(row.trigger_source),
+        )
+
+    @classmethod
+    def _period_label(
+        cls,
+        row: SubjectPeriodTransitionAuditHistoryRecordDTO,
+    ) -> str:
+        return cls._join_parts(
+            f"Period {row.period_no}",
+            row.treatment_code,
+        )
+
+    @classmethod
     def _build_source_counts(cls, records: list[dict]) -> list[dict[str, object]]:
         labels = {
             "subject_status": "Subject Status",
+            "period_transition": "Period Transition",
             "event_transition": "Event Transition",
             "page_state": "Page State",
             "event_gate": "Event Gate",
@@ -287,6 +419,59 @@ class SubjectAuditHistoryQueryService:
             }
             for key in cls.source_order
         ]
+
+    @classmethod
+    def _filter_records(
+        cls,
+        records: list[dict],
+        *,
+        search: str = "",
+        field_name: str = "",
+        user: str = "",
+    ) -> list[dict]:
+        normalized_field_name = str(field_name or "").strip().casefold()
+        normalized_user = str(user or "").strip().casefold()
+        search_terms = tuple(
+            term.casefold()
+            for term in str(search or "").strip().split()
+            if term
+        )
+
+        filtered_records = []
+        for record in records:
+            if normalized_field_name and normalized_field_name not in record["field_name"].casefold():
+                continue
+            if normalized_user and normalized_user != record["user_display"].casefold():
+                continue
+            detail_text = cls._details_search_text(record)
+            if search_terms and not all(term in detail_text for term in search_terms):
+                continue
+            filtered_records.append(record)
+        return filtered_records
+
+    @staticmethod
+    def _build_user_options(records: list[dict]) -> list[str]:
+        values = {
+            str(record.get("user_display") or "").strip()
+            for record in records
+            if str(record.get("user_display") or "").strip()
+        }
+        return sorted(values, key=str.casefold)
+
+    @staticmethod
+    def _details_search_text(record: dict) -> str:
+        parts = []
+        reason = str(record.get("reason") or "").strip()
+        if reason:
+            parts.extend(("Reason", reason))
+        for detail in record.get("details", []):
+            parts.extend(
+                (
+                    str(detail.get("label") or "").strip(),
+                    str(detail.get("value") or "").strip(),
+                )
+            )
+        return " ".join(part for part in parts if part).casefold()
 
     @classmethod
     def _normalize_record(cls, record: dict) -> dict:
@@ -330,6 +515,22 @@ class SubjectAuditHistoryQueryService:
         return code or text
 
     @staticmethod
+    def _parse_json_object(value: str) -> dict[str, object]:
+        try:
+            parsed = json.loads(value or "{}")
+        except (TypeError, ValueError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    @staticmethod
+    def _format_fact_value(value) -> str:
+        if isinstance(value, bool):
+            return "Yes" if value else "No"
+        if value is None:
+            return ""
+        return str(value)
+
+    @staticmethod
     def _humanize_value(value) -> str:
         text = str(value or "").strip()
         if not text:
@@ -353,5 +554,6 @@ __all__ = [
     "SubjectAuditHistoryQueryService",
     "SubjectAuditHistorySubjectDTO",
     "SubjectEventTransitionAuditHistoryRecordDTO",
+    "SubjectPeriodTransitionAuditHistoryRecordDTO",
     "SubjectStatusAuditHistoryRecordDTO",
 ]

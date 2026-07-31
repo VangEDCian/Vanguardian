@@ -2,6 +2,7 @@
 {% include "subject/includes/event_attestation_panel.html" %}
 {% if form_verification_review %}
     {% include "subject/includes/form_verification_field_review.html" %}
+    {% include "subject/includes/validation_issue_modal.html" with validation_issue_show_acknowledge=False %}
 {% elif focused_form %}
     <div class="subject-detail-screen__empty">{% trans "No review data for this form." %}</div>
 {% else %}

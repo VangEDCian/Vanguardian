@@ -6,14 +6,14 @@ from apps.identity.public import ContextualAuthorizationService
 from apps.study.infrastructure.persistence.models import Site, Study
 
 
-def user_can_access_permission(user, permission_code, *, study_id=None, site_id=None):
+def user_can_access_permission(user, permission_code, *, study_id=None, site_id=None, request=None):
     if not getattr(user, "is_authenticated", False):
         return False
     if getattr(user, "is_superuser", False):
         return True
     if study_id is None:
         return False
-    return ContextualAuthorizationService().can(
+    return ContextualAuthorizationService(request=request).can(
         user=user,
         permission=permission_code,
         study_id=study_id,
@@ -21,37 +21,42 @@ def user_can_access_permission(user, permission_code, *, study_id=None, site_id=
     ).allowed
 
 
-def get_layout_nav_permissions(user, *, study_id=None, site_id=None):
+def get_layout_nav_permissions(user, *, study_id=None, site_id=None, request=None):
     return {
         "subjects": user_can_access_permission(
             user,
             "SUBJECT.VIEW",
             study_id=study_id,
             site_id=site_id,
+            request=request,
         ),
         "queries": user_can_access_permission(
             user,
             "reconcile.view_dataquery",
             study_id=study_id,
             site_id=site_id,
+            request=request,
         ),
         "sites": user_can_access_permission(
             user,
             "site.view_site_list",
             study_id=study_id,
             site_id=site_id,
+            request=request,
         ),
         "studies": user_can_access_permission(
             user,
             "STUDY_CONFIG.VIEW",
             study_id=study_id,
             site_id=site_id,
+            request=request,
         ),
         "users": user_can_access_permission(
             user,
             "USER_ACCESS.VIEW",
             study_id=study_id,
             site_id=site_id,
+            request=request,
         ),
         "dashboard": user_can_access_global_permission(user, "dashboard.view_dashboard"),
     }
