@@ -6,6 +6,11 @@ from dataclasses import dataclass
 
 from django.core.management.base import CommandError
 
+from apps.study.domain import (
+    RandomizationCodeConfigurationError,
+    format_scheme_randomization_code,
+)
+
 EXPECTED_BLOCK_SIZES = (4, 4, 4, 4, 4, 6, 6, 6, 6)
 REQUIRED_COLUMNS = (
     "Scheme Code",
@@ -59,9 +64,18 @@ def parse_and_validate_nng31_master_list(*, content: bytes, study, scheme, arms_
     expected_sequences = list(range(1, 45))
     if [row.sequence_no for row in rows] != expected_sequences:
         raise CommandError("Sequence No must be ordered, unique, and contiguous from 1 through 44.")
-    expected_codes = [f"R-{sequence_no:03}" for sequence_no in expected_sequences]
+    try:
+        expected_codes = [
+            format_scheme_randomization_code(scheme=scheme, sequence_no=sequence_no)
+            for sequence_no in expected_sequences
+        ]
+    except RandomizationCodeConfigurationError as exc:
+        raise CommandError(str(exc)) from exc
     if [row.randomization_code for row in rows] != expected_codes:
-        raise CommandError("Randomization ID must be ordered exactly from R-001 through R-044.")
+        raise CommandError(
+            "Randomization ID must be ordered exactly from "
+            f"{expected_codes[0]} through {expected_codes[-1]}."
+        )
     if any(row.scheme_code != scheme.code for row in rows):
         raise CommandError(f"Every Scheme Code must be {scheme.code}.")
     if any(row.arm_code not in arms_by_code for row in rows):

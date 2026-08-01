@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+MASTER_LIST_RANDOMIZATION_TYPES = ("blocked", "stratified_blocked")
+
 
 class EventDefinitionTypeChoices(models.TextChoices):
     VISIT_BASED = "visit_based", _("Visit based")

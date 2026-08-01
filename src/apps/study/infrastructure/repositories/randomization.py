@@ -1,7 +1,11 @@
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 
-from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
+from apps.core.choices.study import (
+    MASTER_LIST_RANDOMIZATION_TYPES,
+    RandomizationSchemeStatusChoice,
+    RandomizationSlotStatusChoice,
+)
 from apps.study.infrastructure.persistence.models import (
     EventDefinition,
     RandomizationArm,
@@ -248,23 +252,28 @@ class DjangoRandomizationRepository:
                 status=RandomizationSlotStatusChoice.AVAILABLE,
             )
         )
+        master_list_scheme = Q(
+            scheme__randomization_type__iexact=MASTER_LIST_RANDOMIZATION_TYPES[0]
+        ) | Q(
+            scheme__randomization_type__iexact=MASTER_LIST_RANDOMIZATION_TYPES[1]
+        )
         queryset = queryset.exclude(
-            scheme__randomization_type__iexact="blocked",
+            master_list_scheme,
             scheme__master_list_approved_at__isnull=True,
         ).exclude(
-            scheme__randomization_type__iexact="blocked",
+            master_list_scheme,
             scheme__master_list_locked_at__isnull=True,
         ).exclude(
-            scheme__randomization_type__iexact="blocked",
+            master_list_scheme,
             scheme__master_list_checksum__isnull=True,
         ).exclude(
-            scheme__randomization_type__iexact="blocked",
+            master_list_scheme,
             scheme__master_list_checksum="",
         ).exclude(
-            scheme__randomization_type__iexact="blocked",
+            master_list_scheme,
             randomization_code__isnull=True,
         ).exclude(
-            scheme__randomization_type__iexact="blocked",
+            master_list_scheme,
             randomization_code="",
         )
         if scheme_id is not None:
@@ -273,7 +282,7 @@ class DjangoRandomizationRepository:
             queryset = queryset.filter(stratum_code=stratum_code)
         if excluded_slot_ids:
             queryset = queryset.exclude(pk__in=excluded_slot_ids)
-        slot = queryset.order_by("sequence_no", "id").first()
+        slot = queryset.order_by("?").first()
         if slot is None:
             return None
 

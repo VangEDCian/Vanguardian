@@ -13,7 +13,11 @@ from apps.study.presentation.web.forms.eventdefinitions import (
 )
 from apps.study.presentation.web.forms.event_form_display_labels import EventFormDisplayLabelConfigForm
 from apps.study.presentation.web.forms.eventformbindings import EventFormBindingImportTemplateForm
-from apps.study.presentation.web.forms.randomization import RandomizationImportFileForm
+from apps.study.presentation.web.forms.randomization import (
+    Nng31MasterListApprovalForm,
+    Nng31MasterListImportFileForm,
+    RandomizationImportFileForm,
+)
 from apps.study.presentation.web.forms.site import SitesToolbarForm
 from apps.study.presentation.web.forms.study import StudyForm
 
@@ -31,5 +35,7 @@ __all__ = [
     "EventFormBindingImportTemplateForm",
     "EventDefinitionImportTemplateForm",
     "FactMappingImportTemplateForm",
+    "Nng31MasterListApprovalForm",
+    "Nng31MasterListImportFileForm",
     "RandomizationImportFileForm",
 ]

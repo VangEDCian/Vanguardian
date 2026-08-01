@@ -100,9 +100,7 @@ class RandomizeSubject:
             self.repository.ensure_subject_periods(
                 subject_id=command.subject_id,
                 arm_id=existing.arm_id,
-                subject_code=(
-                    subject.subject_code if existing.scheme_code == "NNG31_XOVER" else None
-                ),
+                subject_code=subject.subject_code,
                 actor_user_id=command.actor_id,
                 now=self.repository.now(),
             )

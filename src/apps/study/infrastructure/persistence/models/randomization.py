@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
@@ -22,6 +23,11 @@ class RandomizationScheme(models.Model):
     allocation_ratio_json = models.JSONField(null=True, blank=True)
 
     target_randomized_total = models.PositiveIntegerField()
+    randomization_code_prefix = models.CharField(max_length=32, blank=True, default="")
+    randomization_code_padding = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+    )
     eligibility_rule_code = models.CharField(max_length=64, null=True, blank=True)
     requires_screening_pass = models.BooleanField(default=True)
     is_open_label = models.BooleanField(default=True)

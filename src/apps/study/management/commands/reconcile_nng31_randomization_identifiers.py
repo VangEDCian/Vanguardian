@@ -11,6 +11,10 @@ from apps.core.choices.study import (
     RandomizationSlotStatusChoice,
 )
 from apps.shared.application.services.soft_delete import build_soft_deleted_unique_value
+from apps.study.domain import (
+    RandomizationCodeConfigurationError,
+    format_scheme_randomization_code,
+)
 from apps.study.models import (
     RandomizationArm,
     RandomizationEvent,
@@ -79,7 +83,7 @@ class Command(BaseCommand):
             ).order_by("id")
         )
         target_slots = list(
-            RandomizationSlot.objects.select_related("arm")
+            RandomizationSlot.objects.select_related("arm", "scheme")
             .filter(scheme=target_scheme, deleted=False)
             .order_by("sequence_no")
         )
@@ -93,6 +97,7 @@ class Command(BaseCommand):
 
         migrations = self._build_legacy_migrations(
             study=study,
+            target_scheme=target_scheme,
             legacy_schemes=legacy_schemes,
             source_periods_by_arm=source_periods_by_arm,
             target_periods_by_arm=target_periods_by_arm,
@@ -195,6 +200,7 @@ class Command(BaseCommand):
         self,
         *,
         study,
+        target_scheme,
         legacy_schemes,
         source_periods_by_arm,
         target_periods_by_arm,
@@ -215,8 +221,15 @@ class Command(BaseCommand):
             source_slot = assignment.slot
             target_slot = target_slots_by_sequence.get(source_slot.sequence_no)
             if target_slot is None:
+                try:
+                    expected_code = format_scheme_randomization_code(
+                        scheme=target_scheme,
+                        sequence_no=source_slot.sequence_no,
+                    )
+                except RandomizationCodeConfigurationError as exc:
+                    raise CommandError(str(exc)) from exc
                 raise CommandError(
-                    f"Target slot R-{source_slot.sequence_no:03} was not found for legacy "
+                    f"Target slot {expected_code} was not found for legacy "
                     f"slot {source_slot.pk}."
                 )
             subject_code = self._get_subject_code(assignment=assignment)
@@ -280,7 +293,13 @@ class Command(BaseCommand):
 
     @staticmethod
     def _validate_randomization_code(*, slot):
-        expected_randomization_code = f"R-{slot.sequence_no:03}"
+        try:
+            expected_randomization_code = format_scheme_randomization_code(
+                scheme=slot.scheme,
+                sequence_no=slot.sequence_no,
+            )
+        except RandomizationCodeConfigurationError as exc:
+            raise CommandError(str(exc)) from exc
         randomization_code = str(slot.randomization_code or "").strip()
         if randomization_code != expected_randomization_code:
             raise CommandError(

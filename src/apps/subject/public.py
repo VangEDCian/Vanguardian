@@ -216,6 +216,16 @@ def randomize_subject(**kwargs):
     return RandomizeSubject().execute(RandomizeSubjectCommand(**kwargs))
 
 
+def reconcile_imported_randomization_slots(*, assignments) -> int:
+    from apps.subject.infrastructure.repositories.randomization import (
+        DjangoSubjectRandomizationRepository,
+    )
+
+    return DjangoSubjectRandomizationRepository().reconcile_imported_slot_assignments(
+        assignments=assignments,
+    )
+
+
 def advance_subject_period_after_washout(
     *,
     subject_id: int,

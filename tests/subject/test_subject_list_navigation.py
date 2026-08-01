@@ -95,7 +95,7 @@ class SubjectListRowNavigationTests(SimpleTestCase):
             },
         )
 
-    def test_table_uses_explicit_row_and_subject_code_url(self):
+    def test_table_uses_explicit_row_url_without_subject_column(self):
         detail_url = "/studies/1/subjects/11/?mode=viewonly"
         record = self._record()
         table = self._table(
@@ -104,14 +104,13 @@ class SubjectListRowNavigationTests(SimpleTestCase):
         )
 
         self.assertEqual(table.rows[0].attrs["data-detail-href"], detail_url)
-        self.assertIn(f'href="{detail_url}"', str(table.render_subject_code(record)))
+        self.assertNotIn("subject_code", table.columns.names())
 
     def test_table_emits_empty_explicit_url_when_navigation_is_denied(self):
         record = self._record()
         table = self._table(record=record, detail_url_by_subject_id={})
 
         self.assertEqual(table.rows[0].attrs["data-detail-href"], "")
-        self.assertNotIn("href=", str(table.render_subject_code(record)))
         common_table_source = Path(
             "src/staticfiles/shared/js/components/common-table.js"
         ).read_text()

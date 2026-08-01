@@ -1,6 +1,6 @@
 import django_tables2 as tables
 from django.core.exceptions import ObjectDoesNotExist
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.shared.datetime_formatting import date_format
@@ -12,13 +12,14 @@ def _subject_detail_row_href(table, record):
 
 
 class SubjectListTable(tables.Table):
-    subject_code = tables.Column(
-        verbose_name=_("Subject"),
-        attrs={"td": {"class": "entity-table__primary"}},
-        empty_values=(),
-    )
     screening_code = tables.Column(
         verbose_name=_("SCREENING CODE"),
+        attrs={
+            "th": {"class": "subject-list-table__code-column"},
+            "td": {
+                "class": "entity-table__primary subject-list-table__code-column"
+            },
+        },
     )
     screening = tables.Column(
         empty_values=(),
@@ -33,6 +34,17 @@ class SubjectListTable(tables.Table):
     lifecycle_status = tables.Column(
         verbose_name=_("Participation"),
         order_by=("lifecycle_status", "current_sequence", "id"),
+    )
+    randomization_code = tables.Column(
+        empty_values=(),
+        verbose_name=_("Randomize Code"),
+        orderable=False,
+        attrs={
+            "th": {"class": "subject-list-table__code-column"},
+            "td": {
+                "class": "entity-table__primary subject-list-table__code-column"
+            },
+        },
     )
     randomization = tables.Column(
         empty_values=(),
@@ -87,13 +99,6 @@ class SubjectListTable(tables.Table):
         )
         super().__init__(*args, **kwargs)
 
-    def render_subject_code(self, record):
-        label = record.subject_code or record.screening_code or "—"
-        detail_url = self.detail_url_by_subject_id.get(record.pk, "")
-        if not detail_url:
-            return label
-        return format_html('<a href="{}">{}</a>', detail_url, label)
-
     @staticmethod
     def render_screening(record):
         return date_format(record.created_at, "DATETIME_FORMAT") if record.created_at else "—"
@@ -118,6 +123,13 @@ class SubjectListTable(tables.Table):
         except ObjectDoesNotExist:
             return "—"
         return date_format(created_at, "DATETIME_FORMAT") if created_at else "—"
+
+    @staticmethod
+    def render_randomization_code(record):
+        try:
+            return record.randomization.randomization_number or "—"
+        except (AttributeError, ObjectDoesNotExist):
+            return "—"
 
     def render_arm(self, record):
         current_treatment = self._current_treatment_by_subject_id.get(record.pk)
@@ -145,11 +157,11 @@ class SubjectListTable(tables.Table):
             "data-detail-href": _subject_detail_row_href,
         }
         fields = (
-            "subject_code",
             "screening_code",
             "screening",
             "enrollment",
             "lifecycle_status",
+            "randomization_code",
             "randomization",
             "arm",
             "completion",

@@ -1,9 +1,15 @@
 from pathlib import Path
 
+import django_filters
 from django import forms
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from apps.shared.filters import SharedSearch, SharedTotal
+from apps.shared.widgets import ToolbarFilterSelectWidget
+from apps.subject.application.services.eligibility_workflow import (
+    SubjectEligibilityWorkflowService,
+)
 from apps.subject.models import Subject
 
 MAX_EVENT_INSTANCE_IMPORT_FILE_SIZE_BYTES = 10 * 1024 * 1024
@@ -112,17 +118,72 @@ def _validate_event_instance_upload_kind_consistency(*, extension, uploaded_mime
 
 
 class SubjectsToolbarForm(SharedSearch, SharedTotal):
+    STATUS_RANDOMIZED_ENROLLED = "randomized_enrolled"
+    STATUS_SCREENING = "screening"
+    STATUS_FAIL_ELIGIBLE = "fail_eligible"
+
     SEARCH_FIELDS = ("subject_code", "screening_code")
     TOTAL_LABEL = _("Total Subjects")
+
+    subject_status = django_filters.ChoiceFilter(
+        label=_("Subject Status"),
+        choices=(
+            (STATUS_RANDOMIZED_ENROLLED, _("Randomized & Enrolled")),
+            (STATUS_SCREENING, _("Screening")),
+            (STATUS_FAIL_ELIGIBLE, _("Fail Eligible")),
+        ),
+        empty_label=_("All"),
+        method="filter_subject_status",
+        widget=ToolbarFilterSelectWidget(
+            filter_label=_("Status:"),
+            aria_label=_("Filter subjects by status"),
+        ),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.bind_total_field()
 
+    @classmethod
+    def filter_subject_status(cls, queryset, name, value):
+        if value == cls.STATUS_RANDOMIZED_ENROLLED:
+            return queryset.filter(
+                enrollment__deleted=False,
+                enrollment__is_enrolled=True,
+                randomization__deleted=False,
+                randomization__randomization_number__isnull=False,
+            )
+        if value == cls.STATUS_SCREENING:
+            screening_statuses = (
+                SubjectEligibilityWorkflowService.SCREENED_STATUS,
+                SubjectEligibilityWorkflowService.ELIGIBLE_STATUS,
+            )
+            return (
+                queryset.filter(
+                    Q(enrollment__isnull=True)
+                    | Q(
+                        enrollment__deleted=False,
+                        enrollment__is_enrolled=False,
+                        enrollment__status__in=screening_statuses,
+                    )
+                )
+                .exclude(
+                    randomization__deleted=False,
+                    randomization__randomization_number__isnull=False,
+                )
+            )
+        if value == cls.STATUS_FAIL_ELIGIBLE:
+            return queryset.filter(
+                enrollment__deleted=False,
+                enrollment__is_enrolled=False,
+                enrollment__status=SubjectEligibilityWorkflowService.SCREEN_FAILURE_STATUS,
+            )
+        return queryset
+
     class Meta:
         model = Subject
-        fields = ("search",)
-        toolbar_fields = ("total", "search")
+        fields = ("subject_status", "search")
+        toolbar_fields = ("subject_status", "total", "search")
 
 
 class SubjectAuditHistoryFilterForm(forms.Form):

@@ -59,13 +59,15 @@ class Command(BaseCommand):
         existing_by_sequence = {slot.sequence_no: slot for slot in existing_slots}
         for row in rows:
             existing = existing_by_sequence.get(row.sequence_no)
-            if (
-                existing is not None
-                and existing.status == RandomizationSlotStatusChoice.ASSIGNED
-                and existing.arm_id != arms_by_code[row.arm_code].pk
-            ):
+            if existing is None or existing.status != RandomizationSlotStatusChoice.ASSIGNED:
+                continue
+            if existing.arm_id != arms_by_code[row.arm_code].pk:
                 raise CommandError(
                     f"Assigned slot {row.sequence_no} conflicts with the statistician master list; manual review is required."
+                )
+            if str(existing.randomization_code or "").strip() != row.randomization_code:
+                raise CommandError(
+                    f"Assigned slot {row.sequence_no} cannot change Randomization ID through import."
                 )
         if options["dry_run"]:
             self.stdout.write(self.style.SUCCESS(f"Valid master list: 44 rows, SHA-256 {checksum}. No DB changes."))

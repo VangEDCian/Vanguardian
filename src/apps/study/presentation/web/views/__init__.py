@@ -15,6 +15,9 @@ from apps.study.presentation.web.views.eventdefinitions import (
 )
 from apps.study.presentation.web.views.event_form_display_labels import StudyEventFormDisplayLabelConfigView
 from apps.study.presentation.web.views.randomization import (
+    StudyNng31MasterListApprovalView,
+    StudyNng31MasterListImportCommitView,
+    StudyNng31MasterListImportPreviewView,
     StudyRandomizationArmImportCommitView,
     StudyRandomizationArmImportPreviewView,
     StudyRandomizationSchemeImportCommitView,
@@ -70,6 +73,9 @@ __all__ = [
     "StudyFactMappingImportTemplateView",
     "StudyListView",
     "StudyManageRolesView",
+    "StudyNng31MasterListApprovalView",
+    "StudyNng31MasterListImportCommitView",
+    "StudyNng31MasterListImportPreviewView",
     "StudyRoleCreateView",
     "StudyRandomizationArmDeleteView",
     "StudyRandomizationArmImportCommitView",

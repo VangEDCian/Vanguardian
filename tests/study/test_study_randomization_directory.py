@@ -15,7 +15,7 @@ class StudyRandomizationDirectoryQueryServiceTests(SimpleTestCase):
             scheme_id=10,
             scheme=SimpleNamespace(code="NNG31_XOVER"),
             sequence_no=1,
-            randomization_code="R-001",
+            randomization_code="NNG31-001",
             arm_id=11,
             arm=SimpleNamespace(arm_code="SEQ_E_N"),
             status="available",
@@ -30,4 +30,4 @@ class StudyRandomizationDirectoryQueryServiceTests(SimpleTestCase):
 
         self.assertEqual(str(service.randomization_slot_headers[2]["label"]), "RANDOMIZATION ID")
         self.assertEqual(row["cells"][1]["value"], "1")
-        self.assertEqual(row["cells"][2]["value"], "R-001")
+        self.assertEqual(row["cells"][2]["value"], "NNG31-001")

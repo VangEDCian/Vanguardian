@@ -57,7 +57,7 @@ class RandomizeSubjectTests(SimpleTestCase):
             study_id=1,
             site_id=2,
             scheme_id=10,
-            scheme_code="NNG31_XOVER",
+            scheme_code="CROSS_OVER_NANOKINE_EPREX4000IU",
             arm_id=11,
             arm_code="SEQ_E_N",
             arm_name="Eprex -> NANOKINE",
@@ -195,7 +195,7 @@ class _SlotAssignerStub:
         return SimpleNamespace(
             slot_id=5,
             scheme_id=10,
-            scheme_code="NNG31_XOVER",
+            scheme_code="CROSS_OVER_NANOKINE_EPREX4000IU",
             arm_id=self.arm_id,
             arm_code=self.arm_code,
             arm_name="Sequence arm",

@@ -1,10 +1,12 @@
 from importlib import import_module
 
 __all__ = [
+    "ApproveNng31MasterListService",
     "BaseRandomizationImportValidationService",
     "CommitStudyRandomizationArmsImportService",
     "CommitStudyRandomizationSchemesImportService",
     "CommitStudyRandomizationSequencePeriodsImportService",
+    "CommitNng31MasterListImportService",
     "CreateSiteMembershipService",
     "CreateSiteService",
     "CreateStudyService",
@@ -26,6 +28,7 @@ __all__ = [
     "PreviewStudyRandomizationArmsImportService",
     "PreviewStudyRandomizationSchemesImportService",
     "PreviewStudyRandomizationSequencePeriodsImportService",
+    "PreviewNng31MasterListImportService",
     "SiteAuditService",
     "StudyAuditService",
     "StudyCrfTemplateDirectoryQueryService",
@@ -50,10 +53,12 @@ __all__ = [
 ]
 
 _MODULE_BY_NAME = {
+    "ApproveNng31MasterListService": "apps.study.application.services.nng31_master_list",
     "BaseRandomizationImportValidationService": "apps.study.application.services.import_randomization_base",
     "CommitStudyRandomizationArmsImportService": "apps.study.application.services.import_randomization_commit",
     "CommitStudyRandomizationSchemesImportService": "apps.study.application.services.import_randomization_commit",
     "CommitStudyRandomizationSequencePeriodsImportService": "apps.study.application.services.import_randomization_commit",
+    "CommitNng31MasterListImportService": "apps.study.application.services.nng31_master_list",
     "CreateSiteMembershipService": "apps.study.application.services.site",
     "CreateSiteService": "apps.study.application.services.site",
     "CreateStudyService": "apps.study.application.services.create_study",
@@ -75,6 +80,7 @@ _MODULE_BY_NAME = {
     "PreviewStudyRandomizationArmsImportService": "apps.study.application.services.import_randomization_preview",
     "PreviewStudyRandomizationSchemesImportService": "apps.study.application.services.import_randomization_preview",
     "PreviewStudyRandomizationSequencePeriodsImportService": "apps.study.application.services.import_randomization_preview",
+    "PreviewNng31MasterListImportService": "apps.study.application.services.nng31_master_list",
     "SiteAuditService": "apps.study.application.services.site_audit",
     "StudyAuditService": "apps.study.application.services.study_audit",
     "StudyCrfTemplateDirectoryQueryService": "apps.study.application.services.study_crf_template_directory",

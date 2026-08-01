@@ -20,6 +20,21 @@ class DjangoSubjectRandomizationRepository:
     def now(self):
         return timezone.now()
 
+    def reconcile_imported_slot_assignments(self, *, assignments) -> int:
+        updated_count = 0
+        now = self.now()
+        for assignment in assignments:
+            updated_count += SubjectRandomization.objects.filter(
+                slot_id=assignment["slot_id"],
+                deleted=False,
+            ).update(
+                arm_id=assignment["arm_id"],
+                randomization_sequence=assignment["arm_code"],
+                randomization_number=assignment["randomization_number"],
+                updated_at=now,
+            )
+        return updated_count
+
     def get_subject_scope(self, *, subject_id: int):
         return (
             Subject.objects.select_related("study", "site")
@@ -144,9 +159,7 @@ class DjangoSubjectRandomizationRepository:
         period_count = self.ensure_subject_periods(
             subject_id=subject.pk,
             arm_id=assignment.arm_id,
-            subject_code=(
-                subject.subject_code if assignment.scheme_code == "NNG31_XOVER" else None
-            ),
+            subject_code=subject.subject_code,
             actor_user_id=actor_user_id,
             now=now,
         )

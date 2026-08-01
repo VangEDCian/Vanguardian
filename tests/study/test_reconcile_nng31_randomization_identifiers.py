@@ -49,7 +49,7 @@ class ReconcileNng31RandomizationIdentifiersTests(TestCase):
         self.assertEqual(assignment.scheme_id, data["target_scheme"].pk)
         self.assertEqual(assignment.arm_id, target_arm.pk)
         self.assertEqual(assignment.slot_id, target_slot.pk)
-        self.assertEqual(assignment.randomization_number, "R-001")
+        self.assertEqual(assignment.randomization_number, "NNG31-001")
         self.assertEqual(assignment.randomization_sequence, "SEQ_N_E")
         self.assertEqual(target_slot.status, "assigned")
         self.assertEqual(target_slot.assigned_subject_id, data["subject"].pk)
@@ -102,7 +102,7 @@ class ReconcileNng31RandomizationIdentifiersTests(TestCase):
 
         with self.assertRaisesMessage(
             CommandError,
-            "target R-001 has ('EPREX_4000U', 'NANOKINE')",
+            "target NNG31-001 has ('EPREX_4000U', 'NANOKINE')",
         ):
             call_command(
                 "reconcile_nng31_randomization_identifiers",
@@ -156,6 +156,8 @@ class ReconcileNng31RandomizationIdentifiersTests(TestCase):
             name="Legacy crossover",
             randomization_type="stratified_blocked",
             target_randomized_total=44,
+            randomization_code_prefix="NNG31-",
+            randomization_code_padding=3,
             status="active",
         )
         target_scheme = RandomizationScheme.objects.create(
@@ -166,6 +168,8 @@ class ReconcileNng31RandomizationIdentifiersTests(TestCase):
             name="NNG31 crossover",
             randomization_type="blocked",
             target_randomized_total=44,
+            randomization_code_prefix="NNG31-",
+            randomization_code_padding=3,
             status="active",
             master_list_checksum="checksum",
         )
@@ -235,7 +239,7 @@ class ReconcileNng31RandomizationIdentifiersTests(TestCase):
             scheme=target_scheme,
             arm=target_arm,
             sequence_no=1,
-            randomization_code="R-001",
+            randomization_code="NNG31-001",
             block_no=1,
             status="available",
         )

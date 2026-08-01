@@ -122,6 +122,14 @@ class CommitStudyRandomizationSchemesImportService(BaseRandomizationImportValida
             "randomization_type": values["randomization_type"],
             "allocation_ratio_json": self._optional_value(values, "allocation_ratio_json"),
             "target_randomized_total": values["target_randomized_total"],
+            "randomization_code_prefix": self._optional_value(
+                values,
+                "randomization_code_prefix",
+            ) or getattr(scheme, "randomization_code_prefix", ""),
+            "randomization_code_padding": self._optional_value(
+                values,
+                "randomization_code_padding",
+            ) or getattr(scheme, "randomization_code_padding", 3),
             "eligibility_rule_code": self._optional_value(values, "eligibility_rule_code"),
             "requires_screening_pass": values["requires_screening_pass"],
             "is_open_label": values["is_open_label"],

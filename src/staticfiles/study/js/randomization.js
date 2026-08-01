@@ -48,6 +48,7 @@ class RandomizationImportController {
         this.bindConfirmImport();
         this.bindExpandableCells();
         this.bindDeleteForms();
+        this.bindApprovalForms();
     }
 
     bindDeleteForms() {
@@ -68,6 +69,52 @@ class RandomizationImportController {
                     return;
                 }
                 await this.submitDeleteForm(form);
+            });
+        });
+    }
+
+    bindApprovalForms() {
+        const forms = Array.from(document.querySelectorAll("[data-randomization-approve-form]"));
+        forms.forEach((form) => {
+            if (!(form instanceof HTMLFormElement)) {
+                return;
+            }
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const confirmMessage = form.dataset.confirmMessage || "";
+                if (confirmMessage && !window.confirm(confirmMessage)) {
+                    return;
+                }
+                try {
+                    const response = await fetch(form.action, {
+                        method: "POST",
+                        headers: {
+                            "X-CSRFToken": this.getCsrfToken(),
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        credentials: "same-origin",
+                        body: new FormData(form),
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        const issueText = (data.issues || [])
+                            .map((issue) => issue.detail || issue.reason || "")
+                            .filter(Boolean)
+                            .join("\n");
+                        window.alert(issueText || data.detail || this.msg.importError);
+                        return;
+                    }
+                    if (data.detail) {
+                        window.alert(data.detail);
+                    }
+                    if (data.redirect_url) {
+                        window.location.assign(data.redirect_url);
+                        return;
+                    }
+                    window.location.reload();
+                } catch {
+                    window.alert(this.msg.networkError);
+                }
             });
         });
     }
@@ -178,7 +225,7 @@ class RandomizationImportController {
                     return;
                 }
 
-                await this.handleImportFile(input, input.files?.[0]);
+                await this.handleImportFile(form, input, input.files?.[0]);
             });
         });
     }
@@ -193,7 +240,7 @@ class RandomizationImportController {
         });
     }
 
-    async handleImportFile(input, file) {
+    async handleImportFile(form, input, file) {
         if (!file) {
             this.setStatus(this.msg.noFile, "error");
             return;
@@ -205,6 +252,7 @@ class RandomizationImportController {
 
         this.state.activeImport = {
             file,
+            form,
             previewUrl,
             commitUrl,
             title,
@@ -217,7 +265,7 @@ class RandomizationImportController {
         this.closeSourceImportModal(input);
         this.openModal();
 
-        const response = await this.postFile(previewUrl, file);
+        const response = await this.postFile(previewUrl, file, form);
         if (!response.ok) {
             this.renderRequestError(response, { fallbackDetail: this.msg.previewError });
             return;
@@ -243,6 +291,7 @@ class RandomizationImportController {
         const response = await this.postFile(
             this.state.activeImport.commitUrl,
             this.state.activeImport.file,
+            this.state.activeImport.form,
         );
         if (!response.ok) {
             this.renderRequestError(response, { fallbackDetail: this.msg.importError });
@@ -258,7 +307,7 @@ class RandomizationImportController {
         window.location.reload();
     }
 
-    async postFile(url, file) {
+    async postFile(url, file, form = null) {
         if (!url) {
             return {
                 ok: false,
@@ -266,8 +315,8 @@ class RandomizationImportController {
             };
         }
 
-        const payload = new FormData();
-        payload.append("import_file", file);
+        const payload = form instanceof HTMLFormElement ? new FormData(form) : new FormData();
+        payload.set("import_file", file);
 
         try {
             const response = await fetch(url, {
@@ -321,13 +370,16 @@ class RandomizationImportController {
             this.clearStatus();
         }
 
-        if ((payload.total_rows || 0) > (payload.rows || []).length) {
-            this.dom.modalMeta.textContent = this.msg.previewTruncated
-                .replace("%(max)s", String(this.previewMaxRows))
-                .replace("%(total)s", String(payload.total_rows || 0));
-        } else {
-            this.dom.modalMeta.textContent = "";
+        const metaParts = [];
+        if (payload.meta_text) {
+            metaParts.push(payload.meta_text);
         }
+        if ((payload.total_rows || 0) > (payload.rows || []).length) {
+            metaParts.push(this.msg.previewTruncated
+                .replace("%(max)s", String(this.previewMaxRows))
+                .replace("%(total)s", String(payload.total_rows || 0)));
+        }
+        this.dom.modalMeta.textContent = metaParts.join(" · ");
 
         this.setImportButtonDisabled(!payload.can_commit);
     }

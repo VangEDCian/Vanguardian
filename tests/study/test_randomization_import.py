@@ -59,8 +59,8 @@ class RandomizationSchemeImportPreviewUseCaseTests(SimpleTestCase):
     def test_execute_parses_csv_and_converts_integer_and_boolean_columns(self):
         csv_content = "\n".join(
             [
-                "Code,Name,Type,Allocation Ratio,Target Randomized Total,Is Open Label,Requires Screening Pass,Eligibility Rule Code",
-                "SCH-001,Main Scheme,block,,100,Yes,No,ELIG-01",
+                "Code,Name,Type,Allocation Ratio,Target Randomized Total,Randomization Code Prefix,Randomization Code Padding,Is Open Label,Requires Screening Pass,Eligibility Rule Code",
+                "SCH-001,Main Scheme,block,,100,NNG31,3,Yes,No,ELIG-01",
             ]
         ).encode("utf-8")
 
@@ -73,8 +73,10 @@ class RandomizationSchemeImportPreviewUseCaseTests(SimpleTestCase):
         self.assertEqual(result.issues, ())
         self.assertEqual(result.preview_rows[0].values[3], "")
         self.assertEqual(result.preview_rows[0].values[4], 100)
-        self.assertTrue(result.preview_rows[0].values[5])
-        self.assertFalse(result.preview_rows[0].values[6])
+        self.assertEqual(result.preview_rows[0].values[5], "NNG31")
+        self.assertEqual(result.preview_rows[0].values[6], 3)
+        self.assertTrue(result.preview_rows[0].values[7])
+        self.assertFalse(result.preview_rows[0].values[8])
         self.assertEqual(result.parsed_rows[0].values["target_randomized_total"], 100)
 
     def test_execute_reports_duplicate_scheme_codes(self):
@@ -328,6 +330,8 @@ class CommitStudyRandomizationSchemesImportServiceTests(SimpleTestCase):
             name="Main",
             randomization_type="block",
             target_randomized_total=100,
+            randomization_code_prefix="",
+            randomization_code_padding=3,
             eligibility_rule_code="RULE-1",
             requires_screening_pass=True,
             is_open_label=False,

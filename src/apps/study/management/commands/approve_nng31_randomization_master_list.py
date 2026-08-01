@@ -91,10 +91,6 @@ class Command(BaseCommand):
 
     @staticmethod
     def _validate_sequence_periods(*, scheme):
-        expected_treatments = {
-            "SEQ_E_N": ("EPREX_4000U", "NANOKINE"),
-            "SEQ_N_E": ("NANOKINE", "EPREX_4000U"),
-        }
         periods = RandomizationSequencePeriod.objects.select_related("arm").filter(
             scheme=scheme,
             deleted=False,
@@ -106,10 +102,21 @@ class Command(BaseCommand):
             if period.start_event_definition_id is None or period.end_event_definition_id is None:
                 raise CommandError("Every NNG31 sequence period must have both start and end events.")
             actual.setdefault(period.arm.arm_code, []).append((period.period_no, period.treatment_code))
-        normalized = {
-            arm_code: tuple(treatment_code for _period_no, treatment_code in values)
-            for arm_code, values in actual.items()
-            if tuple(period_no for period_no, _treatment_code in values) == (1, 2)
-        }
-        if normalized != expected_treatments:
-            raise CommandError("NNG31 sequence periods must match the approved two-period crossover treatments.")
+        if len(actual) != 2:
+            raise CommandError("NNG31 must have exactly two active sequence arms.")
+        normalized = []
+        for arm_code, values in actual.items():
+            if tuple(period_no for period_no, _treatment_code in values) != (1, 2):
+                raise CommandError(
+                    f"Arm {arm_code} must configure contiguous Sequence Periods 1 and 2."
+                )
+            treatments = tuple(str(treatment_code or "").strip() for _period_no, treatment_code in values)
+            if not all(treatments) or len(set(treatments)) != 2:
+                raise CommandError(
+                    f"Arm {arm_code} must configure two distinct non-empty treatments."
+                )
+            normalized.append(treatments)
+        if normalized[1] != tuple(reversed(normalized[0])):
+            raise CommandError(
+                "The two NNG31 arms must configure reverse two-treatment crossover sequences."
+            )

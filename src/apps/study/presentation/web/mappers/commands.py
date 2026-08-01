@@ -1,4 +1,6 @@
 from apps.study.application import (
+    ApproveNng31MasterListCommand,
+    CommitNng31MasterListCommand,
     CommitRandomizationImportCommand,
     CreateStudyCommand,
     DeleteRandomizationArmCommand,
@@ -67,6 +69,14 @@ def to_commit_randomization_import_command(**kwargs) -> CommitRandomizationImpor
     return CommitRandomizationImportCommand(**kwargs)
 
 
+def to_commit_nng31_master_list_command(**kwargs) -> CommitNng31MasterListCommand:
+    return CommitNng31MasterListCommand(**kwargs)
+
+
+def to_approve_nng31_master_list_command(**kwargs) -> ApproveNng31MasterListCommand:
+    return ApproveNng31MasterListCommand(**kwargs)
+
+
 def to_delete_randomization_scheme_command(**kwargs) -> DeleteRandomizationSchemeCommand:
     return DeleteRandomizationSchemeCommand(**kwargs)
 
@@ -104,6 +114,8 @@ def to_delete_study_command(**kwargs) -> DeleteStudyCommand:
 
 
 __all__ = [
+    "to_approve_nng31_master_list_command",
+    "to_commit_nng31_master_list_command",
     "to_import_study_crf_template_fields_template_command",
     "to_import_study_crf_validation_rules_template_command",
     "to_import_study_crf_section_layout_configs_template_command",
