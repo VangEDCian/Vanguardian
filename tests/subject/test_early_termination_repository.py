@@ -16,6 +16,7 @@ from apps.subject.infrastructure.repositories.early_termination import (
 )
 from apps.subject.models import (
     Subject,
+    SubjectEnrollment,
     SubjectEventInstance,
     SubjectEventInstanceTransitionLog,
     SubjectPeriod,
@@ -51,6 +52,18 @@ class SubjectEarlyTerminationRepositoryTests(TestCase):
             subject_code="SUBJ-ET-001",
             screening_code="SCR-ET-001",
             current_sequence=1,
+        )
+        self.enrollment = SubjectEnrollment.objects.create(
+            created_at=self.now,
+            updated_at=self.now,
+            deleted=False,
+            subject=self.subject,
+            study=self.study,
+            site=self.site,
+            status="Enrolled",
+            status_datetime=self.now,
+            is_enrolled=True,
+            enrollment_date=self.now.date(),
         )
         self.regular_definition = self._create_event_definition(
             code="VISIT_1",
@@ -153,6 +166,87 @@ class SubjectEarlyTerminationRepositoryTests(TestCase):
             self.early_termination_event.status,
             EventInstanceStatusChoices.OPEN,
         )
+
+    def test_request_service_rejects_subject_before_enrollment(self):
+        EventTransitionRule.objects.create(
+            created_at=self.now,
+            updated_at=self.now,
+            deleted=False,
+            study=self.study,
+            study_version="v1.0",
+            from_event_definition=self.regular_definition,
+            to_event_definition=self.early_termination_definition,
+            transition_type="conditional",
+            condition_scope="subject",
+            condition_code="early_termination.requested",
+            auto_open=True,
+            auto_create=False,
+            requires_previous_completion=False,
+        )
+        SubjectEnrollment.objects.filter(pk=self.enrollment.pk).update(
+            status="Screened",
+            is_enrolled=False,
+            enrollment_date=None,
+        )
+
+        result = SubjectEarlyTerminationRequestService().request(
+            study_id=self.study.pk,
+            subject_id=self.subject.pk,
+            actor_user_id=77,
+            effective_at=self.now,
+            reason_code="subject_withdrawal",
+            reason_text="Withdrew during screening.",
+        )
+
+        self.assertFalse(result.requested)
+        self.assertEqual(result.reason, "subject_not_enrolled")
+        self.subject.refresh_from_db()
+        self.regular_event.refresh_from_db()
+        self.early_termination_event.refresh_from_db()
+        self.assertEqual(
+            self.subject.lifecycle_status,
+            SubjectLifecycleStatusChoices.ACTIVE,
+        )
+        self.assertEqual(self.regular_event.status, EventInstanceStatusChoices.OPEN)
+        self.assertEqual(
+            self.early_termination_event.status,
+            EventInstanceStatusChoices.NOT_READY,
+        )
+
+    def test_availability_excludes_subject_before_enrollment(self):
+        EventTransitionRule.objects.create(
+            created_at=self.now,
+            updated_at=self.now,
+            deleted=False,
+            study=self.study,
+            study_version="v1.0",
+            from_event_definition=self.regular_definition,
+            to_event_definition=self.early_termination_definition,
+            transition_type="conditional",
+            condition_scope="subject",
+            condition_code="early_termination.requested",
+            auto_open=True,
+            auto_create=False,
+            requires_previous_completion=False,
+        )
+
+        eligible_subject_ids = self.repository.list_eligible_subject_ids(
+            study_id=self.study.pk,
+            subject_ids=(self.subject.pk,),
+        )
+        self.assertEqual(eligible_subject_ids, frozenset({self.subject.pk}))
+
+        SubjectEnrollment.objects.filter(pk=self.enrollment.pk).update(
+            status="Screened",
+            is_enrolled=False,
+            enrollment_date=None,
+        )
+
+        eligible_subject_ids = self.repository.list_eligible_subject_ids(
+            study_id=self.study.pk,
+            subject_ids=(self.subject.pk,),
+        )
+        self.assertEqual(eligible_subject_ids, frozenset())
 
     def test_start_closes_other_visits_and_records_all_audit_logs(self):
         future_definition = self._create_event_definition(

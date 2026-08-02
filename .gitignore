@@ -86,6 +86,8 @@ seeders/
 
 migrations/
 !migrations/__init__.py
+!src/apps/study/migrations/
+!src/apps/study/migrations/*.py
 
 # Added by code-review-graph
 .code-review-graph/

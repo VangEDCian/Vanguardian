@@ -29,6 +29,7 @@ from apps.reconcile.public import (
 )
 from apps.shared.navigation import user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
+from apps.study.public import build_randomization_transition_facts
 from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
 from apps.subject.application.services.form_verification_navigation import (
     SubjectFormVerificationNavigationService,
@@ -39,6 +40,9 @@ from apps.subject.application.services.period_override import (
 from apps.subject.application.services.subject_list_verify_form_visibility import VERIFY_FORM_PERMISSION
 from apps.subject.infrastructure.repositories import DjangoSubjectEventInstanceFileRepository
 from apps.subject.models import Subject
+from apps.subject.presentation.web.mappers.participation_status import (
+    get_subject_participation_status_label,
+)
 from apps.subject.presentation.web.views.base import (
     CRF_DATA_CHANGE_PERMISSIONS,
     SubjectAbstractVerifyStudy,
@@ -83,6 +87,9 @@ class SubjectDetailView(
     model = Subject
     pk_url_kwarg = "subject_id"
     period_override_service_class = SubjectPeriodOverrideService
+    randomization_transition_fact_builder = staticmethod(
+        build_randomization_transition_facts
+    )
     supported_control_type_map = {
         "text": "text",
         "entry_box": "text",
@@ -134,7 +141,13 @@ class SubjectDetailView(
             super()
             .get_queryset()
             .filter(study_id=self.get_study_id(), deleted=False)
-            .select_related("site", "study")
+            .select_related(
+                "site",
+                "study",
+                "enrollment",
+                "randomization",
+                "randomization__slot",
+            )
         )
 
     def get_layout_show_breadcrumb_trail(self):
@@ -800,6 +813,16 @@ class SubjectDetailView(
         )
         context["subject_obj"] = subject
         context["subject_display_id"] = subject.subject_code or subject.screening_code or "—"
+        context["participation_status_label"] = (
+            get_subject_participation_status_label(
+                subject,
+                randomization_transition_facts=(
+                    self.randomization_transition_fact_builder(
+                        study_id=self.get_study_id(),
+                    )
+                ),
+            )
+        )
         context["event_navigation"] = event_navigation
         context["focused_event"] = focused_event
         context["focused_forms"] = focused_forms

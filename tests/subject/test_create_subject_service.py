@@ -78,6 +78,7 @@ class CreateSubjectEventInstanceScheduleTests(SimpleTestCase):
         )
 
         self.assertEqual(workflow_action_service.open_event_ids, [55])
+        self.assertTrue(workflow_action_service.calls[0]["automatic"])
 
     def test_initializes_event_instances_for_active_study_version_only(self):
         anchor_datetime = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)
@@ -161,6 +162,7 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
 
         self.assertEqual(repository.created_planned_date, anchor_datetime + timedelta(days=5))
         self.assertEqual(workflow_action_service.open_event_ids, [11])
+        self.assertTrue(workflow_action_service.calls[0]["automatic"])
         self.assertEqual(len(gate_evaluation_recorder.commands), 1)
         gate_command = gate_evaluation_recorder.commands[0]
         self.assertEqual(gate_command.gate_code, "transition_rule:1")
@@ -172,6 +174,37 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
         self.assertEqual(gate_command.condition_results[0]["fact_key"], "transition_rule:1")
         self.assertEqual(gate_command.condition_results[0]["operator"], "evaluate_rule")
         self.assertEqual(gate_command.condition_results[0]["result"], "pass")
+
+    def test_opened_target_only_executes_workflow_action_when_rule_enables_it(self):
+        repository = _SubjectEventLifecycleRepositoryStub(
+            now=datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc),
+            transition_rule=_transition_rule(
+                rule_id=1,
+                target_event_definition_id=101,
+                auto_execute=False,
+            ),
+        )
+        workflow_action_service = _WorkflowActionServiceStub()
+
+        with patch(
+            "apps.subject.application.services.event_lifecycle.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            result = SubjectEventTransitionService(
+                repository=repository,
+                workflow_action_service=workflow_action_service,
+                gate_evaluation_recorder=_GateEvaluationRecorderStub(),
+                source_event_certification_checker=lambda **kwargs: False,
+            ).execute(
+                TriggerSubjectEventTransitionCommand(
+                    source_event_instance_id=10,
+                    actor_user_id=99,
+                    trigger_source="workflow_action",
+                )
+            )
+
+        self.assertTrue(result.has_changes)
+        self.assertEqual(workflow_action_service.calls, [])
 
     def test_enrollment_transition_can_open_all_protocol_visits(self):
         anchor_datetime = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)
@@ -284,6 +317,7 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
                 },
                 auto_open=True,
                 auto_create=True,
+                auto_execute=False,
                 requires_previous_completion=True,
                 allow_skip=False,
                 display_order=1,
@@ -340,6 +374,7 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
                 },
                 auto_open=True,
                 auto_create=True,
+                auto_execute=True,
                 requires_previous_completion=True,
                 allow_skip=False,
                 display_order=1,
@@ -364,6 +399,7 @@ class SubjectEventTransitionScheduleTests(SimpleTestCase):
         self.assertFalse(result.has_changes)
         self.assertEqual(result.skipped_decisions[0].reason, "target_event_not_openable")
         self.assertEqual(workflow_action_service.open_event_ids, [11])
+        self.assertTrue(workflow_action_service.calls[0]["automatic"])
 
 
 class _SubjectCommandRepositoryStub:
@@ -400,9 +436,25 @@ class _SubjectCommandRepositoryStub:
 class _WorkflowActionServiceStub:
     def __init__(self):
         self.open_event_ids = []
+        self.calls = []
 
-    def execute_for_open_event(self, *, event_instance_id, actor_user_id, source_event_instance_id=None):
+    def execute_for_open_event(
+        self,
+        *,
+        event_instance_id,
+        actor_user_id,
+        source_event_instance_id=None,
+        automatic=False,
+    ):
         self.open_event_ids.append(event_instance_id)
+        self.calls.append(
+            {
+                "event_instance_id": event_instance_id,
+                "actor_user_id": actor_user_id,
+                "source_event_instance_id": source_event_instance_id,
+                "automatic": automatic,
+            }
+        )
 
 
 class _GateEvaluationRecorderStub:
@@ -465,6 +517,7 @@ class _SubjectEventLifecycleRepositoryStub:
                 condition_definition_id=None,
                 auto_open=True,
                 auto_create=True,
+                auto_execute=True,
                 requires_previous_completion=True,
                 allow_skip=False,
                 display_order=1,
@@ -522,7 +575,7 @@ class _TransitionPolicySpy:
         return []
 
 
-def _transition_rule(*, rule_id, target_event_definition_id):
+def _transition_rule(*, rule_id, target_event_definition_id, auto_execute=True):
     return StudyEventTransitionRuleSnapshot(
         id=rule_id,
         from_event_definition_id=100,
@@ -533,6 +586,7 @@ def _transition_rule(*, rule_id, target_event_definition_id):
         condition_definition_id=None,
         auto_open=True,
         auto_create=True,
+        auto_execute=auto_execute,
         requires_previous_completion=True,
         allow_skip=False,
         display_order=rule_id,

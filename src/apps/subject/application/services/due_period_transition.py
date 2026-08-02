@@ -67,6 +67,7 @@ class SubjectDuePeriodTransitionService:
                 result = self.workflow_action_service.execute_for_open_event(
                     event_instance_id=event_instance_id,
                     actor_user_id=actor_user_id,
+                    automatic=True,
                 )
                 workflow_event_count += int(result.executed)
                 advanced_subject_count += int(result.executed)

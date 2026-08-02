@@ -26,6 +26,15 @@ class SubjectTriggerWorkflowView(
     raise_exception = True
     service_class = SubjectWorkflowActionService
 
+    def get_permission_required(self):
+        kwargs = getattr(self, "kwargs", None) or {}
+        permission_code = self.service_class().required_permission_for_event_instance(
+            study_id=kwargs.get("study_id"),
+            subject_id=kwargs.get("subject_id"),
+            event_instance_id=kwargs.get("event_instance_id"),
+        )
+        return (permission_code or self.permission_required,)
+
     def post(self, request, *args, **kwargs):
         study_id = kwargs["study_id"]
         subject_id = kwargs["subject_id"]

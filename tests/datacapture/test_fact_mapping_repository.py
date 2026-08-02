@@ -107,6 +107,58 @@ class DjangoDataCaptureFactMappingRepositoryTests(SimpleTestCase):
             },
         )
 
+    def test_build_fact_source_prefers_current_entry_data_when_final_data_is_empty_json(self):
+        repository = DjangoDataCaptureFactMappingRepository()
+        page_states = [
+            SimpleNamespace(
+                pk=11,
+                crf_template_id=101,
+                crf_template=SimpleNamespace(code="SCREENING_ELIGIBILITY"),
+                status="submitted",
+                current_entry=SimpleNamespace(
+                    data='{"format":"edc.form_data.v1","groups":{"ELIGIBILITY":{"kind":"single","items":{"ELIGIBLE":1}}}}'
+                ),
+                final_data="{}",
+            ),
+        ]
+
+        fact_source = repository._build_fact_source_from_page_states(
+            page_states=page_states,
+            current_page_state_id=11,
+            open_query_counts_by_page_state_id={},
+        )
+
+        self.assertEqual(
+            fact_source.to_jsonpath_context()["SCREENING_ELIGIBILITY"]["data"]["groups"]["ELIGIBILITY"]["items"],
+            {"ELIGIBLE": 1},
+        )
+
+    def test_build_fact_source_prefers_current_entry_data_when_canonical_groups_are_empty(self):
+        repository = DjangoDataCaptureFactMappingRepository()
+        page_states = [
+            SimpleNamespace(
+                pk=11,
+                crf_template_id=101,
+                crf_template=SimpleNamespace(code="SCREENING_ELIGIBILITY"),
+                status="submitted",
+                current_entry=SimpleNamespace(
+                    data='{"format":"edc.form_data.v1","groups":{"ELIGIBILITY":{"kind":"single","items":{"ELIGIBLE":1}}}}'
+                ),
+                final_data='{"format":"edc.form_data.v1","groups":{}}',
+            ),
+        ]
+
+        fact_source = repository._build_fact_source_from_page_states(
+            page_states=page_states,
+            current_page_state_id=11,
+            open_query_counts_by_page_state_id={},
+        )
+
+        self.assertEqual(
+            fact_source.to_jsonpath_context()["SCREENING_ELIGIBILITY"]["data"]["groups"]["ELIGIBILITY"]["items"],
+            {"ELIGIBLE": 1},
+        )
+
     def test_build_fact_source_prefers_final_data_when_current_entry_data_is_present(self):
         repository = DjangoDataCaptureFactMappingRepository()
         page_states = [

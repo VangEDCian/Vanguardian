@@ -6,6 +6,21 @@ from apps.subject.presentation.web.tables import SubjectAuditHistoryTable, Subje
 
 
 class SubjectListTableTests(SimpleTestCase):
+    def test_participation_shows_screen_failure_instead_of_active(self):
+        record = SimpleNamespace(
+            pk=1,
+            lifecycle_status="active",
+            enrollment=SimpleNamespace(
+                status="ScreenFailure",
+                is_enrolled=False,
+                deleted=False,
+            ),
+            get_lifecycle_status_display=lambda: "Active",
+        )
+        table = SubjectListTable([record])
+
+        self.assertEqual(str(table.render_lifecycle_status(record)), "Screen Failure")
+
     def test_subject_audit_history_table_has_workbench_columns(self):
         table = SubjectAuditHistoryTable([])
 

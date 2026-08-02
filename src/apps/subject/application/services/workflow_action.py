@@ -18,6 +18,8 @@ _EVENT_CATEGORY_WASHOUT = "washout"
 _EVENT_CODE_ELIGIBILITY_ASSESSMENT = "eligibility_assessment"
 _EVENT_CODE_ENROLLMENT = "enrollment"
 _ASSESSMENT_TYPE_SCREENING = "SCREENING"
+_FINALIZE_ELIGIBILITY_PERMISSION = "study.finalize_subject_eligibility"
+_DEFAULT_WORKFLOW_ACTION_PERMISSION = "SUBJECT.UPDATE"
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,12 @@ class SubjectWorkflowActionResult:
     executed: bool = False
     action: str = ""
     reason: str = ""
+
+
+@dataclass(frozen=True)
+class SubjectWorkflowActionAccess:
+    event_instance_id: int
+    permission_code: str
 
 
 def _default_source_page_state_resolver(*, event_instance_id: int) -> int | None:
@@ -108,12 +116,59 @@ class SubjectWorkflowActionService:
             subject_ids=subject_ids,
         )
 
+    def required_permission_for_event_instance(
+        self,
+        *,
+        study_id: int,
+        subject_id: int,
+        event_instance_id: int,
+    ) -> str | None:
+        event = self.repository.get_open_workflow_action_context(
+            study_id=study_id,
+            subject_id=subject_id,
+            event_instance_id=event_instance_id,
+        )
+        if event is None:
+            return None
+        return self._required_permission_for_event(event)
+
+    def map_triggerable_event_access_by_subject_id(
+        self,
+        *,
+        study_id: int,
+        subject_ids,
+    ) -> dict[int, SubjectWorkflowActionAccess]:
+        context_by_subject_id = (
+            self.repository.map_open_workflow_action_context_by_subject_id(
+                study_id=study_id,
+                subject_ids=subject_ids,
+            )
+        )
+        return {
+            subject_id: SubjectWorkflowActionAccess(
+                event_instance_id=event.event_instance_id,
+                permission_code=self._required_permission_for_event(event),
+            )
+            for subject_id, event in context_by_subject_id.items()
+        }
+
+    @staticmethod
+    def _required_permission_for_event(event) -> str:
+        event_code = (event.event_code or "").strip().lower()
+        if event_code in {
+            _EVENT_CODE_ELIGIBILITY_ASSESSMENT,
+            _EVENT_CODE_ENROLLMENT,
+        }:
+            return _FINALIZE_ELIGIBILITY_PERMISSION
+        return _DEFAULT_WORKFLOW_ACTION_PERMISSION
+
     def execute_for_open_event(
         self,
         *,
         event_instance_id: int,
         actor_user_id: int | None = None,
         source_event_instance_id: int | None = None,
+        automatic: bool = False,
     ) -> SubjectWorkflowActionResult:
         with transaction.atomic():
             event = self.repository.get_event_workflow_context_for_update(event_instance_id=event_instance_id)
@@ -225,10 +280,6 @@ class SubjectWorkflowActionService:
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
                 reason="eligibility_source_page_state_not_found",
             )
-        rule = self.repository.resolve_workflow_action_rule_for_event(
-            event_instance_id=event.event_instance_id,
-        )
-
         from apps.study.public import FinalizeEligibilityAssessmentCommand
 
         assessment = self.eligibility_assessment_finalizer(
@@ -243,8 +294,6 @@ class SubjectWorkflowActionService:
                 study_version=event.study_version,
                 actor_id=actor_user_id,
                 event_instance_id=event.event_instance_id,
-                rule_code=getattr(rule, "condition_code", None),
-                rule_expression_json=getattr(rule, "condition_expression_json", None),
             )
         )
         now = self.repository.now()

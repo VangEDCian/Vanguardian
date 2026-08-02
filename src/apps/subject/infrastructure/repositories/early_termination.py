@@ -15,6 +15,7 @@ from apps.core.choices import (
 from apps.study.models import EventTransitionRule
 from apps.subject.models import (
     Subject,
+    SubjectEnrollment,
     SubjectEventInstance,
     SubjectEventInstanceTransitionLog,
     SubjectPeriod,
@@ -27,6 +28,7 @@ from apps.subject.models import (
 class SubjectLifecycleSnapshot:
     subject_id: int
     lifecycle_status: str
+    is_enrolled: bool
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,12 @@ class DjangoSubjectEarlyTerminationRepository:
         return SubjectLifecycleSnapshot(
             subject_id=subject.pk,
             lifecycle_status=subject.lifecycle_status,
+            is_enrolled=SubjectEnrollment.objects.filter(
+                subject_id=subject.pk,
+                study_id=study_id,
+                deleted=False,
+                is_enrolled=True,
+            ).exists(),
         )
 
     def get_early_termination_transition_context(
@@ -97,25 +105,10 @@ class DjangoSubjectEarlyTerminationRepository:
         subject_id: int,
     ) -> EarlyTerminationTransitionContext | None:
         transition_rules = (
-            EventTransitionRule.objects.select_related(
+            self._early_termination_transition_rules(study_id=study_id)
+            .select_related(
                 "condition_definition",
                 "to_event_definition",
-            )
-            .filter(
-                study_id=study_id,
-                deleted=False,
-                is_enabled=True,
-                auto_open=True,
-                to_event_definition__deleted=False,
-                to_event_definition__event_category=EventDefinitionCategoryChoices.EOS,
-                to_event_definition__timing_mode=EventDefinitionTimingModeChoices.CONDITIONAL,
-                to_event_definition__lifecycle_role=(
-                    EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION
-                ),
-            )
-            .filter(
-                Q(condition_code=self.EARLY_TERMINATION_FACT)
-                | Q(condition_definition__code=self.EARLY_TERMINATION_FACT)
             )
             .order_by("display_order", "id")
         )
@@ -528,6 +521,8 @@ class DjangoSubjectEarlyTerminationRepository:
                 study_id=study_id,
                 deleted=False,
                 lifecycle_status=SubjectLifecycleStatusChoices.ACTIVE,
+                enrollment__deleted=False,
+                enrollment__is_enrolled=True,
             ).values_list("id", flat=True)
         )
         reached_regular_eos_subject_ids = set(
@@ -550,20 +545,8 @@ class DjangoSubjectEarlyTerminationRepository:
             return frozenset()
 
         eligible_subject_ids: set[int] = set()
-        transition_rules = EventTransitionRule.objects.filter(
+        transition_rules = self._early_termination_transition_rules(
             study_id=study_id,
-            deleted=False,
-            is_enabled=True,
-            auto_open=True,
-            to_event_definition__deleted=False,
-            to_event_definition__event_category=EventDefinitionCategoryChoices.EOS,
-            to_event_definition__timing_mode=EventDefinitionTimingModeChoices.CONDITIONAL,
-            to_event_definition__lifecycle_role=(
-                EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION
-            ),
-        ).filter(
-            Q(condition_code=self.EARLY_TERMINATION_FACT)
-            | Q(condition_definition__code=self.EARLY_TERMINATION_FACT)
         )
         for rule in transition_rules:
             allowed_statuses = (
@@ -601,6 +584,25 @@ class DjangoSubjectEarlyTerminationRepository:
             else:
                 eligible_subject_ids.update(existing_target_subject_ids)
         return frozenset(eligible_subject_ids)
+
+    def _early_termination_transition_rules(self, *, study_id: int):
+        # Protocol metadata identifies an Early Termination route. Subject
+        # participation eligibility is enforced separately from this query.
+        return EventTransitionRule.objects.filter(
+            study_id=study_id,
+            deleted=False,
+            is_enabled=True,
+            auto_open=True,
+            to_event_definition__deleted=False,
+            to_event_definition__event_category=EventDefinitionCategoryChoices.EOS,
+            to_event_definition__timing_mode=EventDefinitionTimingModeChoices.CONDITIONAL,
+            to_event_definition__lifecycle_role=(
+                EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION
+            ),
+        ).filter(
+            Q(condition_code=self.EARLY_TERMINATION_FACT)
+            | Q(condition_definition__code=self.EARLY_TERMINATION_FACT)
+        )
 
     @staticmethod
     def _record_event_status_transition(

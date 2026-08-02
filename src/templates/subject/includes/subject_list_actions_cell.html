@@ -47,7 +47,7 @@
                 {% trans "Verify Form" %}
             </button>
         {% endif %}
-        {% if can_update_subject and subject_trigger_workflow_url %}
+        {% if subject_trigger_workflow_url %}
             <form method="post"
                   action="{{ subject_trigger_workflow_url }}"
                   class="crf-template-actions__form">

@@ -1,0 +1,137 @@
+{% load i18n %}
+{% if can_delete_subject or can_bulk_resync_subject or can_bulk_early_terminate_subject %}
+    {% url 'subject:subject_bulk_action' study_id=shared_study_selected_id as subject_bulk_action_url %}
+    <div class="subject-bulk-actions" data-subject-bulk-actions>
+        <div class="subject-bulk-actions__selection" aria-live="polite">
+            <span class="subject-bulk-actions__selection-count"
+                  data-subject-selection-count>0</span>
+            <span>{% trans "subjects selected" %}</span>
+        </div>
+        <div class="subject-bulk-actions__buttons">
+            {% if can_delete_subject %}
+                <button type="button"
+                        class="subject-bulk-actions__button subject-bulk-actions__button--danger"
+                        data-subject-bulk-submit
+                        data-modal-open="modal-subject-bulk-delete"
+                        disabled>{% trans "Delete Subjects" %}</button>
+            {% endif %}
+            {% if can_bulk_resync_subject %}
+                <form method="post"
+                      action="{{ subject_bulk_action_url }}"
+                      data-subject-bulk-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="resync_stage">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit"
+                            class="subject-bulk-actions__button"
+                            data-subject-bulk-submit
+                            disabled>{% trans "Resync Stage" %}</button>
+                </form>
+            {% endif %}
+            {% if can_bulk_early_terminate_subject %}
+                <button type="button"
+                        class="subject-bulk-actions__button subject-bulk-actions__button--warning"
+                        data-subject-bulk-submit
+                        data-modal-open="modal-subject-bulk-early-termination"
+                        disabled>{% trans "Start Early Termination" %}</button>
+            {% endif %}
+        </div>
+        {% if can_delete_subject %}
+            <div class="modal-backdrop"
+                 id="modal-subject-bulk-delete"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="modal-subject-bulk-delete-title">
+                <div class="modal modal--danger">
+                    <div class="modal__header">
+                        <div class="modal__icon" aria-hidden="true">!</div>
+                        <h2 class="modal__title" id="modal-subject-bulk-delete-title">{% trans "Delete selected subjects" %}</h2>
+                    </div>
+                    <form method="post"
+                          action="{{ subject_bulk_action_url }}"
+                          data-subject-bulk-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="modal__body">
+                            <p class="modal__message">
+                                {% blocktrans %}
+                                    The selected subjects will be removed from active lists. Their clinical records remain preserved for audit purposes.
+                                {% endblocktrans %}
+                            </p>
+                        </div>
+                        <div class="modal__footer">
+                            <button type="button"
+                                    class="modal__cancel"
+                                    data-modal-close="modal-subject-bulk-delete">{% trans "Cancel" %}</button>
+                            <button type="submit"
+                                    class="entity-table__footer-button entity-table__footer-button--danger">
+                                {% trans "Delete Subjects" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+        {% if can_bulk_early_terminate_subject %}
+            <div class="modal-backdrop subject-early-termination-modal-backdrop"
+                 id="modal-subject-bulk-early-termination"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="modal-subject-bulk-early-termination-title">
+                <div class="modal modal--warning subject-early-termination-modal">
+                    <div class="modal__header">
+                        <div class="modal__icon" aria-hidden="true">!</div>
+                        <h2 class="modal__title" id="modal-subject-bulk-early-termination-title">{% trans "Start Early Termination" %}</h2>
+                    </div>
+                    <form method="post"
+                          action="{{ subject_bulk_action_url }}"
+                          data-subject-bulk-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="early_terminate">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="modal__body subject-early-termination-modal__body">
+                            <p class="modal__message">
+                                {% trans "Start early termination for all selected eligible subjects. Ineligible subjects will be skipped." %}
+                            </p>
+                            <label class="subject-early-termination-modal__field">
+                                <span>{% trans "Reason" %}</span>
+                                <select name="reason_code" required>
+                                    <option value="">{% trans "Select a reason" %}</option>
+                                    <option value="adverse_event">{% trans "Adverse event" %}</option>
+                                    <option value="subject_withdrawal">{% trans "Subject withdrawal" %}</option>
+                                    <option value="investigator_decision">{% trans "Investigator decision" %}</option>
+                                    <option value="lost_to_follow_up">{% trans "Lost to follow-up" %}</option>
+                                    <option value="protocol_deviation">{% trans "Protocol deviation" %}</option>
+                                    <option value="other">{% trans "Other" %}</option>
+                                </select>
+                            </label>
+                            <label class="subject-early-termination-modal__field">
+                                <span>{% trans "Effective at" %}</span>
+                                <input type="datetime-local"
+                                       name="effective_at"
+                                       value="{% now 'Y-m-d\TH:i' %}"
+                                       required>
+                            </label>
+                            <label class="subject-early-termination-modal__field">
+                                <span>{% trans "Details" %}</span>
+                                <textarea name="reason_text" rows="3" maxlength="1000" required></textarea>
+                            </label>
+                        </div>
+                        <div class="modal__footer">
+                            <button type="button"
+                                    class="modal__cancel"
+                                    data-modal-close="modal-subject-bulk-early-termination">
+                                {% trans "Cancel" %}
+                            </button>
+                            <button type="submit"
+                                    class="entity-table__footer-button entity-table__footer-button--warning">
+                                {% trans "Confirm termination" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% endif %}

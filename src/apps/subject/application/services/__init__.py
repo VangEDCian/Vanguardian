@@ -2,6 +2,8 @@ from importlib import import_module
 
 __all__ = [
     "AddRepeatingSubjectEventInstanceService",
+    "SubjectBulkActionResult",
+    "SubjectBulkActionService",
     "CreateSubjectService",
     "SubjectDuePeriodTransitionResult",
     "SubjectDuePeriodTransitionService",
@@ -23,6 +25,8 @@ __all__ = [
 
 _MODULE_BY_NAME = {
     "AddRepeatingSubjectEventInstanceService": "apps.subject.application.services.add_repeating_event_instance",
+    "SubjectBulkActionResult": "apps.subject.application.services.bulk_actions",
+    "SubjectBulkActionService": "apps.subject.application.services.bulk_actions",
     "CreateSubjectService": "apps.subject.application.services.create_subject",
     "SubjectDuePeriodTransitionResult": "apps.subject.application.services.due_period_transition",
     "SubjectDuePeriodTransitionService": "apps.subject.application.services.due_period_transition",

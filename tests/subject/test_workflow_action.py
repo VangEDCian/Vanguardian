@@ -122,6 +122,59 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
             ],
         )
 
+    def test_eligibility_workflow_requires_finalize_eligibility_permission(self):
+        event = SubjectEventWorkflowContext(
+            event_instance_id=60,
+            study_id=1,
+            subject_id=20,
+            site_id=2,
+            study_version="v1.0",
+            status="open",
+            event_definition_id=29,
+            event_code="ELIGIBILITY_ASSESSMENT",
+            event_type="operational",
+            event_category="screening",
+            execution_mode="workflow_action",
+        )
+        repository = _WorkflowRepositoryStub(event=event)
+
+        permission_code = SubjectWorkflowActionService(
+            repository=repository
+        ).required_permission_for_event_instance(
+            study_id=1,
+            subject_id=20,
+            event_instance_id=60,
+        )
+
+        self.assertEqual(permission_code, "study.finalize_subject_eligibility")
+
+        access_by_subject_id = SubjectWorkflowActionService(
+            repository=_WorkflowRepositoryStub(
+                event=event,
+                triggerable_context_map={20: event},
+            )
+        ).map_triggerable_event_access_by_subject_id(
+            study_id=1,
+            subject_ids=(20,),
+        )
+
+        self.assertEqual(access_by_subject_id[20].event_instance_id, 60)
+        self.assertEqual(
+            access_by_subject_id[20].permission_code,
+            "study.finalize_subject_eligibility",
+        )
+
+    def test_randomization_workflow_keeps_subject_update_permission(self):
+        permission_code = SubjectWorkflowActionService(
+            repository=_WorkflowRepositoryStub()
+        ).required_permission_for_event_instance(
+            study_id=1,
+            subject_id=20,
+            event_instance_id=30,
+        )
+
+        self.assertEqual(permission_code, "SUBJECT.UPDATE")
+
     def test_eligibility_assessment_workflow_finalizes_and_triggers_downstream_transition(self):
         repository = _WorkflowRepositoryStub(
             event=SubjectEventWorkflowContext(
@@ -159,11 +212,9 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(finalizer.commands[0].source_object_type, "EVENT_INSTANCE")
         self.assertEqual(finalizer.commands[0].source_object_id, 10)
         self.assertEqual(finalizer.commands[0].event_instance_id, 60)
-        self.assertEqual(finalizer.commands[0].rule_code, "screening_source_ready")
-        self.assertEqual(
-            finalizer.commands[0].rule_expression_json,
-            '{"all":[{"fact":"screening.eligibility_conclusion","operator":"equals","value":true}]}',
-        )
+        self.assertIsNone(finalizer.commands[0].rule_code)
+        self.assertIsNone(finalizer.commands[0].rule_expression_json)
+        self.assertEqual(repository.workflow_action_rule_calls, [])
         self.assertEqual(repository.completed_events[0]["reason"], "eligibility_assessment_finalized")
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 60)
         self.assertEqual(transition_service.commands[0].facts["eligibility.latest.result"], "ELIGIBLE")
@@ -359,6 +410,7 @@ class _WorkflowRepositoryStub:
         has_randomization=False,
         resolved_source_event_instance_id=None,
         triggerable_event_map=None,
+        triggerable_context_map=None,
         workflow_action_rule=None,
     ):
         self.event = event or SubjectEventWorkflowContext(
@@ -377,19 +429,24 @@ class _WorkflowRepositoryStub:
         self._has_randomization = has_randomization
         self._resolved_source_event_instance_id = resolved_source_event_instance_id
         self._triggerable_event_map = triggerable_event_map or {}
+        self._triggerable_context_map = triggerable_context_map or {}
         self._workflow_action_rule = workflow_action_rule or SubjectWorkflowActionRuleContext(
             condition_code="screening_source_ready",
-            condition_expression_json='{"all":[{"fact":"screening.eligibility_conclusion","operator":"equals","value":true}]}',
+            condition_expression_json='{"all":[{"fact":"screening.event_certified","operator":"equals","value":true}]}',
         )
         self.created_randomizations = []
         self.completed_events = []
         self.resolved_source_event_calls = []
         self.triggerable_event_map_calls = []
+        self.workflow_action_rule_calls = []
 
     def now(self):
         return datetime(2026, 5, 20, 8, 0, tzinfo=timezone.utc)
 
     def get_event_workflow_context_for_update(self, *, event_instance_id):
+        return self.event
+
+    def get_open_workflow_action_context(self, **kwargs):
         return self.event
 
     def has_subject_randomization(self, *, subject_id):
@@ -399,11 +456,15 @@ class _WorkflowRepositoryStub:
         self.triggerable_event_map_calls.append(kwargs)
         return self._triggerable_event_map
 
+    def map_open_workflow_action_context_by_subject_id(self, **kwargs):
+        return self._triggerable_context_map
+
     def resolve_source_event_instance_id_for_workflow_event(self, *, event_instance_id):
         self.resolved_source_event_calls.append(event_instance_id)
         return self._resolved_source_event_instance_id
 
     def resolve_workflow_action_rule_for_event(self, *, event_instance_id):
+        self.workflow_action_rule_calls.append(event_instance_id)
         return self._workflow_action_rule
 
     def create_subject_randomization(self, **kwargs):

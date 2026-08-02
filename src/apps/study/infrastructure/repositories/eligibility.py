@@ -17,7 +17,14 @@ class DjangoEligibilityAssessmentRepository:
     def now(self):
         return timezone.now()
 
-    def actor_has_permission(self, *, actor_id: int | None, study_id: int, permission_codename: str) -> bool:
+    def actor_has_permission(
+        self,
+        *,
+        actor_id: int | None,
+        study_id: int,
+        permission_codename: str,
+        site_id: int | None = None,
+    ) -> bool:
         if actor_id is None:
             return True
         user = get_user_model().objects.filter(pk=actor_id, is_active=True).first()
@@ -29,6 +36,7 @@ class DjangoEligibilityAssessmentRepository:
             user,
             f"study.{permission_codename}",
             study_id=study_id,
+            study_site_id=site_id,
         ).allowed
 
     def list_active_eligibility_conditions(self, *, study_id: int, study_version: str, rule_code: str | None = None):

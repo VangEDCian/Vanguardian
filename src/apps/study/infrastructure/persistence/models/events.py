@@ -196,6 +196,7 @@ class EventTransitionRule(models.Model):
 
     auto_open = models.BooleanField(default=False)
     auto_create = models.BooleanField(default=False)
+    auto_execute = models.BooleanField(default=False)
     requires_previous_completion = models.BooleanField(default=True)
     allow_skip = models.BooleanField(default=False)
 

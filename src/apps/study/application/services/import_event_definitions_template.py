@@ -62,11 +62,14 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "Window After Days",
         "Auto Open",
         "Auto Create",
+        "Auto Execute",
         "Requires Previous Completion",
         "Allow Skip",
     )
     required_columns = tuple(
-        column for column in expected_columns if column != "Lifecycle Role"
+        column
+        for column in expected_columns
+        if column not in {"Lifecycle Role", "Auto Execute"}
     )
     expected_header_map = {
         "study code": "study_code",
@@ -94,6 +97,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "window after days": "window_after_days",
         "auto open": "auto_open",
         "auto create": "auto_create",
+        "auto execute": "auto_execute",
         "requires previous completion": "requires_previous_completion",
         "allow skip": "allow_skip",
     }
@@ -367,6 +371,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             )
             auto_open = self._coerce_bool(row_data.get("auto_open"), allow_blank=True, default=False)
             auto_create = self._coerce_bool(row_data.get("auto_create"), allow_blank=True, default=False)
+            auto_execute = self._coerce_bool(row_data.get("auto_execute"), allow_blank=True, default=False)
             requires_previous_completion = self._coerce_bool(
                 row_data.get("requires_previous_completion"),
                 allow_blank=True,
@@ -384,6 +389,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             window_after_days = None
             auto_open = False
             auto_create = False
+            auto_execute = False
             requires_previous_completion = True
             allow_skip = False
 
@@ -473,6 +479,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                     window_after_days=window_after_days,
                     auto_open=auto_open,
                     auto_create=auto_create,
+                    auto_execute=auto_execute,
                     requires_previous_completion=requires_previous_completion,
                     allow_skip=allow_skip,
                     actor_user_id=actor_user_id,
@@ -507,6 +514,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 window_after_days=window_after_days,
                 auto_open=auto_open,
                 auto_create=auto_create,
+                auto_execute=auto_execute,
                 requires_previous_completion=requires_previous_completion,
                 allow_skip=allow_skip,
                 actor_user_id=actor_user_id,

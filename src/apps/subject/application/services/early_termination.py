@@ -83,6 +83,11 @@ class SubjectEarlyTerminationRequestService:
                 requested=False,
                 reason="subject_lifecycle_not_active",
             )
+        if not subject.is_enrolled:
+            return SubjectEarlyTerminationRequestResult(
+                requested=False,
+                reason="subject_not_enrolled",
+            )
 
         eos_event = self.repository.get_reached_regular_eos_event_instance(
             study_id=study_id,

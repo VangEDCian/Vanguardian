@@ -30,7 +30,13 @@ class SubjectDuePeriodTransitionServiceTests(SimpleTestCase):
         self.assertEqual(result.workflow_event_count, 1)
         self.assertEqual(
             workflow_action_service.calls,
-            [{"event_instance_id": 80, "actor_user_id": 99}],
+            [
+                {
+                    "event_instance_id": 80,
+                    "actor_user_id": 99,
+                    "automatic": True,
+                }
+            ],
         )
         self.assertEqual(
             period_lifecycle_service.calls,

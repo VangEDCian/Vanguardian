@@ -101,9 +101,19 @@ class EligibilityAssessmentService:
         return SubjectEligibilityWorkflowAdapter()
 
     def finalize(self, command: FinalizeEligibilityAssessmentCommand) -> EligibilityAssessmentResult:
-        self._require_permission(command.actor_id, command.study_id, "finalize_subject_eligibility")
+        self._require_permission(
+            command.actor_id,
+            command.study_id,
+            "finalize_subject_eligibility",
+            site_id=command.site_id,
+        )
         if command.force_result:
-            self._require_permission(command.actor_id, command.study_id, "override_subject_eligibility")
+            self._require_permission(
+                command.actor_id,
+                command.study_id,
+                "override_subject_eligibility",
+                site_id=command.site_id,
+            )
 
         subject_scope = self.subject_workflow_adapter.get_subject_scope(
             study_id=command.study_id,
@@ -344,7 +354,12 @@ class EligibilityAssessmentService:
         )
 
     def enroll_subject(self, command: EnrollSubjectCommand) -> EligibilityAssessmentResult:
-        self._require_permission(command.actor_id, command.study_id, "finalize_subject_eligibility")
+        self._require_permission(
+            command.actor_id,
+            command.study_id,
+            "finalize_subject_eligibility",
+            site_id=command.site_id,
+        )
         assessment = self.repository.get_current_assessment(
             study_id=command.study_id,
             subject_id=command.subject_id,
@@ -409,11 +424,13 @@ class EligibilityAssessmentService:
             )
 
         inline_condition = self._condition_from_command(command)
-        conditions = [inline_condition] if inline_condition is not None else self.repository.list_active_eligibility_conditions(
-            study_id=command.study_id,
-            study_version=command.study_version,
-            rule_code=command.rule_code,
-        )
+        conditions = [inline_condition] if inline_condition is not None else []
+        if inline_condition is None and command.rule_code:
+            conditions = self.repository.list_active_eligibility_conditions(
+                study_id=command.study_id,
+                study_version=command.study_version,
+                rule_code=command.rule_code,
+            )
         for condition in conditions:
             failed_conditions = self._evaluate_condition_definition(condition, facts)
             if not failed_conditions:
@@ -701,10 +718,18 @@ class EligibilityAssessmentService:
             preferred_codes=["ENROLLMENT", "ELIGIBILITY_ASSESSMENT", "SCREENING"],
         )
 
-    def _require_permission(self, actor_id: int | None, study_id: int, permission_codename: str) -> None:
+    def _require_permission(
+        self,
+        actor_id: int | None,
+        study_id: int,
+        permission_codename: str,
+        *,
+        site_id: int | None = None,
+    ) -> None:
         if not self.repository.actor_has_permission(
             actor_id=actor_id,
             study_id=study_id,
+            site_id=site_id,
             permission_codename=permission_codename,
         ):
             raise EligibilityAssessmentPermissionError(

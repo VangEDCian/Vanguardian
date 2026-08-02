@@ -175,6 +175,35 @@ class SubjectEarlyTerminationRequestServiceTests(SimpleTestCase):
         self.assertFalse(result.requested)
         self.assertEqual(result.reason, "termination_reason_required")
 
+    def test_rejects_subject_that_has_not_enrolled(self):
+        repository = _EarlyTerminationRepositoryStub(
+            transition_context=EarlyTerminationTransitionContext(
+                source_event_instance_id=5,
+                target_event_definition_id=123,
+            ),
+            is_enrolled=False,
+        )
+        transition_service = _TransitionServiceStub(result=None)
+        service = SubjectEarlyTerminationRequestService(
+            repository=repository,
+            transition_service=transition_service,
+        )
+
+        result = SubjectEarlyTerminationRequestService.request.__wrapped__(
+            service,
+            study_id=1,
+            subject_id=20,
+            actor_user_id=99,
+            effective_at=repository.current_time,
+            reason_code="subject_withdrawal",
+            reason_text="Withdrew during screening.",
+        )
+
+        self.assertFalse(result.requested)
+        self.assertEqual(result.reason, "subject_not_enrolled")
+        self.assertIsNone(transition_service.command)
+        self.assertEqual(repository.started_target_ids, [])
+
 
 class SubjectEarlyTerminationRequestViewTests(SimpleTestCase):
     def test_uses_dedicated_permission_and_validated_termination_details(self):
@@ -223,10 +252,12 @@ class _EarlyTerminationRepositoryStub:
         transition_context,
         eos_event=None,
         lifecycle_status=SubjectLifecycleStatusChoices.ACTIVE,
+        is_enrolled=True,
     ):
         self.transition_context = transition_context
         self.eos_event = eos_event
         self.lifecycle_status = lifecycle_status
+        self.is_enrolled = is_enrolled
         self.current_time = datetime(2026, 7, 30, 9, 0, tzinfo=timezone.utc)
         self.started_target_ids = []
 
@@ -237,6 +268,7 @@ class _EarlyTerminationRepositoryStub:
         return SubjectLifecycleSnapshot(
             subject_id=subject_id,
             lifecycle_status=self.lifecycle_status,
+            is_enrolled=self.is_enrolled,
         )
 
     def get_reached_regular_eos_event_instance(self, *, study_id, subject_id):

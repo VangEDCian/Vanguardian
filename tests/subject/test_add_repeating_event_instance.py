@@ -60,6 +60,91 @@ class AddRepeatingSubjectEventInstanceServiceTests(SimpleTestCase):
 
 
 class SubjectDetailNavigationMixinTests(SimpleTestCase):
+    def test_build_event_navigation_hides_inactive_branch_events(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+
+        def event_instance(*, pk, code, status, sequence_no):
+            event_definition = SimpleNamespace(
+                id=pk,
+                pk=pk,
+                code=code,
+                name=code,
+                sequence_no=sequence_no,
+                is_repeating=False,
+                max_repeats=None,
+            )
+            return SimpleNamespace(
+                pk=pk,
+                event_definition_id=pk,
+                event_definition=event_definition,
+                event_name_snapshot=code,
+                event_code_snapshot=code,
+                status=status,
+                repeat_index=1,
+                completed_at=None,
+            )
+
+        visible_follow_up = event_instance(
+            pk=10,
+            code="FU",
+            status=EventInstanceStatusChoices.OPEN,
+            sequence_no=10,
+        )
+        events = [
+            visible_follow_up,
+            event_instance(
+                pk=11,
+                code="ET",
+                status=EventInstanceStatusChoices.NOT_READY,
+                sequence_no=20,
+            ),
+            event_instance(
+                pk=12,
+                code="CANCELLED_FU",
+                status=EventInstanceStatusChoices.CANCELLED,
+                sequence_no=30,
+            ),
+            event_instance(
+                pk=13,
+                code="SKIPPED_FU",
+                status=EventInstanceStatusChoices.SKIPPED,
+                sequence_no=40,
+            ),
+        ]
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet(events),
+                    _FakeQuerySet(
+                        [
+                            SimpleNamespace(
+                                id=visible_follow_up.pk,
+                                event_definition_id=visible_follow_up.event_definition_id,
+                                status=visible_follow_up.status,
+                            )
+                        ]
+                    ),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet([]),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instances",
+                return_value={},
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual([item["code"] for item in payload], ["FU"])
+
     def test_build_event_navigation_prefers_form_instance_display_label(self):
         subject = SimpleNamespace(pk=3, study_id=1)
         event_definition = SimpleNamespace(
@@ -212,10 +297,17 @@ class SubjectDetailNavigationMixinTests(SimpleTestCase):
 
 class _FakeQuerySet(list):
     def exclude(self, **kwargs):
-        if "status" not in kwargs:
-            return self
-        excluded_status = kwargs["status"]
-        return _FakeQuerySet([item for item in self if getattr(item, "status", None) != excluded_status])
+        if "status__in" in kwargs:
+            excluded_statuses = set(kwargs["status__in"])
+            return _FakeQuerySet(
+                [item for item in self if getattr(item, "status", None) not in excluded_statuses]
+            )
+        if "status" in kwargs:
+            excluded_status = kwargs["status"]
+            return _FakeQuerySet(
+                [item for item in self if getattr(item, "status", None) != excluded_status]
+            )
+        return self
 
     def select_related(self, *args, **kwargs):
         return self

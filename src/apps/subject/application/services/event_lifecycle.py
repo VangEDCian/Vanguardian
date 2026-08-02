@@ -155,6 +155,7 @@ class SubjectEventTransitionService:
                 if not decision.should_open and not decision.should_create:
                     self._retry_open_workflow_action(
                         decision=decision,
+                        rule=rule_by_id[decision.rule_id],
                         source_event=source_event,
                         target_events_by_definition=target_events_by_definition,
                         actor_user_id=command.actor_user_id,
@@ -222,11 +223,13 @@ class SubjectEventTransitionService:
                     actor_user_id=command.actor_user_id,
                     now=now,
                 )
-                self.workflow_action_service.execute_for_open_event(
-                    event_instance_id=target_event.id,
-                    actor_user_id=command.actor_user_id,
-                    source_event_instance_id=source_event.id,
-                )
+                if rule.auto_execute:
+                    self.workflow_action_service.execute_for_open_event(
+                        event_instance_id=target_event.id,
+                        actor_user_id=command.actor_user_id,
+                        source_event_instance_id=source_event.id,
+                        automatic=True,
+                    )
 
             result = SubjectEventTransitionResult(
                 source_event_instance_id=source_event.id,
@@ -240,11 +243,12 @@ class SubjectEventTransitionService:
         self,
         *,
         decision,
+        rule,
         source_event,
         target_events_by_definition,
         actor_user_id,
     ) -> None:
-        if decision.reason != "target_event_not_openable":
+        if not rule.auto_execute or decision.reason != "target_event_not_openable":
             return
         target_event = target_events_by_definition.get(decision.target_event_definition_id)
         if target_event is None:
@@ -255,6 +259,7 @@ class SubjectEventTransitionService:
             event_instance_id=target_event.id,
             actor_user_id=actor_user_id,
             source_event_instance_id=source_event.id,
+            automatic=True,
         )
 
     @staticmethod

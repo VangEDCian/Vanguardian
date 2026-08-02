@@ -1,3 +1,5 @@
+import json
+
 from django.db.models import Count, Q
 
 from apps.datacapture.infrastructure.models.capture import (
@@ -104,7 +106,7 @@ class DjangoDataCaptureFactMappingRepository:
             return None
 
         page_states = list(
-            DataCapturePageState.objects.select_related("crf_template")
+            DataCapturePageState.objects.select_related("crf_template", "current_entry")
             .filter(
                 subject_id=current_page_state.subject_id,
                 visit_id=current_page_state.visit_id,
@@ -114,6 +116,8 @@ class DjangoDataCaptureFactMappingRepository:
                 "id",
                 "status",
                 "final_data",
+                "current_entry_id",
+                "current_entry__data",
                 "crf_template_id",
                 "crf_template__code",
             )
@@ -134,7 +138,7 @@ class DjangoDataCaptureFactMappingRepository:
         event_instance_id: int,
     ) -> DataCaptureEventFactContext | None:
         page_states = list(
-            DataCapturePageState.objects.select_related("crf_template", "visit")
+            DataCapturePageState.objects.select_related("crf_template", "current_entry", "visit")
             .filter(
                 visit_id=event_instance_id,
                 deleted=False,
@@ -143,6 +147,8 @@ class DjangoDataCaptureFactMappingRepository:
                 "id",
                 "status",
                 "final_data",
+                "current_entry_id",
+                "current_entry__data",
                 "crf_template_id",
                 "crf_template__code",
                 "visit_id",
@@ -287,7 +293,7 @@ class DjangoDataCaptureFactMappingRepository:
             current_entry_data = getattr(current_entry, "data", "") if current_entry is not None else ""
             raw_data = (
                 final_data
-                if str(final_data or "").strip()
+                if DjangoDataCaptureFactMappingRepository._has_meaningful_fact_data(final_data)
                 else current_entry_data
             )
             forms[form_code] = DataCaptureFactForm.from_raw(
@@ -298,6 +304,44 @@ class DjangoDataCaptureFactMappingRepository:
             if current_page_state_id is not None and int(page_state.pk) == int(current_page_state_id):
                 current_form_code = form_code
         return DataCaptureFactSource(forms=forms, current_form_code=current_form_code)
+
+    @classmethod
+    def _has_meaningful_fact_data(cls, raw_data) -> bool:
+        if isinstance(raw_data, (dict, list)):
+            decoded_data = raw_data
+        else:
+            normalized_data = str(raw_data or "").strip()
+            if not normalized_data:
+                return False
+            try:
+                decoded_data = json.loads(normalized_data)
+            except (TypeError, json.JSONDecodeError):
+                return True
+        if isinstance(decoded_data, dict) and decoded_data.get("format") == "edc.form_data.v1":
+            return cls._canonical_form_data_has_items(decoded_data)
+        if isinstance(decoded_data, (dict, list)):
+            return bool(decoded_data)
+        return decoded_data is not None
+
+    @staticmethod
+    def _canonical_form_data_has_items(form_data: dict) -> bool:
+        groups = form_data.get("groups")
+        if not isinstance(groups, dict):
+            return False
+        for group in groups.values():
+            if not isinstance(group, dict):
+                continue
+            items = group.get("items")
+            if isinstance(items, dict) and items:
+                return True
+            rows = group.get("rows")
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                row_items = row.get("items") if isinstance(row, dict) else None
+                if isinstance(row_items, dict) and row_items:
+                    return True
+        return False
 
 
 __all__ = ["DjangoDataCaptureFactMappingRepository"]

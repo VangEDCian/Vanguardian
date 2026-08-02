@@ -229,6 +229,45 @@ class SubjectEarlyTerminationForm(forms.Form):
     )
 
 
+class SubjectIdListField(forms.Field):
+    widget = forms.MultipleHiddenInput
+
+    def clean(self, value):
+        values = super().clean(value)
+        if not values:
+            raise forms.ValidationError(_("Select at least one subject."))
+
+        subject_ids = []
+        seen = set()
+        for value in values:
+            try:
+                subject_id = int(value)
+            except (TypeError, ValueError) as exc:
+                raise forms.ValidationError(_("Invalid subject selection.")) from exc
+            if subject_id <= 0:
+                raise forms.ValidationError(_("Invalid subject selection."))
+            if subject_id not in seen:
+                seen.add(subject_id)
+                subject_ids.append(subject_id)
+        if len(subject_ids) > 100:
+            raise forms.ValidationError(_("Select no more than 100 subjects at a time."))
+        return tuple(subject_ids)
+
+
+class SubjectBulkActionForm(forms.Form):
+    ACTION_DELETE = "delete"
+    ACTION_RESYNC_STAGE = "resync_stage"
+    ACTION_EARLY_TERMINATE = "early_terminate"
+    ACTION_CHOICES = (
+        (ACTION_DELETE, _("Delete Subjects")),
+        (ACTION_RESYNC_STAGE, _("Resync Stage")),
+        (ACTION_EARLY_TERMINATE, _("Start Early Termination")),
+    )
+
+    action = forms.ChoiceField(choices=ACTION_CHOICES)
+    subject_ids = SubjectIdListField()
+
+
 class SubjectPeriodOverrideForm(forms.Form):
     period_end_at = forms.DateTimeField(
         label=_("Period end at"),

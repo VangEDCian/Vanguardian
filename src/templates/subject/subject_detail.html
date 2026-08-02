@@ -42,7 +42,13 @@
                 <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
                 <span class="subject-detail-screen__summary-item">
                     <span class="subject-detail-screen__label">{% trans "Participation" %}</span>
-                    <strong>{{ subject_obj.get_lifecycle_status_display }}</strong>
+                    <strong>
+                        {% if participation_status_label %}
+                            {{ participation_status_label }}
+                        {% else %}
+                            {{ subject_obj.get_lifecycle_status_display|default:"—" }}
+                        {% endif %}
+                    </strong>
                 </span>
             </div>
             <div class="subject-detail-screen__summary-actions">

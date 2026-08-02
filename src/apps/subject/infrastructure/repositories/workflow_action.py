@@ -67,6 +67,85 @@ class DjangoSubjectWorkflowActionRepository:
             event_definition__execution_mode=EventExecutionModeChoices.WORKFLOW_ACTION,
         ).filter(self._supported_workflow_action_filter()).exists()
 
+    def get_open_workflow_action_context(
+        self,
+        *,
+        study_id: int,
+        subject_id: int,
+        event_instance_id: int,
+    ) -> SubjectEventWorkflowContext | None:
+        event_instance = (
+            SubjectEventInstance.objects.select_related("event_definition", "subject")
+            .filter(
+                pk=event_instance_id,
+                study_id=study_id,
+                subject_id=subject_id,
+                deleted=False,
+                status=EventInstanceStatusChoices.OPEN,
+                event_definition__execution_mode=EventExecutionModeChoices.WORKFLOW_ACTION,
+            )
+            .filter(self._supported_workflow_action_filter())
+            .only(
+                "id",
+                "study_id",
+                "subject_id",
+                "study_version",
+                "status",
+                "event_definition_id",
+                "event_definition__code",
+                "event_definition__event_type",
+                "event_definition__event_category",
+                "event_definition__execution_mode",
+                "subject__site_id",
+            )
+            .first()
+        )
+        return self._to_workflow_context(event_instance)
+
+    def map_open_workflow_action_context_by_subject_id(
+        self,
+        *,
+        study_id: int,
+        subject_ids,
+    ) -> dict[int, SubjectEventWorkflowContext]:
+        subject_id_list = tuple(subject_ids or ())
+        if not subject_id_list:
+            return {}
+
+        context_by_subject_id = {}
+        event_instances = (
+            SubjectEventInstance.objects.select_related("event_definition", "subject")
+            .filter(
+                study_id=study_id,
+                subject_id__in=subject_id_list,
+                deleted=False,
+                status=EventInstanceStatusChoices.OPEN,
+                event_definition__execution_mode=EventExecutionModeChoices.WORKFLOW_ACTION,
+            )
+            .filter(self._supported_workflow_action_filter())
+            .only(
+                "id",
+                "study_id",
+                "subject_id",
+                "study_version",
+                "status",
+                "event_definition_id",
+                "event_definition__code",
+                "event_definition__event_type",
+                "event_definition__event_category",
+                "event_definition__execution_mode",
+                "event_definition__sequence_no",
+                "subject__site_id",
+            )
+            .order_by("subject_id", "event_definition__sequence_no", "id")
+        )
+        for event_instance in event_instances:
+            context_by_subject_id.setdefault(
+                event_instance.subject_id,
+                self._to_workflow_context(event_instance),
+            )
+        return context_by_subject_id
+
     def map_open_workflow_action_event_id_by_subject_id(
         self,
         *,
@@ -139,6 +218,10 @@ class DjangoSubjectWorkflowActionRepository:
             )
             .first()
         )
+        return self._to_workflow_context(event_instance)
+
+    @staticmethod
+    def _to_workflow_context(event_instance) -> SubjectEventWorkflowContext | None:
         if event_instance is None:
             return None
         return SubjectEventWorkflowContext(

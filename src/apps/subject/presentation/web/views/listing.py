@@ -11,6 +11,7 @@ from apps.reconcile.models import ReconcileDataQueryStatusChoices, ReconcileVali
 from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHandler
 from apps.shared.navigation import get_default_authenticated_url, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
+from apps.study.public import build_randomization_transition_facts
 from apps.subject.application.services.early_termination import (
     SubjectEarlyTerminationAvailabilityService,
 )
@@ -50,6 +51,9 @@ class SubjectListView(
     treatment_timeline_service_class = SubjectTreatmentTimelineService
     early_termination_availability_service_class = (
         SubjectEarlyTerminationAvailabilityService
+    )
+    randomization_transition_fact_builder = staticmethod(
+        build_randomization_transition_facts
     )
 
     @staticmethod
@@ -131,13 +135,32 @@ class SubjectListView(
                 subject_ids=subject_ids,
             )
         )
-        workflow_action_event_map = {}
-        if can_update_subject:
-            workflow_service = self.workflow_action_service_class()
-            workflow_action_event_map = workflow_service.map_triggerable_event_instance_id_by_subject_id(
+        workflow_service = self.workflow_action_service_class()
+        workflow_action_access_map = (
+            workflow_service.map_triggerable_event_access_by_subject_id(
                 study_id=self.get_study_id(),
                 subject_ids=subject_ids,
             )
+        )
+        workflow_permission_by_scope = {}
+        workflow_action_event_map = {}
+        for subject_id, access in workflow_action_access_map.items():
+            permission_scope = (
+                access.permission_code,
+                subject_site_by_id.get(subject_id),
+            )
+            if permission_scope not in workflow_permission_by_scope:
+                workflow_permission_by_scope[permission_scope] = (
+                    user_can_access_permission(
+                        self.request.user,
+                        access.permission_code,
+                        study_id=self.get_study_id(),
+                        site_id=subject_site_by_id.get(subject_id),
+                        request=self.request,
+                    )
+                )
+            if workflow_permission_by_scope[permission_scope]:
+                workflow_action_event_map[subject_id] = access.event_instance_id
         early_termination_eligible_subject_ids = frozenset()
         if can_early_terminate:
             early_termination_eligible_subject_ids = (
@@ -160,6 +183,11 @@ class SubjectListView(
             can_early_terminate=can_early_terminate,
             early_termination_eligible_subject_ids=(
                 early_termination_eligible_subject_ids
+            ),
+            randomization_transition_facts=(
+                self.randomization_transition_fact_builder(
+                    study_id=self.get_study_id(),
+                )
             ),
             **kwargs,
         )
@@ -231,12 +259,22 @@ class SubjectListView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        permission_context = {
+            "study_id": self.get_study_id(),
+            "site_id": self.get_selected_site_id(),
+            "request": self.request,
+        }
         context["can_create_subject"] = user_can_access_permission(
-            self.request.user,
-            "SUBJECT.CREATE",
-            study_id=self.get_study_id(),
-            site_id=self.get_selected_site_id(),
-            request=self.request,
+            self.request.user, "SUBJECT.CREATE", **permission_context
+        )
+        context["can_delete_subject"] = user_can_access_permission(
+            self.request.user, "subject.delete_subject", **permission_context
+        )
+        context["can_bulk_resync_subject"] = user_can_access_permission(
+            self.request.user, "SUBJECT.UPDATE", **permission_context
+        )
+        context["can_bulk_early_terminate_subject"] = user_can_access_permission(
+            self.request.user, "SUBJECT.EARLY_TERMINATE", **permission_context
         )
         return context
 

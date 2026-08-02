@@ -37,7 +37,13 @@ class SubjectDetailNavigationMixin:
                 deleted=False,
                 event_definition__execution_mode=EventExecutionModeChoices.FORM_ENTRY,
             )
-            .exclude(status=EventInstanceStatusChoices.NOT_READY)
+            .exclude(
+                status__in=(
+                    EventInstanceStatusChoices.NOT_READY,
+                    EventInstanceStatusChoices.SKIPPED,
+                    EventInstanceStatusChoices.CANCELLED,
+                )
+            )
             .select_related("event_definition")
             .order_by("event_definition__sequence_no", "repeat_index", "id")
         )

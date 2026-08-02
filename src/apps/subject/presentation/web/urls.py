@@ -3,6 +3,7 @@ from django.urls import path
 from apps.subject.presentation.web.views import (
     SubjectAddRepeatingEventInstanceView,
     SubjectAuditHistoryView,
+    SubjectBulkActionView,
     SubjectCreateView,
     SubjectDetailView,
     SubjectEarlyTerminationRequestView,
@@ -38,6 +39,11 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/create/",
         SubjectCreateView.as_view(),
         name="subject_create",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/bulk-action/",
+        SubjectBulkActionView.as_view(),
+        name="subject_bulk_action",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/resync-stage/",

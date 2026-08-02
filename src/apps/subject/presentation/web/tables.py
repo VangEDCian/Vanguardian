@@ -4,6 +4,9 @@ from django.utils.html import format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.shared.datetime_formatting import date_format
+from apps.subject.presentation.web.mappers.participation_status import (
+    get_subject_participation_status_label,
+)
 from apps.subject.presentation.web.mappers.subject_list_model import get_subject_list_row_model
 
 
@@ -88,6 +91,9 @@ class SubjectListTable(tables.Table):
         self.detail_url_by_subject_id = (
             kwargs.pop("detail_url_by_subject_id", None) or {}
         )
+        self.randomization_transition_facts = (
+            kwargs.pop("randomization_transition_facts", None) or {}
+        )
         self.can_update_subject = kwargs.pop("can_update_subject", False)
         self.can_early_terminate = kwargs.pop("can_early_terminate", False)
         self.early_termination_eligible_subject_ids = frozenset(
@@ -113,9 +119,11 @@ class SubjectListTable(tables.Table):
             return "—"
         return date_format(enrollment_date, "DATE_FORMAT")
 
-    @staticmethod
-    def render_lifecycle_status(record):
-        return record.get_lifecycle_status_display()
+    def render_lifecycle_status(self, record):
+        return get_subject_participation_status_label(
+            record,
+            randomization_transition_facts=self.randomization_transition_facts,
+        )
 
     def render_randomization(self, record):
         try:

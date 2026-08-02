@@ -118,6 +118,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
                 "window_after_days": "3",
                 "auto_open": "yes",
                 "auto_create": "yes",
+                "auto_execute": "yes",
                 "requires_previous_completion": "no",
                 "allow_skip": "yes",
             },
@@ -174,6 +175,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             window_after_days=3,
             auto_open=True,
             auto_create=True,
+            auto_execute=True,
             requires_previous_completion=False,
             allow_skip=True,
             actor_user_id=99,
@@ -256,6 +258,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             window_after_days=None,
             auto_open=True,
             auto_create=True,
+            auto_execute=False,
             requires_previous_completion=True,
             allow_skip=False,
             actor_user_id=99,
@@ -301,6 +304,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
                 "window_after_days": "bad-number",
                 "auto_open": "maybe",
                 "auto_create": "maybe",
+                "auto_execute": "maybe",
                 "requires_previous_completion": "maybe",
                 "allow_skip": "maybe",
             },
@@ -325,6 +329,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             window_after_days=None,
             auto_open=False,
             auto_create=False,
+            auto_execute=False,
             requires_previous_completion=True,
             allow_skip=False,
             actor_user_id=99,
@@ -347,6 +352,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             window_after_days=None,
             auto_open=False,
             auto_create=False,
+            auto_execute=False,
             requires_previous_completion=True,
             allow_skip=False,
             actor_user_id=42,
@@ -384,6 +390,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
             window_after_days=3,
             auto_open=True,
             auto_create=True,
+            auto_execute=True,
             requires_previous_completion=False,
             allow_skip=True,
             actor_user_id=84,
@@ -413,6 +420,7 @@ class ImportStudyEventDefinitionsTemplateServiceTests(SimpleTestCase):
         self.assertEqual(transition_rule.window_after_days, 3)
         self.assertTrue(transition_rule.auto_open)
         self.assertTrue(transition_rule.auto_create)
+        self.assertTrue(transition_rule.auto_execute)
         self.assertFalse(transition_rule.requires_previous_completion)
         self.assertTrue(transition_rule.allow_skip)
         self.service.repository.save_transition_rule.assert_called_once()

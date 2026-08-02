@@ -119,6 +119,27 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
             rendered,
         )
 
+    def test_actions_cell_renders_trigger_workflow_without_subject_update(self):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": {"subject": {"update_subject": False}},
+                "record": SimpleNamespace(pk=20, study_id=1),
+                "request": SimpleNamespace(
+                    get_full_path="/studies/1/subjects/?page=2"
+                ),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={20: 60},
+                    can_update_subject=False,
+                ),
+            },
+        )
+
+        self.assertIn("Trigger Workflow", rendered)
+        self.assertIn("You do not have permission to resync stage", rendered)
+
     def test_actions_cell_hides_trigger_workflow_without_open_workflow_action(self):
         rendered = render_to_string(
             "subject/includes/subject_list_actions_cell.html",
