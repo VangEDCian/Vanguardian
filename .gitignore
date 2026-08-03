@@ -53,8 +53,8 @@ coverage.xml
 
 # Migrations (optional: keep if you want to version control them)
 # Uncomment the next line if you don't want to commit migration files
-*/migrations/*.py
-*/migrations/*.pyc
+**/migrations/*
+!**/migrations/__init__.py
 
 # Deployment / build
 build/
@@ -83,11 +83,6 @@ tests/e2e/playwright/.auth/
 tests/e2e/playwright/snapshot.local.json
 tests/e2e/playwright/snapshots/
 seeders/
-
-migrations/
-!migrations/__init__.py
-!src/apps/study/migrations/
-!src/apps/study/migrations/*.py
 
 # Added by code-review-graph
 .code-review-graph/
