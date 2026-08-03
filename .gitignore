@@ -53,8 +53,8 @@ coverage.xml
 
 # Migrations (optional: keep if you want to version control them)
 # Uncomment the next line if you don't want to commit migration files
-# */migrations/*.py
-# */migrations/*.pyc
+*/migrations/*.py
+*/migrations/*.pyc
 
 # Deployment / build
 build/
