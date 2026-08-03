@@ -77,3 +77,24 @@ class StudyAuditService:
             before_data=before_data,
             after_data={**before_data, "deleted": True, "is_active": False},
         )
+
+    def record_crf_page_lifecycle_updated(
+        self,
+        *,
+        study,
+        before_steps,
+        after_steps,
+        actor_user_id=None,
+        ip_address=None,
+        user_agent=None,
+    ):
+        self.audit_context_adapter.record_event(
+            action=AuditEventAction.STUDY_UPDATED,
+            object_type=AuditEventObjectType.STUDY,
+            object_id=str(study.pk),
+            actor_user_id=actor_user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            before_data={"crf_page_lifecycle": before_steps},
+            after_data={"crf_page_lifecycle": after_steps},
+        )

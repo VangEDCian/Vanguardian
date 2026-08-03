@@ -6,6 +6,10 @@ from apps.study.application.commands import (
     RetractEligibilityAssessmentCommand,
 )
 from apps.study.application.exceptions import EligibilityEnrollmentGateError
+from apps.study.application.services.crf_page_lifecycle import (
+    CrfPageLifecycleActionState,
+    StudyCrfPageLifecycleService,
+)
 from apps.study.application.services.event_attestation_policy import (
     EventAttestationPolicySnapshot,
     StudyEventAttestationPolicyReader,
@@ -173,6 +177,19 @@ def list_event_attestation_policies_for_event(
     )
 
 
+def get_crf_page_lifecycle_steps(*, study_id: int):
+    return StudyCrfPageLifecycleService().list_steps(study_id=study_id)
+
+
+def get_crf_page_lifecycle_action_state(
+    *, study_id: int, page_status: str
+) -> CrfPageLifecycleActionState:
+    return StudyCrfPageLifecycleService().action_state(
+        study_id=study_id,
+        page_status=page_status,
+    )
+
+
 class EventFormDisplayConfigReader:
     def __init__(self, service=None):
         self.service = service or EventFormDisplayLabelService()
@@ -233,6 +250,7 @@ __all__ = [
     "EventFormDisplayLabelValidationError",
     "EventFormDisplayTemplatePreview",
     "EventAttestationPolicySnapshot",
+    "CrfPageLifecycleActionState",
     "StudyEventFormBindingReader",
     "assign_randomization_slot_for_subject",
     "build_eligibility_transition_facts",
@@ -242,6 +260,8 @@ __all__ = [
     "mark_subject_eligibility_stale_on_source_data_change",
     "record_event_gate_evaluation",
     "get_current_subject_treatment",
+    "get_crf_page_lifecycle_action_state",
+    "get_crf_page_lifecycle_steps",
     "get_subject_identifier_policy",
     "get_subject_treatment_timeline",
     "list_event_attestation_policies_for_event",

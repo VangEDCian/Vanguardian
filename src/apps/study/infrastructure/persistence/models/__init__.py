@@ -1,4 +1,5 @@
 from .eligibility import SubjectEligibilityAssessment, SubjectEligibilityFailure
+from .crf_page_lifecycle import StudyCrfPageLifecycleStep
 from .events import (
     ConditionDefinition,
     EventAttestationPolicy,
@@ -23,6 +24,7 @@ from .study import Study
 
 __all__ = [
     "Study",
+    "StudyCrfPageLifecycleStep",
     "ConditionDefinition",
     "EventAttestationPolicy",
     "EventAttestationPolicyTranslation",

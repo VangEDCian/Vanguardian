@@ -13,6 +13,10 @@ from apps.core.form_data_document import (
     flatten_form_data_for_export,
     normalize_form_data,
 )
+from apps.datacapture.application.services.page_lifecycle_policy import (
+    CrfPageLifecycleStep,
+    DataCapturePageLifecyclePolicyService,
+)
 from apps.datacapture.domain import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.public import (
     ensure_draft_page_state_if_not_exists,
@@ -517,6 +521,7 @@ class SubjectDetailView(
         form_verification_review = None
         form_verification_verify_checked_url = ""
         form_verification_reopen_url = ""
+        form_verification_certify_page_url = ""
         form_verification_finalize_page_data_url = ""
         form_verification_lock_page_url = ""
         form_verification_lock_blocked_by_queries = False
@@ -694,6 +699,18 @@ class SubjectDetailView(
                 if is_form_verification_mode:
                     form_query = f"?form={focused_form.get('id', '')}"
                     normalized_page_status = (focused_page_status or "").strip().lower()
+                    lifecycle_policy = DataCapturePageLifecyclePolicyService()
+                    actor_user_id = int(getattr(self.request.user, "id", 0) or 0)
+
+                    def can_perform_step(step_code):
+                        return lifecycle_policy.can_perform(
+                            study_id=self.get_study_id(),
+                            page_status=normalized_page_status,
+                            step_code=step_code,
+                            actor_user_id=actor_user_id,
+                            site_id=subject.site_id,
+                        )
+
                     form_verification_show_actions = normalized_page_status in {
                         DataCapturePageState.SUBMITTED,
                         DataCapturePageState.VERIFIED,
@@ -740,7 +757,10 @@ class SubjectDetailView(
                             },
                         )
                         form_verification_query_thread_url = f"{form_verification_query_thread_url}{form_query}"
-                    if DataCapturePageState.can_start_or_continue_review(normalized_page_status):
+                    if (
+                        DataCapturePageState.can_start_or_continue_review(normalized_page_status)
+                        and can_perform_step(CrfPageLifecycleStep.VERIFY)
+                    ):
                         form_verification_verify_checked_url = reverse(
                             "subject:subject_form_verification_verify_checked",
                             kwargs={
@@ -762,28 +782,59 @@ class SubjectDetailView(
                             },
                         )
                         form_verification_reopen_url = f"{form_verification_reopen_url}{form_query}"
-                    if normalized_page_status == DataCapturePageState.VERIFIED:
-                        form_verification_finalize_page_data_url = reverse(
-                            "subject:subject_form_verification_finalize_page_data",
-                            kwargs={
-                                "study_id": self.get_study_id(),
-                                "subject_id": subject.pk,
-                                "visit_id": visit_pk,
-                                "crf_template_id": template_pk,
-                            },
-                        )
-                        form_verification_finalize_page_data_url = (
-                            f"{form_verification_finalize_page_data_url}{form_query}"
-                        )
                 if (
                     is_form_verification_mode
-                    and normalized_page_status == DataCapturePageState.FINALIZED
+                    and user_can_access_permission(
+                        self.request.user,
+                        "EVENT_CERTIFICATION.CERTIFY",
+                        study_id=self.get_study_id(),
+                        site_id=subject.site_id,
+                    )
+                    and can_perform_step(CrfPageLifecycleStep.CERTIFY)
+                ):
+                    form_verification_certify_page_url = reverse(
+                        "subject:subject_form_verification_certify_page",
+                        kwargs={
+                            "study_id": self.get_study_id(),
+                            "subject_id": subject.pk,
+                            "visit_id": visit_pk,
+                            "crf_template_id": template_pk,
+                        },
+                    )
+                    form_verification_certify_page_url = (
+                        f"{form_verification_certify_page_url}{form_query}"
+                    )
+                if (
+                    is_form_verification_mode
+                    and user_can_access_permission(
+                        self.request.user,
+                        VERIFY_FORM_PERMISSION,
+                        study_id=self.get_study_id(),
+                        site_id=subject.site_id,
+                    )
+                    and can_perform_step(CrfPageLifecycleStep.FINALIZE)
+                ):
+                    form_verification_finalize_page_data_url = reverse(
+                        "subject:subject_form_verification_finalize_page_data",
+                        kwargs={
+                            "study_id": self.get_study_id(),
+                            "subject_id": subject.pk,
+                            "visit_id": visit_pk,
+                            "crf_template_id": template_pk,
+                        },
+                    )
+                    form_verification_finalize_page_data_url = (
+                        f"{form_verification_finalize_page_data_url}{form_query}"
+                    )
+                if (
+                    is_form_verification_mode
                     and user_can_access_permission(
                         self.request.user,
                         "DATA.LOCK",
                         study_id=self.get_study_id(),
                         site_id=subject.site_id,
                     )
+                    and can_perform_step(CrfPageLifecycleStep.LOCK)
                 ):
                     if field_query_state_by_id:
                         form_verification_lock_blocked_by_queries = True
@@ -894,6 +945,7 @@ class SubjectDetailView(
         context["form_verification_review"] = form_verification_review
         context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
         context["form_verification_reopen_url"] = form_verification_reopen_url
+        context["form_verification_certify_page_url"] = form_verification_certify_page_url
         context["form_verification_finalize_page_data_url"] = form_verification_finalize_page_data_url
         context["form_verification_lock_page_url"] = form_verification_lock_page_url
         context["form_verification_lock_blocked_by_queries"] = form_verification_lock_blocked_by_queries

@@ -26,6 +26,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
             ),
             "form_verification_verify_checked_url": "",
             "form_verification_reopen_url": "",
+            "form_verification_certify_page_url": "",
             "form_verification_finalize_page_data_url": "",
             "form_verification_lock_page_url": "",
             "form_verification_lock_blocked_by_queries": False,
@@ -147,6 +148,16 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn('data-form-verification-page-action="finalize"', rendered)
         self.assertIn('data-form-verification-page-action="lock"', rendered)
         self.assertIn("subject_form_verification_page_actions.js", rendered)
+
+    def test_verification_footer_renders_certify_action_with_confirmation(self):
+        rendered = self._render_subject_detail_verification_screen(
+            form_verification_certify_page_url="/api/certify-page/",
+        )
+
+        self.assertIn("Certify Page", rendered)
+        self.assertIn('data-form-verification-page-action="certify"', rendered)
+        self.assertIn('data-post-url="/api/certify-page/"', rendered)
+        self.assertIn("data-confirm-message", rendered)
 
     def test_verification_footer_disables_lock_when_queries_are_not_closed(self):
         rendered = self._render_subject_detail_verification_screen(

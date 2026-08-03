@@ -35,7 +35,7 @@
             <button type="button"
                     class="crf-template-actions__item"
                     data-subject-verify-form-nav="{{ subject_detail_base_url }}?mode=verification">
-                {% trans "Verify Form" %}
+                {% trans "CRF Page Workflow" %}
             </button>
         {% else %}
             <button type="button"
@@ -44,7 +44,7 @@
                     aria-disabled="true"
                     data-dropdown-option
                     title="{% trans 'You do not have permission or no submitted data is available for this subject.' %}">
-                {% trans "Verify Form" %}
+                {% trans "CRF Page Workflow" %}
             </button>
         {% endif %}
         {% if subject_trigger_workflow_url %}

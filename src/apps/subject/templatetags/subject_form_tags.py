@@ -355,6 +355,8 @@ def subject_form_status_label(raw_status):
         return _("Submitted")
     if normalized_status == "verified":
         return _("Verified")
+    if normalized_status == "certified":
+        return _("Certified")
     if normalized_status == "locked":
         return _("Locked")
     if normalized_status == "finalized":

@@ -38,6 +38,7 @@ from apps.study.presentation.web.views.site import (
     SiteMembershipOptionsApiView,
 )
 from apps.study.presentation.web.views.studies import (
+    StudyCrfPageLifecycleConfigView,
     StudyDetailView,
     StudyListView,
     StudyManageRolesView,
@@ -63,6 +64,7 @@ __all__ = [
     "SiteMembershipOptionsApiView",
     "StudyCreateView",
     "StudyCrfSectionLayoutConfigImportTemplateView",
+    "StudyCrfPageLifecycleConfigView",
     "StudyCrfTemplateFieldImportTemplateView",
     "StudyCrfTemplateImportTemplateView",
     "StudyCrfTemplateListView",

@@ -20,7 +20,7 @@ from apps.subject.application.services.early_termination import (
     SubjectEarlyTerminationAvailabilityService,
 )
 from apps.subject.application.services.subject_list_verify_form_visibility import (
-    VERIFY_FORM_PERMISSION,
+    CRF_PAGE_LIFECYCLE_ACCESS_PERMISSIONS,
     SubjectListVerifyFormVisibilityService,
 )
 from apps.subject.application.services.treatment_timeline import SubjectTreatmentTimelineService
@@ -108,12 +108,15 @@ class SubjectListView(
         subject_site_by_id = dict(table_data.values_list("pk", "site_id"))
         subject_ids = tuple(subject_site_by_id)
         visibility = SubjectListVerifyFormVisibilityService()
-        can_verify_form = user_can_access_permission(
-            self.request.user,
-            VERIFY_FORM_PERMISSION,
-            study_id=self.get_study_id(),
-            site_id=self.get_selected_site_id(),
-            request=self.request,
+        can_verify_form = any(
+            user_can_access_permission(
+                self.request.user,
+                permission_code,
+                study_id=self.get_study_id(),
+                site_id=self.get_selected_site_id(),
+                request=self.request,
+            )
+            for permission_code in CRF_PAGE_LIFECYCLE_ACCESS_PERMISSIONS
         )
         can_update_subject = user_can_access_permission(
             self.request.user,
@@ -215,12 +218,15 @@ class SubjectListView(
                     )
                     for permission_code in CRF_DATA_CHANGE_PERMISSIONS
                 ),
-                "can_verify_form": user_can_access_permission(
-                    self.request.user,
-                    VERIFY_FORM_PERMISSION,
-                    study_id=self.get_study_id(),
-                    site_id=site_id,
-                    request=self.request,
+                "can_verify_form": any(
+                    user_can_access_permission(
+                        self.request.user,
+                        permission_code,
+                        study_id=self.get_study_id(),
+                        site_id=site_id,
+                        request=self.request,
+                    )
+                    for permission_code in CRF_PAGE_LIFECYCLE_ACCESS_PERMISSIONS
                 ),
                 "can_view_subject": user_can_access_permission(
                     self.request.user,

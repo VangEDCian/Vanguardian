@@ -56,6 +56,7 @@ class DjangoDataCapturePageRepository:
     FINAL_DATA_STATUSES = frozenset(
         {
             DataCapturePageStateStatusChoices.VERIFIED,
+            DataCapturePageStateStatusChoices.CERTIFIED,
             DataCapturePageStateStatusChoices.LOCKED,
             DataCapturePageStateStatusChoices.FINALIZED,
         }
@@ -1180,8 +1181,9 @@ class DjangoDataCapturePageRepository:
                 "visit__study_id",
                 "visit__study_version",
                 "visit__event_definition_id",
+                "subject__site_id",
             )
-            .select_related("visit")
+            .select_related("subject", "visit")
             .first()
         )
         if page_state is None:
@@ -1199,6 +1201,7 @@ class DjangoDataCapturePageRepository:
             study_id=visit.study_id,
             study_version=visit.study_version,
             event_definition_id=visit.event_definition_id,
+            site_id=page_state.subject.site_id,
         )
 
     def get_latest_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int, event_form_binding_id: int | None = None):
@@ -1452,10 +1455,15 @@ class DjangoDataCapturePageRepository:
         return self._are_all_visit_forms_in_status(
             subject_id=subject_id,
             visit_id=visit_id,
-            status=DataCapturePageStateStatusChoices.VERIFIED,
+            status=(
+                DataCapturePageStateStatusChoices.VERIFIED,
+                DataCapturePageStateStatusChoices.CERTIFIED,
+                DataCapturePageStateStatusChoices.FINALIZED,
+                DataCapturePageStateStatusChoices.LOCKED,
+            ),
         )
 
-    def _are_all_visit_forms_in_status(self, *, subject_id: int, visit_id: int, status: str) -> bool:
+    def _are_all_visit_forms_in_status(self, *, subject_id: int, visit_id: int, status) -> bool:
         visit = (
             SubjectEventInstance.objects.filter(
                 pk=visit_id,
@@ -1480,13 +1488,18 @@ class DjangoDataCapturePageRepository:
         if not form_definition_ids:
             return False
 
+        status_filter = (
+            {"status__in": status}
+            if isinstance(status, (tuple, list, set, frozenset))
+            else {"status": status}
+        )
         submitted_form_count = (
             DataCapturePageState.objects.filter(
                 subject_id=subject_id,
                 visit_id=visit_id,
                 crf_template_id__in=form_definition_ids,
                 deleted=False,
-                status=status,
+                **status_filter,
             )
             .values("crf_template_id")
             .distinct()
@@ -2539,6 +2552,19 @@ class DjangoDataCapturePageRepository:
                 if status == DataCapturePageStateStatusChoices.FINALIZED
                 else page_state.finalized_data_version
             ),
+            certified_at=(
+                now if status == DataCapturePageStateStatusChoices.CERTIFIED else page_state.certified_at
+            ),
+            certified_by_id=(
+                actor_user_id
+                if status == DataCapturePageStateStatusChoices.CERTIFIED
+                else page_state.certified_by_id
+            ),
+            certified_data_version=(
+                page_state.data_version
+                if status == DataCapturePageStateStatusChoices.CERTIFIED
+                else page_state.certified_data_version
+            ),
             locked_at=(now if status == DataCapturePageStateStatusChoices.LOCKED else page_state.locked_at),
             locked_by_id=(
                 actor_user_id if status == DataCapturePageStateStatusChoices.LOCKED else page_state.locked_by_id
@@ -2642,12 +2668,17 @@ class DjangoDataCapturePageRepository:
         crf_template_id = int(page_state.crf_template_id) if page_state is not None else 0
         entry_version = ""
         if page_state is not None and page_state.current_entry_id:
-            entry_version = (
+            current_entry = (
                 DataCapturePageEntry.objects.filter(pk=page_state.current_entry_id)
-                .values_list("entry_version", flat=True)
+                .only("entry_version", "data")
                 .first()
-                or ""
             )
+            entry_version = str(getattr(current_entry, "entry_version", "") or "")
+            if not payload and current_entry is not None:
+                payload = flatten_form_data_for_export(
+                    normalize_form_data(current_entry.data, strict=False),
+                    repeat_strategy="legacy_repeat_suffix",
+                )
         template_snapshot = (
             self.get_form_template_snapshot(crf_template_id=crf_template_id)
             if crf_template_id

@@ -52,6 +52,7 @@ class Study(models.Model):
         default="study_site",
     )
     lock_subject_code_after_assignment = models.BooleanField(default=True)
+    crf_page_lifecycle_configured = models.BooleanField(default=False)
 
     created_by_id = models.BigIntegerField(null=True, blank=True)
     updated_by_id = models.BigIntegerField(null=True, blank=True)

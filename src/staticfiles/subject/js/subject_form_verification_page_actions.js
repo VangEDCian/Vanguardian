@@ -75,6 +75,10 @@
       showNotification('Action URL not found.', 'error');
       return;
     }
+    const confirmMessage = String(button.dataset.confirmMessage || '').trim();
+    if (confirmMessage && !window.confirm(confirmMessage)) {
+      return;
+    }
 
     setDisabled(true);
     showLoading(button.dataset.loadingMessage || defaultLoadingMessage);

@@ -27,10 +27,12 @@ class DataCapturePageState(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
     review_started_at = models.DateTimeField(null=True, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)
+    certified_at = models.DateTimeField(null=True, blank=True)
     locked_at = models.DateTimeField(null=True, blank=True)
     finalized_at = models.DateTimeField(null=True, blank=True)
 
     verified_data_version = models.IntegerField(null=True, blank=True)
+    certified_data_version = models.IntegerField(null=True, blank=True)
     locked_data_version = models.IntegerField(null=True, blank=True)
     finalized_data_version = models.IntegerField(null=True, blank=True)
 
@@ -68,6 +70,7 @@ class DataCapturePageState(models.Model):
     submitted_by_id = models.BigIntegerField(null=True, blank=True)
     review_started_by_id = models.BigIntegerField(null=True, blank=True)
     verified_by_id = models.BigIntegerField(null=True, blank=True)
+    certified_by_id = models.BigIntegerField(null=True, blank=True)
     locked_by_id = models.BigIntegerField(null=True, blank=True)
     finalized_by_id = models.BigIntegerField(null=True, blank=True)
 

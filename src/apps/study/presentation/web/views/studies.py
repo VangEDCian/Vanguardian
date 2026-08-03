@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
@@ -26,8 +27,11 @@ from apps.study.application import (
     StudySubjectIdentifierMigrationStalePlanError,
     UpdateStudyService,
 )
+from apps.study.application.services.crf_page_lifecycle import StudyCrfPageLifecycleService
+from apps.study.domain.crf_page_lifecycle import CrfPageLifecycleConfigurationError
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import StudyForm
+from apps.study.presentation.web.forms.crf_page_lifecycle import StudyCrfPageLifecycleForm
 from apps.study.presentation.web.forms.roles import StudyRoleCreateForm
 from apps.study.presentation.web.mappers.commands import to_update_study_command
 from apps.study.presentation.web.views.helpers import (
@@ -554,3 +558,73 @@ class StudyRoleCreateView(StudyRolesContextMixin):
             return self.render_to_response(self.get_context_data(role_create_form=form))
 
         return redirect(self._role_manage_url())
+
+
+class StudyCrfPageLifecycleConfigView(StudyRolesContextMixin):
+    permission_required = "STUDY_CONFIG.MANAGE"
+    template_name = "study/study_crf_page_lifecycle.html"
+    lifecycle_service_class = StudyCrfPageLifecycleService
+    study_audit_service_class = StudyAuditService
+
+    def get_lifecycle_service(self):
+        return self.lifecycle_service_class()
+
+    def get_study_audit_service(self):
+        return self.study_audit_service_class()
+
+    @staticmethod
+    def _serialize_steps(steps):
+        return [
+            {
+                "step_code": step.step_code,
+                "display_order": step.display_order,
+                "allowed_role_ids": list(step.allowed_role_ids),
+            }
+            for step in steps
+        ]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        configuration = self.get_lifecycle_service().build_configuration(
+            study_id=self._study.pk
+        )
+        form = kwargs.get("lifecycle_form") or StudyCrfPageLifecycleForm(
+            configuration=configuration
+        )
+        context["detail_study"] = self._detail_view_model["detail_study"]
+        context["lifecycle_form"] = form
+        context["lifecycle_rows"] = form.rows()
+        context["uses_legacy_default"] = configuration["uses_legacy_default"]
+        return context
+
+    def post(self, request, *args, **kwargs):
+        configuration = self.get_lifecycle_service().build_configuration(
+            study_id=self._study.pk
+        )
+        form = StudyCrfPageLifecycleForm(request.POST, configuration=configuration)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(lifecycle_form=form))
+        try:
+            lifecycle_service = self.get_lifecycle_service()
+            before_steps = lifecycle_service.list_steps(study_id=self._study.pk)
+            after_steps = lifecycle_service.save(
+                study_id=self._study.pk,
+                raw_steps=form.raw_steps(),
+                actor_user_id=getattr(request.user, "id", None),
+            )
+        except CrfPageLifecycleConfigurationError as exc:
+            form.add_error(None, str(exc))
+            return self.render_to_response(self.get_context_data(lifecycle_form=form))
+        self.get_study_audit_service().record_crf_page_lifecycle_updated(
+            study=self._study,
+            before_steps=self._serialize_steps(before_steps),
+            after_steps=self._serialize_steps(after_steps),
+            **build_audit_request_context(request),
+        )
+        messages.success(request, _("CRF Page lifecycle configuration saved."))
+        return redirect(
+            reverse(
+                "study:study_crf_page_lifecycle",
+                kwargs={"study_id": self._study.pk},
+            )
+        )

@@ -11,6 +11,7 @@ from apps.crf.public import CrfContextAdapter
 from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.domain import DataCapturePageState
 from apps.datacapture.public import (
+    certify_page_for_subject_visit_crf,
     finalize_page_data_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
     get_page_entry_for_subject_visit_crf,
@@ -396,6 +397,39 @@ class SubjectFormVerificationFinalizePageDataView(
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+class SubjectFormVerificationCertifyPageView(
+    LoginRequiredMixin,
+    ContextPermissionRequiredMixin,
+    SubjectAbstractVerifyStudy,
+    View,
+):
+    permission_required = "EVENT_CERTIFICATION.CERTIFY"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
+    raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        try:
+            page_status = certify_page_for_subject_visit_crf(
+                subject_id=int(kwargs["subject_id"]),
+                visit_id=int(kwargs["visit_id"]),
+                crf_template_id=int(kwargs["crf_template_id"]),
+                actor_user_id=getattr(request.user, "id", None),
+                **_event_form_binding_kwargs_from_request(request),
+            )
+        except (DataCaptureValidationError, ValueError) as exc:
+            messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
+            return JsonResponse({"error": messages}, status=400)
+        return JsonResponse(
+            {
+                "ok": True,
+                "page_status": page_status,
+                "reload_required": True,
+            }
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class SubjectFormVerificationLockPageView(
     LoginRequiredMixin,
     ContextPermissionRequiredMixin,
@@ -649,6 +683,7 @@ class SubjectValidationIssueAcknowledgeView(
 
 
 __all__ = [
+    "SubjectFormVerificationCertifyPageView",
     "SubjectFormVerificationFinalizePageDataView",
     "SubjectFormVerificationLockPageView",
     "SubjectFormVerificationOpenQueryView",

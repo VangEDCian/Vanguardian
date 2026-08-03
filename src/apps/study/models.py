@@ -15,12 +15,14 @@ from apps.study.infrastructure.persistence.models import (
     Site,
     SiteMembership,
     Study,
+    StudyCrfPageLifecycleStep,
     SubjectEligibilityAssessment,
     SubjectEligibilityFailure,
 )
 
 __all__ = [
     "Study",
+    "StudyCrfPageLifecycleStep",
     "ConditionDefinition",
     "EventDefinition",
     "EventFormBinding",

@@ -34,14 +34,20 @@ from apps.study.presentation.web.views.crf_templates import (
 )
 from apps.study.presentation.web.views.site import SiteMembershipOptionsApiView
 from apps.study.presentation.web.views.studies import (
+    StudyCrfPageLifecycleConfigView,
     StudyManageRolesView,
     StudyRoleCreateView,
     StudyRolesContextMixin,
 )
+from apps.subject.presentation.web.views.bulk_actions import SubjectBulkActionView
 from apps.subject.presentation.web.views.event_instance_files import SubjectEventInstanceFileImportView
 from apps.subject.presentation.web.views.period_override import SubjectPeriodOverrideView
 from apps.subject.presentation.web.views.repeating_event_instance import SubjectAddRepeatingEventInstanceView
-from apps.subject.presentation.web.views.verification_verify_checked import SubjectFormVerificationQueryThreadView, SubjectValidationIssueAcknowledgeView
+from apps.subject.presentation.web.views.verification_verify_checked import (
+    SubjectFormVerificationCertifyPageView,
+    SubjectFormVerificationQueryThreadView,
+    SubjectValidationIssueAcknowledgeView,
+)
 
 EXPECTED_ROUTES_WITHOUT_BUSINESS_PERMISSION = {
     "",
@@ -98,6 +104,7 @@ class PermissionProposalMappingTests(SimpleTestCase):
             IdentityStudySiteOptionsApiView: ("STUDY_CONFIG.VIEW", "site.view_site_list"),
             SiteMembershipOptionsApiView: "site.view_site_membership_list",
             SubjectFormVerificationQueryThreadView: "SDV.MARK",
+            SubjectFormVerificationCertifyPageView: "EVENT_CERTIFICATION.CERTIFY",
             CrfFormBuilderView: "STUDY_CONFIG.MANAGE",
             CrfFieldUpdateView: "STUDY_CONFIG.MANAGE",
             StudyCrfTemplateImportTemplateView: "STUDY_CONFIG.MANAGE",
@@ -111,9 +118,11 @@ class PermissionProposalMappingTests(SimpleTestCase):
             SubjectValidationIssueAcknowledgeView: "VALIDATION_ISSUE.ACKNOWLEDGE",
             StudyRolesContextMixin: "USER_ACCESS.VIEW",
             StudyRoleCreateView: "USER_ACCESS.MANAGE",
+            StudyCrfPageLifecycleConfigView: "STUDY_CONFIG.MANAGE",
             SubjectEventInstanceFileImportView: "SUBJECT.UPDATE",
             SubjectAddRepeatingEventInstanceView: "SUBJECT.UPDATE",
             SubjectPeriodOverrideView: "SUBJECT.PERIOD_OVERRIDE",
+            SubjectBulkActionView: "SUBJECT.UPDATE",
         }
 
         for view_class, permission_required in expected_permissions.items():

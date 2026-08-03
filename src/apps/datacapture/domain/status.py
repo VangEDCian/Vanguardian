@@ -10,6 +10,7 @@ class DataCapturePageState:
     SUBMITTED = "submitted"
     UNDER_REVIEW = "under_review"
     VERIFIED = "verified"
+    CERTIFIED = "certified"
     CORRECTION_REQUIRED = "correction_required"
     LOCKED = "locked"
     FINALIZED = "finalized"
@@ -17,6 +18,7 @@ class DataCapturePageState:
     CAPTURE_LOCKED_STATUSES = frozenset(
         {
             VERIFIED,
+            CERTIFIED,
             LOCKED,
             FINALIZED,
         }

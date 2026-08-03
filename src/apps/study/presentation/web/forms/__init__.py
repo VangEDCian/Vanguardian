@@ -6,6 +6,7 @@ from apps.study.presentation.web.forms.crftemplates import (
     CrfTemplatesToolbarForm,
     EventAttestationPolicyImportTemplateForm,
 )
+from apps.study.presentation.web.forms.crf_page_lifecycle import StudyCrfPageLifecycleForm
 from apps.study.presentation.web.forms.eventdefinitions import (
     EventDefinitionImportTemplateForm,
     EventDefinitionsToolbarForm,
@@ -38,4 +39,5 @@ __all__ = [
     "Nng31MasterListApprovalForm",
     "Nng31MasterListImportFileForm",
     "RandomizationImportFileForm",
+    "StudyCrfPageLifecycleForm",
 ]

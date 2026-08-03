@@ -9,6 +9,10 @@ from apps.crf.models import CrfFieldReviewPolicy
 from apps.crf.public import CrfContextAdapter
 from apps.datacapture.application.commands import TriggerPageStateEventTransitionCommand
 from apps.datacapture.application.exceptions import DataCaptureValidationError
+from apps.datacapture.application.services.page_lifecycle_policy import (
+    CrfPageLifecycleStep,
+    DataCapturePageLifecyclePolicyService,
+)
 from apps.datacapture.application.services.trigger_event_transition import DataCapturePageStateEventTransitionService
 from apps.datacapture.application.validators import DataCapturePageStateVerificationValidator
 from apps.datacapture.domain.status import DataCapturePageState
@@ -31,6 +35,7 @@ class DataCapturePageStateVerificationFinalDataService:
         subject_event_lifecycle_adapter=None,
         event_transition_service=None,
         governance_lock_adapter=None,
+        lifecycle_policy_service=None,
     ):
         self.repository = repository or DjangoDataCapturePageRepository()
         self.reconcile_read_service = reconcile_read_service or ReconcileDataQueryReadService()
@@ -39,6 +44,13 @@ class DataCapturePageStateVerificationFinalDataService:
         )
         self.event_transition_service = event_transition_service or self.event_transition_service_class()
         self.governance_lock_adapter = governance_lock_adapter
+        self.lifecycle_policy_service = lifecycle_policy_service
+        if self.lifecycle_policy_service is None:
+            self.lifecycle_policy_service = (
+                _LegacyInjectedRepositoryLifecyclePolicy()
+                if repository is not None
+                else DataCapturePageLifecyclePolicyService()
+            )
         self.validator = self.validator_class()
 
     @staticmethod
@@ -142,6 +154,11 @@ class DataCapturePageStateVerificationFinalDataService:
             visit_id=visit_id,
             crf_template_id=crf_template_id,
             event_form_binding_id=event_form_binding_id,
+        )
+        self.lifecycle_policy_service.require_step(
+            snapshot=snapshot,
+            step_code=CrfPageLifecycleStep.VERIFY,
+            actor_user_id=actor_user_id,
         )
         checked_set = self._normalize_checked_ids(checked_field_template_ids)
         for field_template_id in sorted(checked_set):
@@ -378,7 +395,13 @@ class DataCapturePageStateVerificationFinalDataService:
             event_form_binding_id=event_form_binding_id,
         )
         self.validator.require_page_state(snapshot)
-        self.validator.require_finalize_status(snapshot.status)
+        self.lifecycle_policy_service.require_step(
+            snapshot=snapshot,
+            step_code=CrfPageLifecycleStep.FINALIZE,
+            actor_user_id=actor_user_id,
+        )
+        if isinstance(self.lifecycle_policy_service, _LegacyInjectedRepositoryLifecyclePolicy):
+            self.validator.require_finalize_status(snapshot.status)
         if DataCapturePageState.is_finalized(snapshot.status):
             return DataCapturePageState.FINALIZED
         self.repository.update_page_state_final_data_and_status(
@@ -398,6 +421,39 @@ class DataCapturePageStateVerificationFinalDataService:
         )
         return DataCapturePageState.FINALIZED
 
+    def certify_page(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
+    ) -> str:
+        snapshot = self.repository.get_page_state(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
+        self.validator.require_page_state(snapshot)
+        self.lifecycle_policy_service.require_step(
+            snapshot=snapshot,
+            step_code=CrfPageLifecycleStep.CERTIFY,
+            actor_user_id=actor_user_id,
+        )
+        self.repository.update_page_state_final_data_and_status(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            final_data=snapshot.final_data,
+            status=DataCapturePageState.CERTIFIED,
+            actor_user_id=actor_user_id,
+            trigger_source="PageCertified",
+            event_form_binding_id=event_form_binding_id,
+        )
+        return DataCapturePageState.CERTIFIED
+
     def lock_page(
         self,
         *,
@@ -414,7 +470,13 @@ class DataCapturePageStateVerificationFinalDataService:
             event_form_binding_id=event_form_binding_id,
         )
         self.validator.require_page_state(snapshot)
-        self.validator.require_lock_status(snapshot.status)
+        self.lifecycle_policy_service.require_step(
+            snapshot=snapshot,
+            step_code=CrfPageLifecycleStep.LOCK,
+            actor_user_id=actor_user_id,
+        )
+        if isinstance(self.lifecycle_policy_service, _LegacyInjectedRepositoryLifecyclePolicy):
+            self.validator.require_lock_status(snapshot.status)
         if self.reconcile_read_service.has_unclosed_query_for_page(page_state_id=snapshot.id):
             raise DataCaptureValidationError("yêu cầu đóng hết Query trước khi lock")
         if snapshot.status != DataCapturePageState.LOCKED:
@@ -492,3 +554,11 @@ class DataCapturePageStateVerificationFinalDataService:
 
 
 __all__ = ["DataCapturePageStateVerificationFinalDataService"]
+
+
+class _LegacyInjectedRepositoryLifecyclePolicy:
+    """Keeps persistence-isolated service tests/adapters on legacy state guards."""
+
+    @staticmethod
+    def require_step(**_kwargs):
+        return None

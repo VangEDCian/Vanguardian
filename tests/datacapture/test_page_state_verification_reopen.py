@@ -192,6 +192,15 @@ class _GovernanceLockAdapter:
         return 501
 
 
+class _AllowLifecyclePolicy:
+    def __init__(self):
+        self.calls = []
+
+    def require_step(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace()
+
+
 class _SubjectEventLifecycleAdapter:
     def __init__(self):
         self.completed_event_instances = []
@@ -560,6 +569,27 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                 }
             ],
         )
+
+    def test_certify_page_sets_certified_status_after_policy_guard(self):
+        repository = _PageLifecycleRepository(status=DataCapturePageState.VERIFIED)
+        lifecycle_policy = _AllowLifecyclePolicy()
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_NoBlockingQueries(),
+            lifecycle_policy_service=lifecycle_policy,
+        )
+
+        page_status = service.certify_page(
+            subject_id=41,
+            visit_id=51,
+            crf_template_id=31,
+            actor_user_id=1,
+        )
+
+        self.assertEqual(page_status, DataCapturePageState.CERTIFIED)
+        self.assertEqual(lifecycle_policy.calls[0]["step_code"], "CERTIFY")
+        self.assertEqual(repository.update_calls[0]["status"], DataCapturePageState.CERTIFIED)
+        self.assertEqual(repository.update_calls[0]["trigger_source"], "PageCertified")
 
     def test_lock_page_requires_finalized_state(self):
         service = DataCapturePageStateVerificationFinalDataService(

@@ -553,6 +553,26 @@ def finalize_page_data_for_subject_visit_crf(
     )
 
 
+def certify_page_for_subject_visit_crf(
+    *,
+    subject_id: int,
+    visit_id: int,
+    crf_template_id: int,
+    actor_user_id: int | None = None,
+    event_form_binding_id: int | None = None,
+) -> str:
+    from apps.datacapture.application.services.page_state_verification_final_data import (
+        DataCapturePageStateVerificationFinalDataService,
+    )
+
+    return DataCapturePageStateVerificationFinalDataService().certify_page(
+        subject_id=subject_id,
+        visit_id=visit_id,
+        crf_template_id=crf_template_id,
+        actor_user_id=actor_user_id,
+        event_form_binding_id=event_form_binding_id,
+    )
+
 def lock_page_for_subject_visit_crf(
     *,
     subject_id: int,
@@ -602,6 +622,7 @@ __all__ = [
     "event_instance_has_data",
     "evaluate_facts_for_event_instance",
     "finalize_page_data_for_subject_visit_crf",
+    "certify_page_for_subject_visit_crf",
     "get_event_attestation_panel_for_event_instance",
     "get_latest_page_entry_for_subject_visit_crf",
     "get_latest_submitted_page_entry_for_subject_visit_crf",

@@ -35,6 +35,9 @@ class SubjectBulkActionView(
     SubjectAbstractVerifyStudy,
     View,
 ):
+    # Route-level metadata requires a registered business permission. Runtime
+    # authorization remains action-specific through get_permission_required().
+    permission_required = "SUBJECT.UPDATE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
