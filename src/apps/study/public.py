@@ -23,6 +23,9 @@ from apps.study.application.services.randomization_workflow import (
     StudyRandomizationTransitionFactService,
 )
 from apps.study.application.services.site_directory import StudySiteDirectoryQueryService
+from apps.study.application.services.subject_export import (
+    SubjectExportFieldCatalogService,
+)
 
 
 def assign_randomization_slot_for_subject(
@@ -144,6 +147,10 @@ def study_site_belongs_to_study(*, study_id: int, study_site_id: int) -> bool:
     )
 
 
+def list_subject_export_field_groups(*, study_id: int) -> list[dict]:
+    return SubjectExportFieldCatalogService().list_groups(study_id=study_id)
+
+
 def list_event_attestation_policies_for_event(
     *,
     study_id: int,
@@ -231,6 +238,7 @@ __all__ = [
     "get_subject_treatment_timeline",
     "list_event_attestation_policies_for_event",
     "list_event_gate_evaluation_history_for_subject",
+    "list_subject_export_field_groups",
     "randomize_subject",
     "retract_subject_eligibility_assessment",
     "study_site_belongs_to_study",

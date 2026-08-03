@@ -1,41 +1,66 @@
 {% load i18n %}
-{% if can_delete_subject or can_bulk_resync_subject or can_bulk_early_terminate_subject %}
+{% if can_delete_subject or can_bulk_resync_subject or can_bulk_early_terminate_subject or can_export_subjects %}
     {% url 'subject:subject_bulk_action' study_id=shared_study_selected_id as subject_bulk_action_url %}
-    <div class="subject-bulk-actions" data-subject-bulk-actions>
+    <div class="subject-bulk-actions"
+         data-subject-bulk-actions
+         data-subject-filtered-count="{{ subject_filtered_count|default:0 }}"
+         data-subject-filter-query="{{ request.GET.urlencode }}">
         <div class="subject-bulk-actions__selection" aria-live="polite">
             <span class="subject-bulk-actions__selection-count"
                   data-subject-selection-count>0</span>
             <span>{% trans "subjects selected" %}</span>
+            <button type="button"
+                    class="subject-bulk-actions__select-filtered"
+                    data-subject-select-filtered
+                    data-select-all-label="(chọn tất cả {{ subject_filtered_count|default:0 }} subject)"
+                    data-clear-all-label="(bỏ chọn tất cả)"
+                    hidden>(chọn tất cả {{ subject_filtered_count|default:0 }} subject)</button>
         </div>
-        <div class="subject-bulk-actions__buttons">
-            {% if can_delete_subject %}
+        <form method="post"
+              action="{{ subject_bulk_action_url }}"
+              class="subject-bulk-actions__controls"
+              data-subject-bulk-form
+              data-subject-action-form>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="common-select common-select--filter subject-bulk-actions__select"
+                 data-dropdown
+                 data-subject-action-select>
+                <input type="hidden"
+                       name="action"
+                       value=""
+                       data-dropdown-input
+                       data-subject-action-input>
                 <button type="button"
-                        class="subject-bulk-actions__button subject-bulk-actions__button--danger"
-                        data-subject-bulk-submit
-                        data-modal-open="modal-subject-bulk-delete"
-                        disabled>{% trans "Delete Subjects" %}</button>
-            {% endif %}
-            {% if can_bulk_resync_subject %}
-                <form method="post"
-                      action="{{ subject_bulk_action_url }}"
-                      data-subject-bulk-form>
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="resync_stage">
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit"
-                            class="subject-bulk-actions__button"
-                            data-subject-bulk-submit
-                            disabled>{% trans "Resync Stage" %}</button>
-                </form>
-            {% endif %}
-            {% if can_bulk_early_terminate_subject %}
-                <button type="button"
-                        class="subject-bulk-actions__button subject-bulk-actions__button--warning"
-                        data-subject-bulk-submit
-                        data-modal-open="modal-subject-bulk-early-termination"
-                        disabled>{% trans "Start Early Termination" %}</button>
-            {% endif %}
-        </div>
+                        class="common-select__trigger"
+                        data-dropdown-trigger
+                        data-subject-action-trigger
+                        aria-expanded="false"
+                        aria-label="{% trans 'Select bulk action' %}"
+                        disabled>
+                    <span data-dropdown-value>{% trans "Select action" %}</span>
+                    <span aria-hidden="true">▾</span>
+                </button>
+                <div class="common-select__menu" data-dropdown-menu hidden>
+                    {% if can_delete_subject %}
+                        <button type="button" value="delete" data-dropdown-option>{% trans "Delete Subjects" %}</button>
+                    {% endif %}
+                    {% if can_bulk_resync_subject %}
+                        <button type="button" value="resync_stage" data-dropdown-option>{% trans "Resync Stage" %}</button>
+                    {% endif %}
+                    {% if can_bulk_early_terminate_subject %}
+                        <button type="button" value="early_terminate" data-dropdown-option>{% trans "Start Early Termination" %}</button>
+                    {% endif %}
+                    {% if can_export_subjects %}
+                        <button type="button" value="export_excel" data-dropdown-option>Xuất Excel đối tượng</button>
+                    {% endif %}
+                </div>
+            </div>
+            <button type="button"
+                    class="subject-bulk-actions__button"
+                    data-subject-bulk-execute
+                    disabled>Thực thi</button>
+        </form>
         {% if can_delete_subject %}
             <div class="modal-backdrop"
                  id="modal-subject-bulk-delete"
@@ -128,6 +153,87 @@
                                     class="entity-table__footer-button entity-table__footer-button--warning">
                                 {% trans "Confirm termination" %}
                             </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+        {% if can_export_subjects %}
+            <div class="modal-backdrop subject-export-modal-backdrop"
+                 id="modal-subject-export-excel"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="modal-subject-export-excel-title">
+                <div class="modal subject-export-modal">
+                    <div class="modal__header">
+                        <h2 class="modal__title" id="modal-subject-export-excel-title">Xuất Excel đối tượng</h2>
+                    </div>
+                    <form method="post"
+                          action="{{ subject_bulk_action_url }}"
+                          data-subject-bulk-form
+                          data-subject-export-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="export_excel">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="modal__body subject-export-modal__body">
+                            <p class="modal__message">Chọn các field cần xuất. Mặc định không có field nào được chọn.</p>
+                            {% for event_group in subject_export_field_groups %}
+                                <section class="subject-export-modal__event-group"
+                                         data-subject-export-visit>
+                                    <div class="subject-export-modal__event-heading">
+                                        <button type="button"
+                                                class="subject-export-modal__visit-collapse"
+                                                data-subject-export-visit-collapse
+                                                data-expanded-label="Thu gọn Visit"
+                                                data-collapsed-label="Mở rộng Visit"
+                                                aria-expanded="true"
+                                                aria-controls="subject-export-visit-fields-{{ event_group.event_definition_id }}"
+                                                aria-label="Thu gọn Visit">
+                                            <span class="subject-export-modal__event-title">
+                                                <strong>{{ event_group.event_name }}</strong>
+                                                <span>{{ event_group.event_code }}</span>
+                                            </span>
+                                            <span class="subject-export-modal__visit-chevron" aria-hidden="true">▾</span>
+                                        </button>
+                                        <button type="button"
+                                                class="subject-export-modal__visit-toggle"
+                                                data-subject-export-visit-toggle
+                                                data-select-label="Chọn toàn bộ field"
+                                                data-clear-label="Bỏ chọn toàn bộ field"
+                                                aria-pressed="false">Chọn toàn bộ field</button>
+                                    </div>
+                                    <div class="subject-export-modal__field-grid"
+                                         id="subject-export-visit-fields-{{ event_group.event_definition_id }}">
+                                        {% for form_group in event_group.forms %}
+                                            {% for field in form_group.fields %}
+                                                <label class="subject-export-modal__field"
+                                                       for="subject-export-field-{{ field.binding_id }}-{{ field.field_template_id }}">
+                                                    <input id="subject-export-field-{{ field.binding_id }}-{{ field.field_template_id }}"
+                                                           type="checkbox"
+                                                           name="export_fields"
+                                                           value="{{ field.token }}"
+                                                           data-subject-export-field>
+                                                    <span>
+                                                        <strong>{{ field.crf_code }} · {{ field.field_label }}</strong>
+                                                        <small>{{ field.header }}</small>
+                                                    </span>
+                                                </label>
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </div>
+                                </section>
+                            {% empty %}
+                                <p class="subject-export-modal__empty">Không có field khả dụng để xuất.</p>
+                            {% endfor %}
+                        </div>
+                        <div class="modal__footer">
+                            <button type="button"
+                                    class="modal__cancel"
+                                    data-modal-close="modal-subject-export-excel">Cancel</button>
+                            <button type="submit"
+                                    class="entity-table__footer-button entity-table__footer-button--primary"
+                                    data-subject-export-submit
+                                    disabled>Xuất file Excel</button>
                         </div>
                     </form>
                 </div>

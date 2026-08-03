@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import django_filters
@@ -235,6 +236,8 @@ class SubjectIdListField(forms.Field):
     def clean(self, value):
         values = super().clean(value)
         if not values:
+            if not self.required:
+                return ()
             raise forms.ValidationError(_("Select at least one subject."))
 
         subject_ids = []
@@ -258,14 +261,71 @@ class SubjectBulkActionForm(forms.Form):
     ACTION_DELETE = "delete"
     ACTION_RESYNC_STAGE = "resync_stage"
     ACTION_EARLY_TERMINATE = "early_terminate"
+    ACTION_EXPORT_EXCEL = "export_excel"
     ACTION_CHOICES = (
         (ACTION_DELETE, _("Delete Subjects")),
         (ACTION_RESYNC_STAGE, _("Resync Stage")),
         (ACTION_EARLY_TERMINATE, _("Start Early Termination")),
+        (ACTION_EXPORT_EXCEL, _("Xuất Excel đối tượng")),
+    )
+    SELECTION_SELECTED = "selected"
+    SELECTION_FILTERED = "filtered"
+    SELECTION_CHOICES = (
+        (SELECTION_SELECTED, _("Selected subjects")),
+        (SELECTION_FILTERED, _("All filtered subjects")),
     )
 
     action = forms.ChoiceField(choices=ACTION_CHOICES)
-    subject_ids = SubjectIdListField()
+    subject_ids = SubjectIdListField(required=False)
+    selection_mode = forms.ChoiceField(
+        choices=SELECTION_CHOICES,
+        required=False,
+    )
+    filter_query = forms.CharField(required=False, max_length=2000)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        selection_mode = (
+            cleaned_data.get("selection_mode") or self.SELECTION_SELECTED
+        )
+        cleaned_data["selection_mode"] = selection_mode
+        if (
+            selection_mode == self.SELECTION_SELECTED
+            and not cleaned_data.get("subject_ids")
+        ):
+            self.add_error(
+                "subject_ids",
+                _("Select at least one subject."),
+            )
+        return cleaned_data
+
+
+class SubjectExportFieldListField(forms.Field):
+    widget = forms.CheckboxSelectMultiple
+
+    def clean(self, value):
+        values = super().clean(value)
+        if not values:
+            raise forms.ValidationError(_("Select at least one field to export."))
+        if not isinstance(values, (list, tuple)):
+            values = [values]
+
+        tokens = []
+        seen = set()
+        for value in values:
+            token = str(value or "").strip()
+            if not re.fullmatch(r"[1-9]\d*:[1-9]\d*", token):
+                raise forms.ValidationError(_("Invalid export field selection."))
+            if token not in seen:
+                seen.add(token)
+                tokens.append(token)
+        if len(tokens) > 1000:
+            raise forms.ValidationError(_("Select no more than 1000 fields."))
+        return tuple(tokens)
+
+
+class SubjectExcelExportForm(forms.Form):
+    export_fields = SubjectExportFieldListField()
 
 
 class SubjectPeriodOverrideForm(forms.Form):

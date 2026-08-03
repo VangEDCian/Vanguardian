@@ -13,12 +13,18 @@ from apps.subject.application.services.event_instance_resync import (
     SubjectEventInstanceResyncResult,
     SubjectEventInstanceResyncService,
 )
+from apps.subject.application.services.excel_export import (
+    SubjectExcelExportResult,
+)
 from apps.subject.infrastructure.repositories.bulk_actions import (
     DjangoSubjectBulkActionRepository,
     SubjectBulkActionSnapshot,
 )
 from apps.subject.models import Subject
-from apps.subject.presentation.web.forms import SubjectBulkActionForm
+from apps.subject.presentation.web.forms import (
+    SubjectBulkActionForm,
+    SubjectExcelExportForm,
+)
 from apps.subject.presentation.web.views.bulk_actions import SubjectBulkActionView
 
 
@@ -39,6 +45,34 @@ class SubjectBulkActionFormTests(SimpleTestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("subject_ids", form.errors)
+
+    def test_all_filtered_selection_does_not_require_page_subject_ids(self):
+        form = SubjectBulkActionForm(
+            {
+                "action": "resync_stage",
+                "selection_mode": "filtered",
+                "filter_query": "subject_status=screening&search=SCR",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["subject_ids"], ())
+        self.assertEqual(form.cleaned_data["selection_mode"], "filtered")
+
+    def test_excel_export_requires_valid_field_tokens(self):
+        valid_form = SubjectExcelExportForm(
+            {"export_fields": ["30:40", "30:41", "30:40"]}
+        )
+        invalid_form = SubjectExcelExportForm(
+            {"export_fields": ["not-a-field"]}
+        )
+
+        self.assertTrue(valid_form.is_valid(), valid_form.errors)
+        self.assertEqual(
+            valid_form.cleaned_data["export_fields"],
+            ("30:40", "30:41"),
+        )
+        self.assertFalse(invalid_form.is_valid())
 
 
 class SubjectBulkActionServiceTests(SimpleTestCase):
@@ -180,6 +214,26 @@ class SubjectBulkActionRepositoryTests(TestCase):
         self.assertTrue(self.subject.deleted)
         self.assertEqual(self.subject.updated_by_id, 99)
 
+    def test_filtered_selection_resolves_every_matching_subject_in_the_study(self):
+        form = SubjectBulkActionForm(
+            {
+                "action": "resync_stage",
+                "selection_mode": "filtered",
+                "filter_query": "search=BULK-STUDY-SCR",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+        subject_ids = SubjectBulkActionView._resolve_subject_ids(
+            study_id=self.study.pk,
+            selection_form=form,
+        )
+
+        self.assertEqual(
+            subject_ids,
+            (self.subject.pk, self.other_site_subject.pk),
+        )
+
     @staticmethod
     def _create_site(study, code):
         now = timezone.now()
@@ -214,6 +268,7 @@ class SubjectBulkActionViewTests(SimpleTestCase):
             "delete": "subject.delete_subject",
             "resync_stage": "SUBJECT.UPDATE",
             "early_terminate": "SUBJECT.EARLY_TERMINATE",
+            "export_excel": "DATA_EXPORT.RUN",
         }
 
         for action, permission in expected_permissions.items():
@@ -261,6 +316,81 @@ class SubjectBulkActionViewTests(SimpleTestCase):
         self.assertEqual(_BulkViewServiceStub.calls[0]["site_id"], 2)
         messages.success.assert_called_once()
 
+    def test_post_resolves_all_filtered_subjects_before_running_action(self):
+        request = RequestFactory().post(
+            "/bulk-action/",
+            {
+                "action": "resync_stage",
+                "selection_mode": "filtered",
+                "filter_query": "subject_status=screening&search=SCR",
+                "next": "/studies/1/subjects/?subject_status=screening",
+            },
+        )
+        request.user = SimpleNamespace(pk=99, is_authenticated=True)
+        view = SubjectBulkActionView()
+        view.service_class = _BulkViewServiceStub
+        view.get_permission_authorization_context = lambda: SimpleNamespace(
+            study_site_id=2
+        )
+        _BulkViewServiceStub.calls = []
+
+        with (
+            patch.object(
+                SubjectBulkActionView,
+                "_resolve_subject_ids",
+                return_value=(20, 21, 22),
+            ) as resolve_subject_ids,
+            patch(
+                "apps.subject.presentation.web.views.bulk_actions.messages"
+            ),
+        ):
+            view.post(request, study_id=1)
+
+        resolve_subject_ids.assert_called_once()
+        self.assertEqual(
+            _BulkViewServiceStub.calls[0]["subject_ids"],
+            (20, 21, 22),
+        )
+
+    def test_post_exports_selected_subjects_as_xlsx(self):
+        request = RequestFactory().post(
+            "/bulk-action/",
+            {
+                "action": "export_excel",
+                "subject_ids": ["20", "21"],
+                "export_fields": ["30:40"],
+            },
+        )
+        request.user = SimpleNamespace(pk=99, is_authenticated=True)
+        view = SubjectBulkActionView()
+        view.excel_export_service_class = _ExcelExportViewServiceStub
+        view.get_permission_authorization_context = lambda: SimpleNamespace(
+            study_site_id=2
+        )
+        _ExcelExportViewServiceStub.calls = []
+
+        response = view.post(request, study_id=1)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"xlsx-content")
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn(
+            'attachment; filename="subjects.xlsx"',
+            response["Content-Disposition"],
+        )
+        self.assertEqual(
+            _ExcelExportViewServiceStub.calls[0],
+            {
+                "study_id": 1,
+                "site_id": 2,
+                "subject_ids": (20, 21),
+                "selected_field_tokens": ("30:40",),
+            },
+        )
+
 
 class SubjectBulkActionsTemplateTests(SimpleTestCase):
     def test_renders_bulk_action_row_and_forms_when_permitted(self):
@@ -270,8 +400,31 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
                 "can_delete_subject": True,
                 "can_bulk_resync_subject": True,
                 "can_bulk_early_terminate_subject": True,
+                "can_export_subjects": True,
                 "csrf_token": "test-token",
                 "shared_study_selected_id": 1,
+                "subject_filtered_count": 37,
+                "subject_export_field_groups": [
+                    {
+                        "event_definition_id": 10,
+                        "event_name": "Screening",
+                        "event_code": "SCREENING",
+                        "forms": [
+                            {
+                                "fields": [
+                                    {
+                                        "binding_id": 30,
+                                        "field_template_id": 40,
+                                        "token": "30:40",
+                                        "crf_code": "DEMOGRAPHICS",
+                                        "field_label": "Age",
+                                        "header": "SCREENING.DEMOGRAPHICS.AGE",
+                                    }
+                                ]
+                            }
+                        ],
+                    }
+                ],
                 "request": SimpleNamespace(
                     get_full_path="/studies/1/subjects/?page=2"
                 ),
@@ -282,12 +435,37 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
         self.assertIn("Delete Subjects", rendered)
         self.assertIn("Resync Stage", rendered)
         self.assertIn("Start Early Termination", rendered)
+        self.assertIn("common-select--filter", rendered)
+        self.assertIn("data-subject-action-select", rendered)
+        self.assertIn('name="action"', rendered)
+        self.assertIn('value="delete"', rendered)
+        self.assertIn('value="resync_stage"', rendered)
+        self.assertIn('value="early_terminate"', rendered)
+        self.assertIn('value="export_excel"', rendered)
+        self.assertIn("Thực thi", rendered)
+        self.assertIn("(chọn tất cả 37 subject)", rendered)
+        self.assertIn("Xuất Excel đối tượng", rendered)
+        self.assertIn("subject-export-modal__field-grid", rendered)
+        self.assertIn("data-subject-export-visit", rendered)
+        self.assertIn("data-subject-export-visit-toggle", rendered)
+        self.assertIn("data-subject-export-visit-collapse", rendered)
+        self.assertIn('data-expanded-label="Thu gọn Visit"', rendered)
+        self.assertIn('data-collapsed-label="Mở rộng Visit"', rendered)
+        self.assertIn('aria-expanded="true"', rendered)
+        self.assertIn('aria-controls="subject-export-visit-fields-10"', rendered)
+        self.assertIn('data-select-label="Chọn toàn bộ field"', rendered)
+        self.assertIn('data-clear-label="Bỏ chọn toàn bộ field"', rendered)
+        self.assertIn('aria-pressed="false"', rendered)
+        self.assertIn("SCREENING.DEMOGRAPHICS.AGE", rendered)
+        self.assertIn('name="export_fields"', rendered)
+        self.assertNotIn('name="export_fields" checked', rendered)
+        self.assertIn("Cancel", rendered)
+        self.assertIn("Xuất file Excel", rendered)
         self.assertIn(
             reverse("subject:subject_bulk_action", kwargs={"study_id": 1}),
             rendered,
         )
         self.assertIn('name="action" value="delete"', rendered)
-        self.assertIn('name="action" value="resync_stage"', rendered)
         self.assertIn('name="action" value="early_terminate"', rendered)
 
     def test_bulk_action_row_is_immediately_after_toolbar(self):
@@ -412,4 +590,17 @@ class _BulkViewServiceStub:
             out_of_scope_count=0,
             reason_counts=(),
             resync_result=resync_result,
+        )
+
+
+class _ExcelExportViewServiceStub:
+    calls = []
+
+    def export(self, **kwargs):
+        type(self).calls.append(kwargs)
+        return SubjectExcelExportResult(
+            content=b"xlsx-content",
+            filename="subjects.xlsx",
+            subject_count=2,
+            field_count=1,
         )

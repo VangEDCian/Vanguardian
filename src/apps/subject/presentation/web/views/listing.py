@@ -11,7 +11,10 @@ from apps.reconcile.models import ReconcileDataQueryStatusChoices, ReconcileVali
 from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHandler
 from apps.shared.navigation import get_default_authenticated_url, user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
-from apps.study.public import build_randomization_transition_facts
+from apps.study.public import (
+    build_randomization_transition_facts,
+    list_subject_export_field_groups,
+)
 from apps.subject.application.services.early_termination import (
     SubjectEarlyTerminationAvailabilityService,
 )
@@ -276,6 +279,17 @@ class SubjectListView(
         context["can_bulk_early_terminate_subject"] = user_can_access_permission(
             self.request.user, "SUBJECT.EARLY_TERMINATE", **permission_context
         )
+        context["can_export_subjects"] = user_can_access_permission(
+            self.request.user,
+            "DATA_EXPORT.RUN",
+            **permission_context,
+        )
+        context["subject_export_field_groups"] = (
+            list_subject_export_field_groups(study_id=self.get_study_id())
+            if context["can_export_subjects"]
+            else []
+        )
+        context["subject_filtered_count"] = context["filter"].qs.count()
         return context
 
     def get(self, request, *args, **kwargs):

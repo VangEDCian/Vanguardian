@@ -19,6 +19,9 @@ from apps.datacapture.application.services.page_state_audit_history import (
 )
 from apps.datacapture.application.services.page_state_read import DataCapturePageStateReadService
 from apps.datacapture.application.services.page_state_write import DataCapturePageStateWriteService
+from apps.datacapture.application.services.subject_export import (
+    SubjectExportDataService,
+)
 
 
 class DataCaptureFactMappingConfigAdapter:
@@ -199,6 +202,21 @@ def list_page_state_transition_history_for_subject(
         limit=limit,
         search=search,
         field_name=field_name,
+    )
+
+
+def read_subject_export_values(
+    *,
+    study_id: int,
+    site_id: int,
+    subject_ids: tuple[int, ...],
+    field_specs: tuple[dict, ...],
+) -> dict:
+    return SubjectExportDataService().read_values(
+        study_id=study_id,
+        site_id=site_id,
+        subject_ids=subject_ids,
+        field_specs=field_specs,
     )
 
 
@@ -605,6 +623,7 @@ __all__ = [
     "merge_form_verification_checked_fields_into_page_state_final_data",
     "read_fact_snapshot_for_page_state",
     "read_fact_snapshot_for_event_instance",
+    "read_subject_export_values",
     "reopen_verified_form_verification_page_state",
     "revoke_event_attestation",
     "save_page_for_subject_visit_crf",
