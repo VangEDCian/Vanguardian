@@ -36,6 +36,9 @@ from apps.study.presentation.web.views import (
     StudyRandomizationSequencePeriodImportPreviewView,
     StudyRandomizationView,
     StudyRoleCreateView,
+    StudySubjectIdentifierPolicyPreviewView,
+    StudySubjectIdentifierPolicyRollbackPreviewView,
+    StudySubjectIdentifierPolicyRollbackView,
     StudyToggleStatusView,
     StudyUpdateView,
 )
@@ -64,6 +67,21 @@ urlpatterns = [
     path("studies/<int:study_id>/randomization", StudyRandomizationView.as_view(), name="study_randomization"),
     path("studies/<int:study_id>/delete", StudyDeleteView.as_view(), name="study_delete"),
     path("studies/<int:study_id>/edit", StudyUpdateView.as_view(), name="study_update"),
+    path(
+        "studies/<int:study_id>/subject-identifier-policy/preview",
+        StudySubjectIdentifierPolicyPreviewView.as_view(),
+        name="study_subject_identifier_policy_preview",
+    ),
+    path(
+        "studies/<int:study_id>/subject-identifier-policy/rollback/preview",
+        StudySubjectIdentifierPolicyRollbackPreviewView.as_view(),
+        name="study_subject_identifier_policy_rollback_preview",
+    ),
+    path(
+        "studies/<int:study_id>/subject-identifier-policy/rollback",
+        StudySubjectIdentifierPolicyRollbackView.as_view(),
+        name="study_subject_identifier_policy_rollback",
+    ),
     path(
         "studies/<int:study_id>/toggle-status", StudyToggleStatusView.as_view(),
         name="study_toggle_status",

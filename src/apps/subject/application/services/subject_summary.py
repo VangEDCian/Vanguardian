@@ -160,7 +160,7 @@ class SubjectSummaryQueryService:
                     )
                 )
             assignment_items = (
-                ("Randomization Number", snapshot.randomization_number),
+                ("Randomization Code", snapshot.randomization_number),
                 ("Scheme", snapshot.randomization_scheme_code),
                 ("Arm", snapshot.randomization_arm_name),
                 ("Slot", snapshot.randomization_slot_sequence),

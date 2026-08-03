@@ -21,6 +21,9 @@ from apps.study.application import (
     StudyFilterActiveQueryService,
     StudyFilterInactiveQueryService,
     StudyNotFoundError,
+    StudySubjectIdentifierMigrationBlockedError,
+    StudySubjectIdentifierMigrationRequiredError,
+    StudySubjectIdentifierMigrationStalePlanError,
     UpdateStudyService,
 )
 from apps.study.infrastructure.persistence.models import Study
@@ -163,12 +166,18 @@ class StudyDetailView(
         can_update_field_description = user_can_access_permission(
             user, "study.update_study_field_description", study_id=study_id
         )
+        can_update_identifier_policy = user_can_access_permission(
+            user,
+            "STUDY_CONFIG.MANAGE",
+            study_id=study_id,
+        )
         can_update_detail = any((
             can_update_field_name,
             can_update_field_sponsor,
             can_update_field_dates,
             can_update_field_description,
             can_toggle_status,
+            can_update_identifier_policy,
         ))
 
         if self._detail_view_model is not None:
@@ -185,6 +194,14 @@ class StudyDetailView(
                     "start_date": self._study.start_date,
                     "end_date": self._study.end_date,
                     "is_active": self._study.is_active,
+                    "subject_identifier_mode": self._study.subject_identifier_mode,
+                    "screening_identifier_mode": self._study.screening_identifier_mode,
+                    "subject_code_pattern": self._study.subject_code_pattern,
+                    "screening_code_pattern": self._study.screening_code_pattern,
+                    "subject_code_uniqueness_scope": self._study.subject_code_uniqueness_scope,
+                    "lock_subject_code_after_assignment": (
+                        self._study.lock_subject_code_after_assignment
+                    ),
                 }
             ),
         )
@@ -210,6 +227,21 @@ class StudyDetailView(
         context["can_update_field_sponsor"] = can_update_field_sponsor
         context["can_update_field_dates"] = can_update_field_dates
         context["can_update_field_description"] = can_update_field_description
+        context["can_update_identifier_policy"] = can_update_identifier_policy
+        if can_update_identifier_policy:
+            context["subject_identifier_policy_preview_url"] = reverse(
+                "study:study_subject_identifier_policy_preview",
+                kwargs={"study_id": study_id},
+            )
+            context["subject_identifier_policy_rollback_preview_url"] = reverse(
+                "study:study_subject_identifier_policy_rollback_preview",
+                kwargs={"study_id": study_id},
+            )
+            context["subject_identifier_policy_rollback_url"] = reverse(
+                "study:study_subject_identifier_policy_rollback",
+                kwargs={"study_id": study_id},
+            )
+            context["identifier_policy_current"] = self._study
 
         return context
 
@@ -245,6 +277,66 @@ class StudyDetailView(
             if _can_change_study_status(request.user, self._study.pk)
             else self._study.is_active,
             actor_user_id=request.user.pk,
+            subject_identifier_mode=(
+                form.cleaned_data["subject_identifier_mode"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.subject_identifier_mode
+            ),
+            screening_identifier_mode=(
+                form.cleaned_data["screening_identifier_mode"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.screening_identifier_mode
+            ),
+            subject_code_pattern=(
+                form.cleaned_data["subject_code_pattern"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.subject_code_pattern
+            ),
+            screening_code_pattern=(
+                form.cleaned_data["screening_code_pattern"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.screening_code_pattern
+            ),
+            subject_code_uniqueness_scope=(
+                form.cleaned_data["subject_code_uniqueness_scope"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.subject_code_uniqueness_scope
+            ),
+            lock_subject_code_after_assignment=(
+                form.cleaned_data.get("lock_subject_code_after_assignment", False)
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.lock_subject_code_after_assignment
+            ),
+            subject_identifier_migration_plan_hash=request.POST.get(
+                "subject_identifier_migration_plan_hash"
+            ),
+            subject_identifier_migration_confirmation_code=request.POST.get(
+                "subject_identifier_migration_confirmation_code"
+            ),
         )
 
         try:
@@ -254,6 +346,22 @@ class StudyDetailView(
             return self.render_to_response(self.get_context_data(form=form))
         except StudyDateRangeError:
             form.add_error("end_date", _("End date must be on or after start date."))
+            return self.render_to_response(self.get_context_data(form=form))
+        except StudySubjectIdentifierMigrationRequiredError:
+            form.add_error(
+                None,
+                _("Preview and confirm the Subject Code migration before saving."),
+            )
+            return self.render_to_response(self.get_context_data(form=form))
+        except StudySubjectIdentifierMigrationStalePlanError:
+            form.add_error(
+                None,
+                _("Subject data changed after preview. Preview the migration again."),
+            )
+            return self.render_to_response(self.get_context_data(form=form))
+        except StudySubjectIdentifierMigrationBlockedError as exc:
+            for issue in exc.preview.blockers:
+                form.add_error(None, issue.message)
             return self.render_to_response(self.get_context_data(form=form))
 
         self.get_study_audit_service().record_updated(
@@ -273,6 +381,11 @@ class StudyDetailView(
             user_can_access_permission(request_user, "study.update_study_field_dates", study_id=self._study.pk),
             user_can_access_permission(request_user, "study.update_study_field_description", study_id=self._study.pk),
             _can_change_study_status(request_user, self._study.pk),
+            user_can_access_permission(
+                request_user,
+                "STUDY_CONFIG.MANAGE",
+                study_id=self._study.pk,
+            ),
         ))
 
 

@@ -11,6 +11,11 @@ from apps.subject.application.services.eligibility_workflow import (
     SubjectEventScopeSnapshot,
     SubjectScopeSnapshot,
 )
+from apps.subject.application.services.identifier_policy_migration import (
+    SubjectIdentifierMigrationBlockedError,
+    SubjectIdentifierMigrationConfirmationRequiredError,
+    SubjectIdentifierMigrationStalePlanError,
+)
 from apps.subject.models import (
     Subject,
     SubjectEventInstance,
@@ -226,6 +231,78 @@ def reconcile_imported_randomization_slots(*, assignments) -> int:
     )
 
 
+def preview_subject_identifier_policy_migration(
+    *,
+    study_id,
+    current_policy,
+    target_policy,
+):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().preview(
+        study_id=study_id,
+        current_policy=current_policy,
+        target_policy=target_policy,
+    )
+
+
+def migrate_subject_identifiers_for_policy(
+    *,
+    study_id,
+    current_policy,
+    target_policy,
+    actor_user_id,
+    expected_plan_hash,
+    confirmation_code,
+):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().execute(
+        study_id=study_id,
+        current_policy=current_policy,
+        target_policy=target_policy,
+        actor_user_id=actor_user_id,
+        expected_plan_hash=expected_plan_hash,
+        confirmation_code=confirmation_code,
+    )
+
+
+def preview_subject_identifier_policy_rollback(*, study_id, current_policy):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().preview_rollback(
+        study_id=study_id,
+        current_policy=current_policy,
+    )
+
+
+def rollback_subject_identifier_policy(
+    *,
+    study_id,
+    current_policy,
+    actor_user_id,
+    expected_plan_hash,
+    confirmation_code,
+):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().execute_rollback(
+        study_id=study_id,
+        current_policy=current_policy,
+        actor_user_id=actor_user_id,
+        expected_plan_hash=expected_plan_hash,
+        confirmation_code=confirmation_code,
+    )
+
+
 def advance_subject_period_after_washout(
     *,
     subject_id: int,
@@ -330,6 +407,9 @@ __all__ = [
     "SubjectEnrollmentTransitionResult",
     "SubjectEventScopeSnapshot",
     "SubjectMilestone",
+    "SubjectIdentifierMigrationBlockedError",
+    "SubjectIdentifierMigrationConfirmationRequiredError",
+    "SubjectIdentifierMigrationStalePlanError",
     "SubjectPeriod",
     "SubjectPeriodMilestone",
     "SubjectScopeSnapshot",
@@ -342,6 +422,10 @@ __all__ = [
     "resync_subject_active_study_version",
     "resync_subject_event_instances",
     "randomize_subject",
+    "migrate_subject_identifiers_for_policy",
+    "preview_subject_identifier_policy_migration",
+    "preview_subject_identifier_policy_rollback",
+    "rollback_subject_identifier_policy",
     "trigger_subject_event_transition",
     "verify_subject_event_instance",
 ]

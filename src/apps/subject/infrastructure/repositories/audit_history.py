@@ -7,6 +7,7 @@ from apps.identity.models import User
 from apps.subject.models import (
     Subject,
     SubjectEventInstanceTransitionLog,
+    SubjectIdentifierHistory,
     SubjectPeriodTransitionLog,
     SubjectPeriodTransitionOverride,
     SubjectStatusHistory,
@@ -76,6 +77,59 @@ class DjangoSubjectAuditHistoryRepository:
                 reason_text=row.reason_text or "",
                 source=row.source or "",
                 actor_id=row.changed_by_id,
+            )
+            for row in queryset
+        ]
+
+    def list_subject_identifier_history(
+        self,
+        *,
+        subject_id: int,
+        record_class,
+        limit: int = 200,
+        search: str = "",
+        field_name: str = "",
+    ):
+        queryset = self._annotate_audit_fields(
+            SubjectIdentifierHistory.objects.filter(subject_id=subject_id),
+            actor_field="actor_user_id",
+            field_name="subject_identifier",
+            field_description=Concat(
+                Value("Identifier assignment: "),
+                Coalesce("identifier_type", Value("")),
+                output_field=CharField(),
+            ),
+            value_expression=Concat(
+                Coalesce("from_value", Value("")),
+                Value(" "),
+                Coalesce("to_value", Value("")),
+                Value(" "),
+                Coalesce("assignment_source", Value("")),
+                output_field=CharField(),
+            ),
+        )
+        queryset = self._apply_audit_filters(
+            queryset,
+            search=search,
+            field_name=field_name,
+        ).order_by("-occurred_at", "-id")
+        if limit:
+            queryset = queryset[:limit]
+        return [
+            record_class(
+                occurred_at=row.occurred_at,
+                field_name=row.audit_field_name,
+                field_description=row.audit_field_description,
+                value=row.audit_value,
+                user_display=row.audit_user_display,
+                identifier_type=row.identifier_type,
+                from_value=row.from_value or "",
+                to_value=row.to_value,
+                assignment_source=row.assignment_source,
+                related_randomization_event_id=(
+                    row.related_randomization_event_id
+                ),
+                actor_id=row.actor_user_id,
             )
             for row in queryset
         ]

@@ -13,6 +13,7 @@ from apps.shared.navigation import get_default_authenticated_url, user_can_acces
 from apps.shared.views import AuthenticateTemplateContextMixin
 from apps.study.public import (
     build_randomization_transition_facts,
+    get_subject_identifier_policy,
     list_subject_export_field_groups,
 )
 from apps.subject.application.services.early_termination import (
@@ -290,6 +291,9 @@ class SubjectListView(
             else []
         )
         context["subject_filtered_count"] = context["filter"].qs.count()
+        context["subject_identifier_policy"] = get_subject_identifier_policy(
+            study_id=self.get_study_id()
+        )
         return context
 
     def get(self, request, *args, **kwargs):

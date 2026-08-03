@@ -4,11 +4,12 @@ from datetime import timedelta
 from django.utils import timezone
 
 from apps.core.choices import SubjectPeriodStatusChoices
-from apps.study.models import RandomizationEvent, RandomizationSequencePeriod
+from apps.study.models import RandomizationEvent, RandomizationSequencePeriod, Study
 from apps.subject.models import (
     Subject,
     SubjectEnrollment,
     SubjectEventInstance,
+    SubjectIdentifierHistory,
     SubjectMilestone,
     SubjectPeriod,
     SubjectPeriodMilestone,
@@ -17,6 +18,13 @@ from apps.subject.models import (
 
 
 class DjangoSubjectRandomizationRepository:
+    @staticmethod
+    def lock_study_for_identifier_assignment(*, study_id: int) -> bool:
+        return Study.objects.select_for_update().filter(
+            pk=study_id,
+            deleted=False,
+        ).exists()
+
     def now(self):
         return timezone.now()
 
@@ -41,6 +49,80 @@ class DjangoSubjectRandomizationRepository:
             .filter(pk=subject_id, deleted=False)
             .only("id", "study_id", "site_id", "subject_code")
             .first()
+        )
+
+    def get_subject_for_identifier_assignment(self, *, subject_id: int):
+        return (
+            Subject.objects.select_for_update()
+            .select_related("site")
+            .filter(pk=subject_id, deleted=False)
+            .only(
+                "id",
+                "study_id",
+                "site_id",
+                "site__code",
+                "subject_code",
+                "updated_at",
+                "updated_by_id",
+            )
+            .first()
+        )
+
+    @staticmethod
+    def subject_code_exists(
+        *,
+        study_id: int,
+        site_id: int,
+        subject_id: int,
+        subject_code: str,
+        uniqueness_scope: str,
+    ) -> bool:
+        queryset = Subject.objects.filter(
+            study_id=study_id,
+            subject_code=subject_code,
+            deleted=False,
+        ).exclude(pk=subject_id)
+        if uniqueness_scope == "study_site":
+            queryset = queryset.filter(site_id=site_id)
+        return queryset.exists()
+
+    @staticmethod
+    def update_subject_code(
+        *,
+        subject,
+        subject_code: str,
+        actor_user_id: int | None,
+        now,
+    ) -> str | None:
+        previous_code = str(subject.subject_code or "").strip() or None
+        if previous_code == subject_code:
+            return None
+        subject.subject_code = subject_code
+        subject.updated_at = now
+        subject.updated_by_id = actor_user_id
+        subject.save(update_fields=["subject_code", "updated_at", "updated_by_id"])
+        return previous_code
+
+    @staticmethod
+    def record_subject_code_assignment(
+        *,
+        subject_id: int,
+        previous_code: str | None,
+        subject_code: str,
+        assignment_source: str,
+        related_randomization_event_id: int | None,
+        actor_user_id: int | None,
+        occurred_at,
+    ) -> None:
+        SubjectIdentifierHistory.objects.create(
+            subject_id=subject_id,
+            identifier_type="subject_code",
+            from_value=previous_code,
+            to_value=subject_code,
+            assignment_source=assignment_source,
+            occurred_at=occurred_at,
+            related_randomization_event_id=related_randomization_event_id,
+            actor_user_id=actor_user_id,
         )
 
     def is_subject_enrolled_or_allowed_to_randomize(self, *, study_id: int, subject_id: int) -> bool:

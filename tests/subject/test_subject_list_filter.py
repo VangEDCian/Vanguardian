@@ -103,6 +103,27 @@ class SubjectsToolbarFormTests(TestCase):
             {self.fail_eligible_subject.pk},
         )
 
+    def test_searches_subject_screening_and_randomization_codes(self):
+        self.enrolled_only_subject.subject_code = "SUBJECT-ONLY-004"
+        self.enrolled_only_subject.save(update_fields=["subject_code"])
+
+        expectations = {
+            "SUBJECT-ONLY": self.enrolled_only_subject.pk,
+            "FILTER-S002": self.eligible_subject.pk,
+            "NNG31-001": self.randomized_enrolled_subject.pk,
+        }
+        for search, expected_subject_id in expectations.items():
+            with self.subTest(search=search):
+                self.assertEqual(
+                    set(
+                        SubjectsToolbarForm(
+                            {"search": search},
+                            queryset=Subject.objects.all(),
+                        ).qs.values_list("pk", flat=True)
+                    ),
+                    {expected_subject_id},
+                )
+
     def _filtered_subject_ids(self, status):
         return set(
             SubjectsToolbarForm(

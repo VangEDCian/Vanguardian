@@ -35,6 +35,16 @@ class CreateStudyServiceTests(SimpleTestCase):
         result = CreateStudyService(repository=repository, sonic_adapter=sonic_adapter).execute(command)
 
         self.assertEqual(result.pk, 11)
+        create_kwargs = repository.create_study.call_args.kwargs
+        self.assertEqual(
+            create_kwargs["subject_identifier_mode"],
+            "generated_at_enrollment",
+        )
+        self.assertEqual(create_kwargs["screening_identifier_mode"], "generated")
+        self.assertEqual(
+            create_kwargs["subject_code_pattern"],
+            "{study_code}-{sequence:03d}",
+        )
         sonic_adapter.index_study.assert_called_once_with(
             study_id=11,
             code="STUDY-011",

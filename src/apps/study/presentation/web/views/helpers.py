@@ -26,4 +26,12 @@ def _serialize_study_snapshot(study):
         "start_date": study.start_date.isoformat() if study.start_date else None,
         "end_date": study.end_date.isoformat() if study.end_date else None,
         "is_active": study.is_active,
+        "subject_identifier_mode": study.subject_identifier_mode,
+        "screening_identifier_mode": study.screening_identifier_mode,
+        "subject_code_pattern": study.subject_code_pattern,
+        "screening_code_pattern": study.screening_code_pattern,
+        "subject_code_uniqueness_scope": study.subject_code_uniqueness_scope,
+        "lock_subject_code_after_assignment": (
+            study.lock_subject_code_after_assignment
+        ),
     }

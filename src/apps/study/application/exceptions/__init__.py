@@ -44,6 +44,10 @@ from apps.study.application.exceptions.study import (
     StudyCodeAlreadyExistsError,
     StudyDateRangeError,
     StudyNotFoundError,
+    StudySubjectIdentifierMigrationBlockedError,
+    StudySubjectIdentifierMigrationError,
+    StudySubjectIdentifierMigrationRequiredError,
+    StudySubjectIdentifierMigrationStalePlanError,
 )
 
 __all__ = [
@@ -84,4 +88,8 @@ __all__ = [
     "StudyDateRangeError",
     "StudyImportTemplateError",
     "StudyNotFoundError",
+    "StudySubjectIdentifierMigrationBlockedError",
+    "StudySubjectIdentifierMigrationError",
+    "StudySubjectIdentifierMigrationRequiredError",
+    "StudySubjectIdentifierMigrationStalePlanError",
 ]

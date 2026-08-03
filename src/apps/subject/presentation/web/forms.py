@@ -123,7 +123,7 @@ class SubjectsToolbarForm(SharedSearch, SharedTotal):
     STATUS_SCREENING = "screening"
     STATUS_FAIL_ELIGIBLE = "fail_eligible"
 
-    SEARCH_FIELDS = ("subject_code", "screening_code")
+    SEARCH_FIELDS = ("subject_code", "screening_code", "randomization_code")
     TOTAL_LABEL = _("Total Subjects")
 
     subject_status = django_filters.ChoiceFilter(
@@ -144,6 +144,16 @@ class SubjectsToolbarForm(SharedSearch, SharedTotal):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.bind_total_field()
+
+    @classmethod
+    def filter_search(cls, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(subject_code__icontains=value)
+            | Q(screening_code__icontains=value)
+            | Q(randomization__randomization_number__icontains=value)
+        ).distinct()
 
     @classmethod
     def filter_subject_status(cls, queryset, name, value):

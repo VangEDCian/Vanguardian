@@ -35,11 +35,13 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
                     "id": 100,
                     "subject_code": "SUB-001",
                     "screening_code": "SCR-001",
+                    "randomization_code": "RND-001",
                 },
                 {
                     "id": 101,
                     "subject_code": "SUB-002",
                     "screening_code": "SCR-002",
+                    "randomization_code": "RND-002",
                 },
             )
         )
@@ -70,17 +72,18 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
                 "subject_id",
                 "subject_code",
                 "screening_code",
+                "randomization_code",
                 "SCREENING.DEMOGRAPHICS.AGE",
             ],
         )
         self.assertEqual(
             list(worksheet.values)[1:],
             [
-                (100, "SUB-001", "SCR-001", "42"),
-                (101, "SUB-002", "SCR-002", "=unsafe"),
+                (100, "SUB-001", "SCR-001", "RND-001", "42"),
+                (101, "SUB-002", "SCR-002", "RND-002", "=unsafe"),
             ],
         )
-        self.assertEqual(worksheet["D3"].data_type, "s")
+        self.assertEqual(worksheet["E3"].data_type, "s")
         self.assertEqual(worksheet.freeze_panes, "A2")
         self.assertEqual(result.subject_count, 2)
         self.assertEqual(result.field_count, 1)

@@ -16,6 +16,9 @@ from apps.subject.infrastructure.repositories.event_instance_resync import (
 from apps.subject.infrastructure.repositories.event_lifecycle import (
     DjangoSubjectEventLifecycleRepository,
 )
+from apps.subject.infrastructure.repositories.identifier_policy_migration import (
+    DjangoSubjectIdentifierPolicyMigrationRepository,
+)
 from apps.subject.infrastructure.repositories.period_lifecycle import (
     DjangoSubjectPeriodLifecycleRepository,
 )
@@ -33,6 +36,7 @@ __all__ = [
     "DjangoSubjectEventInstanceFileRepository",
     "DjangoSubjectEventInstanceResyncRepository",
     "DjangoSubjectEventLifecycleRepository",
+    "DjangoSubjectIdentifierPolicyMigrationRepository",
     "DjangoSubjectPeriodLifecycleRepository",
     "DjangoSubjectRepeatingEventInstanceRepository",
     "DjangoSubjectWorkflowActionRepository",

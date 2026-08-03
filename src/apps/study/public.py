@@ -23,6 +23,9 @@ from apps.study.application.services.randomization_workflow import (
     StudyRandomizationTransitionFactService,
 )
 from apps.study.application.services.site_directory import StudySiteDirectoryQueryService
+from apps.study.application.services.study_subject_code_generation import (
+    StudySubjectIdentifierPolicyQueryService,
+)
 from apps.study.application.services.subject_export import (
     SubjectExportFieldCatalogService,
 )
@@ -49,6 +52,10 @@ def assign_randomization_slot_for_subject(
 
 def build_randomization_transition_facts(*, study_id: int) -> dict[str, object]:
     return StudyRandomizationTransitionFactService().build_facts(study_id=study_id)
+
+
+def get_subject_identifier_policy(*, study_id: int):
+    return StudySubjectIdentifierPolicyQueryService().get_policy(study_id=study_id)
 
 
 def randomize_subject(**kwargs):
@@ -235,6 +242,7 @@ __all__ = [
     "mark_subject_eligibility_stale_on_source_data_change",
     "record_event_gate_evaluation",
     "get_current_subject_treatment",
+    "get_subject_identifier_policy",
     "get_subject_treatment_timeline",
     "list_event_attestation_policies_for_event",
     "list_event_gate_evaluation_history_for_subject",

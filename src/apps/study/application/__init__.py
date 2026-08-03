@@ -58,6 +58,12 @@ from apps.study.application.commands import (
     UpdateSiteCommand,
     UpdateStudyCommand,
 )
+from apps.study.application.exceptions import (
+    StudySubjectIdentifierMigrationBlockedError,
+    StudySubjectIdentifierMigrationError,
+    StudySubjectIdentifierMigrationRequiredError,
+    StudySubjectIdentifierMigrationStalePlanError,
+)
 from apps.study.application.queries import StudyNotFoundError
 from apps.study.application.services import (
     ApproveNng31MasterListService,
@@ -87,6 +93,8 @@ from apps.study.application.services import (
     PreviewStudyRandomizationSchemesImportService,
     PreviewStudyRandomizationSequencePeriodsImportService,
     PreviewNng31MasterListImportService,
+    PreviewStudySubjectIdentifierPolicyMigrationService,
+    RollbackStudySubjectIdentifierPolicyService,
     StudyCrfTemplateDirectoryQueryService,
     StudyDirectoryQueryService,
     StudyEventDefinitionDirectoryQueryService,
@@ -180,6 +188,8 @@ __all__ = [
     "PreviewStudyRandomizationArmsImportService",
     "PreviewStudyRandomizationSequencePeriodsImportService",
     "PreviewNng31MasterListImportService",
+    "PreviewStudySubjectIdentifierPolicyMigrationService",
+    "RollbackStudySubjectIdentifierPolicyService",
     "StudyEventTransitionRuleAutoOpenUseCase",
     "ToggleStudyStatusCommand",
     "ToggleStudyStatusService",
@@ -193,6 +203,10 @@ __all__ = [
     "StudyNotFoundError",
     "StudyCodeAlreadyExistsError",
     "StudyDateRangeError",
+    "StudySubjectIdentifierMigrationBlockedError",
+    "StudySubjectIdentifierMigrationError",
+    "StudySubjectIdentifierMigrationRequiredError",
+    "StudySubjectIdentifierMigrationStalePlanError",
     "CrfTemplateImportDependencyError",
     "CrfTemplateImportFormatError",
     "EventFormBindingImportDependencyError",

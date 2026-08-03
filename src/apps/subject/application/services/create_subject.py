@@ -2,10 +2,9 @@ from datetime import datetime, timedelta
 
 from django.db import IntegrityError, transaction
 
-from apps.study.application.services.study_subject_code_generation import (
-    StudySubjectCodeGenerationService,
-)
 from apps.study.application.use_cases import StudyEventTransitionRuleAutoOpenUseCase
+from apps.study.domain import SubjectIdentifierPolicyError
+from apps.study.public import get_subject_identifier_policy
 from apps.subject.application.commands.create_subject import (
     CreateSubjectCommand,
     StudyNotFoundError,
@@ -23,12 +22,12 @@ class CreateSubjectService:
     def __init__(
         self,
         repository=None,
-        code_generation_service=None,
+        identifier_policy_reader=None,
         transition_rule_auto_open_use_case=None,
         workflow_action_service=None,
     ):
         self.repository = repository or self.repository_class()
-        self.code_generation_service = code_generation_service or StudySubjectCodeGenerationService()
+        self.identifier_policy_reader = identifier_policy_reader or get_subject_identifier_policy
         self.transition_rule_auto_open_use_case = (
             transition_rule_auto_open_use_case or self.transition_rule_auto_open_use_case_class()
         )
@@ -52,10 +51,37 @@ class CreateSubjectService:
             raise StudyNotFoundError(command.study_id)
 
         next_current_sequence = self.repository.get_next_subject_sequence(study_id=command.study_id)
-        generated_codes = self.code_generation_service.generate(
-            study_code=study.code,
-            current_sequence=next_current_sequence,
+        policy = self.identifier_policy_reader(study_id=command.study_id)
+        if policy is None:
+            raise StudyNotFoundError(command.study_id)
+        site_code = self.repository.get_site_code(
+            study_id=command.study_id,
+            site_id=command.site_id,
         )
+        if site_code is None:
+            raise StudyNotFoundError(command.study_id)
+        generated_codes = policy.generate_for_screening(
+            current_sequence=next_current_sequence,
+            site_code=site_code,
+            supplied_subject_code=command.subject_code,
+            supplied_screening_code=command.screening_code,
+        )
+        if generated_codes.subject_code and self.repository.subject_code_exists(
+            study_id=command.study_id,
+            site_id=command.site_id,
+            subject_code=generated_codes.subject_code,
+            uniqueness_scope=policy.normalized_uniqueness_scope.value,
+        ):
+            raise SubjectIdentifierPolicyError(
+                "Subject Code already exists in the configured scope."
+            )
+        if generated_codes.screening_code and self.repository.screening_code_exists(
+            study_id=command.study_id,
+            screening_code=generated_codes.screening_code,
+        ):
+            raise SubjectIdentifierPolicyError(
+                "Screening Code already exists in this study."
+            )
         now = self.repository.now()
         subject = self.repository.create_subject(
             subject_code=generated_codes.subject_code,
@@ -66,6 +92,24 @@ class CreateSubjectService:
             actor_user_id=command.actor_user_id,
             now=now,
         )
+        if subject.subject_code:
+            self.repository.record_identifier_assignment(
+                subject_id=subject.pk,
+                identifier_type="subject_code",
+                to_value=subject.subject_code,
+                assignment_source=policy.normalized_subject_identifier_mode.value,
+                actor_user_id=command.actor_user_id,
+                occurred_at=now,
+            )
+        if subject.screening_code:
+            self.repository.record_identifier_assignment(
+                subject_id=subject.pk,
+                identifier_type="screening_code",
+                to_value=subject.screening_code,
+                assignment_source=policy.normalized_screening_identifier_mode.value,
+                actor_user_id=command.actor_user_id,
+                occurred_at=now,
+            )
         self._initialize_subject_event_instances(
             subject=subject,
             actor_user_id=command.actor_user_id,

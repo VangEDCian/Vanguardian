@@ -1,3 +1,5 @@
+from django.db.models import F
+
 from apps.subject.models import Subject
 
 
@@ -17,10 +19,14 @@ class DjangoSubjectExcelExportRepository:
                 deleted=False,
             )
             .order_by("current_sequence", "id")
+            .annotate(
+                randomization_code=F("randomization__randomization_number"),
+            )
             .values(
                 "id",
                 "subject_code",
                 "screening_code",
+                "randomization_code",
             )
         )
 

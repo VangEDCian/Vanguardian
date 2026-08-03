@@ -91,10 +91,11 @@ class SubjectAuditHistoryQueryServiceTests(SimpleTestCase):
 
         self.assertIsNotNone(result)
         self.assertEqual(result["title"], "SUBJ-001")
-        self.assertEqual(result["total_count"], 5)
+        self.assertEqual(result["total_count"], 6)
         self.assertEqual(
             [record["source"] for record in result["records"]],
             [
+                "Subject Identifier",
                 "Period Transition",
                 "Event Gate",
                 "Page State",
@@ -105,6 +106,7 @@ class SubjectAuditHistoryQueryServiceTests(SimpleTestCase):
         self.assertEqual(
             {item["key"]: item["count"] for item in result["source_counts"]},
             {
+                "subject_identifier": 1,
                 "subject_status": 1,
                 "period_transition": 1,
                 "event_transition": 1,
@@ -112,15 +114,16 @@ class SubjectAuditHistoryQueryServiceTests(SimpleTestCase):
                 "event_gate": 1,
             },
         )
-        self.assertEqual(result["records"][0]["to_value"], "Period 2 / Active")
-        self.assertEqual(result["records"][0]["field_name"], "period_status")
-        self.assertEqual(result["records"][0]["user_display"], "Nguyen CRC")
+        period_record = result["records"][1]
+        self.assertEqual(period_record["to_value"], "Period 2 / Active")
+        self.assertEqual(period_record["field_name"], "period_status")
+        self.assertEqual(period_record["user_display"], "Nguyen CRC")
         self.assertIn(
             {"label": "Override ID", "value": "71"},
-            result["records"][0]["details"],
+            period_record["details"],
         )
         self.assertEqual(
-            result["records"][0]["reason"],
+            period_record["reason"],
             "Source Document Issue: Tài liệu nguồn cần hiệu chỉnh",
         )
         self.assertEqual(result["user_options"], ["Nguyen CRC", "System", "User #11"])
@@ -189,6 +192,23 @@ class _SubjectAuditHistoryRepositoryStub:
             screening_code="SCR-001",
             subject_code="SUBJ-001",
         )
+
+    def list_subject_identifier_history(self, *, subject_id, record_class, limit):
+        return [
+            record_class(
+                occurred_at=datetime(2026, 6, 6, 9, 0, tzinfo=timezone.utc),
+                field_name="subject_identifier",
+                field_description="Identifier assignment: subject_code",
+                value="SUBJ-001 generated_at_enrollment",
+                user_display="Nguyen CRC",
+                identifier_type="subject_code",
+                from_value="",
+                to_value="SUBJ-001",
+                assignment_source="generated_at_enrollment",
+                related_randomization_event_id=None,
+                actor_id=10,
+            )
+        ]
 
     def list_subject_status_history(self, *, subject_id, record_class, limit, search="", field_name=""):
         self.status_kwargs = {"search": search, "field_name": field_name}

@@ -34,6 +34,21 @@ class SubjectStatusAuditHistoryRecordDTO:
 
 
 @dataclass(frozen=True)
+class SubjectIdentifierAuditHistoryRecordDTO:
+    occurred_at: datetime | None
+    field_name: str
+    field_description: str
+    value: str
+    user_display: str
+    identifier_type: str
+    from_value: str
+    to_value: str
+    assignment_source: str
+    related_randomization_event_id: int | None
+    actor_id: int | None
+
+
+@dataclass(frozen=True)
 class SubjectEventTransitionAuditHistoryRecordDTO:
     occurred_at: datetime | None
     field_name: str
@@ -74,6 +89,7 @@ class SubjectPeriodTransitionAuditHistoryRecordDTO:
 class SubjectAuditHistoryQueryService:
     repository_class = DjangoSubjectAuditHistoryRepository
     source_order = (
+        "subject_identifier",
         "subject_status",
         "period_transition",
         "event_transition",
@@ -118,6 +134,12 @@ class SubjectAuditHistoryQueryService:
             return None
 
         records = []
+        records.extend(
+            self._build_subject_identifier_records(
+                subject_id=subject_id,
+                limit=limit_per_source,
+            )
+        )
         records.extend(
             self._build_subject_status_records(
                 subject_id=subject_id,
@@ -184,6 +206,46 @@ class SubjectAuditHistoryQueryService:
             "user_options": user_options,
             "records": normalized_records,
         }
+
+    def _build_subject_identifier_records(
+        self,
+        *,
+        subject_id: int,
+        limit: int,
+    ) -> list[dict]:
+        rows = self.repository.list_subject_identifier_history(
+            subject_id=subject_id,
+            record_class=SubjectIdentifierAuditHistoryRecordDTO,
+            limit=limit,
+        )
+        return [
+            {
+                "occurred_at": row.occurred_at,
+                "category": "subject_identifier",
+                "source": "Subject Identifier",
+                "field_name": row.field_name,
+                "field_description": row.field_description,
+                "value": row.value,
+                "user_display": row.user_display or self._format_actor(row.actor_id),
+                "scope": self._humanize_value(row.identifier_type),
+                "action": "Identifier assigned",
+                "from_value": row.from_value,
+                "to_value": row.to_value,
+                "actor": self._format_actor(row.actor_id),
+                "reason": "",
+                "details": [
+                    {
+                        "label": "Assignment Source",
+                        "value": self._humanize_value(row.assignment_source),
+                    },
+                    {
+                        "label": "Related Randomization Event",
+                        "value": str(row.related_randomization_event_id or ""),
+                    },
+                ],
+            }
+            for row in rows
+        ]
 
     def _build_subject_status_records(
         self,
@@ -399,6 +461,7 @@ class SubjectAuditHistoryQueryService:
     @classmethod
     def _build_source_counts(cls, records: list[dict]) -> list[dict[str, object]]:
         labels = {
+            "subject_identifier": "Subject Identifier",
             "subject_status": "Subject Status",
             "period_transition": "Period Transition",
             "event_transition": "Event Transition",
@@ -554,6 +617,7 @@ __all__ = [
     "SubjectAuditHistoryQueryService",
     "SubjectAuditHistorySubjectDTO",
     "SubjectEventTransitionAuditHistoryRecordDTO",
+    "SubjectIdentifierAuditHistoryRecordDTO",
     "SubjectPeriodTransitionAuditHistoryRecordDTO",
     "SubjectStatusAuditHistoryRecordDTO",
 ]

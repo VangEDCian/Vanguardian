@@ -45,7 +45,7 @@ class SubjectSummaryViewTests(SimpleTestCase):
         )
         labels = {item["label"] for item in section["items"]}
 
-        self.assertNotIn("Randomization Number", labels)
+        self.assertNotIn("Randomization Code", labels)
         self.assertNotIn("Arm", labels)
         self.assertNotIn("Period 1 Treatment", labels)
 
@@ -80,7 +80,7 @@ class SubjectSummaryViewTests(SimpleTestCase):
         section = SubjectSummaryQueryService._build_randomization_section(snapshot)
         rows = {item["label"]: item["value"] for item in section["items"]}
 
-        self.assertEqual(rows["Randomization Number"], "R-001")
+        self.assertEqual(rows["Randomization Code"], "R-001")
         self.assertEqual(rows["Period 1 Kit Code"], "NNG31-001")
         self.assertEqual(rows["Period 2 Kit Code"], "R-NNG31-001")
         self.assertIn("without re-screening", rows["Period 2 Instruction"])

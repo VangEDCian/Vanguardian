@@ -1,9 +1,11 @@
+from django.contrib import messages
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 
 from apps.shared.context_processors import SiteDropdownHandler
 from apps.shared.views import AuthenticateTemplateContextMixin
+from apps.study.domain import SubjectIdentifierPolicyError
 from apps.subject.application.services import CreateSubjectService
 from apps.subject.presentation.web.mappers.create_subject import to_create_subject_command
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
@@ -27,13 +29,24 @@ class SubjectCreateView(
         if site_id is None:
             raise Http404
 
-        subject = CreateSubjectService().execute(
-            to_create_subject_command(
-                study_id=study_id,
-                site_id=site_id,
-                actor_user_id=request.user.pk,
-            ),
-        )
+        try:
+            subject = CreateSubjectService().execute(
+                to_create_subject_command(
+                    study_id=study_id,
+                    site_id=site_id,
+                    actor_user_id=request.user.pk,
+                    subject_code=request.POST.get("subject_code"),
+                    screening_code=request.POST.get("screening_code"),
+                ),
+            )
+        except SubjectIdentifierPolicyError as exc:
+            messages.error(request, str(exc))
+            return redirect(
+                reverse(
+                    "subject:subject_list",
+                    kwargs={"study_id": study_id},
+                )
+            )
         return redirect(
             reverse(
                 "subject:subject_detail",

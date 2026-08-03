@@ -24,9 +24,20 @@
         <form method="post"
               class="user-detail-form"
               data-date-range-sync
+              data-subject-identifier-policy-form
+              data-identifier-policy-preview-url="{{ subject_identifier_policy_preview_url }}"
+              data-current-study-code="{{ identifier_policy_current.code|escape }}"
+              data-current-subject-identifier-mode="{{ identifier_policy_current.subject_identifier_mode|escape }}"
+              data-current-subject-code-pattern="{{ identifier_policy_current.subject_code_pattern|escape }}"
+              data-current-subject-code-uniqueness-scope="{{ identifier_policy_current.subject_code_uniqueness_scope|escape }}"
               data-date-range-start-id="{{ form.start_date.id_for_label }}"
               data-date-range-end-id="{{ form.end_date.id_for_label }}">
             {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="user-detail-field__error" role="alert">
+                    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
             <div class="user-detail-form__content">
                 <section class="user-detail-section">
                     <h2 class="user-detail-section__title">{% trans "STUDY INFO" %}</h2>
@@ -128,6 +139,7 @@
                         {% endif %}
                     </div>
                 </section>
+                {% include "study/components/_subject_identifier_policy_fields.html" with can_update_identifier_policy=True %}
             </div>
             <div class="entity-table__footer entity-table__footer--actions">
                 <button type="submit"
@@ -139,8 +151,10 @@
             </div>
         </form>
     </section>
+    {% include "study/components/_subject_identifier_migration_modal.html" %}
 {% endblock %}
 {% block extra_js %}
     {{ block.super }}
     <script src="{% static 'study/js/date_range_sync.js' %}"></script>
+    <script src="{% static 'study/js/subject_identifier_policy_migration.js' %}"></script>
 {% endblock %}

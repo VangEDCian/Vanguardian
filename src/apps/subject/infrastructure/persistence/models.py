@@ -159,6 +159,112 @@ class SubjectStatusHistory(models.Model):
         verbose_name_plural = "subject status histories"
 
 
+class SubjectIdentifierMigrationBatch(models.Model):
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="subject_identifier_migration_batches",
+    )
+    operation_type = models.CharField(max_length=16)
+    from_policy_json = models.JSONField()
+    to_policy_json = models.JSONField()
+    plan_hash = models.CharField(max_length=64)
+    reverses_batch = models.OneToOneField(
+        "self",
+        on_delete=models.DO_NOTHING,
+        db_column="reverses_batch_id",
+        related_name="rollback_batch",
+        null=True,
+        blank=True,
+    )
+    occurred_at = models.DateTimeField()
+    actor_user_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_migration_batch"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["study", "occurred_at"],
+                name="subj_ident_mig_st_time_idx",
+            )
+        ]
+        verbose_name = "subject identifier migration batch"
+        verbose_name_plural = "subject identifier migration batches"
+
+
+class SubjectIdentifierMigrationItem(models.Model):
+    migration_batch = models.ForeignKey(
+        SubjectIdentifierMigrationBatch,
+        on_delete=models.DO_NOTHING,
+        db_column="migration_batch_id",
+        related_name="items",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="identifier_migration_items",
+    )
+    from_subject_code = models.CharField(max_length=64, null=True, blank=True)
+    to_subject_code = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_migration_item"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["migration_batch", "subject"],
+                name="subj_ident_mig_item_batch_subj_uq",
+            )
+        ]
+        verbose_name = "subject identifier migration item"
+        verbose_name_plural = "subject identifier migration items"
+
+
+class SubjectIdentifierHistory(models.Model):
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="identifier_history",
+    )
+    identifier_type = models.CharField(max_length=32)
+    from_value = models.CharField(max_length=64, null=True, blank=True)
+    to_value = models.CharField(max_length=64, null=True, blank=True)
+    assignment_source = models.CharField(max_length=48)
+    occurred_at = models.DateTimeField()
+    related_randomization_event = models.ForeignKey(
+        "study.RandomizationEvent",
+        on_delete=models.DO_NOTHING,
+        db_column="related_randomization_event_id",
+        related_name="subject_identifier_history_entries",
+        null=True,
+        blank=True,
+    )
+    actor_user_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_history"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["subject", "occurred_at"],
+                name="subj_ident_hist_time_idx",
+            ),
+            models.Index(
+                fields=["identifier_type", "to_value"],
+                name="subj_ident_hist_value_idx",
+            ),
+        ]
+        verbose_name = "subject identifier history"
+        verbose_name_plural = "subject identifier histories"
+
+
 class SubjectRandomization(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -306,6 +412,36 @@ class SubjectPeriod(models.Model):
         ]
         verbose_name = "subject period"
         verbose_name_plural = "subject periods"
+
+
+class SubjectIdentifierMigrationPeriodItem(models.Model):
+    migration_item = models.ForeignKey(
+        SubjectIdentifierMigrationItem,
+        on_delete=models.DO_NOTHING,
+        db_column="migration_item_id",
+        related_name="period_items",
+    )
+    period = models.ForeignKey(
+        SubjectPeriod,
+        on_delete=models.DO_NOTHING,
+        db_column="period_id",
+        related_name="identifier_migration_items",
+    )
+    from_kit_code = models.CharField(max_length=64, null=True, blank=True)
+    to_kit_code = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_migration_period_item"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["migration_item", "period"],
+                name="subj_ident_mig_period_item_uq",
+            )
+        ]
+        verbose_name = "subject identifier migration period item"
+        verbose_name_plural = "subject identifier migration period items"
 
 
 class SubjectPeriodMilestone(models.Model):

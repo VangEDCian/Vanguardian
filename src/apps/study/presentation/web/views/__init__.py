@@ -49,6 +49,11 @@ from apps.study.presentation.web.views.study_actions import (
     StudyToggleStatusView,
     StudyUpdateView,
 )
+from apps.study.presentation.web.views.subject_identifier_policy import (
+    StudySubjectIdentifierPolicyPreviewView,
+    StudySubjectIdentifierPolicyRollbackPreviewView,
+    StudySubjectIdentifierPolicyRollbackView,
+)
 
 __all__ = [
     "SiteCreateView",
@@ -87,5 +92,8 @@ __all__ = [
     "StudyRandomizationSequencePeriodImportPreviewView",
     "StudyRandomizationView",
     "StudyToggleStatusView",
+    "StudySubjectIdentifierPolicyPreviewView",
+    "StudySubjectIdentifierPolicyRollbackPreviewView",
+    "StudySubjectIdentifierPolicyRollbackView",
     "StudyUpdateView",
 ]

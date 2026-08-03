@@ -5,7 +5,12 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from apps.subject.application.commands import TriggerSubjectEventTransitionCommand
+from apps.study.domain import (
+    ScreeningIdentifierMode,
+    StudySubjectIdentifierPolicy,
+    SubjectIdentifierMode,
+)
+from apps.subject.application.commands import CreateSubjectCommand, TriggerSubjectEventTransitionCommand
 from apps.subject.application.services.create_subject import CreateSubjectService
 from apps.subject.application.services.event_lifecycle import SubjectEventTransitionService
 from apps.subject.domain import (
@@ -13,6 +18,78 @@ from apps.subject.domain import (
     StudyEventTransitionRuleSnapshot,
     SubjectEventInstanceSnapshot,
 )
+
+
+class CreateSubjectIdentifierPolicyTests(SimpleTestCase):
+    def test_default_policy_assigns_screening_code_without_subject_code(self):
+        repository = _SubjectCreationRepositoryStub()
+
+        with patch(
+            "apps.subject.application.services.create_subject.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            subject = CreateSubjectService(
+                repository=repository,
+                identifier_policy_reader=lambda **_kwargs: StudySubjectIdentifierPolicy(
+                    study_id=1,
+                    study_code="ABC",
+                ),
+            ).execute(
+                CreateSubjectCommand(
+                    study_id=1,
+                    site_id=2,
+                    actor_user_id=99,
+                )
+            )
+
+        self.assertIsNone(subject.subject_code)
+        self.assertEqual(subject.screening_code, "ABC-S001")
+        self.assertEqual(
+            repository.identifier_assignments,
+            [
+                {
+                    "subject_id": 20,
+                    "identifier_type": "screening_code",
+                    "to_value": "ABC-S001",
+                    "assignment_source": "generated",
+                    "actor_user_id": 99,
+                    "occurred_at": repository.current_time,
+                }
+            ],
+        )
+
+    def test_external_policy_preserves_supplied_identifiers(self):
+        repository = _SubjectCreationRepositoryStub()
+        policy = StudySubjectIdentifierPolicy(
+            study_id=1,
+            study_code="ABC",
+            subject_identifier_mode=SubjectIdentifierMode.EXTERNAL,
+            screening_identifier_mode=ScreeningIdentifierMode.EXTERNAL,
+        )
+
+        with patch(
+            "apps.subject.application.services.create_subject.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            subject = CreateSubjectService(
+                repository=repository,
+                identifier_policy_reader=lambda **_kwargs: policy,
+            ).execute(
+                CreateSubjectCommand(
+                    study_id=1,
+                    site_id=2,
+                    actor_user_id=99,
+                    subject_code="SUB-EXT-01",
+                    screening_code="SCR-EXT-01",
+                )
+            )
+
+        self.assertEqual(subject.subject_code, "SUB-EXT-01")
+        self.assertEqual(subject.screening_code, "SCR-EXT-01")
+        self.assertEqual(
+            [row["identifier_type"] for row in repository.identifier_assignments],
+            ["subject_code", "screening_code"],
+        )
 
 
 class CreateSubjectEventInstanceScheduleTests(SimpleTestCase):
@@ -431,6 +508,52 @@ class _SubjectCommandRepositoryStub:
 
     def list_open_event_instance_ids_for_subject(self, *, subject_id):
         return list(self.open_event_instance_ids)
+
+
+class _SubjectCreationRepositoryStub:
+    def __init__(self):
+        self.current_time = datetime(2026, 8, 3, 9, 0, tzinfo=timezone.utc)
+        self.identifier_assignments = []
+
+    @staticmethod
+    def get_study_for_update(*, study_id):
+        return SimpleNamespace(pk=study_id, code="ABC")
+
+    @staticmethod
+    def get_next_subject_sequence(*, study_id):
+        return 1
+
+    @staticmethod
+    def get_site_code(*, study_id, site_id):
+        return "SITE-01"
+
+    @staticmethod
+    def subject_code_exists(**_kwargs):
+        return False
+
+    @staticmethod
+    def screening_code_exists(**_kwargs):
+        return False
+
+    def now(self):
+        return self.current_time
+
+    @staticmethod
+    def create_subject(**kwargs):
+        return SimpleNamespace(
+            pk=20,
+            study_id=kwargs["study_id"],
+            site_id=kwargs["site_id"],
+            subject_code=kwargs["subject_code"],
+            screening_code=kwargs["screening_code"],
+        )
+
+    def record_identifier_assignment(self, **kwargs):
+        self.identifier_assignments.append(kwargs)
+
+    @staticmethod
+    def resolve_active_study_version(*, study_id):
+        return None
 
 
 class _WorkflowActionServiceStub:

@@ -2,8 +2,11 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.study.models import Site, Study
-from apps.subject.infrastructure.repositories.eligibility_workflow import DjangoSubjectEligibilityWorkflowRepository
-from apps.subject.models import Subject
+from apps.subject.application.services.eligibility_workflow import (
+    SubjectEligibilityWorkflowError,
+    SubjectEligibilityWorkflowService,
+)
+from apps.subject.models import Subject, SubjectIdentifierHistory
 
 
 class SubjectEligibilityWorkflowRepositoryTests(TestCase):
@@ -12,33 +15,19 @@ class SubjectEligibilityWorkflowRepositoryTests(TestCase):
         site = self._create_site(study=study)
         first_subject = self._create_subject(study=study, site=site, current_sequence=1)
         second_subject = self._create_subject(study=study, site=site, current_sequence=2)
-        repository = DjangoSubjectEligibilityWorkflowRepository()
+        service = SubjectEligibilityWorkflowService()
 
-        repository.transition_enrollment_status(
+        service.enroll_subject(
             study_id=study.pk,
             site_id=site.pk,
             subject_id=first_subject.pk,
-            to_status="Enrolled",
-            is_enrolled=True,
             actor_user_id=7,
-            source="eligibility",
-            reason_code=None,
-            reason_text=None,
-            screen_failure_status="ScreenFailure",
-            screened_status="Screened",
         )
-        repository.transition_enrollment_status(
+        service.enroll_subject(
             study_id=study.pk,
             site_id=site.pk,
             subject_id=second_subject.pk,
-            to_status="Enrolled",
-            is_enrolled=True,
             actor_user_id=7,
-            source="eligibility",
-            reason_code=None,
-            reason_text=None,
-            screen_failure_status="ScreenFailure",
-            screened_status="Screened",
         )
 
         first_subject.refresh_from_db()
@@ -47,6 +36,13 @@ class SubjectEligibilityWorkflowRepositoryTests(TestCase):
         self.assertEqual(first_subject.subject_code, "NNG31-001")
         self.assertEqual(second_subject.enrollment_current_sequence, 2)
         self.assertEqual(second_subject.subject_code, "NNG31-002")
+        self.assertEqual(
+            SubjectIdentifierHistory.objects.filter(
+                subject_id__in=(first_subject.pk, second_subject.pk),
+                identifier_type="subject_code",
+            ).count(),
+            2,
+        )
 
     def test_reenrollment_does_not_reassign_existing_subject_code(self):
         study = self._create_study(code="NNG31")
@@ -58,20 +54,11 @@ class SubjectEligibilityWorkflowRepositoryTests(TestCase):
             subject_code="NNG31-010",
             enrollment_current_sequence=10,
         )
-        repository = DjangoSubjectEligibilityWorkflowRepository()
-
-        repository.transition_enrollment_status(
+        SubjectEligibilityWorkflowService().enroll_subject(
             study_id=study.pk,
             site_id=site.pk,
             subject_id=subject.pk,
-            to_status="Enrolled",
-            is_enrolled=True,
             actor_user_id=7,
-            source="eligibility",
-            reason_code=None,
-            reason_text=None,
-            screen_failure_status="ScreenFailure",
-            screened_status="Screened",
         )
 
         subject.refresh_from_db()
@@ -83,23 +70,36 @@ class SubjectEligibilityWorkflowRepositoryTests(TestCase):
         site = self._create_site(study=study)
         subject = self._create_subject(study=study, site=site, current_sequence=1)
 
-        DjangoSubjectEligibilityWorkflowRepository().transition_enrollment_status(
+        SubjectEligibilityWorkflowService().enroll_subject(
             study_id=study.pk,
             site_id=site.pk,
             subject_id=subject.pk,
-            to_status="Enrolled",
-            is_enrolled=True,
             actor_user_id=7,
-            source="eligibility",
-            reason_code=None,
-            reason_text=None,
-            screen_failure_status="ScreenFailure",
-            screened_status="Screened",
         )
 
         subject.refresh_from_db()
         self.assertEqual(subject.enrollment_current_sequence, 1)
         self.assertEqual(subject.subject_code, "ABC-001")
+
+    def test_external_subject_code_policy_blocks_enrollment_when_code_is_missing(self):
+        study = self._create_study(code="EXT")
+        study.subject_identifier_mode = "external"
+        study.save(update_fields=["subject_identifier_mode"])
+        site = self._create_site(study=study)
+        subject = self._create_subject(study=study, site=site, current_sequence=1)
+
+        with self.assertRaisesMessage(
+            SubjectEligibilityWorkflowError,
+            "must be assigned before enrollment",
+        ):
+            SubjectEligibilityWorkflowService().enroll_subject(
+                study_id=study.pk,
+                site_id=site.pk,
+                subject_id=subject.pk,
+                actor_user_id=7,
+            )
+
+        self.assertFalse(hasattr(subject, "enrollment"))
 
     @staticmethod
     def _create_study(*, code: str):

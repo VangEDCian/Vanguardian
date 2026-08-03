@@ -29,6 +29,15 @@ class SubjectListTable(tables.Table):
         verbose_name=_("SCREENING"),
         orderable=False,
     )
+    subject_code = tables.Column(
+        verbose_name=_("SUBJECT CODE"),
+        attrs={
+            "th": {"class": "subject-list-table__code-column"},
+            "td": {
+                "class": "entity-table__primary subject-list-table__code-column"
+            },
+        },
+    )
     enrollment = tables.Column(
         empty_values=(),
         verbose_name=_("Enrollment"),
@@ -40,7 +49,7 @@ class SubjectListTable(tables.Table):
     )
     randomization_code = tables.Column(
         empty_values=(),
-        verbose_name=_("Randomize Code"),
+        verbose_name=_("Randomization Code"),
         orderable=False,
         attrs={
             "th": {"class": "subject-list-table__code-column"},
@@ -166,6 +175,7 @@ class SubjectListTable(tables.Table):
         }
         fields = (
             "screening_code",
+            "subject_code",
             "screening",
             "enrollment",
             "lifecycle_status",

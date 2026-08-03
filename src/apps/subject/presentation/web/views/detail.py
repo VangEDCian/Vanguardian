@@ -1,5 +1,6 @@
 import json
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import get_language
@@ -164,14 +165,27 @@ class SubjectDetailView(
         if subject is None:
             return super().get_layout_detail_meta_items()
 
+        try:
+            randomization_code = subject.randomization.randomization_number or "—"
+        except ObjectDoesNotExist:
+            randomization_code = "—"
+
         return (
             {
                 "label": _("Site"),
                 "value": subject.site.code,
             },
             {
-                "label": _("Subject ID"),
-                "value": subject.subject_code or subject.screening_code or "—",
+                "label": _("Subject Code"),
+                "value": subject.subject_code or "—",
+            },
+            {
+                "label": _("Screening Code"),
+                "value": subject.screening_code or "—",
+            },
+            {
+                "label": _("Randomization Code"),
+                "value": randomization_code,
             },
             {
                 "label": _("Study"),

@@ -26,8 +26,13 @@
         <header class="subject-detail-screen__summary">
             <div class="subject-detail-screen__summary-left">
                 <span class="subject-detail-screen__summary-item">
-                    <span class="subject-detail-screen__label">{% trans "Subject" %}</span>
-                    <strong>{{ subject_display_id }}</strong>
+                    <span class="subject-detail-screen__label">{% trans "Subject Code" %}</span>
+                    <strong>{{ subject_obj.subject_code|default:"—" }}</strong>
+                </span>
+                <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
+                <span class="subject-detail-screen__summary-item">
+                    <span class="subject-detail-screen__label">{% trans "Randomization Code" %}</span>
+                    <strong>{{ subject_obj.randomization.randomization_number|default:"—" }}</strong>
                 </span>
                 <span class="subject-detail-screen__divider" aria-hidden="true">|</span>
                 <span class="subject-detail-screen__summary-item">

@@ -143,7 +143,7 @@ class SubjectExcelExportService:
             for field in catalog_fields
             if field["token"] in selected_token_set
         )
-        if len(selected_fields) + 3 > MAX_EXCEL_COLUMNS:
+        if len(selected_fields) + 4 > MAX_EXCEL_COLUMNS:
             raise SubjectExcelExportSelectionError(
                 "Too many fields were selected for one Excel worksheet."
             )
@@ -164,6 +164,7 @@ class SubjectExcelExportService:
             "subject_id",
             "subject_code",
             "screening_code",
+            "randomization_code",
             *(field["header"] for field in selected_fields),
         ]
         worksheet.append(headers)
@@ -176,6 +177,7 @@ class SubjectExcelExportService:
                 subject_id,
                 subject.get("subject_code") or "",
                 subject.get("screening_code") or "",
+                subject.get("randomization_code") or "",
                 *(
                     subject_values.get(field["token"], "")
                     for field in selected_fields
