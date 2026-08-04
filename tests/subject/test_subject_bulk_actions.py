@@ -26,6 +26,10 @@ from apps.subject.presentation.web.forms import (
     SubjectExcelExportForm,
 )
 from apps.subject.presentation.web.views.bulk_actions import SubjectBulkActionView
+from apps.subject.presentation.web.views.export_field_catalog import (
+    SubjectExportFieldCatalogView,
+)
+from apps.subject.presentation.web.views.list_actions import SubjectListActionsView
 
 
 class SubjectBulkActionFormTests(SimpleTestCase):
@@ -445,20 +449,17 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
         self.assertIn("Thực thi", rendered)
         self.assertIn("(chọn tất cả 37 subject)", rendered)
         self.assertIn("Xuất Excel đối tượng", rendered)
-        self.assertIn("subject-export-modal__field-grid", rendered)
-        self.assertIn("data-subject-export-visit", rendered)
-        self.assertIn("data-subject-export-visit-toggle", rendered)
-        self.assertIn("data-subject-export-visit-collapse", rendered)
-        self.assertIn('data-expanded-label="Thu gọn Visit"', rendered)
-        self.assertIn('data-collapsed-label="Mở rộng Visit"', rendered)
-        self.assertIn('aria-expanded="true"', rendered)
-        self.assertIn('aria-controls="subject-export-visit-fields-10"', rendered)
-        self.assertIn('data-select-label="Chọn toàn bộ field"', rendered)
-        self.assertIn('data-clear-label="Bỏ chọn toàn bộ field"', rendered)
-        self.assertIn('aria-pressed="false"', rendered)
-        self.assertIn("SCREENING.DEMOGRAPHICS.AGE", rendered)
-        self.assertIn('name="export_fields"', rendered)
-        self.assertNotIn('name="export_fields" checked', rendered)
+        self.assertIn("data-subject-export-field-catalog", rendered)
+        self.assertIn("data-subject-export-field-catalog-url", rendered)
+        self.assertIn(
+            reverse(
+                "subject:subject_export_field_catalog",
+                kwargs={"study_id": 1},
+            ),
+            rendered,
+        )
+        self.assertNotIn("SCREENING.DEMOGRAPHICS.AGE", rendered)
+        self.assertNotIn('name="export_fields"', rendered)
         self.assertIn("Cancel", rendered)
         self.assertIn("Xuất file Excel", rendered)
         self.assertIn(
@@ -468,6 +469,61 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
         self.assertIn('name="action" value="delete"', rendered)
         self.assertIn('name="action" value="early_terminate"', rendered)
 
+    def test_renders_export_fields_in_lazy_catalog_fragment(self):
+        rendered = render_to_string(
+            "subject/includes/subject_export_field_groups.html",
+            {
+                "subject_export_field_groups": [
+                    {
+                        "event_definition_id": 10,
+                        "event_name": "Screening",
+                        "event_code": "SCREENING",
+                        "forms": [
+                            {
+                                "fields": [
+                                    {
+                                        "binding_id": 30,
+                                        "field_template_id": 40,
+                                        "token": "30:40",
+                                        "crf_code": "DEMOGRAPHICS",
+                                        "field_label": "Age",
+                                        "header": "SCREENING.DEMOGRAPHICS.AGE",
+                                    }
+                                ]
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+
+        self.assertIn("data-subject-export-visit", rendered)
+        self.assertIn("data-subject-export-visit-toggle", rendered)
+        self.assertIn("data-subject-export-visit-collapse", rendered)
+        self.assertIn("SCREENING.DEMOGRAPHICS.AGE", rendered)
+        self.assertIn('name="export_fields"', rendered)
+        self.assertNotIn('name="export_fields" checked', rendered)
+
+    def test_export_field_catalog_view_loads_fields_on_demand(self):
+        request = RequestFactory().get("/studies/1/subjects/export-fields/")
+        view = SubjectExportFieldCatalogView()
+        view.kwargs = {"study_id": 1}
+        view.field_catalog_loader = Mock(return_value=[])
+
+        with patch(
+            "apps.subject.presentation.web.views.export_field_catalog.render_to_string",
+            return_value="<p>No fields</p>",
+        ) as render_fragment:
+            response = view.get(request, study_id=1)
+
+        view.field_catalog_loader.assert_called_once_with(study_id=1)
+        render_fragment.assert_called_once_with(
+            "subject/includes/subject_export_field_groups.html",
+            {"subject_export_field_groups": []},
+            request=request,
+        )
+        self.assertEqual(response.content, b"<p>No fields</p>")
+
     def test_bulk_action_row_is_immediately_after_toolbar(self):
         source = Path("src/templates/subject/subjects.html").read_text()
 
@@ -476,6 +532,114 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
         table_index = source.index("{% render_table table %}")
         self.assertLess(toolbar_index, actions_index)
         self.assertLess(actions_index, table_index)
+
+    def test_subject_list_uses_single_bundled_stylesheet_and_script(self):
+        source = Path("src/templates/subject/subjects.html").read_text()
+        css_bundle = Path(
+            "src/staticfiles/subject/bundles/subject_list.css"
+        ).read_text()
+        js_bundle = Path(
+            "src/staticfiles/subject/bundles/subject_list.js"
+        ).read_text()
+
+        self.assertIn("subject/bundles/subject_list.css", source)
+        self.assertIn("subject/bundles/subject_list.js", source)
+        self.assertNotIn("subject/css/subject_list.css", source)
+        self.assertNotIn("subject/js/subject_bulk_actions.js", source)
+        self.assertIn(
+            "Source: shared/css/components/common-table.css",
+            css_bundle,
+        )
+        self.assertIn(
+            "Source: subject/js/subject_bulk_actions.js",
+            js_bundle,
+        )
+
+    def test_subject_row_actions_render_as_lazy_loader(self):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_loader_cell.html",
+            {
+                "record": SimpleNamespace(
+                    pk=20,
+                    study_id=1,
+                ),
+            },
+        )
+
+        self.assertIn("data-subject-actions-loader", rendered)
+        self.assertIn(
+            reverse(
+                "subject:subject_list_actions",
+                kwargs={"study_id": 1, "subject_id": 20},
+            ),
+            rendered,
+        )
+        self.assertNotIn("Resync Stage", rendered)
+
+
+class SubjectListActionsViewTests(SimpleTestCase):
+    def test_loads_action_availability_for_only_the_requested_subject(self):
+        request = RequestFactory().get(
+            "/studies/1/subjects/20/list-actions/"
+        )
+        request.user = SimpleNamespace(pk=99, is_authenticated=True)
+        subject = SimpleNamespace(
+            pk=20,
+            study_id=1,
+            site_id=2,
+            subject_code="SUBJ-020",
+            screening_code="SCR-020",
+        )
+        subject_query_service = Mock()
+        subject_query_service.get_subject.return_value = subject
+        verify_service = Mock()
+        verify_service.map_show_verify_form_by_subject_id.return_value = {
+            20: True
+        }
+        workflow_service = Mock()
+        workflow_service.map_triggerable_event_access_by_subject_id.return_value = {}
+        view = SubjectListActionsView()
+        view.kwargs = {"study_id": 1, "subject_id": 20}
+        view.subject_query_service_class = Mock(
+            return_value=subject_query_service
+        )
+        view.verify_visibility_service_class = Mock(return_value=verify_service)
+        view.workflow_action_service_class = Mock(return_value=workflow_service)
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.list_actions.user_can_access_permission",
+                side_effect=lambda _user, permission_code, **_kwargs: (
+                    permission_code == "SDV.MARK"
+                ),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.list_actions.render_to_string",
+                return_value="<div>Actions</div>",
+            ) as render_actions,
+        ):
+            response = view.get(request, study_id=1, subject_id=20)
+
+        subject_query_service.get_subject.assert_called_once_with(
+            study_id=1,
+            subject_id=20,
+        )
+        verify_service.map_show_verify_form_by_subject_id.assert_called_once_with(
+            user_id=99,
+            has_verify_form_permission=True,
+            subject_ids=(20,),
+        )
+        workflow_service.map_triggerable_event_access_by_subject_id.assert_called_once_with(
+            study_id=1,
+            subject_ids=(20,),
+        )
+        render_context = render_actions.call_args.args[1]
+        self.assertEqual(render_context["record"], subject)
+        self.assertEqual(
+            render_context["table"].verify_eligible_subject_ids,
+            frozenset({20}),
+        )
+        self.assertEqual(response.content, b"<div>Actions</div>")
 
 
 class SubjectBulkResyncServiceTests(SimpleTestCase):

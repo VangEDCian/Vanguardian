@@ -4,9 +4,8 @@
 {% block title %}
     {% trans "Subjects | Vanguardian" %}
 {% endblock %}
-{% block extra_css %}
-    {{ block.super }}
-    <link rel="stylesheet" href="{% static 'subject/css/subject_list.css' %}">
+{% block core_css %}
+    <link rel="stylesheet" href="{% static 'subject/bundles/subject_list.css' %}">
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
@@ -43,8 +42,6 @@
         {% endif %}
     </section>
 {% endblock %}
-{% block extra_js %}
-    {{ block.super }}
-    <script src="{% static 'subject/js/subject_list_verify_form_nav.js' %}"></script>
-    <script src="{% static 'subject/js/subject_bulk_actions.js' %}"></script>
+{% block core_js %}
+    <script src="{% static 'subject/bundles/subject_list.js' %}"></script>
 {% endblock %}

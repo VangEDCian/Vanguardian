@@ -17,9 +17,7 @@
             aria-expanded="false"
             aria-label="{% trans 'Open actions menu' %}">
         <span class="crf-template-actions__value" data-dropdown-value>{% trans "Actions" %}</span>
-        <span class="svg-icon crf-template-actions__icon"
-              aria-hidden="true"
-              style="--icon-url: url('{% static 'images/table/ellipsis-vertical-svgrepo-com.svg' %}')"></span>
+        <span class="crf-template-actions__icon" aria-hidden="true">⋮</span>
     </button>
     <div class="crf-template-actions__menu" data-dropdown-menu hidden>
         <a href="{{ subject_summary_url }}?next={{ request.get_full_path|urlencode }}"
@@ -35,7 +33,7 @@
             <button type="button"
                     class="crf-template-actions__item"
                     data-subject-verify-form-nav="{{ subject_detail_base_url }}?mode=verification">
-                {% trans "CRF Page Workflow" %}
+                {% trans "Verify Page" %}
             </button>
         {% else %}
             <button type="button"
@@ -44,7 +42,7 @@
                     aria-disabled="true"
                     data-dropdown-option
                     title="{% trans 'You do not have permission or no submitted data is available for this subject.' %}">
-                {% trans "CRF Page Workflow" %}
+                {% trans "Verify Page" %}
             </button>
         {% endif %}
         {% if subject_trigger_workflow_url %}

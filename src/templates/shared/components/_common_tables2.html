@@ -1,7 +1,9 @@
 {% load django_tables2 %}
 {% load i18n l10n static %}
-<link rel="stylesheet"
-      href="{% static 'shared/css/components/common-table.css' %}">
+{% if not table.assets_bundled %}
+    <link rel="stylesheet"
+          href="{% static 'shared/css/components/common-table.css' %}">
+{% endif %}
 {% with table_anchor_id=table.attrs.id|default:table.prefixed_page_field %}
     {% block table-wrapper %}
         <div class="entity-table__scroller">
@@ -268,4 +270,6 @@
         {% endif %}
     {% endblock pagination %}
 {% endwith %}
-<script src="{% static 'shared/js/components/common-table.js' %}"></script>
+{% if not table.assets_bundled %}
+    <script src="{% static 'shared/js/components/common-table.js' %}"></script>
+{% endif %}

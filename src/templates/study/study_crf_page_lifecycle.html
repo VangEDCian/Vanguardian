@@ -17,6 +17,16 @@
                 <div class="entity-table__summary">
                     <strong>{% trans "CRF Page lifecycle" %}</strong>
                     <div>{% trans "Enable steps, set their execution order, and select the roles allowed to perform each step." %}</div>
+                    <div>
+                        {% trans "Data Assurance certification is configured separately at Visit level as CERTIFICATION. It is independent from Monitor SDV, does not block on open queries, and is not required for Lock." %}
+                        <a href="{% url 'study:study_crf_templates' study_id=detail_study.id %}">
+                            {% trans "Open CRF Templates to import the Attestation Template." %}
+                        </a>
+                    </div>
+                    <div>
+                        <a href="{% static 'study/templates/data_assurance_visit_signoff_import_template.xlsx' %}"
+                           download>{% trans "Download Data Assurance Visit certification template" %}</a>
+                    </div>
                     {% if uses_legacy_default %}
                         <div role="status">{% trans "This Study currently uses the legacy default: Verify → Finalize → Lock. Saving creates an explicit Study configuration." %}</div>
                     {% endif %}

@@ -383,8 +383,13 @@
 }
 
 .crf-template-actions__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .crf-template-actions__value {

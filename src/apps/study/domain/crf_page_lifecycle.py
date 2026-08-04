@@ -3,20 +3,21 @@ from dataclasses import dataclass
 
 class CrfPageLifecycleStep:
     VERIFY = "VERIFY"
+    # Kept as a legacy code so old audit/status data remains readable. New
+    # Study configuration uses Visit-level CERTIFICATION attestation instead of
+    # treating Data Assurance certification as a Page status.
     CERTIFY = "CERTIFY"
     FINALIZE = "FINALIZE"
     LOCK = "LOCK"
 
-    ALL = (VERIFY, CERTIFY, FINALIZE, LOCK)
+    ALL = (VERIFY, FINALIZE, LOCK)
     PERMISSION_BY_STEP = {
         VERIFY: "SDV.MARK",
-        CERTIFY: "EVENT_CERTIFICATION.CERTIFY",
         FINALIZE: "SDV.MARK",
         LOCK: "DATA.LOCK",
     }
     STATUS_BY_STEP = {
         VERIFY: "verified",
-        CERTIFY: "certified",
         FINALIZE: "finalized",
         LOCK: "locked",
     }

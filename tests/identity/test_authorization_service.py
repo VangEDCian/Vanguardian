@@ -24,6 +24,7 @@ from apps.identity.models import (
     TrainingRequirement,
     User,
 )
+from apps.identity.public import user_has_any_active_role_codes
 from apps.study.models import Site, Study
 
 
@@ -102,6 +103,32 @@ class AuthorizationServiceTests(TestCase):
         self.assertTrue(self._can("QUERY.CREATE", self.study_a, self.hcm_a).is_allowed)
         self.assertTrue(self._can("CRF.VIEW", self.study_b, self.hcm_b).is_allowed)
         self.assertEqual(self._can("QUERY.CREATE", self.study_a, self.hn_a).deny_reason_code, "ROLE_NOT_ASSIGNED")
+
+    def test_active_role_code_is_checked_at_the_assigned_site(self):
+        self._assign_site_role(
+            self.user,
+            self.study_a,
+            self.hcm_a,
+            "DATA_ASSURANCE",
+            ["CRF.VIEW"],
+        )
+
+        self.assertTrue(
+            user_has_any_active_role_codes(
+                user_id=self.user.pk,
+                study_id=self.study_a.pk,
+                site_id=self.hcm_a.pk,
+                role_codes=("DATA_ASSURANCE",),
+            )
+        )
+        self.assertFalse(
+            user_has_any_active_role_codes(
+                user_id=self.user.pk,
+                study_id=self.study_a.pk,
+                site_id=self.hn_a.pk,
+                role_codes=("DATA_ASSURANCE",),
+            )
+        )
 
     def test_study_level_data_manager_applies_within_study_only(self):
         self._assign_study_role(self.user, self.study_a, "DATA_MANAGER", ["CRF.VIEW"])

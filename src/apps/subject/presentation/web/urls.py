@@ -10,7 +10,9 @@ from apps.subject.presentation.web.views import (
     SubjectEventInstanceFileContentView,
     SubjectEventInstanceFileImportView,
     SubjectEventInstanceFilePreviewView,
+    SubjectExportFieldCatalogView,
     SubjectFieldAuditHistoryView,
+    SubjectListActionsView,
     SubjectListView,
     SubjectPeriodOverrideView,
     SubjectResyncStageView,
@@ -45,6 +47,16 @@ urlpatterns = [
         "studies/<int:study_id>/subjects/bulk-action/",
         SubjectBulkActionView.as_view(),
         name="subject_bulk_action",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/export-fields/",
+        SubjectExportFieldCatalogView.as_view(),
+        name="subject_export_field_catalog",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/list-actions/",
+        SubjectListActionsView.as_view(),
+        name="subject_list_actions",
     ),
     path(
         "studies/<int:study_id>/subjects/<int:subject_id>/resync-stage/",

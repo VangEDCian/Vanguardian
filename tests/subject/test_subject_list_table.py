@@ -59,7 +59,7 @@ class SubjectListTableTests(SimpleTestCase):
             can_update_subject=False,
         )
 
-        self.assertIn("subject_code", table.columns.names())
+        self.assertNotIn("subject_code", table.columns.names())
         self.assertIn("randomization_code", table.columns.names())
         self.assertIn("arm", table.columns.names())
         self.assertIn("open_queries", table.columns.names())
@@ -83,7 +83,7 @@ class SubjectListTableTests(SimpleTestCase):
         self.assertEqual(str(table.columns["open_queries"].header), "Open Queries")
         self.assertEqual(str(table.columns["validation_issues"].header), "Validation Issues")
         self.assertEqual(str(table.columns["randomization_code"].header), "Randomization Code")
-        for column_name in ("screening_code", "subject_code", "randomization_code"):
+        for column_name in ("screening_code", "randomization_code"):
             attrs = table.columns[column_name].column.attrs
             self.assertIn("subject-list-table__code-column", attrs["th"]["class"])
             self.assertIn("subject-list-table__code-column", attrs["td"]["class"])

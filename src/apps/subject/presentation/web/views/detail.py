@@ -521,7 +521,6 @@ class SubjectDetailView(
         form_verification_review = None
         form_verification_verify_checked_url = ""
         form_verification_reopen_url = ""
-        form_verification_certify_page_url = ""
         form_verification_finalize_page_data_url = ""
         form_verification_lock_page_url = ""
         form_verification_lock_blocked_by_queries = False
@@ -786,28 +785,6 @@ class SubjectDetailView(
                     is_form_verification_mode
                     and user_can_access_permission(
                         self.request.user,
-                        "EVENT_CERTIFICATION.CERTIFY",
-                        study_id=self.get_study_id(),
-                        site_id=subject.site_id,
-                    )
-                    and can_perform_step(CrfPageLifecycleStep.CERTIFY)
-                ):
-                    form_verification_certify_page_url = reverse(
-                        "subject:subject_form_verification_certify_page",
-                        kwargs={
-                            "study_id": self.get_study_id(),
-                            "subject_id": subject.pk,
-                            "visit_id": visit_pk,
-                            "crf_template_id": template_pk,
-                        },
-                    )
-                    form_verification_certify_page_url = (
-                        f"{form_verification_certify_page_url}{form_query}"
-                    )
-                if (
-                    is_form_verification_mode
-                    and user_can_access_permission(
-                        self.request.user,
                         VERIFY_FORM_PERMISSION,
                         study_id=self.get_study_id(),
                         site_id=subject.site_id,
@@ -850,7 +827,7 @@ class SubjectDetailView(
                         )
                         form_verification_lock_page_url = f"{form_verification_lock_page_url}?form={focused_form.get('id', '')}"
 
-        if is_form_verification_mode and focused_event:
+        if focused_event:
             try:
                 event_attestation_panel = get_event_attestation_panel_for_event_instance(
                     event_instance_id=int(focused_event["id"]),
@@ -945,7 +922,6 @@ class SubjectDetailView(
         context["form_verification_review"] = form_verification_review
         context["form_verification_verify_checked_url"] = form_verification_verify_checked_url
         context["form_verification_reopen_url"] = form_verification_reopen_url
-        context["form_verification_certify_page_url"] = form_verification_certify_page_url
         context["form_verification_finalize_page_data_url"] = form_verification_finalize_page_data_url
         context["form_verification_lock_page_url"] = form_verification_lock_page_url
         context["form_verification_lock_blocked_by_queries"] = form_verification_lock_blocked_by_queries

@@ -17,8 +17,12 @@ from apps.subject.presentation.web.views.event_instance_files import (
     SubjectEventInstanceFileImportView,
     SubjectEventInstanceFilePreviewView,
 )
+from apps.subject.presentation.web.views.export_field_catalog import (
+    SubjectExportFieldCatalogView,
+)
 from apps.subject.presentation.web.views.field_audit_history import SubjectFieldAuditHistoryView
 from apps.subject.presentation.web.views.listing import SubjectListView
+from apps.subject.presentation.web.views.list_actions import SubjectListActionsView
 from apps.subject.presentation.web.views.period_override import (
     SubjectPeriodOverrideView,
 )
@@ -40,8 +44,10 @@ __all__ = [
     "SubjectEventInstanceFileContentView",
     "SubjectEventInstanceFileImportView",
     "SubjectEventInstanceFilePreviewView",
+    "SubjectExportFieldCatalogView",
     "SubjectDetailView",
     "SubjectListView",
+    "SubjectListActionsView",
     "SubjectPeriodOverrideView",
     "SubjectResyncStageView",
     "SubjectSummaryView",

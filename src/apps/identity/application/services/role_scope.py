@@ -11,5 +11,8 @@ class IdentityRoleScopeService:
     def user_has_any_active_role_ids(self, **kwargs) -> bool:
         return self.repository.user_has_any_active_role_ids(**kwargs)
 
+    def user_has_any_active_role_codes(self, **kwargs) -> bool:
+        return self.repository.user_has_any_active_role_codes(**kwargs)
+
 
 __all__ = ["IdentityRoleScopeService"]

@@ -84,5 +84,39 @@ class DjangoIdentityRoleScopeRepository:
             role__is_active=True,
         ).exists()
 
+    @classmethod
+    def user_has_any_active_role_codes(
+        cls,
+        *,
+        user_id: int,
+        study_id: int,
+        site_id: int | None,
+        role_codes: tuple[str, ...],
+    ) -> bool:
+        normalized_codes = tuple(
+            dict.fromkeys(
+                str(code or "").strip().upper()
+                for code in role_codes
+                if str(code or "").strip()
+            )
+        )
+        if not normalized_codes:
+            return True
+        role_ids = tuple(
+            Role.objects.filter(
+                study_id=study_id,
+                is_active=True,
+                code__in=normalized_codes,
+            ).values_list("id", flat=True)
+        )
+        if not role_ids:
+            return False
+        return cls.user_has_any_active_role_ids(
+            user_id=user_id,
+            study_id=study_id,
+            site_id=site_id,
+            role_ids=role_ids,
+        )
+
 
 __all__ = ["DjangoIdentityRoleScopeRepository"]

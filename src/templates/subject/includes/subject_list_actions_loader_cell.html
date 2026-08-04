@@ -1,0 +1,14 @@
+{% load i18n %}
+{% url 'subject:subject_list_actions' study_id=record.study_id subject_id=record.pk as subject_list_actions_url %}
+<div class="crf-template-actions"
+     data-subject-actions-loader
+     data-subject-actions-url="{{ subject_list_actions_url }}">
+    <button type="button"
+            class="crf-template-actions__trigger"
+            data-subject-actions-loader-trigger
+            aria-expanded="false"
+            aria-label="{% trans 'Open actions menu' %}">
+        <span class="crf-template-actions__value">{% trans "Actions" %}</span>
+        <span class="crf-template-actions__icon" aria-hidden="true">⋮</span>
+    </button>
+</div>

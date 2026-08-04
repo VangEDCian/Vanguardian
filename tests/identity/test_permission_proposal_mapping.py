@@ -113,7 +113,10 @@ class PermissionProposalMappingTests(SimpleTestCase):
             DataCaptureSaveAPIView: "CRF.ENTER",
             DataCaptureSubmitAPIView: "CRF.SUBMIT",
             DataCaptureDeleteDraftAPIView: "CRF.UPDATE",
-            DataCaptureEventAttestationSubmitAPIView: "EVENT_CERTIFICATION.CERTIFY",
+            DataCaptureEventAttestationSubmitAPIView: (
+                "EVENT_REVIEW.COMPLETE",
+                "EVENT_CERTIFICATION.CERTIFY",
+            ),
             DataCaptureEventAttestationRevokeAPIView: "EVENT_ATTESTATION.REVOKE",
             SubjectValidationIssueAcknowledgeView: "VALIDATION_ISSUE.ACKNOWLEDGE",
             StudyRolesContextMixin: "USER_ACCESS.VIEW",

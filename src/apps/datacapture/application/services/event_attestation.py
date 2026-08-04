@@ -12,7 +12,12 @@ from apps.datacapture.infrastructure.repositories import (
     EventAttestationPageScopeSnapshot,
     EventAttestationRecordSnapshot,
 )
-from apps.identity.public import ResourceContext, can_perform, get_user_display_map
+from apps.identity.public import (
+    ResourceContext,
+    can_perform,
+    get_user_display_map,
+    user_has_any_active_role_codes,
+)
 from apps.reconcile.public import summarize_reconcile_workbench_for_page_states
 from apps.study.public import EventAttestationPolicySnapshot, list_event_attestation_policies_for_event
 
@@ -20,6 +25,7 @@ from apps.study.public import EventAttestationPolicySnapshot, list_event_attesta
 class DataCaptureEventAttestationService:
     REVOKE_PERMISSION_CODE = "EVENT_ATTESTATION.REVOKE"
     CERTIFICATION_ACTION_KIND = "CERTIFICATION"
+    REVIEW_COMPLETION_ACTION_KIND = "REVIEW_COMPLETION"
     REVIEW_READY_STATUSES = frozenset(
         {
             "submitted",
@@ -37,6 +43,7 @@ class DataCaptureEventAttestationService:
         policy_reader=None,
         query_summary_reader=None,
         permission_checker=None,
+        role_checker=None,
         user_display_reader=None,
         subject_event_lifecycle_adapter=None,
         event_fact_evaluator=None,
@@ -45,6 +52,7 @@ class DataCaptureEventAttestationService:
         self.policy_reader = policy_reader or list_event_attestation_policies_for_event
         self.query_summary_reader = query_summary_reader or summarize_reconcile_workbench_for_page_states
         self.permission_checker = permission_checker or can_perform
+        self.role_checker = role_checker or user_has_any_active_role_codes
         self.user_display_reader = user_display_reader or get_user_display_map
         self.subject_event_lifecycle_adapter = subject_event_lifecycle_adapter
         self.event_fact_evaluator = event_fact_evaluator or self._default_event_fact_evaluator
@@ -98,6 +106,31 @@ class DataCaptureEventAttestationService:
             ],
             "history": [self._record_payload(row, current_scope_digest=scope_digest) for row in history],
         }
+
+    def required_permission_code_for_policy(
+        self,
+        *,
+        event_instance_id: int,
+        attestation_policy_id: int,
+        language_code: str | None = None,
+        expected_study_id: int | None = None,
+        expected_subject_id: int | None = None,
+    ) -> str:
+        event_context = self._event_context_or_raise(event_instance_id)
+        self._validate_url_scope(
+            event_context=event_context,
+            expected_study_id=expected_study_id,
+            expected_subject_id=expected_subject_id,
+        )
+        policy = self._policy_or_raise(
+            event_context=event_context,
+            attestation_policy_id=attestation_policy_id,
+            language_code=language_code,
+        )
+        permission_code = str(policy.required_permission_code or "").strip()
+        if not permission_code:
+            raise DataCaptureValidationError("Policy permission code is missing.")
+        return permission_code
 
     @transaction.atomic
     def attest_event_for_policy(
@@ -380,8 +413,22 @@ class DataCaptureEventAttestationService:
         ]
         if not_ready_pages:
             blockers.append("All event pages must be submitted or in review-ready status.")
-        if int(query_summary.get("blocking_open", 0) or 0) > 0:
-            blockers.append("Blocking queries must be resolved before attestation.")
+        blocking_query_count = int(query_summary.get("blocking_open", 0) or 0)
+        action_kind = str(policy.action_kind or "").strip().upper()
+        required_role_code = str(policy.required_role_code or "").strip().upper()
+        is_data_assurance_certification = (
+            action_kind == self.CERTIFICATION_ACTION_KIND
+            and required_role_code == "DATA_ASSURANCE"
+        )
+        if blocking_query_count > 0:
+            if is_data_assurance_certification:
+                warnings.append(
+                    "Open queries exist; they do not block Data Assurance Visit certification."
+                )
+            elif action_kind == self.REVIEW_COMPLETION_ACTION_KIND:
+                warnings.append("Open queries exist; they do not block review completion.")
+            else:
+                blockers.append("Blocking queries must be resolved before attestation.")
         hard_validation_issue_count = int(query_summary.get("hard_validation_issues_open", 0) or 0)
         validation_issue_count = int(query_summary.get("validation_issues_open", 0) or 0)
         if hard_validation_issue_count > 0:
@@ -403,6 +450,17 @@ class DataCaptureEventAttestationService:
         )
         if not permission_result["allowed"]:
             blockers.append(permission_result["message"])
+        elif policy.required_role_code and actor_user_id is not None and not actor_is_superuser:
+            required_role_code = str(policy.required_role_code).strip().upper()
+            if required_role_code and not self.role_checker(
+                user_id=int(actor_user_id),
+                study_id=int(event_context.study_id),
+                site_id=event_context.site_id,
+                role_codes=(required_role_code,),
+            ):
+                blockers.append(
+                    f"Active role {required_role_code} is required for this attestation."
+                )
         unsupported_gate_codes = {
             "",
             "NONE",
@@ -510,7 +568,6 @@ class DataCaptureEventAttestationService:
                 "page_entry_id": page.page_entry_id,
                 "crf_template_id": page.crf_template_id,
                 "data_version": page.data_version,
-                "page_status": page.page_status,
                 "page_data_hash": page.page_data_hash,
             }
             for page in page_scope

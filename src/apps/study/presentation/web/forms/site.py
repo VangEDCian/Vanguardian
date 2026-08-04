@@ -84,8 +84,10 @@ class SitesToolbarForm(SharedFilter, SharedSearch, SharedTotal):
     SEARCH_FIELDS = ("name", "code")
 
     def __init__(self, *args, **kwargs):
+        defer_total_count = kwargs.pop("defer_total_count", False)
         super().__init__(*args, **kwargs)
-        self.bind_total_field()
+        if not defer_total_count:
+            self.bind_total_field()
 
     class Meta:
         model = Site

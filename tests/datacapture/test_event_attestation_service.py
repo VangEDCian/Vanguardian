@@ -166,6 +166,7 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
         policy=None,
         repository=None,
         permission_checker=None,
+        role_checker=None,
         subject_event_lifecycle_adapter=None,
         event_fact_evaluator=None,
     ):
@@ -178,6 +179,7 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
                 "hard_validation_issues_open": 0,
             },
             permission_checker=permission_checker or (lambda **kwargs: SimpleNamespace(is_allowed=True)),
+            role_checker=role_checker or (lambda **kwargs: True),
             user_display_reader=lambda user_ids: {int(user_ids[0]): "Reviewer"},
             subject_event_lifecycle_adapter=subject_event_lifecycle_adapter,
             event_fact_evaluator=event_fact_evaluator,
@@ -197,6 +199,114 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
         self.assertTrue(panel["has_policies"])
         self.assertEqual(panel["summary"]["page_count"], 1)
         self.assertTrue(panel["policies"][0]["readiness"]["can_submit"])
+
+    def test_review_completion_allows_open_queries_with_warning(self):
+        service = DataCaptureEventAttestationService(
+            repository=_EventAttestationRepository(),
+            policy_reader=lambda **kwargs: [_policy()],
+            query_summary_reader=lambda **kwargs: {
+                "blocking_open": 2,
+                "validation_issues_open": 0,
+                "hard_validation_issues_open": 0,
+            },
+            permission_checker=lambda **kwargs: SimpleNamespace(is_allowed=True),
+            role_checker=lambda **kwargs: True,
+            user_display_reader=lambda user_ids: {int(user_ids[0]): "Reviewer"},
+        )
+
+        panel = service.get_panel(event_instance_id=11, actor_user_id=7)
+
+        readiness = panel["policies"][0]["readiness"]
+        self.assertTrue(readiness["can_submit"])
+        self.assertIn("do not block review completion", readiness["warnings"][0])
+
+    def test_data_assurance_certification_allows_open_queries_with_warning(self):
+        service = DataCaptureEventAttestationService(
+            repository=_EventAttestationRepository(),
+            policy_reader=lambda **kwargs: [
+                _policy(
+                    action_kind="CERTIFICATION",
+                    required_permission_code="EVENT_CERTIFICATION.CERTIFY",
+                    required_role_code="DATA_ASSURANCE",
+                )
+            ],
+            query_summary_reader=lambda **kwargs: {
+                "blocking_open": 2,
+                "validation_issues_open": 0,
+                "hard_validation_issues_open": 0,
+            },
+            permission_checker=lambda **kwargs: SimpleNamespace(is_allowed=True),
+            role_checker=lambda **kwargs: True,
+            user_display_reader=lambda user_ids: {int(user_ids[0]): "Data Assurance"},
+        )
+
+        panel = service.get_panel(event_instance_id=11, actor_user_id=7)
+
+        readiness = panel["policies"][0]["readiness"]
+        self.assertTrue(readiness["can_submit"])
+        self.assertIn("do not block Data Assurance Visit certification", readiness["warnings"][0])
+
+    def test_certification_still_blocks_on_open_blocking_queries(self):
+        service = DataCaptureEventAttestationService(
+            repository=_EventAttestationRepository(),
+            policy_reader=lambda **kwargs: [_policy(action_kind="CERTIFICATION")],
+            query_summary_reader=lambda **kwargs: {
+                "blocking_open": 1,
+                "validation_issues_open": 0,
+                "hard_validation_issues_open": 0,
+            },
+            permission_checker=lambda **kwargs: SimpleNamespace(is_allowed=True),
+            role_checker=lambda **kwargs: True,
+            user_display_reader=lambda user_ids: {int(user_ids[0]): "Reviewer"},
+        )
+
+        panel = service.get_panel(event_instance_id=11, actor_user_id=7)
+
+        readiness = panel["policies"][0]["readiness"]
+        self.assertFalse(readiness["can_submit"])
+        self.assertIn("Blocking queries", readiness["blockers"][0])
+
+    def test_policy_required_role_is_enforced_independently_from_permission(self):
+        service = self._service(
+            policy=_policy(required_role_code="DATA_ASSURANCE"),
+            role_checker=lambda **kwargs: False,
+        )
+
+        panel = service.get_panel(event_instance_id=11, actor_user_id=7)
+
+        readiness = panel["policies"][0]["readiness"]
+        self.assertFalse(readiness["can_submit"])
+        self.assertIn("DATA_ASSURANCE", readiness["blockers"][0])
+
+    def test_scope_digest_is_unchanged_by_monitor_sdv_status(self):
+        repository = _EventAttestationRepository()
+        submitted_digest = DataCaptureEventAttestationService._scope_digest(repository.page_scope)
+        repository.page_scope[0] = EventAttestationPageScopeSnapshot(
+            **{
+                **repository.page_scope[0].__dict__,
+                "page_status": "verified",
+            }
+        )
+
+        self.assertEqual(
+            DataCaptureEventAttestationService._scope_digest(repository.page_scope),
+            submitted_digest,
+        )
+
+    def test_required_permission_is_read_from_selected_policy(self):
+        service = self._service(
+            policy=_policy(required_permission_code="EVENT_CERTIFICATION.CERTIFY")
+        )
+
+        self.assertEqual(
+            service.required_permission_code_for_policy(
+                event_instance_id=11,
+                attestation_policy_id=51,
+                expected_study_id=1,
+                expected_subject_id=3,
+            ),
+            "EVENT_CERTIFICATION.CERTIFY",
+        )
 
     def test_current_certification_check_requires_active_certification_for_current_scope(self):
         repository = _EventAttestationRepository()

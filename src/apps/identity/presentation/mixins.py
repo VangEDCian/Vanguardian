@@ -9,12 +9,15 @@ class ContextPermissionRequiredMixin(AccessMixin):
     require_study_context: bool = True
     require_site_context: bool = False
 
+    def get_permission_required(self, request, *args, **kwargs) -> str:
+        return self.permission_required
+
     def dispatch(self, request, *args, **kwargs):
         # This must run before the handler to prevent protected EDC business
         # actions from executing without a study/site-scoped decision.
         response = enforce_context_permission(
             request,
-            permission=self.permission_required,
+            permission=self.get_permission_required(request, *args, **kwargs),
             scope=self.authorization_scope,
             require_study=self.require_study_context,
             require_site=self.require_site_context,

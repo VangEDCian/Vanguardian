@@ -1,3 +1,464 @@
+/* Source: shared/js/components/common-table.js */
+(function () {
+  const tables = Array.from(document.querySelectorAll("[data-common-table]"));
+  if (!tables.length) {
+    return;
+  }
+
+  function syncRowSelection(row, checkbox) {
+    row.classList.toggle("is-selected", checkbox.checked);
+  }
+
+  function resolveClickElement(target) {
+    if (target instanceof Element) {
+      return target;
+    }
+    if (target instanceof Text && target.parentElement) {
+      return target.parentElement;
+    }
+    return null;
+  }
+
+  function isInteractiveTarget(target) {
+    const el = resolveClickElement(target);
+    if (!el) {
+      return false;
+    }
+    return Boolean(
+      el.closest("[data-dropdown]") ||
+        el.closest("a, button, input, label, select, textarea"),
+    );
+  }
+
+  function getDetailHref(row) {
+    if (row.hasAttribute("data-detail-href")) {
+      return row.getAttribute("data-detail-href") || "";
+    }
+
+    const firstLink = row.querySelector("a[href]");
+    if (firstLink instanceof HTMLAnchorElement) {
+      return firstLink.href;
+    }
+
+    return "";
+  }
+
+  tables.forEach((table) => {
+    const enableDetailClick = table.dataset.enableDetailClick !== "false";
+    const sortHeaders = Array.from(table.querySelectorAll("[data-sort-header]"));
+    const rows = Array.from(table.querySelectorAll("[data-selectable-row]"));
+
+    sortHeaders.forEach((header) => {
+      const form = header.querySelector("[data-sort-form]");
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+
+      header.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        if (isInteractiveTarget(target)) {
+          return;
+        }
+
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+          return;
+        }
+
+        form.submit();
+      });
+    });
+
+    rows.forEach((row) => {
+      const checkbox = row.querySelector("[data-row-checkbox]");
+      if (!(checkbox instanceof HTMLInputElement)) {
+        return;
+      }
+
+      syncRowSelection(row, checkbox);
+
+      checkbox.addEventListener("change", () => {
+        syncRowSelection(row, checkbox);
+      });
+
+      row.addEventListener("click", (event) => {
+        const target = resolveClickElement(event.target);
+        if (!target) {
+          return;
+        }
+
+        if (isInteractiveTarget(target)) {
+          return;
+        }
+
+        const clickedCell = target.closest("td");
+        if (!(clickedCell instanceof HTMLTableCellElement)) {
+          return;
+        }
+
+        if (clickedCell.cellIndex === 0) {
+          checkbox.checked = !checkbox.checked;
+          syncRowSelection(row, checkbox);
+          return;
+        }
+
+        const detailHref = getDetailHref(row);
+        if (enableDetailClick && detailHref) {
+          window.location.href = detailHref;
+        }
+      });
+    });
+  });
+})();
+
+/* Source: shared/js/layout.js */
+(function () {
+  const shell = document.querySelector("[data-dashboard-shell]");
+  if (!shell) {
+    return;
+  }
+
+  const navItems = Array.from(shell.querySelectorAll("[data-nav-item]"));
+  const breadcrumbActive = shell.querySelector("[data-breadcrumb-active]");
+
+  const dropdowns = Array.from(shell.querySelectorAll("[data-dropdown]"));
+  const horizontalDragScrollAreas = Array.from(shell.querySelectorAll("[data-horizontal-drag-scroll]"));
+  const avatarMenu = shell.querySelector("[data-avatar-menu]");
+  const avatarTrigger = avatarMenu?.querySelector("[data-avatar-trigger]");
+  const avatarPanel = avatarMenu?.querySelector("[data-avatar-panel]");
+
+  function closeAllDropdowns(except) {
+    dropdowns.forEach((dropdown) => {
+      if (except && dropdown === except) {
+        return;
+      }
+
+      const trigger = dropdown.querySelector("[data-dropdown-trigger]");
+      const menu = dropdown.querySelector("[data-dropdown-menu]");
+      if (trigger) {
+        trigger.setAttribute("aria-expanded", "false");
+      }
+      if (menu) {
+        menu.hidden = true;
+      }
+    });
+  }
+
+  function closeAvatarMenu() {
+    if (avatarTrigger) {
+      avatarTrigger.setAttribute("aria-expanded", "false");
+    }
+    if (avatarPanel) {
+      avatarPanel.hidden = true;
+    }
+  }
+
+  navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      navItems.forEach((node) => node.classList.remove("is-active"));
+      item.classList.add("is-active");
+      const label = item.getAttribute("data-nav-label") || "";
+      if (breadcrumbActive) {
+        breadcrumbActive.textContent = label;
+      }
+    });
+  });
+
+  dropdowns.forEach((dropdown, index) => {
+    const trigger = dropdown.querySelector("[data-dropdown-trigger]");
+    const menu = dropdown.querySelector("[data-dropdown-menu]");
+    const valueNode = dropdown.querySelector("[data-dropdown-value]");
+    const inputNode = dropdown.querySelector("[data-dropdown-input]");
+    const options = Array.from(dropdown.querySelectorAll("[data-dropdown-option]"));
+
+    if (!trigger || !menu || !valueNode) {
+      return;
+    }
+
+    trigger.addEventListener("click", () => {
+      const isOpen = trigger.getAttribute("aria-expanded") === "true";
+      closeAllDropdowns(dropdown);
+      closeAvatarMenu();
+      trigger.setAttribute("aria-expanded", isOpen ? "false" : "true");
+      menu.hidden = isOpen;
+    });
+
+    options.forEach((option) => {
+      option.addEventListener("click", () => {
+        valueNode.textContent = option.textContent || "";
+        if (inputNode) {
+          inputNode.value = option.value || "";
+        }
+        trigger.setAttribute("aria-expanded", "false");
+        menu.hidden = true;
+        if (option.hasAttribute("data-dropdown-auto-submit")) {
+          option.form?.submit();
+        }
+      });
+    });
+  });
+
+
+  horizontalDragScrollAreas.forEach((area) => {
+    let isDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    area.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      isDragging = true;
+      startX = event.pageX;
+      startScrollLeft = area.scrollLeft;
+      area.classList.add("is-dragging");
+    });
+
+    area.addEventListener("mousemove", (event) => {
+      if (!isDragging) {
+        return;
+      }
+      event.preventDefault();
+      const deltaX = event.pageX - startX;
+      area.scrollLeft = startScrollLeft - deltaX;
+    });
+
+    ["mouseleave", "mouseup"].forEach((eventName) => {
+      area.addEventListener(eventName, () => {
+        isDragging = false;
+        area.classList.remove("is-dragging");
+      });
+    });
+
+    area.addEventListener("wheel", (event) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+        return;
+      }
+      event.preventDefault();
+      area.scrollLeft += event.deltaY;
+    }, { passive: false });
+  });
+
+  if (avatarTrigger && avatarPanel) {
+    avatarTrigger.addEventListener("click", () => {
+      const isOpen = avatarTrigger.getAttribute("aria-expanded") === "true";
+      closeAllDropdowns();
+      avatarTrigger.setAttribute("aria-expanded", isOpen ? "false" : "true");
+      avatarPanel.hidden = isOpen;
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+
+    const clickedDropdown = target.closest("[data-dropdown]");
+    const clickedAvatar = target.closest("[data-avatar-menu]");
+
+    if (!clickedDropdown) {
+      closeAllDropdowns();
+    }
+    if (!clickedAvatar) {
+      closeAvatarMenu();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAllDropdowns();
+      closeAvatarMenu();
+    }
+  });
+})();
+
+
+(function () {
+  const setCookie = (name, value, days = null) => {
+    let expires = "";
+    if (days) {
+      const date = new Date();
+      date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+      expires = "; expires=" + date.toUTCString();
+    }
+    // encodeURIComponent handles special characters like semicolons or spaces
+    document.cookie = encodeURIComponent(name) + "=" + encodeURIComponent(value) + expires + "; path=/; SameSite=Lax";
+  }
+
+  const cookiesKeyStudy = document.getElementById('idx-comment-select---cookies-key--study').value;
+  document.querySelectorAll('.common-select--study button[data-dropdown-option]').forEach((node, index) => {
+    node.addEventListener('click', (event) => {
+      setCookie(cookiesKeyStudy, node.getAttribute("value"));
+      window.location.reload();
+    })
+  });
+
+  const cookiesKeySite = document.getElementById('idx-comment-select---cookies-key--site').value;
+  document.querySelectorAll('.common-select--site button[data-dropdown-option]').forEach((node, index) => {
+    node.addEventListener('click', (event) => {
+      setCookie(cookiesKeySite, node.getAttribute("value"));
+      window.location.reload();
+    })
+  });
+})();
+
+/* Source: shared/js/components/modal.js */
+(function () {
+  "use strict";
+
+  /* ── Helpers ───────────────────────────────────────────── */
+
+  function getBackdrop(id) {
+    return document.getElementById(id);
+  }
+
+  function openModal(id) {
+    var backdrop = getBackdrop(id);
+    if (!backdrop) return;
+
+    backdrop.classList.add("is-open");
+
+    // Move focus to the first focusable element inside the modal.
+    var focusable = backdrop.querySelector(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable) focusable.focus();
+  }
+
+  function closeModal(id) {
+    var backdrop = getBackdrop(id);
+    if (!backdrop) return;
+    backdrop.classList.remove("is-open");
+  }
+
+  /* ── Open triggers — [data-modal-open="modal-id"] ─────── */
+
+  document.addEventListener("click", function (e) {
+    var trigger = e.target.closest("[data-modal-open]");
+    if (!trigger) return;
+    e.preventDefault();
+    openModal(trigger.getAttribute("data-modal-open"));
+  });
+
+  /* ── Close triggers — [data-modal-close="modal-id"] ───── */
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-modal-close]");
+    if (!btn) return;
+    closeModal(btn.getAttribute("data-modal-close"));
+  });
+
+  /* ── Close on backdrop click ───────────────────────────── */
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.classList.contains("modal-backdrop")) return;
+    if (!e.target.classList.contains("is-open")) return;
+    closeModal(e.target.id);
+  });
+
+  /* ── Close on Escape ───────────────────────────────────── */
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    var open = document.querySelector(".modal-backdrop.is-open");
+    if (open) closeModal(open.id);
+  });
+})();
+
+/* Source: shared/js/request_feedback.js */
+(() => {
+  const DISPLAY_DURATION_MS = 2100;
+
+  function hideFeedbackMessages() {
+    const containers = document.querySelectorAll('.request-feedback');
+    containers.forEach((container) => {
+      window.setTimeout(() => {
+        container.classList.add('is-hidden');
+      }, DISPLAY_DURATION_MS);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideFeedbackMessages, { once: true });
+    return;
+  }
+  hideFeedbackMessages();
+})();
+
+/* Source: identity/js/session_guard.js */
+(function () {
+  "use strict";
+
+  var root = document.querySelector("[data-session-guard-status-url]");
+  if (!root || !window.fetch) {
+    return;
+  }
+
+  var statusUrl = root.getAttribute("data-session-guard-status-url");
+  var loginUrl = root.getAttribute("data-session-guard-login-url") || "/login/";
+  var pollInterval = Number(root.getAttribute("data-session-guard-interval") || "15000");
+  var modal = document.querySelector("[data-session-guard-modal]");
+  var loginLink = document.querySelector("[data-session-guard-login]");
+  var stopped = false;
+
+  function showInvalidatedSession(nextLoginUrl) {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    if (loginLink) {
+      loginLink.setAttribute("href", nextLoginUrl || loginUrl);
+    }
+    if (modal) {
+      modal.classList.add("is-open");
+      var focusTarget = modal.querySelector("[data-session-guard-login]");
+      if (focusTarget) {
+        focusTarget.focus();
+      }
+      return;
+    }
+    window.location.assign(nextLoginUrl || loginUrl);
+  }
+
+  function checkSession() {
+    if (stopped) {
+      return;
+    }
+
+    window.fetch(statusUrl, {
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    }).then(function (response) {
+      return response.json().catch(function () {
+        return {
+          authenticated: response.ok,
+          session_valid: response.ok,
+          login_url: loginUrl,
+        };
+      });
+    }).then(function (payload) {
+      if (!payload.authenticated || !payload.session_valid) {
+        showInvalidatedSession(payload.login_url);
+        return;
+      }
+      window.setTimeout(checkSession, pollInterval);
+    }).catch(function () {
+      window.setTimeout(checkSession, pollInterval);
+    });
+  }
+
+  window.setTimeout(checkSession, pollInterval);
+})();
+
+/* Source: subject/js/subject_bulk_actions.js */
 (function () {
   function initializeSubjectActionsDropdown(dropdown) {
     const trigger = dropdown.querySelector("[data-dropdown-trigger]");

@@ -81,6 +81,63 @@ class ImportStudyEventAttestationPoliciesTemplateServiceTests(SimpleTestCase):
             self.assertEqual(row["Attestation Statement Text Vi"], CERTIFICATION_STATEMENT)
             self.assertEqual(row["Attestation Statement Text En"], CERTIFICATION_STATEMENT)
 
+    def test_data_assurance_template_uses_visit_certification_without_lock_gate(self):
+        workbook = load_workbook(
+            Path(__file__).resolve().parents[2]
+            / "src/staticfiles/study/templates/data_assurance_visit_signoff_import_template.xlsx",
+            read_only=True,
+            data_only=True,
+        )
+        worksheet = workbook[self.service.sheet_name]
+        rows = list(worksheet.iter_rows(values_only=True))
+        headers = rows[0]
+        row_data = [dict(zip(headers, row, strict=True)) for row in rows[1:]]
+
+        self.assertEqual(len(row_data), 19)
+        for row in row_data:
+            self.assertEqual(
+                row["Attestation Policy Code"],
+                f"{row['Event Code']}_CERT",
+            )
+            self.assertEqual(row["Attestation Action Kind"], "CERTIFICATION")
+            self.assertEqual(row["Attestation Gate Code"], "ALL_PAGES_SUBMITTED")
+            self.assertEqual(row["Attestation Permission Code"], "EVENT_CERTIFICATION.CERTIFY")
+            self.assertEqual(row["Attestation Role Code"], "DATA_ASSURANCE")
+            self.assertEqual(row["Attestation Invalidate On Scope Change"], "FALSE")
+            self.assertEqual(row["Attestation Required For Lock"], "FALSE")
+
+    @patch("apps.study.application.services.import_event_attestation_policies_template.transaction.atomic")
+    def test_data_assurance_certification_is_independent_from_sdv_query_and_lock(self, mock_atomic):
+        mock_atomic.return_value = nullcontext()
+        event_definition = SimpleNamespace(pk=61, study_version="v1.0")
+        self.repository.list_active_event_definitions_by_code.return_value = [event_definition]
+        self.repository.get_attestation_policy_for_import.return_value = None
+        self.repository.create_attestation_policy.return_value = SimpleNamespace(pk=88)
+
+        self.service._import_row(
+            study_id=3,
+            row_data={
+                "event_code": "VISIT1",
+                "attestation_policy_code": "VISIT1_CERT",
+                "attestation_action_kind": "CERTIFICATION",
+                "attestation_gate_code": "ALL_PAGES_SUBMITTED",
+                "attestation_permission_code": "EVENT_CERTIFICATION.CERTIFY",
+                "attestation_role_code": "DATA_ASSURANCE",
+                "attestation_invalidate_on_scope_change": "TRUE",
+                "attestation_invalidate_on_query_change": "TRUE",
+                "attestation_required_for_lock": "TRUE",
+                "attestation_statement_text_vi": "Toi xac nhan du lieu Visit da day du.",
+                "attestation_statement_text_en": "I confirm the Visit data are complete.",
+            },
+            actor_user_id=99,
+            now=object(),
+        )
+
+        defaults = self.repository.create_attestation_policy.call_args.kwargs
+        self.assertFalse(defaults["invalidate_on_scope_change"])
+        self.assertFalse(defaults["invalidate_on_query_change"])
+        self.assertFalse(defaults["is_required_for_lock"])
+
     @patch("apps.study.application.services.import_event_attestation_policies_template.transaction.atomic")
     def test_import_row_creates_certification_policy(self, mock_atomic):
         mock_atomic.return_value = nullcontext()

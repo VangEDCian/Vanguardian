@@ -43,6 +43,7 @@ class StudyCrfPageLifecycleService:
                 allowed_role_ids=tuple(int(role_id) for role_id in (row.allowed_role_ids or [])),
             )
             for row in rows
+            if str(row.step_code) in CrfPageLifecycleStep.ALL
         )
 
     def build_configuration(self, *, study_id: int) -> dict:
@@ -114,6 +115,8 @@ class StudyCrfPageLifecycleService:
         normalized_status = str(page_status or "").strip().lower()
         if normalized_status == "locked":
             return CrfPageLifecycleActionState(None, None)
+        if normalized_status == "certified":
+            normalized_status = "verified"
         status_codes = {
             step.target_status: index
             for index, step in enumerate(steps)
@@ -131,7 +134,6 @@ class StudyCrfPageLifecycleService:
     def _label(step_code: str) -> str:
         return {
             CrfPageLifecycleStep.VERIFY: "Verify Page",
-            CrfPageLifecycleStep.CERTIFY: "Certify Page",
             CrfPageLifecycleStep.FINALIZE: "Finalize Page Data",
             CrfPageLifecycleStep.LOCK: "Lock Page",
         }[step_code]

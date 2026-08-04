@@ -29,15 +29,6 @@ class SubjectListTable(tables.Table):
         verbose_name=_("SCREENING"),
         orderable=False,
     )
-    subject_code = tables.Column(
-        verbose_name=_("SUBJECT CODE"),
-        attrs={
-            "th": {"class": "subject-list-table__code-column"},
-            "td": {
-                "class": "entity-table__primary subject-list-table__code-column"
-            },
-        },
-    )
     enrollment = tables.Column(
         empty_values=(),
         verbose_name=_("Enrollment"),
@@ -84,7 +75,7 @@ class SubjectListTable(tables.Table):
         orderable=False,
     )
     actions = tables.TemplateColumn(
-        template_name="subject/includes/subject_list_actions_cell.html",
+        template_name="subject/includes/subject_list_actions_loader_cell.html",
         verbose_name=_("ACTIONS"),
         empty_values=(),
         orderable=False,
@@ -92,27 +83,63 @@ class SubjectListTable(tables.Table):
     )
 
     def __init__(self, *args, **kwargs):
-        self._verify_show_by_subject_id = kwargs.pop("verify_show_by_subject_id", None) or {}
-        self._current_treatment_by_subject_id = kwargs.pop("current_treatment_by_subject_id", None) or {}
-        self.workflow_action_event_id_by_subject_id = (
-            kwargs.pop("workflow_action_event_id_by_subject_id", None) or {}
+        verify_show_by_subject_id = kwargs.pop("verify_show_by_subject_id", None)
+        current_treatment_by_subject_id = kwargs.pop(
+            "current_treatment_by_subject_id",
+            None,
         )
-        self.detail_url_by_subject_id = (
-            kwargs.pop("detail_url_by_subject_id", None) or {}
+        workflow_action_event_id_by_subject_id = kwargs.pop(
+            "workflow_action_event_id_by_subject_id",
+            None,
         )
+        detail_url_by_subject_id = kwargs.pop("detail_url_by_subject_id", None)
         self.randomization_transition_facts = (
             kwargs.pop("randomization_transition_facts", None) or {}
         )
         self.can_update_subject = kwargs.pop("can_update_subject", False)
         self.can_early_terminate = kwargs.pop("can_early_terminate", False)
-        self.early_termination_eligible_subject_ids = frozenset(
-            kwargs.pop("early_termination_eligible_subject_ids", ())
+        early_termination_eligible_subject_ids = kwargs.pop(
+            "early_termination_eligible_subject_ids",
+            (),
         )
-        # For template: {% if record.pk in table.verify_eligible_subject_ids %} (no custom filter).
-        self.verify_eligible_subject_ids = frozenset(
-            sid for sid, ok in self._verify_show_by_subject_id.items() if ok
+        self.bind_runtime_context(
+            verify_show_by_subject_id=verify_show_by_subject_id,
+            current_treatment_by_subject_id=current_treatment_by_subject_id,
+            workflow_action_event_id_by_subject_id=(
+                workflow_action_event_id_by_subject_id
+            ),
+            detail_url_by_subject_id=detail_url_by_subject_id,
+            early_termination_eligible_subject_ids=(
+                early_termination_eligible_subject_ids
+            ),
         )
         super().__init__(*args, **kwargs)
+
+    def bind_runtime_context(
+        self,
+        *,
+        verify_show_by_subject_id=None,
+        current_treatment_by_subject_id=None,
+        workflow_action_event_id_by_subject_id=None,
+        detail_url_by_subject_id=None,
+        early_termination_eligible_subject_ids=(),
+    ):
+        self._verify_show_by_subject_id = verify_show_by_subject_id or {}
+        self._current_treatment_by_subject_id = (
+            current_treatment_by_subject_id or {}
+        )
+        self.workflow_action_event_id_by_subject_id = (
+            workflow_action_event_id_by_subject_id or {}
+        )
+        self.detail_url_by_subject_id = detail_url_by_subject_id or {}
+        self.early_termination_eligible_subject_ids = frozenset(
+            early_termination_eligible_subject_ids
+        )
+        self.verify_eligible_subject_ids = frozenset(
+            subject_id
+            for subject_id, is_eligible in self._verify_show_by_subject_id.items()
+            if is_eligible
+        )
 
     @staticmethod
     def render_screening(record):
@@ -175,7 +202,6 @@ class SubjectListTable(tables.Table):
         }
         fields = (
             "screening_code",
-            "subject_code",
             "screening",
             "enrollment",
             "lifecycle_status",

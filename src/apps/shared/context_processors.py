@@ -85,6 +85,13 @@ class DropdownHandlerAbstract(abc.ABC):
         self.request.COOKIES[self.COOKIE_NAME] = value
         return True
 
+    def _request_cache_key(self):
+        return (
+            type(self),
+            getattr(self, "study_id", None),
+            self.get_cookie_value(parse_to_int=False),
+        )
+
     @classmethod
     def destroy_cookie(cls, response: HttpResponse) -> bool:
         try:
@@ -123,6 +130,15 @@ class DropdownHandlerAbstract(abc.ABC):
             A populated `DropdownData` when possible; otherwise a default empty
             `DropdownData` for anonymous users or unexpected errors.
         """
+        request_cache = getattr(self.request, "_dropdown_data_cache", None)
+        if request_cache is None:
+            request_cache = {}
+            self.request._dropdown_data_cache = request_cache
+        cache_key = self._request_cache_key()
+        if cache_key in request_cache:
+            return request_cache[cache_key]
+
+        result = DropdownData()
         if self.user:
             try:
                 study_selected_id = self.get_cookie_value(parse_to_int=True)
@@ -137,7 +153,7 @@ class DropdownHandlerAbstract(abc.ABC):
                         select_display_text = self._label_for(obj)
                         break
 
-                return DropdownData(
+                result = DropdownData(
                     selected_id=study_selected_id,
                     select_options=[
                         {
@@ -150,7 +166,8 @@ class DropdownHandlerAbstract(abc.ABC):
                 )
             except Exception:
                 pass
-        return DropdownData()
+        request_cache[cache_key] = result
+        return result
 
 
 class StudyDropdownHandler(DropdownHandlerAbstract):

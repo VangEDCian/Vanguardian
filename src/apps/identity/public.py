@@ -22,6 +22,7 @@ __all__ = [
     "import_role_permissions_for_study",
     "list_role_options_for_study",
     "user_has_any_active_role_ids",
+    "user_has_any_active_role_codes",
     "user_bypasses_context_permission",
 ]
 
@@ -58,4 +59,19 @@ def user_has_any_active_role_ids(
         study_id=study_id,
         site_id=site_id,
         role_ids=role_ids,
+    )
+
+
+def user_has_any_active_role_codes(
+    *,
+    user_id: int,
+    study_id: int,
+    site_id: int | None,
+    role_codes: tuple[str, ...],
+) -> bool:
+    return IdentityRoleScopeService().user_has_any_active_role_codes(
+        user_id=user_id,
+        study_id=study_id,
+        site_id=site_id,
+        role_codes=role_codes,
     )

@@ -1,7 +1,7 @@
 import json
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.utils.decorators import method_decorator
 from django.utils.translation import get_language
 from django.views import View
@@ -28,10 +28,22 @@ class DataCaptureEventAttestationSubmitAPIView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "EVENT_CERTIFICATION.CERTIFY"
+    permission_required = ("EVENT_REVIEW.COMPLETE", "EVENT_CERTIFICATION.CERTIFY")
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
+
+    def get_permission_required(self, request, *args, **kwargs):
+        try:
+            return DataCaptureEventAttestationService().required_permission_code_for_policy(
+                event_instance_id=int(kwargs["visit_id"]),
+                attestation_policy_id=int(kwargs["attestation_policy_id"]),
+                language_code=get_language(),
+                expected_study_id=int(kwargs["study_id"]),
+                expected_subject_id=int(kwargs["subject_id"]),
+            )
+        except (DataCaptureValidationError, TypeError, ValueError) as exc:
+            raise Http404("Attestation policy not found.") from exc
 
     def post(self, request, *args, **kwargs):
         payload = _json_body(request)

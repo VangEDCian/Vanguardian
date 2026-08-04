@@ -269,6 +269,17 @@ class ImportStudyEventAttestationPoliciesTemplateService:
             ),
             "updated_by_id": actor_user_id,
         }
+        required_role_code = str(defaults["required_role_code"] or "").strip().upper()
+        is_data_assurance_certification = (
+            action_kind == "CERTIFICATION"
+            and required_role_code == "DATA_ASSURANCE"
+        )
+        if action_kind == "REVIEW_COMPLETION" or is_data_assurance_certification:
+            defaults.update(
+                invalidate_on_scope_change=False,
+                invalidate_on_query_change=False,
+                is_required_for_lock=False,
+            )
         if defaults["display_order"] < 1:
             raise EventAttestationPolicyImportFormatError(
                 "Attestation Display Order must be greater than 0."

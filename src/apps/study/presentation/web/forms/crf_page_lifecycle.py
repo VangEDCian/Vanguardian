@@ -5,7 +5,6 @@ from apps.study.application.services.crf_page_lifecycle import CrfPageLifecycleS
 
 STEP_LABELS = {
     CrfPageLifecycleStep.VERIFY: _("Verify Page"),
-    CrfPageLifecycleStep.CERTIFY: _("Certify Page"),
     CrfPageLifecycleStep.FINALIZE: _("Finalize Page Data"),
     CrfPageLifecycleStep.LOCK: _("Lock Page"),
 }

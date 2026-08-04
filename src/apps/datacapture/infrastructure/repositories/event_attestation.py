@@ -244,11 +244,16 @@ class DjangoEventAttestationRepository:
             return 0
         flag_name = f"attestation_policy__invalidate_on_{normalized_change_type}_change"
         now = timezone.now()
-        return DataCaptureEventAttestation.objects.filter(
+        attestations = DataCaptureEventAttestation.objects.filter(
             event_instance_id=event_instance_id,
             status=DataCaptureEventAttestation.Status.ACTIVE,
             **{flag_name: True},
-        ).update(
+        )
+        if normalized_change_type in {"query", "scope"}:
+            attestations = attestations.exclude(
+                attestation_policy__action_kind="REVIEW_COMPLETION",
+            )
+        return attestations.update(
             status=DataCaptureEventAttestation.Status.INVALIDATED,
             invalidated_at=now,
             invalidated_by_id=actor_user_id,

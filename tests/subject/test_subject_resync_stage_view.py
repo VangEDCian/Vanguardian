@@ -71,6 +71,8 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
             rendered,
         )
         self.assertIn("Audit History", rendered)
+        self.assertIn("Verify Page", rendered)
+        self.assertNotIn("CRF Page Workflow", rendered)
         self.assertIn(
             reverse(
                 "subject:subject_audit_history",

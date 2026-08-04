@@ -39,12 +39,6 @@ ROLE_OPTIONS = [
         "permission_codes": ("SDV.MARK",),
     },
     {
-        "id": 12,
-        "name": "Investigator",
-        "scope_level": "STUDY_SITE",
-        "permission_codes": ("EVENT_CERTIFICATION.CERTIFY",),
-    },
-    {
         "id": 13,
         "name": "Data Manager",
         "scope_level": "STUDY",
@@ -75,7 +69,6 @@ class StudyCrfPageLifecycleServiceTests(SimpleTestCase):
             rows=(
                 SimpleNamespace(step_code="VERIFY", display_order=1, allowed_role_ids=[11]),
                 SimpleNamespace(step_code="FINALIZE", display_order=2, allowed_role_ids=[11]),
-                SimpleNamespace(step_code="CERTIFY", display_order=3, allowed_role_ids=[12]),
                 SimpleNamespace(step_code="LOCK", display_order=4, allowed_role_ids=[13]),
             ),
             configured=True,
@@ -87,11 +80,25 @@ class StudyCrfPageLifecycleServiceTests(SimpleTestCase):
 
         self.assertEqual(
             service.action_state(study_id=1, page_status="finalized").next_step_code,
-            CrfPageLifecycleStep.CERTIFY,
+            CrfPageLifecycleStep.LOCK,
         )
+
+    def test_legacy_certified_status_is_treated_as_verified(self):
+        service = StudyCrfPageLifecycleService(
+            repository=_LifecycleRepository(
+                rows=(
+                    SimpleNamespace(step_code="VERIFY", display_order=1, allowed_role_ids=[11]),
+                    SimpleNamespace(step_code="FINALIZE", display_order=2, allowed_role_ids=[11]),
+                    SimpleNamespace(step_code="LOCK", display_order=3, allowed_role_ids=[13]),
+                ),
+                configured=True,
+            ),
+            role_option_reader=lambda **_kwargs: ROLE_OPTIONS,
+        )
+
         self.assertEqual(
             service.action_state(study_id=1, page_status="certified").next_step_code,
-            CrfPageLifecycleStep.LOCK,
+            CrfPageLifecycleStep.FINALIZE,
         )
 
     def test_explicit_empty_configuration_has_no_post_submit_step(self):
@@ -105,7 +112,7 @@ class StudyCrfPageLifecycleServiceTests(SimpleTestCase):
             service.action_state(study_id=1, page_status="submitted").next_step_code
         )
 
-    def test_save_requires_selected_role_to_have_step_permission(self):
+    def test_page_certify_is_no_longer_a_supported_step(self):
         service = StudyCrfPageLifecycleService(
             repository=_LifecycleRepository(),
             role_option_reader=lambda **_kwargs: ROLE_OPTIONS,
@@ -113,7 +120,7 @@ class StudyCrfPageLifecycleServiceTests(SimpleTestCase):
 
         with self.assertRaisesMessage(
             CrfPageLifecycleConfigurationError,
-            "Role Monitor does not have permission EVENT_CERTIFICATION.CERTIFY",
+            "Unsupported CRF Page lifecycle step: CERTIFY",
         ):
             service.save(
                 study_id=1,
@@ -140,13 +147,12 @@ class StudyCrfPageLifecycleServiceTests(SimpleTestCase):
             actor_user_id=99,
             raw_steps=[
                 {"step_code": "VERIFY", "enabled": True, "display_order": 1, "role_ids": [11]},
-                {"step_code": "CERTIFY", "enabled": True, "display_order": 2, "role_ids": [12]},
-                {"step_code": "FINALIZE", "enabled": False, "display_order": 3, "role_ids": []},
-                {"step_code": "LOCK", "enabled": True, "display_order": 4, "role_ids": [13]},
+                {"step_code": "FINALIZE", "enabled": False, "display_order": 2, "role_ids": []},
+                {"step_code": "LOCK", "enabled": True, "display_order": 3, "role_ids": [13]},
             ],
         )
 
-        self.assertEqual([step.step_code for step in result], ["VERIFY", "CERTIFY", "LOCK"])
+        self.assertEqual([step.step_code for step in result], ["VERIFY", "LOCK"])
         self.assertEqual(repository.replace_call["study_id"], 1)
         self.assertEqual(repository.replace_call["actor_user_id"], 99)
 
@@ -159,7 +165,7 @@ class CrfPageLifecycleDomainTests(SimpleTestCase):
         ):
             validate_crf_page_lifecycle_steps(
                 (
-                    CrfPageLifecycleStepPolicy("CERTIFY", 1, (12,)),
+                    CrfPageLifecycleStepPolicy("FINALIZE", 1, (11,)),
                     CrfPageLifecycleStepPolicy("VERIFY", 2, (11,)),
                 )
             )
@@ -172,6 +178,6 @@ class CrfPageLifecycleDomainTests(SimpleTestCase):
             validate_crf_page_lifecycle_steps(
                 (
                     CrfPageLifecycleStepPolicy("LOCK", 1, (13,)),
-                    CrfPageLifecycleStepPolicy("CERTIFY", 2, (12,)),
+                    CrfPageLifecycleStepPolicy("FINALIZE", 2, (11,)),
                 )
             )

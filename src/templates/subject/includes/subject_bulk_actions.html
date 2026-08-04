@@ -159,6 +159,7 @@
             </div>
         {% endif %}
         {% if can_export_subjects %}
+            {% url 'subject:subject_export_field_catalog' study_id=shared_study_selected_id as subject_export_field_catalog_url %}
             <div class="modal-backdrop subject-export-modal-backdrop"
                  id="modal-subject-export-excel"
                  role="dialog"
@@ -177,54 +178,16 @@
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         <div class="modal__body subject-export-modal__body">
                             <p class="modal__message">Chọn các field cần xuất. Mặc định không có field nào được chọn.</p>
-                            {% for event_group in subject_export_field_groups %}
-                                <section class="subject-export-modal__event-group"
-                                         data-subject-export-visit>
-                                    <div class="subject-export-modal__event-heading">
-                                        <button type="button"
-                                                class="subject-export-modal__visit-collapse"
-                                                data-subject-export-visit-collapse
-                                                data-expanded-label="Thu gọn Visit"
-                                                data-collapsed-label="Mở rộng Visit"
-                                                aria-expanded="true"
-                                                aria-controls="subject-export-visit-fields-{{ event_group.event_definition_id }}"
-                                                aria-label="Thu gọn Visit">
-                                            <span class="subject-export-modal__event-title">
-                                                <strong>{{ event_group.event_name }}</strong>
-                                                <span>{{ event_group.event_code }}</span>
-                                            </span>
-                                            <span class="subject-export-modal__visit-chevron" aria-hidden="true">▾</span>
-                                        </button>
-                                        <button type="button"
-                                                class="subject-export-modal__visit-toggle"
-                                                data-subject-export-visit-toggle
-                                                data-select-label="Chọn toàn bộ field"
-                                                data-clear-label="Bỏ chọn toàn bộ field"
-                                                aria-pressed="false">Chọn toàn bộ field</button>
-                                    </div>
-                                    <div class="subject-export-modal__field-grid"
-                                         id="subject-export-visit-fields-{{ event_group.event_definition_id }}">
-                                        {% for form_group in event_group.forms %}
-                                            {% for field in form_group.fields %}
-                                                <label class="subject-export-modal__field"
-                                                       for="subject-export-field-{{ field.binding_id }}-{{ field.field_template_id }}">
-                                                    <input id="subject-export-field-{{ field.binding_id }}-{{ field.field_template_id }}"
-                                                           type="checkbox"
-                                                           name="export_fields"
-                                                           value="{{ field.token }}"
-                                                           data-subject-export-field>
-                                                    <span>
-                                                        <strong>{{ field.crf_code }} · {{ field.field_label }}</strong>
-                                                        <small>{{ field.header }}</small>
-                                                    </span>
-                                                </label>
-                                            {% endfor %}
-                                        {% endfor %}
-                                    </div>
-                                </section>
-                            {% empty %}
-                                <p class="subject-export-modal__empty">Không có field khả dụng để xuất.</p>
-                            {% endfor %}
+                            <div data-subject-export-field-catalog
+                                 data-subject-export-field-catalog-url="{{ subject_export_field_catalog_url }}">
+                                <p class="subject-export-modal__empty"
+                                   data-subject-export-field-loading
+                                   hidden>{% trans "Loading export fields..." %}</p>
+                                <p class="subject-export-modal__empty"
+                                   data-subject-export-field-error
+                                   hidden>{% trans "Export fields could not be loaded. Please try again." %}</p>
+                                <div data-subject-export-field-groups></div>
+                            </div>
                         </div>
                         <div class="modal__footer">
                             <button type="button"
