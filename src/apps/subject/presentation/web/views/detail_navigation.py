@@ -41,7 +41,6 @@ class SubjectDetailNavigationMixin:
                 status__in=(
                     EventInstanceStatusChoices.NOT_READY,
                     EventInstanceStatusChoices.SKIPPED,
-                    EventInstanceStatusChoices.CANCELLED,
                 )
             )
             .select_related("event_definition")
@@ -153,6 +152,17 @@ class SubjectDetailNavigationMixin:
                         ),
                     }
                 )
+
+            if event_instance.status == EventInstanceStatusChoices.CANCELLED:
+                forms = [
+                    form
+                    for form in forms
+                    if DataCapturePageState.has_submitted_data(
+                        form.get("page_state_status"),
+                    )
+                ]
+                if not forms:
+                    continue
 
             event_definition = event_instance.event_definition
             event_name = event_instance.event_name_snapshot or event_definition.name

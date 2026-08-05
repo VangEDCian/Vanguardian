@@ -69,6 +69,12 @@ class DjangoSubjectEarlyTerminationRepository:
         EventInstanceStatusChoices.FINALIZED,
     )
     EARLY_TERMINATION_COMPLETION_STATUSES = TRANSITION_READY_STATUSES
+    INCOMPLETE_EVENT_STATUSES = (
+        EventInstanceStatusChoices.NOT_READY,
+        EventInstanceStatusChoices.PLANNED,
+        EventInstanceStatusChoices.OPEN,
+        EventInstanceStatusChoices.IN_PROGRESS,
+    )
 
     def now(self):
         return timezone.now()
@@ -222,12 +228,7 @@ class DjangoSubjectEarlyTerminationRepository:
             .filter(
                 subject_id=subject_id,
                 deleted=False,
-                status__in=(
-                    EventInstanceStatusChoices.NOT_READY,
-                    EventInstanceStatusChoices.PLANNED,
-                    EventInstanceStatusChoices.OPEN,
-                    EventInstanceStatusChoices.IN_PROGRESS,
-                ),
+                status__in=self.INCOMPLETE_EVENT_STATUSES,
             )
             .exclude(pk=early_termination_event_instance_id)
             .only("id", "study_id", "subject_id", "event_definition_id", "status")

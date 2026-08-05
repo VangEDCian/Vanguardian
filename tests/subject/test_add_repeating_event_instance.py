@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import translation
 
 from apps.core.choices import EventInstanceStatusChoices
+from apps.datacapture.domain import DataCapturePageState
 from apps.subject.application.services.add_repeating_event_instance import (
     AddRepeatingSubjectEventInstanceService,
     CurrentRepeatingEventOpenError,
@@ -144,6 +145,99 @@ class SubjectDetailNavigationMixinTests(SimpleTestCase):
             payload = _View(subject)._build_event_navigation()
 
         self.assertEqual([item["code"] for item in payload], ["FU"])
+
+    def test_cancelled_event_keeps_only_forms_with_submitted_data(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+        event_definition = SimpleNamespace(
+            id=76,
+            pk=76,
+            code="VISIT_1",
+            name="Visit 1",
+            sequence_no=1,
+            is_repeating=False,
+            max_repeats=None,
+        )
+        event_instance = SimpleNamespace(
+            pk=76,
+            event_definition_id=76,
+            event_definition=event_definition,
+            event_name_snapshot="Visit 1",
+            event_code_snapshot="VISIT_1",
+            status=EventInstanceStatusChoices.CANCELLED,
+            repeat_index=1,
+            completed_at=None,
+        )
+        bindings = [
+            SimpleNamespace(
+                pk=401,
+                event_definition_id=76,
+                form_definition=SimpleNamespace(pk=15, code="COMPLETED_CRF"),
+            ),
+            SimpleNamespace(
+                pk=402,
+                event_definition_id=76,
+                form_definition=SimpleNamespace(pk=16, code="DRAFT_CRF"),
+            ),
+        ]
+        form_instances = [
+            SimpleNamespace(
+                event_form_binding_id=401,
+                display_label="Completed CRF",
+                page_state_id=501,
+                status=DataCapturePageState.SUBMITTED,
+            ),
+            SimpleNamespace(
+                event_form_binding_id=402,
+                display_label="Draft CRF",
+                page_state_id=502,
+                status=DataCapturePageState.IN_PROGRESS,
+            ),
+        ]
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet([event_instance]),
+                    _FakeQuerySet(
+                        [
+                            SimpleNamespace(
+                                id=76,
+                                event_definition_id=76,
+                                status=EventInstanceStatusChoices.CANCELLED,
+                            )
+                        ]
+                    ),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet(bindings),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instance",
+                return_value=form_instances,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.CrfTemplateQueryService._translated_value",
+                side_effect=["Completed CRF", "Draft CRF"],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_page_state_ids_with_open_reconcile_workbench_items",
+                return_value=set(),
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual([item["code"] for item in payload], ["VISIT_1"])
+        self.assertEqual(
+            [form["code"] for form in payload[0]["forms"]],
+            ["COMPLETED_CRF"],
+        )
 
     def test_build_event_navigation_prefers_form_instance_display_label(self):
         subject = SimpleNamespace(pk=3, study_id=1)

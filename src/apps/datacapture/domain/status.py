@@ -24,6 +24,17 @@ class DataCapturePageState:
         }
     )
     EVENT_TRANSITION_STABLE_STATUSES = CAPTURE_LOCKED_STATUSES
+    SUBMITTED_DATA_STATUSES = frozenset(
+        {
+            SUBMITTED,
+            UNDER_REVIEW,
+            CORRECTION_REQUIRED,
+            VERIFIED,
+            CERTIFIED,
+            LOCKED,
+            FINALIZED,
+        }
+    )
     REVIEWABLE_STATUSES = frozenset(
         {
             SUBMITTED,
@@ -39,6 +50,10 @@ class DataCapturePageState:
     @classmethod
     def is_event_transition_stable(cls, status) -> bool:
         return _normalized(status) in cls.EVENT_TRANSITION_STABLE_STATUSES
+
+    @classmethod
+    def has_submitted_data(cls, status) -> bool:
+        return _normalized(status) in cls.SUBMITTED_DATA_STATUSES
 
     @classmethod
     def can_start_or_continue_review(cls, status) -> bool:

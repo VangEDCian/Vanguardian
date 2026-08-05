@@ -337,6 +337,54 @@ class SubjectEarlyTerminationRepositoryTests(TestCase):
             ).exists()
         )
 
+    def test_close_other_events_preserves_completed_lifecycle_events(self):
+        preserved_statuses = (
+            EventInstanceStatusChoices.COMPLETED,
+            EventInstanceStatusChoices.VERIFIED,
+            EventInstanceStatusChoices.LOCKED,
+            EventInstanceStatusChoices.FINALIZED,
+        )
+        SubjectEventInstance.objects.filter(pk=self.regular_event.pk).update(
+            status=preserved_statuses[0],
+        )
+        preserved_events = [self.regular_event]
+        for sequence_no, status in enumerate(preserved_statuses[1:], start=20):
+            definition = self._create_event_definition(
+                code=f"VISIT_{sequence_no}",
+                category="treatment",
+                timing_mode="scheduled",
+                lifecycle_role=EventDefinitionLifecycleRoleChoices.REGULAR,
+                sequence_no=sequence_no,
+            )
+            preserved_events.append(
+                self._create_event_instance(
+                    definition=definition,
+                    status=status,
+                )
+            )
+
+        skipped_count, cancelled_count = self.repository.close_other_event_instances(
+            subject_id=self.subject.pk,
+            early_termination_event_instance_id=self.early_termination_event.pk,
+            actor_user_id=77,
+            now=self.now,
+        )
+
+        self.assertEqual((skipped_count, cancelled_count), (0, 0))
+        for event_instance, expected_status in zip(
+            preserved_events,
+            preserved_statuses,
+            strict=True,
+        ):
+            event_instance.refresh_from_db()
+            self.assertEqual(event_instance.status, expected_status)
+        self.assertFalse(
+            SubjectEventInstanceTransitionLog.objects.filter(
+                subject=self.subject,
+                trigger_source="early_termination",
+            ).exists()
+        )
+
     def test_completed_early_termination_event_terminates_subject_idempotently(self):
         Subject.objects.filter(pk=self.subject.pk).update(
             lifecycle_status=(
