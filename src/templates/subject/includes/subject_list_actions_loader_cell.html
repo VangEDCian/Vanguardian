@@ -2,7 +2,7 @@
 {% url 'subject:subject_list_actions' study_id=record.study_id subject_id=record.pk as subject_list_actions_url %}
 <div class="crf-template-actions"
      data-subject-actions-loader
-     data-subject-actions-url="{{ subject_list_actions_url }}">
+     data-subject-actions-url="{{ subject_list_actions_url }}?next={{ request.get_full_path|urlencode }}">
     <button type="button"
             class="crf-template-actions__trigger"
             data-subject-actions-loader-trigger

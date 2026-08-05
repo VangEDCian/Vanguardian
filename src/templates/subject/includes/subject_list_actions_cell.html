@@ -20,10 +20,10 @@
         <span class="crf-template-actions__icon" aria-hidden="true">⋮</span>
     </button>
     <div class="crf-template-actions__menu" data-dropdown-menu hidden>
-        <a href="{{ subject_summary_url }}?next={{ request.get_full_path|urlencode }}"
+        <a href="{{ subject_summary_url }}?next={{ next_url|urlencode }}"
            class="crf-template-actions__item"
            data-dropdown-option>{% trans "Subject Summary" %}</a>
-        <a href="{{ subject_audit_history_url }}?next={{ request.get_full_path|urlencode }}"
+        <a href="{{ subject_audit_history_url }}?next={{ next_url|urlencode }}"
            class="crf-template-actions__item"
            data-dropdown-option>{% trans "Audit History" %}</a>
         <a href="{{ subject_detail_base_url }}?mode=viewonly"
@@ -50,7 +50,7 @@
                   action="{{ subject_trigger_workflow_url }}"
                   class="crf-template-actions__form">
                 {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="hidden" name="next" value="{{ next_url }}">
                 <button type="submit" class="crf-template-actions__item" data-dropdown-option>{% trans "Trigger Workflow" %}</button>
             </form>
         {% endif %}
@@ -74,7 +74,7 @@
                   action="{{ subject_resync_stage_url }}"
                   class="crf-template-actions__form">
                 {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="hidden" name="next" value="{{ next_url }}">
                 <button type="submit" class="crf-template-actions__item" data-dropdown-option>{% trans "Resync Stage" %}</button>
             </form>
         {% else %}
@@ -102,7 +102,7 @@
                 </div>
                 <form method="post" action="{{ subject_early_termination_request_url }}">
                     {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <input type="hidden" name="next" value="{{ next_url }}">
                     <div class="modal__body subject-early-termination-modal__body">
                         <p class="modal__message">
                             {% blocktrans with subject_code=record.subject_code|default:record.screening_code %}

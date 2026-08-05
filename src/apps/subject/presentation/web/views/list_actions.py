@@ -2,6 +2,8 @@ from types import SimpleNamespace
 
 from django.http import Http404, HttpResponse
 from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 
 from apps.shared.navigation import user_can_access_permission
@@ -39,15 +41,16 @@ class SubjectListActionsView(
     subject_query_service_class = SubjectListActionsQueryService
 
     def get(self, request, *args, **kwargs):
+        study_id = self.get_study_id()
         subject = self.subject_query_service_class().get_subject(
-            study_id=self.get_study_id(),
+            study_id=study_id,
             subject_id=kwargs["subject_id"],
         )
         if subject is None:
             raise Http404
 
         permission_context = {
-            "study_id": self.get_study_id(),
+            "study_id": study_id,
             "site_id": subject.site_id,
             "request": request,
         }
@@ -78,7 +81,7 @@ class SubjectListActionsView(
         workflow_access = (
             self.workflow_action_service_class()
             .map_triggerable_event_access_by_subject_id(
-                study_id=self.get_study_id(),
+                study_id=study_id,
                 subject_ids=(subject.pk,),
             )
             .get(subject.pk)
@@ -97,7 +100,7 @@ class SubjectListActionsView(
             early_termination_eligible_subject_ids = (
                 self.early_termination_availability_service_class()
                 .list_eligible_subject_ids(
-                    study_id=self.get_study_id(),
+                    study_id=study_id,
                     subject_ids=(subject.pk,),
                 )
             )
@@ -119,12 +122,27 @@ class SubjectListActionsView(
         html = render_to_string(
             "subject/includes/subject_list_actions_cell.html",
             {
+                "next_url": self._resolve_next_url(
+                    request,
+                    study_id=study_id,
+                ),
                 "record": subject,
                 "table": table_context,
             },
             request=request,
         )
         return HttpResponse(html)
+
+    @staticmethod
+    def _resolve_next_url(request, *, study_id: int) -> str:
+        next_url = (request.GET.get("next") or "").strip()
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return next_url
+        return reverse("subject:subject_list", kwargs={"study_id": study_id})
 
 
 __all__ = ["SubjectListActionsView"]

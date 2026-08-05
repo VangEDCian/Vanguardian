@@ -556,6 +556,7 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
         )
 
     def test_subject_row_actions_render_as_lazy_loader(self):
+        next_url = "/studies/1/subjects/?page=2"
         rendered = render_to_string(
             "subject/includes/subject_list_actions_loader_cell.html",
             {
@@ -563,15 +564,18 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
                     pk=20,
                     study_id=1,
                 ),
+                "request": SimpleNamespace(get_full_path=next_url),
             },
         )
 
         self.assertIn("data-subject-actions-loader", rendered)
+        actions_url = reverse(
+            "subject:subject_list_actions",
+            kwargs={"study_id": 1, "subject_id": 20},
+        )
+        self.assertIn(actions_url, rendered)
         self.assertIn(
-            reverse(
-                "subject:subject_list_actions",
-                kwargs={"study_id": 1, "subject_id": 20},
-            ),
+            f"{actions_url}?next=/studies/1/subjects/%3Fpage%3D2",
             rendered,
         )
         self.assertNotIn("Resync Stage", rendered)
@@ -579,8 +583,10 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
 
 class SubjectListActionsViewTests(SimpleTestCase):
     def test_loads_action_availability_for_only_the_requested_subject(self):
+        next_url = "/studies/1/subjects/?page=2"
         request = RequestFactory().get(
-            "/studies/1/subjects/20/list-actions/"
+            "/studies/1/subjects/20/list-actions/",
+            data={"next": next_url},
         )
         request.user = SimpleNamespace(pk=99, is_authenticated=True)
         subject = SimpleNamespace(
@@ -635,11 +641,23 @@ class SubjectListActionsViewTests(SimpleTestCase):
         )
         render_context = render_actions.call_args.args[1]
         self.assertEqual(render_context["record"], subject)
+        self.assertEqual(render_context["next_url"], next_url)
         self.assertEqual(
             render_context["table"].verify_eligible_subject_ids,
             frozenset({20}),
         )
         self.assertEqual(response.content, b"<div>Actions</div>")
+
+    def test_rejects_external_next_url(self):
+        request = RequestFactory().get(
+            "/studies/1/subjects/20/list-actions/",
+            data={"next": "https://example.com/redirect"},
+        )
+
+        self.assertEqual(
+            SubjectListActionsView._resolve_next_url(request, study_id=1),
+            reverse("subject:subject_list", kwargs={"study_id": 1}),
+        )
 
 
 class SubjectBulkResyncServiceTests(SimpleTestCase):

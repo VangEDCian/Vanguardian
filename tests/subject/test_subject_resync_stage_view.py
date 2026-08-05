@@ -57,6 +57,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(
                     verify_eligible_subject_ids=frozenset(),
@@ -88,6 +89,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(verify_eligible_subject_ids=frozenset()),
             },
@@ -104,6 +106,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(
                     verify_eligible_subject_ids=frozenset(),
@@ -128,6 +131,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": False}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(
                     get_full_path="/studies/1/subjects/?page=2"
                 ),
@@ -149,6 +153,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(
                     verify_eligible_subject_ids=frozenset(),
@@ -173,6 +178,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                     subject_code="SUBJ-020",
                     screening_code="SCR-020",
                 ),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(
                     get_full_path="/studies/1/subjects/?page=2"
                 ),
@@ -190,6 +196,10 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
         self.assertIn('name="reason_code"', rendered)
         self.assertIn('name="effective_at"', rendered)
         self.assertIn('name="reason_text"', rendered)
+        self.assertIn(
+            'name="next" value="/studies/1/subjects/?page=2"',
+            rendered,
+        )
         self.assertIn(
             reverse(
                 "subject:subject_early_termination_request",
