@@ -95,7 +95,7 @@ class SubjectListRowNavigationTests(SimpleTestCase):
             },
         )
 
-    def test_table_uses_explicit_row_url_with_separate_subject_code_column(self):
+    def test_table_uses_explicit_row_url_with_separate_screening_code_column(self):
         detail_url = "/studies/1/subjects/11/?mode=viewonly"
         record = self._record()
         table = self._table(
@@ -104,7 +104,7 @@ class SubjectListRowNavigationTests(SimpleTestCase):
         )
 
         self.assertEqual(table.rows[0].attrs["data-detail-href"], detail_url)
-        self.assertIn("subject_code", table.columns.names())
+        self.assertIn("screening_code", table.columns.names())
 
     def test_table_emits_empty_explicit_url_when_navigation_is_denied(self):
         record = self._record()
