@@ -26,6 +26,13 @@ class StudyDirectoryQueryService:
         "end_date",
         "status",
     )
+
+    @classmethod
+    def get_study_id(cls, *, study_id):
+        if study_id is None:
+            return None
+        return cls.repository_class().get_study(study_id=study_id)
+
     studies_sort_map = {
         "code": ("code",),
         "name": ("name", "code"),

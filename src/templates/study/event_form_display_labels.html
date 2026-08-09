@@ -3,114 +3,231 @@
 {% block title %}
     {{ detail_study.code }} | {% trans "Instance Display Labels | Vanguardian" %}
 {% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'study/css/event_form_display_labels.css' %}">
+{% endblock %}
 {% block dashboard_breadcrumb_prefix %}
     <a href="{% url 'study:study_event_definitions' study_id=detail_study.id %}" class="dashboard-breadcrumb__back">{% trans "Event Definitions" %}</a>
 {% endblock %}
 {% block dashboard_content %}
     <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="event_definitions" %}
         <header class="entity-table-panel__header">
             <h1>{% trans "Repeated Form Instance Display Labels" %}</h1>
-            <p>{% trans "Configure derived display labels per event-form binding." %}</p>
+            <p>{% trans "Configure derived display labels for each event-form binding. This page is not an import screen." %}</p>
+            <p class="event-form-display-labels__help">
+                {% trans "If you need to import rules from spreadsheet, go to CRF Templates and open Import Validation Rules." %}
+                <a href="{% url 'study:study_crf_templates' study_id=detail_study.id %}"
+                   class="entity-table__footer-button entity-table__footer-button--secondary">
+                    {% trans "Go to CRF Templates" %}
+                </a>
+                <a href="{% url 'study:study_crf_templates' study_id=detail_study.id %}?open_validation_rule_import_modal=1"
+                   class="entity-table__footer-button entity-table__footer-button--secondary">
+                    {% trans "Import Validation Rules" %}
+                </a>
+            </p>
         </header>
 
-        <div class="study-form-layout">
-            <aside class="study-form-layout__sidebar">
-                <h2>{% trans "Bindings" %}</h2>
-                <ul>
-                    {% for row in binding_rows %}
-                        <li>
-                            <a href="?binding_id={{ row.binding_id }}"{% if selected_binding_id == row.binding_id %} aria-current="page"{% endif %}>
-                                {{ row.event_code }} / {{ row.form_code }}
-                            </a>
-                            {% if row.is_repeatable_within_event %}
-                                <span>({% trans "repeatable" %})</span>
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            </aside>
+        <div class="event-form-display-labels__layout">
+                <aside class="event-form-display-labels__sidebar">
+                    <h2>{% trans "Bindings" %}</h2>
+                    <ul>
+                        {% for row in binding_rows %}
+                            <li>
+                                <a href="?binding_id={{ row.binding_id }}" class="event-form-display-labels__binding-link{% if selected_binding_id == row.binding_id %} event-form-display-labels__binding-link--active{% endif %}" aria-current="{% if selected_binding_id == row.binding_id %}page{% else %}false{% endif %}">
+                                    {{ row.event_code }} / {{ row.form_code }}
+                                </a>
+                                {% if row.is_repeatable_within_event %}
+                                    <span>({% trans "repeatable" %})</span>
+                                {% endif %}
+                            </li>
+                        {% empty %}
+                            <li><span>{% trans "No repeatable form bindings found for this study." %}</span></li>
+                        {% endfor %}
+                    </ul>
+                </aside>
 
-            <div class="study-form-layout__content">
-                <form method="post">
+                <div class="event-form-display-labels__content">
+                    {% if not binding_rows %}
+                    <div class="event-form-display-labels__panel">
+                            {% if requested_binding_id %}
+                                <p>{% trans "Event form binding" %} {{ requested_binding_id }} {% trans "is not currently enabled for this study." %}</p>
+                            {% else %}
+                                <p>{% trans "No event form binding configured for this study yet. Please create binding first." %}</p>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                <form method="post" class="event-form-display-labels__form">
                     {% csrf_token %}
+                    {% if selected_binding_missing %}
+                        <div class="event-form-binding-import-alert event-form-binding-import-alert--warning">
+                            {% trans "Requested binding" %} {{ requested_binding_id }} {% trans "was not found, so the first available binding is selected." %}
+                        </div>
+                    {% endif %}
                     {% if config_form.non_field_errors %}
                         <div class="event-form-binding-import-alert event-form-binding-import-alert--error">
                             {% for error in config_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
                         </div>
                     {% endif %}
 
-                    {{ config_form.event_form_binding_id }}
-                    <div>
-                        <label>{{ config_form.is_enabled }} {{ config_form.is_enabled.label }}</label>
+                    <div class="event-form-display-labels__grid event-form-display-labels__grid--small">
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.event_form_binding_id.label_tag }}
+                            {{ config_form.event_form_binding_id }}
+                            {% if config_form.event_form_binding_id.errors %}<p class="event-form-display-labels__hint">{{ config_form.event_form_binding_id.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <label class="event-form-display-labels__switch">
+                            {{ config_form.is_enabled }} {{ config_form.is_enabled.label }}
+                        </label>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.max_length.label_tag }}
+                            {{ config_form.max_length }}
+                            {% if config_form.max_length.errors %}<p class="event-form-display-labels__hint">{{ config_form.max_length.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <label class="event-form-display-labels__switch">
+                            {{ config_form.use_choice_display_label }} {{ config_form.use_choice_display_label.label }}
+                        </label>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.empty_value_policy.label_tag }}
+                            {{ config_form.empty_value_policy }}
+                            {% if config_form.empty_value_policy.errors %}<p class="event-form-display-labels__hint">{{ config_form.empty_value_policy.errors|join:", " }}</p>{% endif %}
+                        </div>
                     </div>
-                    <div>
-                        <label for="{{ config_form.max_length.id_for_label }}">{{ config_form.max_length.label }}</label>
-                        {{ config_form.max_length }}
-                    </div>
-                    <div>
-                        <label>{{ config_form.use_choice_display_label }} {{ config_form.use_choice_display_label.label }}</label>
-                    </div>
-                    <div>
-                        <label for="{{ config_form.empty_value_policy.id_for_label }}">{{ config_form.empty_value_policy.label }}</label>
-                        {{ config_form.empty_value_policy }}
-                    </div>
 
-                    <h2>{% trans "Vietnamese" %}</h2>
-                    {{ config_form.label_template_vi.label_tag }} {{ config_form.label_template_vi }}
-                    {{ config_form.fallback_template_vi.label_tag }} {{ config_form.fallback_template_vi }}
-                    {{ config_form.empty_value_text_vi.label_tag }} {{ config_form.empty_value_text_vi }}
+                <section class="event-form-display-labels__panel">
+                        <h2>{% trans "Vietnamese" %}</h2>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.label_template_vi.label_tag }}
+                            {{ config_form.label_template_vi }}
+                        </div>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.fallback_template_vi.label_tag }}
+                            {{ config_form.fallback_template_vi }}
+                        </div>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.empty_value_text_vi.label_tag }}
+                            {{ config_form.empty_value_text_vi }}
+                        </div>
+                    </section>
 
-                    <h2>{% trans "English" %}</h2>
-                    {{ config_form.label_template_en.label_tag }} {{ config_form.label_template_en }}
-                    {{ config_form.fallback_template_en.label_tag }} {{ config_form.fallback_template_en }}
-                    {{ config_form.empty_value_text_en.label_tag }} {{ config_form.empty_value_text_en }}
+                    <section class="event-form-display-labels__panel">
+                        <h2>{% trans "English" %}</h2>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.label_template_en.label_tag }}
+                            {{ config_form.label_template_en }}
+                        </div>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.fallback_template_en.label_tag }}
+                            {{ config_form.fallback_template_en }}
+                        </div>
+                        <div class="event-form-display-labels__field">
+                            {{ config_form.empty_value_text_en.label_tag }}
+                            {{ config_form.empty_value_text_en }}
+                        </div>
+                    </section>
 
-                    <h2>{% trans "Preview" %}</h2>
-                    {{ config_form.sample_repeat_index.label_tag }} {{ config_form.sample_repeat_index }}
-                    {{ config_form.sample_field_values.label_tag }} {{ config_form.sample_field_values }}
+                    <section class="event-form-display-labels__panel">
+                        <h2>{% trans "Preview" %}</h2>
+                        <div class="event-form-display-labels__grid">
+                            <div class="event-form-display-labels__field">
+                                {{ config_form.sample_repeat_index.label_tag }}
+                                {{ config_form.sample_repeat_index }}
+                            </div>
+                            <div class="event-form-display-labels__field event-form-display-labels__field--full">
+                                {{ config_form.sample_field_values.label_tag }}
+                                {{ config_form.sample_field_values }}
+                            </div>
+                        </div>
+                    </section>
 
-                    <h3>{% trans "Supported Tokens" %}</h3>
-                    <ul>
-                        {% for token in token_help %}
-                            <li><code>{{ token }}</code></li>
-                        {% endfor %}
-                    </ul>
+                    <section class="event-form-display-labels__panel">
+                        <h3>{% trans "Supported Tokens" %}</h3>
+                        <ul class="event-form-display-labels__token-list">
+                            {% for token in token_help %}
+                                <li><button type="button" class="event-form-display-labels__token-pill" data-token="{{ token }}">{{ token }}</button></li>
+                            {% endfor %}
+                        </ul>
+                    </section>
 
-                    <h3>{% trans "Available Fields" %}</h3>
-                    <ul>
-                        {% for field in field_choices %}
-                            <li><button type="button" data-token-target="id_label_template_vi" data-token-value="{{ '{{field:' }}{{ field.field_key }}{{ '}}' }}"><code>{{ field.field_key }}</code></button> - {{ field.label }}</li>
-                        {% empty %}
-                            <li>{% trans "Select a binding to see field tokens." %}</li>
-                        {% endfor %}
-                    </ul>
+                    <section class="event-form-display-labels__panel">
+                        <h3>{% trans "Available Fields" %}</h3>
+                        <ul class="event-form-display-labels__field-list">
+                            {% for field in field_choices %}
+                                <li>
+                                <button
+                                        type="button"
+                                        class="event-form-display-labels__token-pill"
+                                        data-token-target="id_label_template_vi"
+                                        data-token="{{ field.field_token }}"
+                                        data-token-value="{{ field.field_token }}">
+                                        VI: {{ field.field_key }}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="event-form-display-labels__token-pill"
+                                        data-token-target="id_label_template_en"
+                                        data-token="{{ field.field_token }}"
+                                        data-token-value="{{ field.field_token }}">
+                                        EN: {{ field.field_key }}
+                                    </button>
+                                    <span>{{ field.label }}</span>
+                                </li>
+                            {% empty %}
+                                <li>{% trans "Select a binding to see field tokens." %}</li>
+                            {% endfor %}
+                        </ul>
+                    </section>
 
-                    <div class="modal__footer modal__footer--end">
+                    <section class="event-form-display-labels__panel">
+                        <h3>{% trans "Preview Target" %}</h3>
+                        <p class="event-form-display-labels__hint">{% trans "Token buttons insert into the last field you focused, or VI/EN by default if no focus." %}</p>
+                    </section>
+
+                    <div class="entity-table__footer entity-table__footer--actions">
                         <button type="submit" name="_action" value="preview" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Preview" %}</button>
                         <button type="submit" name="_action" value="save" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Save" %}</button>
                     </div>
                 </form>
+                    {% endif %}
 
-                {% if preview_result %}
-                    <section>
+                    {% if preview_result %}
+                        <section class="event-form-display-labels__panel event-form-display-labels__preview">
                         <h2>{% trans "Preview Result" %}</h2>
-                        <p><strong>VI:</strong> {{ preview_result.vi.label|default:"—" }}</p>
-                        <p><strong>EN:</strong> {{ preview_result.en.label|default:"—" }}</p>
+                        <p><strong>VI:</strong> {{ preview_result.vi_label|default:"—" }}</p>
+                        <p><strong>EN:</strong> {{ preview_result.en_label|default:"—" }}</p>
                     </section>
                 {% endif %}
             </div>
         </div>
     </section>
     <script>
-        document.querySelectorAll("[data-token-target]").forEach((button) => {
+        const tokenButtons = document.querySelectorAll(".event-form-display-labels__token-pill[data-token]");
+        const templateFields = [
+            document.getElementById("id_label_template_vi"),
+            document.getElementById("id_label_template_en"),
+        ].filter((node) => node);
+        let lastTemplateField = templateFields[0] || null;
+
+        templateFields.forEach((field) => {
+            field.addEventListener("focus", () => {
+                lastTemplateField = field;
+            });
+        });
+
+        tokenButtons.forEach((button) => {
             button.addEventListener("click", () => {
-                const target = document.getElementById(button.dataset.tokenTarget);
+                const token = button.dataset.token || button.dataset.tokenValue || "";
+                const explicitTargetId = button.dataset.tokenTarget;
+                const target = explicitTargetId
+                    ? document.getElementById(explicitTargetId)
+                    : lastTemplateField || templateFields[0];
                 if (!target) return;
-                const token = button.dataset.tokenValue || "";
                 const start = target.selectionStart ?? target.value.length;
                 const end = target.selectionEnd ?? target.value.length;
                 target.value = `${target.value.slice(0, start)}${token}${target.value.slice(end)}`;
                 target.focus();
+                target.setSelectionRange(start + token.length, start + token.length);
             });
         });
     </script>

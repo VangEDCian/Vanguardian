@@ -221,6 +221,29 @@ class CrfContextAdapter:
             section_name=section_name,
         )
 
+    def list_field_templates_for_import(self, *, crf_template_id, field_keys):
+        return self.field_template_import_service.list_field_templates_for_import(
+            crf_template_id=crf_template_id,
+            field_keys=field_keys,
+        )
+
+    def list_field_review_policies_for_import(
+        self,
+        *,
+        study_id,
+        crf_template_id,
+        field_template_ids,
+        study_versions,
+        review_types,
+    ):
+        return self.field_template_import_service.list_field_review_policies_for_import(
+            study_id=study_id,
+            crf_template_id=crf_template_id,
+            field_template_ids=field_template_ids,
+            study_versions=study_versions,
+            review_types=review_types,
+        )
+
     def resolve_import_validation_rule_template_by_code_or_id(self, *, study_id, form_code):
         return self.validation_rule_import_service.resolve_template_by_code_or_id(
             study_id=study_id,
@@ -266,6 +289,7 @@ class CrfContextAdapter:
         payload,
         actor_user_id,
         now=None,
+        existing_field_template=None,
     ):
         return self.field_template_import_service.upsert_template_field(
             crf_template_id=crf_template_id,
@@ -273,6 +297,22 @@ class CrfContextAdapter:
             payload=payload,
             actor_user_id=actor_user_id,
             now=now,
+            existing_field_template=existing_field_template,
+        )
+
+    def upsert_import_template_fields(
+        self,
+        *,
+        prepared_rows,
+        actor_user_id,
+        now=None,
+        cached_field_templates=None,
+    ):
+        return self.field_template_import_service.upsert_template_fields(
+            prepared_rows=prepared_rows,
+            actor_user_id=actor_user_id,
+            now=now,
+            cached_field_templates=cached_field_templates,
         )
 
     def upsert_import_field_review_policy(
@@ -289,6 +329,8 @@ class CrfContextAdapter:
         role_required,
         is_enabled,
         actor_user_id,
+        existing_field_review_policy=None,
+        force_create=False,
         now=None,
     ):
         return self.field_template_import_service.upsert_field_review_policy(
@@ -303,6 +345,8 @@ class CrfContextAdapter:
             role_required=role_required,
             is_enabled=is_enabled,
             actor_user_id=actor_user_id,
+            existing_field_review_policy=existing_field_review_policy,
+            force_create=force_create,
             now=now,
         )
 

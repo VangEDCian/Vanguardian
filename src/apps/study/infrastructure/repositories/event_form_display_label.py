@@ -16,7 +16,7 @@ class DjangoEventFormDisplayLabelRepository:
 
     def list_bindings(self, *, study_id: int):
         return (
-            EventFormBinding.objects.filter(study_id=study_id, deleted=False, is_enabled=True)
+            EventFormBinding.objects.filter(study_id=study_id, deleted=False)
             .select_related("event_definition", "form_definition")
             .prefetch_related("form_definition__translations", "display_config__translations")
             .order_by("event_definition__sequence_no", "display_order", "id")
@@ -51,7 +51,7 @@ class DjangoEventFormDisplayLabelRepository:
 
     def get_binding_snapshot(self, *, binding_id: int):
         return (
-            EventFormBinding.objects.filter(pk=binding_id, deleted=False, is_enabled=True)
+            EventFormBinding.objects.filter(pk=binding_id, deleted=False)
             .values(
                 "id",
                 "study_id",
