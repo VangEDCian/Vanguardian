@@ -1,5 +1,5 @@
-import re
 import json
+import re
 from pathlib import Path
 
 import django_filters
@@ -250,7 +250,7 @@ class SubjectIdListField(forms.Field):
         values = super().clean(value)
         if not values:
             if not self.required:
-                return ()
+                return []
             raise forms.ValidationError(_("Select at least one subject."))
 
         subject_ids = []

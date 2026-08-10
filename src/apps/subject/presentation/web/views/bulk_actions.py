@@ -153,7 +153,7 @@ class SubjectBulkActionView(
         request,
         study_id: int,
         site_id: int,
-        subject_ids: list[int],
+        subject_ids: tuple[int, ...],
         next_url: str,
     ):
         export_form = SubjectExcelExportForm(request.POST)
@@ -167,7 +167,7 @@ class SubjectBulkActionView(
             result = self.excel_export_service_class().export(
                 study_id=study_id,
                 site_id=site_id,
-                subject_ids=subject_ids,
+                subject_ids=list(subject_ids),
                 selected_field_tokens=export_form.cleaned_data["export_fields"],
             )
         except SubjectExcelExportSelectionError as exc:
@@ -212,12 +212,12 @@ class SubjectBulkActionView(
         *,
         study_id: int,
         selection_form: SubjectBulkActionForm,
-    ) -> list[int]:
+    ) -> tuple[int, ...]:
         if (
             selection_form.cleaned_data["selection_mode"]
             != SubjectBulkActionForm.SELECTION_FILTERED
         ):
-            return selection_form.cleaned_data["subject_ids"]
+            return tuple(selection_form.cleaned_data["subject_ids"])
 
         filter_params = QueryDict(
             selection_form.cleaned_data.get("filter_query", ""),
@@ -230,7 +230,7 @@ class SubjectBulkActionView(
             filter_params,
             queryset=queryset,
         ).qs
-        return list(
+        return tuple(
             filtered_queryset.order_by("pk").values_list("pk", flat=True)
         )
 
