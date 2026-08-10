@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
+from django.db import transaction
+
 from apps.core.choices.datacapture import DataCaptureFieldReviewTypeChoices
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError, StudyScopeViolationError
-from django.db import transaction
 from apps.crf.public import CrfContextAdapter
 from apps.study.application.commands.import_crf_template_fields_template import (
     CrfTemplateFieldImportIssue,
