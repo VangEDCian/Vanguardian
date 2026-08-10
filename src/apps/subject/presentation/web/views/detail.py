@@ -827,21 +827,11 @@ class SubjectDetailView(
                         )
                         form_verification_lock_page_url = f"{form_verification_lock_page_url}?form={focused_form.get('id', '')}"
 
-        if focused_event:
-            try:
-                event_attestation_panel = get_event_attestation_panel_for_event_instance(
-                    event_instance_id=int(focused_event["id"]),
-                    actor_user_id=getattr(self.request.user, "id", None),
-                    actor_is_superuser=bool(getattr(self.request.user, "is_superuser", False)),
-                    language_code=get_language(),
-                )
-                event_attestation_panel = self._with_event_attestation_urls(
-                    event_attestation_panel,
-                    subject_id=subject.pk,
-                    event_instance_id=int(focused_event["id"]),
-                )
-            except (TypeError, ValueError):
-                event_attestation_panel = None
+        event_attestation_panel = self._build_event_attestation_panel(
+            is_form_verification_mode=is_form_verification_mode,
+            focused_event=focused_event,
+            subject_id=subject.pk,
+        )
 
         context["back_url"] = reverse(
             "subject:subject_list", kwargs={"study_id": self.get_study_id()},
@@ -1048,6 +1038,9 @@ class SubjectDetailView(
     ) -> dict | None:
         if not panel or not panel.get("has_policies"):
             return panel
+        if panel.get("visit_is_certified"):
+            panel["policies"] = []
+            return panel
         visible_policies = []
         for policy in panel.get("policies", []):
             readiness = policy.get("readiness") or {}
@@ -1079,6 +1072,31 @@ class SubjectDetailView(
         panel["policies"] = visible_policies
         panel["has_policies"] = bool(visible_policies)
         return panel
+
+    def _build_event_attestation_panel(
+        self,
+        *,
+        is_form_verification_mode: bool,
+        focused_event: dict | None,
+        subject_id: int,
+    ) -> dict | None:
+        if not is_form_verification_mode or not focused_event:
+            return None
+        try:
+            event_instance_id = int(focused_event["id"])
+            panel = get_event_attestation_panel_for_event_instance(
+                event_instance_id=event_instance_id,
+                actor_user_id=getattr(self.request.user, "id", None),
+                actor_is_superuser=bool(getattr(self.request.user, "is_superuser", False)),
+                language_code=get_language(),
+            )
+            return self._with_event_attestation_urls(
+                panel,
+                subject_id=subject_id,
+                event_instance_id=event_instance_id,
+            )
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _extract_entry_payload_map(raw_payload):

@@ -197,6 +197,81 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn("data-event-attestation-submit", rendered)
         self.assertIn("subject_event_attestation.js", rendered)
 
+    def test_non_verification_screen_hides_event_attestation_panel(self):
+        rendered = self._render_subject_detail_verification_screen(
+            is_form_verification_mode=False,
+            event_attestation_panel={
+                "has_policies": True,
+                "policies": [],
+                "history": [],
+            },
+        )
+
+        self.assertNotIn("Review and Certification", rendered)
+        self.assertNotIn("subject_event_attestation.js", rendered)
+
+    def test_certified_visit_shows_status_and_history_without_certification_form(self):
+        rendered = self._render_subject_detail_verification_screen(
+            event_attestation_panel={
+                "has_policies": True,
+                "event_name": "Screening Visit",
+                "visit_is_certified": True,
+                "current_certification": {
+                    "status": "ACTIVE",
+                    "signer_name": "Data Assurance User",
+                    "attested_at": "2026-08-10T10:00:00+07:00",
+                    "scope_digest": "certified-scope-digest",
+                    "is_current_scope": True,
+                },
+                "summary": {
+                    "submitted_page_count": 1,
+                    "page_count": 1,
+                    "blocking_query_count": 0,
+                    "validation_issue_count": 0,
+                },
+                "policies": [
+                    {
+                        "policy_id": 51,
+                        "code": "SCREENING_CERT",
+                        "action_kind": "CERTIFICATION",
+                        "dialog_title": "Certify Screening Data",
+                        "action_label": "Certify Visit",
+                        "statement_text": (
+                            "I certify that the data entered in this eCRF are complete, "
+                            "accurate, and supported by the source documents."
+                        ),
+                        "confirmation_label": "I confirm.",
+                        "requires_confirmation_checkbox": True,
+                        "active_attestation": {"status": "ACTIVE", "is_current_scope": True},
+                        "readiness": {"can_submit": False, "blockers": [], "warnings": []},
+                        "submit_url": "/api/attest/",
+                        "revoke_url": "/api/revoke/",
+                    }
+                ],
+                "history": [
+                    {
+                        "action_label": "Certification completed",
+                        "status": "ACTIVE",
+                        "signer_name": "Data Assurance User",
+                        "attested_at": "2026-08-10T10:00:00+07:00",
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("Review and Certification", rendered)
+        self.assertIn("Certified", rendered)
+        self.assertIn("Data Assurance User", rendered)
+        self.assertIn("Attestation history", rendered)
+        self.assertIn("Certification completed", rendered)
+        self.assertRegex(rendered, r'class="subject-event-attestation__history"\s+open')
+        self.assertNotIn("Certify Screening Data", rendered)
+        self.assertNotIn("I certify that the data entered", rendered)
+        self.assertNotIn("data-event-attestation-policy", rendered)
+        self.assertNotIn("data-event-attestation-submit", rendered)
+        self.assertNotIn("data-event-attestation-revoke", rendered)
+        self.assertNotIn("subject_event_attestation.js", rendered)
+
     def test_verification_screen_loads_readonly_validation_issue_modal(self):
         rendered = self._render_subject_detail_verification_screen()
 

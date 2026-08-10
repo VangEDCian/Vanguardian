@@ -68,7 +68,14 @@ class DataCaptureEventAttestationService:
         event_context = self._event_context_or_raise(event_instance_id)
         policies = self._policies(event_context=event_context, language_code=language_code)
         if not policies:
-            return {"has_policies": False, "policies": [], "history": [], "summary": {}}
+            return {
+                "has_policies": False,
+                "visit_is_certified": False,
+                "current_certification": None,
+                "policies": [],
+                "history": [],
+                "summary": {},
+            }
         page_scope = self.repository.list_page_scope(event_instance_id=event_instance_id)
         query_summary = self.query_summary_reader(
             page_state_ids=tuple(page.page_state_id for page in page_scope)
@@ -80,30 +87,41 @@ class DataCaptureEventAttestationService:
             for row in history
             if str(row.status or "").upper() == "ACTIVE"
         }
+        policy_items = [
+            self._policy_panel_item(
+                event_context=event_context,
+                policy=policy,
+                page_scope=page_scope,
+                query_summary=query_summary,
+                scope_digest=scope_digest,
+                active_attestation=active_by_policy_id.get(int(policy.id)),
+                actor_user_id=actor_user_id,
+                actor_is_superuser=actor_is_superuser,
+            )
+            for policy in policies
+        ]
+        current_certification = next(
+            (
+                item["active_attestation"]
+                for item in policy_items
+                if item["is_current_certification"]
+            ),
+            None,
+        )
         return {
             "has_policies": True,
             "event_instance_id": event_context.event_instance_id,
             "event_name": event_context.event_name,
             "scope_digest": scope_digest,
+            "visit_is_certified": current_certification is not None,
+            "current_certification": current_certification,
             "summary": {
                 "page_count": len(page_scope),
                 "submitted_page_count": sum(1 for page in page_scope if page.page_entry_id is not None),
                 "blocking_query_count": int(query_summary.get("blocking_open", 0) or 0),
                 "validation_issue_count": int(query_summary.get("validation_issues_open", 0) or 0),
             },
-            "policies": [
-                self._policy_panel_item(
-                    event_context=event_context,
-                    policy=policy,
-                    page_scope=page_scope,
-                    query_summary=query_summary,
-                    scope_digest=scope_digest,
-                    active_attestation=active_by_policy_id.get(int(policy.id)),
-                    actor_user_id=actor_user_id,
-                    actor_is_superuser=actor_is_superuser,
-                )
-                for policy in policies
-            ],
+            "policies": policy_items,
             "history": [self._record_payload(row, current_scope_digest=scope_digest) for row in history],
         }
 
@@ -367,6 +385,17 @@ class DataCaptureEventAttestationService:
             actor_user_id=actor_user_id,
             actor_is_superuser=actor_is_superuser,
         )
+        active_attestation_payload = (
+            self._record_payload(active_attestation, current_scope_digest=scope_digest)
+            if active_attestation is not None
+            else None
+        )
+        is_current_certification = bool(
+            str(policy.action_kind or "").strip().upper() == self.CERTIFICATION_ACTION_KIND
+            and active_attestation_payload
+            and str(active_attestation_payload.get("status") or "").strip().upper() == "ACTIVE"
+            and active_attestation_payload.get("is_current_scope")
+        )
         return {
             "policy_id": policy.id,
             "code": policy.code,
@@ -379,11 +408,8 @@ class DataCaptureEventAttestationService:
             "requires_confirmation_checkbox": self._requires_confirmation(policy),
             "requires_signature": policy.requires_signature,
             "requires_reauthentication": policy.requires_reauthentication,
-            "active_attestation": (
-                self._record_payload(active_attestation, current_scope_digest=scope_digest)
-                if active_attestation is not None
-                else None
-            ),
+            "active_attestation": active_attestation_payload,
+            "is_current_certification": is_current_certification,
             "readiness": readiness,
         }
 

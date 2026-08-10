@@ -348,6 +348,27 @@ class DataCaptureEventAttestationServiceTests(SimpleTestCase):
             )
         )
 
+    def test_panel_exposes_current_visit_certification_as_readonly_state(self):
+        repository = _EventAttestationRepository()
+        current_scope_digest = DataCaptureEventAttestationService._scope_digest(repository.page_scope)
+        repository.history.append(
+            self._attestation_record(
+                action_kind="CERTIFICATION",
+                status="ACTIVE",
+                scope_digest=current_scope_digest,
+            )
+        )
+
+        panel = self._service(
+            policy=_policy(action_kind="CERTIFICATION", code="SCREENING_CERT"),
+            repository=repository,
+        ).get_panel(event_instance_id=11, actor_user_id=7)
+
+        self.assertTrue(panel["visit_is_certified"])
+        self.assertEqual(panel["current_certification"]["action_kind"], "CERTIFICATION")
+        self.assertTrue(panel["current_certification"]["is_current_scope"])
+        self.assertTrue(panel["policies"][0]["is_current_certification"])
+
     def test_attest_event_persists_record_when_confirmation_is_accepted(self):
         repository = _EventAttestationRepository()
         service = self._service(repository=repository)

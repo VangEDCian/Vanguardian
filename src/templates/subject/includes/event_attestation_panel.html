@@ -1,5 +1,5 @@
 {% load i18n %}
-{% if event_attestation_panel and event_attestation_panel.has_policies %}
+{% if is_form_verification_mode and event_attestation_panel and event_attestation_panel.has_policies %}
     <section class="subject-event-attestation"
              aria-label="{% trans 'Event review and certification' %}">
         <header class="subject-event-attestation__header">
@@ -7,29 +7,65 @@
                 <p class="subject-event-attestation__eyebrow">{% trans "Event-level controls" %}</p>
                 <h3 class="subject-event-attestation__title">{% trans "Review and Certification" %}</h3>
             </div>
-            <dl class="subject-event-attestation__summary">
-                <div>
-                    <dt>{% trans "Pages" %}</dt>
-                    <dd>
-                        {{ event_attestation_panel.summary.submitted_page_count }}/{{ event_attestation_panel.summary.page_count }}
-                    </dd>
-                </div>
-                <div>
-                    <dt>{% trans "Blocking Queries" %}</dt>
-                    <dd>
-                        {{ event_attestation_panel.summary.blocking_query_count }}
-                    </dd>
-                </div>
-                <div>
-                    <dt>{% trans "Validation Issues" %}</dt>
-                    <dd>
-                        {{ event_attestation_panel.summary.validation_issue_count }}
-                    </dd>
-                </div>
-            </dl>
+            {% if not event_attestation_panel.visit_is_certified %}
+                <dl class="subject-event-attestation__summary">
+                    <div>
+                        <dt>{% trans "Pages" %}</dt>
+                        <dd>
+                            {{ event_attestation_panel.summary.submitted_page_count }}/{{ event_attestation_panel.summary.page_count }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{% trans "Blocking Queries" %}</dt>
+                        <dd>
+                            {{ event_attestation_panel.summary.blocking_query_count }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{% trans "Validation Issues" %}</dt>
+                        <dd>
+                            {{ event_attestation_panel.summary.validation_issue_count }}
+                        </dd>
+                    </div>
+                </dl>
+            {% endif %}
         </header>
         <div class="subject-event-attestation__policies">
-            {% for policy in event_attestation_panel.policies %}
+            {% if event_attestation_panel.visit_is_certified %}
+                <article class="subject-event-attestation__policy"
+                         data-event-attestation-certified-status>
+                    <header class="subject-event-attestation__policy-header">
+                        <div>
+                            <h4 class="subject-event-attestation__policy-title">{% trans "Certified" %}</h4>
+                            <p class="subject-event-attestation__policy-meta">
+                                {{ event_attestation_panel.event_name }}
+                            </p>
+                        </div>
+                        <span class="subject-event-attestation__badge">{% trans "Certified" %}</span>
+                    </header>
+                    <dl class="subject-event-attestation__facts">
+                        <div>
+                            <dt>{% trans "Signer" %}</dt>
+                            <dd>
+                                {{ event_attestation_panel.current_certification.signer_name }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>{% trans "Attested At" %}</dt>
+                            <dd>
+                                {{ event_attestation_panel.current_certification.attested_at }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>{% trans "Scope Digest" %}</dt>
+                            <dd>
+                                <code>{{ event_attestation_panel.current_certification.scope_digest|slice:":12" }}</code>
+                            </dd>
+                        </div>
+                    </dl>
+                </article>
+            {% else %}
+                {% for policy in event_attestation_panel.policies %}
                 <article class="subject-event-attestation__policy"
                          data-event-attestation-policy>
                     <header class="subject-event-attestation__policy-header">
@@ -123,10 +159,12 @@
                         {% endif %}
                     </div>
                 </article>
-            {% endfor %}
+                {% endfor %}
+            {% endif %}
         </div>
         {% if event_attestation_panel.history %}
-            <details class="subject-event-attestation__history">
+            <details class="subject-event-attestation__history"
+                     {% if event_attestation_panel.visit_is_certified %}open{% endif %}>
                 <summary>{% trans "Attestation history" %}</summary>
                 <ol>
                     {% for row in event_attestation_panel.history %}

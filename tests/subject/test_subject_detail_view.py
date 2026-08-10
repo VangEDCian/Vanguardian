@@ -194,6 +194,55 @@ class SubjectDetailViewEventAttestationTests(SimpleTestCase):
         self.assertFalse(panel["has_policies"])
         self.assertEqual(panel["policies"], [])
 
+    def test_does_not_load_event_attestation_panel_outside_verification_mode(self):
+        with patch(
+            "apps.subject.presentation.web.views.detail.get_event_attestation_panel_for_event_instance"
+        ) as panel_reader:
+            panel = self.view._build_event_attestation_panel(
+                is_form_verification_mode=False,
+                focused_event={"id": 262},
+                subject_id=11,
+            )
+
+        self.assertIsNone(panel)
+        panel_reader.assert_not_called()
+
+    def test_loads_event_attestation_panel_in_verification_mode(self):
+        self.view.request = SimpleNamespace(
+            user=SimpleNamespace(id=7, is_superuser=False),
+        )
+        source_panel = {"has_policies": False}
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail.get_event_attestation_panel_for_event_instance",
+                return_value=source_panel,
+            ) as panel_reader,
+            patch.object(
+                self.view,
+                "_with_event_attestation_urls",
+                return_value=source_panel,
+            ) as url_builder,
+        ):
+            panel = self.view._build_event_attestation_panel(
+                is_form_verification_mode=True,
+                focused_event={"id": 262},
+                subject_id=11,
+            )
+
+        self.assertIs(panel, source_panel)
+        panel_reader.assert_called_once_with(
+            event_instance_id=262,
+            actor_user_id=7,
+            actor_is_superuser=False,
+            language_code="en",
+        )
+        url_builder.assert_called_once_with(
+            source_panel,
+            subject_id=11,
+            event_instance_id=262,
+        )
+
     def test_keeps_attestation_policy_with_required_permission(self):
         panel = self.view._with_event_attestation_urls(
             {
@@ -220,6 +269,31 @@ class SubjectDetailViewEventAttestationTests(SimpleTestCase):
             panel["policies"][0]["submit_url"],
             "/api/studies/1/subjects/11/events/262/attestations/1/submit/",
         )
+
+    def test_certified_visit_keeps_only_status_and_history(self):
+        current_certification = {
+            "id": 91,
+            "status": "ACTIVE",
+            "is_current_scope": True,
+        }
+        history = [{"id": 91, "status": "ACTIVE"}]
+
+        panel = self.view._with_event_attestation_urls(
+            {
+                "has_policies": True,
+                "visit_is_certified": True,
+                "current_certification": current_certification,
+                "policies": [{"policy_id": 1}],
+                "history": history,
+            },
+            subject_id=11,
+            event_instance_id=262,
+        )
+
+        self.assertTrue(panel["has_policies"])
+        self.assertEqual(panel["policies"], [])
+        self.assertEqual(panel["current_certification"], current_certification)
+        self.assertEqual(panel["history"], history)
 
 
 class _PeriodOverrideAvailabilityServiceStub:

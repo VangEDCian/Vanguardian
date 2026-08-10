@@ -227,7 +227,7 @@
                  tabindex="0"
                  data-subject-sidebar-resizer></div>
             <main class="subject-detail-screen__content">
-                {% if event_attestation_panel and event_attestation_panel.has_policies %}
+                {% if is_form_verification_mode and event_attestation_panel and event_attestation_panel.has_policies %}
                     {% include "subject/includes/event_attestation_panel.html" %}
                 {% endif %}
                 {% if is_form_verification_mode %}
@@ -525,7 +525,7 @@
         <script src="{% static 'subject/js/subject_form_verification_review_filter.js' %}"></script>
         <script src="{% static 'subject/js/subject_form_verification_query_modal.js' %}"></script>
     {% endif %}
-    {% if event_attestation_panel and event_attestation_panel.has_policies %}
+    {% if is_form_verification_mode and event_attestation_panel and event_attestation_panel.has_policies and not event_attestation_panel.visit_is_certified %}
         <script src="{% static 'subject/js/subject_event_attestation.js' %}"></script>
     {% endif %}
     {% if not is_subject_detail_viewonly_mode %}
