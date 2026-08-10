@@ -153,7 +153,7 @@ class SubjectBulkActionView(
         request,
         study_id: int,
         site_id: int,
-        subject_ids: tuple[int, ...],
+        subject_ids: list[int],
         next_url: str,
     ):
         export_form = SubjectExcelExportForm(request.POST)
@@ -212,7 +212,7 @@ class SubjectBulkActionView(
         *,
         study_id: int,
         selection_form: SubjectBulkActionForm,
-    ) -> tuple[int, ...]:
+    ) -> list[int]:
         if (
             selection_form.cleaned_data["selection_mode"]
             != SubjectBulkActionForm.SELECTION_FILTERED
@@ -230,7 +230,7 @@ class SubjectBulkActionView(
             filter_params,
             queryset=queryset,
         ).qs
-        return tuple(
+        return list(
             filtered_queryset.order_by("pk").values_list("pk", flat=True)
         )
 

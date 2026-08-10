@@ -42,7 +42,7 @@ class SubjectBulkActionFormTests(SimpleTestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["subject_ids"], (20, 21))
+        self.assertEqual(form.cleaned_data["subject_ids"], [20, 21])
 
     def test_requires_at_least_one_selected_subject(self):
         form = SubjectBulkActionForm({"action": "delete"})
@@ -60,7 +60,7 @@ class SubjectBulkActionFormTests(SimpleTestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["subject_ids"], ())
+        self.assertEqual(form.cleaned_data["subject_ids"], [])
         self.assertEqual(form.cleaned_data["selection_mode"], "filtered")
 
     def test_excel_export_requires_valid_field_tokens(self):
@@ -74,9 +74,31 @@ class SubjectBulkActionFormTests(SimpleTestCase):
         self.assertTrue(valid_form.is_valid(), valid_form.errors)
         self.assertEqual(
             valid_form.cleaned_data["export_fields"],
-            ("30:40", "30:41"),
+            ["30:40", "30:41"],
         )
         self.assertFalse(invalid_form.is_valid())
+
+    def test_excel_export_form_supports_json_payload(self):
+        valid_form = SubjectExcelExportForm(
+            {"export_fields": '["30:40", "30:41", "30:40"]'}
+        )
+
+        self.assertTrue(valid_form.is_valid(), valid_form.errors)
+        self.assertEqual(
+            valid_form.cleaned_data["export_fields"],
+            ["30:40", "30:41"],
+        )
+
+    def test_excel_export_form_supports_json_payload_in_list(self):
+        valid_form = SubjectExcelExportForm(
+            {"export_fields": ['["30:40", "30:41", "30:40"]']}
+        )
+
+        self.assertTrue(valid_form.is_valid(), valid_form.errors)
+        self.assertEqual(
+            valid_form.cleaned_data["export_fields"],
+            ["30:40", "30:41"],
+        )
 
 
 class SubjectBulkActionServiceTests(SimpleTestCase):
@@ -390,8 +412,8 @@ class SubjectBulkActionViewTests(SimpleTestCase):
             {
                 "study_id": 1,
                 "site_id": 2,
-                "subject_ids": (20, 21),
-                "selected_field_tokens": ("30:40",),
+                "subject_ids": [20, 21],
+                "selected_field_tokens": ["30:40"],
             },
         )
 

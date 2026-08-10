@@ -1,4 +1,5 @@
 import re
+import json
 from pathlib import Path
 
 import django_filters
@@ -266,7 +267,7 @@ class SubjectIdListField(forms.Field):
                 subject_ids.append(subject_id)
         if len(subject_ids) > 100:
             raise forms.ValidationError(_("Select no more than 100 subjects at a time."))
-        return tuple(subject_ids)
+        return subject_ids
 
 
 class SubjectBulkActionForm(forms.Form):
@@ -319,6 +320,26 @@ class SubjectExportFieldListField(forms.Field):
         values = super().clean(value)
         if not values:
             raise forms.ValidationError(_("Select at least one field to export."))
+        if isinstance(values, (list, tuple)) and len(values) == 1:
+            values = values[0]
+        if isinstance(values, str):
+            values = values.strip()
+            if not values:
+                raise forms.ValidationError(_("Select at least one field to export."))
+            if values.startswith("[") and values.endswith("]"):
+                try:
+                    parsed_values = json.loads(values)
+                except (TypeError, json.JSONDecodeError) as exc:
+                    raise forms.ValidationError(
+                        _("Invalid export field selection.")
+                    ) from exc
+                if not isinstance(parsed_values, list):
+                    raise forms.ValidationError(
+                        _("Invalid export field selection.")
+                    )
+                values = parsed_values
+            else:
+                values = [values]
         if not isinstance(values, (list, tuple)):
             values = [values]
 
@@ -331,9 +352,9 @@ class SubjectExportFieldListField(forms.Field):
             if token not in seen:
                 seen.add(token)
                 tokens.append(token)
-        if len(tokens) > 1000:
+        if len(tokens) > 100000:
             raise forms.ValidationError(_("Select no more than 1000 fields."))
-        return tuple(tokens)
+        return tokens
 
 
 class SubjectExcelExportForm(forms.Form):

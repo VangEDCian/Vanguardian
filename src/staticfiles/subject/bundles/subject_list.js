@@ -976,10 +976,30 @@
       const exportFields = Array.from(
         exportForm.querySelectorAll("[data-subject-export-field]"),
       ).filter((field) => field instanceof HTMLInputElement);
-      if (!exportFields.some((field) => field.checked)) {
+      const selectedExportFields = exportFields.filter((field) => field.checked);
+      if (!selectedExportFields.length) {
         event.preventDefault();
         return;
       }
+      exportFields.forEach((field) => {
+        field.disabled = true;
+      });
+
+      const existingPayloadInput = exportForm.querySelector(
+        "[name='export_fields'][data-subject-export-field-payload]",
+      );
+      if (existingPayloadInput instanceof HTMLInputElement) {
+        existingPayloadInput.remove();
+      }
+
+      const payloadInput = document.createElement("input");
+      payloadInput.type = "hidden";
+      payloadInput.name = "export_fields";
+      payloadInput.value = JSON.stringify(
+        selectedExportFields.map((field) => field.value),
+      );
+      payloadInput.dataset.subjectExportFieldPayload = "1";
+      exportForm.appendChild(payloadInput);
       const modal = document.getElementById("modal-subject-export-excel");
       modal?.classList.remove("is-open");
     });
