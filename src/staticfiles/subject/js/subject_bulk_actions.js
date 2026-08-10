@@ -364,6 +364,9 @@
     const exportVisits = Array.from(
       exportForm.querySelectorAll("[data-subject-export-visit]"),
     ).filter((visit) => visit instanceof HTMLElement);
+    const exportFields = Array.from(
+      exportForm.querySelectorAll("[data-subject-export-field]"),
+    ).filter((field) => field instanceof HTMLInputElement);
     const fieldsForVisit = (visit) =>
       Array.from(visit.querySelectorAll("[data-subject-export-field]")).filter(
         (field) => field instanceof HTMLInputElement,
@@ -392,9 +395,6 @@
       visit.classList.toggle("is-collapsed", !expanded);
     };
     const updateExportState = () => {
-      const exportFields = Array.from(
-        exportForm.querySelectorAll("[data-subject-export-field]"),
-      ).filter((field) => field instanceof HTMLInputElement);
       const exportSubmit = exportForm.querySelector(
         "[data-subject-export-submit]",
       );

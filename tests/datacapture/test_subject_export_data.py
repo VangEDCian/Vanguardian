@@ -18,7 +18,7 @@ class SubjectExportDataServiceTests(SimpleTestCase):
         },
     )
 
-    def test_prefers_final_data_and_aggregates_repeated_values(self):
+    def test_prefers_final_data_and_keeps_repeated_form_instances_as_rows(self):
         repository = _ExportDataRepositoryStub(
             rows=(
                 self._row(
@@ -38,10 +38,23 @@ class SubjectExportDataServiceTests(SimpleTestCase):
             study_id=1,
             site_id=2,
             subject_ids=(100,),
-            field_specs=self.field_specs,
+            field_specs=(
+                {
+                    **self.field_specs[0],
+                    "is_repeatable_within_event": True,
+                },
+            ),
         )
 
-        self.assertEqual(values, {100: {"30:40": '["900", "901"]'}})
+        self.assertEqual(
+            values,
+            {
+                100: (
+                    {"30:40": "900"},
+                    {"30:40": "901"},
+                )
+            },
+        )
         self.assertEqual(repository.calls[0]["site_id"], 2)
 
     def test_falls_back_to_current_entry_when_final_data_is_empty(self):
@@ -62,7 +75,7 @@ class SubjectExportDataServiceTests(SimpleTestCase):
             field_specs=self.field_specs,
         )
 
-        self.assertEqual(values, {100: {"30:40": "draft"}})
+        self.assertEqual(values, {100: ({"30:40": "draft"},)})
 
     def test_matches_legacy_page_state_without_binding_by_event_and_form(self):
         row = self._row(
@@ -80,32 +93,187 @@ class SubjectExportDataServiceTests(SimpleTestCase):
             field_specs=self.field_specs,
         )
 
-        self.assertEqual(values, {100: {"30:40": "42"}})
+        self.assertEqual(values, {100: ({"30:40": "42"},)})
+
+    def test_repeats_base_values_and_aligns_fields_from_each_form_instance(self):
+        repeated_specs = (
+            {
+                "token": "31:41",
+                "binding_id": 31,
+                "event_definition_id": 10,
+                "crf_template_id": 21,
+                "field_key": "AETERM",
+                "is_repeatable_within_event": True,
+            },
+            {
+                "token": "31:42",
+                "binding_id": 31,
+                "event_definition_id": 10,
+                "crf_template_id": 21,
+                "field_key": "AESTDTC",
+                "is_repeatable_within_event": True,
+            },
+        )
+        repository = _ExportDataRepositoryStub(
+            rows=(
+                self._row(
+                    final_data=self._payload("42"),
+                    current_entry_data="",
+                    page_state_id=1,
+                ),
+                self._row(
+                    final_data=self._payload(
+                        {
+                            "AETERM": "Sốt",
+                            "AESTDTC": "2026-06-18",
+                        }
+                    ),
+                    current_entry_data="",
+                    page_state_id=2,
+                    binding_id=31,
+                    crf_template_id=21,
+                    repeat_index=1,
+                ),
+                self._row(
+                    final_data=self._payload(
+                        {
+                            "AETERM": "Đau đầu",
+                            "AESTDTC": "2026-06-15",
+                        }
+                    ),
+                    current_entry_data="",
+                    page_state_id=3,
+                    binding_id=31,
+                    crf_template_id=21,
+                    repeat_index=2,
+                ),
+            )
+        )
+
+        values = SubjectExportDataService(repository=repository).read_values(
+            study_id=1,
+            site_id=2,
+            subject_ids=(100,),
+            field_specs=(
+                {
+                    **self.field_specs[0],
+                    "is_repeatable_within_event": False,
+                },
+                *repeated_specs,
+            ),
+        )
+
+        self.assertEqual(
+            values,
+            {
+                100: (
+                    {
+                        "30:40": "42",
+                        "31:41": "Sốt",
+                        "31:42": "2026-06-18",
+                    },
+                    {
+                        "30:40": "42",
+                        "31:41": "Đau đầu",
+                        "31:42": "2026-06-15",
+                    },
+                )
+            },
+        )
+
+    def test_decodes_radio_and_checkbox_values_to_option_labels(self):
+        field_specs = (
+            {
+                "token": "30:40",
+                "binding_id": 30,
+                "event_definition_id": 10,
+                "crf_template_id": 20,
+                "field_key": "SEX",
+                "is_repeatable_within_event": False,
+                "control_type": "RADIO",
+                "choice_labels": {"M": "Male", "F": "Female"},
+            },
+            {
+                "token": "30:41",
+                "binding_id": 30,
+                "event_definition_id": 10,
+                "crf_template_id": 20,
+                "field_key": "SYMPTOMS",
+                "is_repeatable_within_event": False,
+                "control_type": "CHECKBOX",
+                "choice_labels": {
+                    "headache": "Headache",
+                    "nausea": "Nausea",
+                },
+            },
+        )
+        repository = _ExportDataRepositoryStub(
+            rows=(
+                self._row(
+                    final_data=self._payload(
+                        {
+                            "SEX": "F",
+                            "SYMPTOMS": ["headache", "nausea", "other"],
+                        }
+                    ),
+                    current_entry_data="",
+                    page_state_id=1,
+                ),
+            )
+        )
+
+        values = SubjectExportDataService(repository=repository).read_values(
+            study_id=1,
+            site_id=2,
+            subject_ids=(100,),
+            field_specs=field_specs,
+        )
+
+        self.assertEqual(
+            values,
+            {
+                100: (
+                    {
+                        "30:40": "Female",
+                        "30:41": "Headache, Nausea, other",
+                    },
+                )
+            },
+        )
 
     @staticmethod
     def _payload(value):
+        items = value if isinstance(value, dict) else {"AGE": value}
         return json.dumps(
             {
                 "format": "edc.form_data.v1",
                 "groups": {
                     "DEMOGRAPHICS": {
                         "kind": "single",
-                        "items": {"AGE": value},
+                        "items": items,
                     }
                 },
             }
         )
 
     @staticmethod
-    def _row(*, final_data, current_entry_data, page_state_id):
+    def _row(
+        *,
+        final_data,
+        current_entry_data,
+        page_state_id,
+        binding_id=30,
+        crf_template_id=20,
+        repeat_index=1,
+    ):
         return {
             "id": page_state_id,
             "subject_id": 100,
-            "event_form_binding_id": 30,
-            "crf_template_id": 20,
+            "event_form_binding_id": binding_id,
+            "crf_template_id": crf_template_id,
             "visit__event_definition_id": 10,
             "visit__repeat_index": 1,
-            "repeat_index": 1,
+            "repeat_index": repeat_index,
             "final_data": final_data,
             "current_entry__data": current_entry_data,
         }

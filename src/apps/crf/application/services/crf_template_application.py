@@ -129,6 +129,11 @@ class CrfTemplateApplicationService:
             template_id=template_id,
         )
 
+    def list_export_fields_by_template_ids(self, *, template_ids):
+        return self.query_service.list_export_fields_by_template_ids(
+            template_ids=template_ids,
+        )
+
     def upsert_section_layout_config(
         self,
         *,

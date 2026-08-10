@@ -36,6 +36,11 @@ class CrfContextAdapter:
             template_id=template_id,
         )
 
+    def list_export_fields_by_template_ids(self, *, template_ids):
+        return self.crf_template_service.list_export_fields_by_template_ids(
+            template_ids=template_ids,
+        )
+
     def list_template_field_schema_for_display_label(self, *, template_id):
         fields = self.list_template_fields_with_ui_config(template_id=template_id)
         return [

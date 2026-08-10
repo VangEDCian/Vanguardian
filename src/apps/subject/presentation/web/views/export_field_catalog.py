@@ -26,7 +26,6 @@ class SubjectExportFieldCatalogView(
                     study_id=self.get_study_id(),
                 ),
             },
-            request=request,
         )
         return HttpResponse(html)
 

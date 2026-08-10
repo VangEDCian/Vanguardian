@@ -139,6 +139,67 @@ class CrfTemplateQueryServiceTests(SimpleTestCase):
         self.assertEqual(payload[0]["range_max"], Decimal("200"))
         self.assertEqual(payload[0]["precision"], 2)
 
+    @patch(
+        "apps.crf.application.services.crf_template_query.get_language",
+        return_value="vi",
+    )
+    def test_export_fields_are_loaded_for_all_templates_in_one_batch(self, _get_language):
+        repository = MagicMock()
+        repository.list_export_fields_by_template_ids.return_value = [
+            SimpleNamespace(
+                pk=7,
+                crf_template_id=2,
+                field_key="WEIGHT",
+                ui_config=SimpleNamespace(
+                    deleted=False,
+                    control_type="RADIO",
+                    translations=SimpleNamespace(
+                        all=lambda: [
+                            SimpleNamespace(
+                                language_code="vi",
+                                options=(
+                                    '{"source":"static","static":['
+                                    '{"value":"1","label":"Có"},'
+                                    '{"value":"0","label":"Không"}]}'
+                                ),
+                            ),
+                        ]
+                    ),
+                ),
+                translations=SimpleNamespace(
+                    all=lambda: [
+                        SimpleNamespace(language_code="en", label="Weight"),
+                        SimpleNamespace(language_code="vi", label="Cân nặng"),
+                    ]
+                ),
+            ),
+            SimpleNamespace(
+                pk=8,
+                crf_template_id=3,
+                field_key="AGE",
+                translations=SimpleNamespace(
+                    all=lambda: [
+                        SimpleNamespace(language_code="en", label="Age"),
+                    ]
+                ),
+            ),
+        ]
+
+        payload = CrfTemplateQueryService(
+            repository=repository,
+        ).list_export_fields_by_template_ids(template_ids=(3, 2, 3))
+
+        repository.list_export_fields_by_template_ids.assert_called_once_with(
+            template_ids=(2, 3),
+        )
+        self.assertEqual(payload[2][0]["label"], "Cân nặng")
+        self.assertEqual(payload[2][0]["control_type"], "RADIO")
+        self.assertEqual(
+            payload[2][0]["choice_labels"],
+            {"1": "Có", "0": "Không"},
+        )
+        self.assertEqual(payload[3][0]["label"], "Age")
+
 
 class FieldTemplateAggregateTests(SimpleTestCase):
     def test_rejects_calculated_as_data_type(self):

@@ -1,6 +1,6 @@
 {% load i18n %}
 {% for event_group in subject_export_field_groups %}
-    <section class="subject-export-modal__event-group"
+    <section class="subject-export-modal__event-group is-collapsed"
              data-subject-export-visit>
         <div class="subject-export-modal__event-heading">
             <button type="button"
@@ -8,9 +8,9 @@
                     data-subject-export-visit-collapse
                     data-expanded-label="{% trans 'Collapse Visit' %}"
                     data-collapsed-label="{% trans 'Expand Visit' %}"
-                    aria-expanded="true"
+                    aria-expanded="false"
                     aria-controls="subject-export-visit-fields-{{ event_group.event_definition_id }}"
-                    aria-label="{% trans 'Collapse Visit' %}">
+                    aria-label="{% trans 'Expand Visit' %}">
                 <span class="subject-export-modal__event-title">
                     <strong>{{ event_group.event_name }}</strong>
                     <span>{{ event_group.event_code }}</span>
@@ -25,7 +25,8 @@
                     aria-pressed="false">{% trans "Select all fields" %}</button>
         </div>
         <div class="subject-export-modal__field-grid"
-             id="subject-export-visit-fields-{{ event_group.event_definition_id }}">
+             id="subject-export-visit-fields-{{ event_group.event_definition_id }}"
+             hidden>
             {% for form_group in event_group.forms %}
                 {% for field in form_group.fields %}
                     <label class="subject-export-modal__field"

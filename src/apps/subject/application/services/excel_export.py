@@ -155,40 +155,43 @@ class SubjectExcelExportService:
         *,
         subject_rows: tuple[dict, ...],
         selected_fields: tuple[dict, ...],
-        values_by_subject_id: dict[int, dict],
+        values_by_subject_id: dict[int, dict | tuple[dict, ...]],
     ) -> bytes:
         workbook = Workbook()
         worksheet = workbook.active
         worksheet.title = "Subjects"
+        field_headers = cls._field_description_headers(selected_fields)
         headers = [
             "subject_id",
             "subject_code",
             "screening_code",
             "randomization_code",
-            *(field["header"] for field in selected_fields),
+            *field_headers,
         ]
         worksheet.append(headers)
         cls._style_header(worksheet)
 
         for subject in subject_rows:
             subject_id = int(subject["id"])
-            subject_values = values_by_subject_id.get(subject_id, {})
-            row_values = [
-                subject_id,
-                subject.get("subject_code") or "",
-                subject.get("screening_code") or "",
-                subject.get("randomization_code") or "",
-                *(
-                    subject_values.get(field["token"], "")
-                    for field in selected_fields
-                ),
-            ]
-            worksheet.append(row_values)
-            cls._force_formula_like_strings_to_text(
-                worksheet,
-                row_index=worksheet.max_row,
-                values=row_values,
-            )
+            for subject_values in cls._subject_value_rows(
+                values_by_subject_id.get(subject_id),
+            ):
+                row_values = [
+                    subject_id,
+                    subject.get("subject_code") or "",
+                    subject.get("screening_code") or "",
+                    subject.get("randomization_code") or "",
+                    *(
+                        subject_values.get(field["token"], "")
+                        for field in selected_fields
+                    ),
+                ]
+                worksheet.append(row_values)
+                cls._force_formula_like_strings_to_text(
+                    worksheet,
+                    row_index=worksheet.max_row,
+                    values=row_values,
+                )
 
         worksheet.freeze_panes = "A2"
         worksheet.auto_filter.ref = worksheet.dimensions
@@ -196,6 +199,78 @@ class SubjectExcelExportService:
         output = BytesIO()
         workbook.save(output)
         return output.getvalue()
+
+    @staticmethod
+    def _subject_value_rows(raw_subject_values) -> tuple[dict, ...]:
+        if isinstance(raw_subject_values, dict):
+            return (raw_subject_values,)
+        if isinstance(raw_subject_values, (list, tuple)):
+            rows = tuple(
+                row
+                for row in raw_subject_values
+                if isinstance(row, dict)
+            )
+            if rows:
+                return rows
+        return ({},)
+
+    @classmethod
+    def _field_description_headers(
+        cls,
+        selected_fields: tuple[dict, ...],
+    ) -> tuple[str, ...]:
+        descriptions = tuple(
+            cls._field_description(field)
+            for field in selected_fields
+        )
+        description_counts: dict[str, int] = {}
+        for description in descriptions:
+            key = description.casefold()
+            description_counts[key] = description_counts.get(key, 0) + 1
+
+        candidate_counts: dict[str, int] = {}
+        headers = []
+        for field, description in zip(selected_fields, descriptions):
+            candidate = description
+            if description_counts[description.casefold()] > 1:
+                context = cls._field_description_context(field)
+                if context:
+                    candidate = f"{description} ({context})"
+
+            candidate_key = candidate.casefold()
+            candidate_count = candidate_counts.get(candidate_key, 0) + 1
+            candidate_counts[candidate_key] = candidate_count
+            if candidate_count > 1:
+                candidate = f"{candidate} [{candidate_count}]"
+            headers.append(candidate)
+        return tuple(headers)
+
+    @staticmethod
+    def _field_description(field: dict) -> str:
+        return str(
+            field.get("field_label")
+            or field.get("header")
+            or field.get("field_key")
+            or "Field"
+        ).strip()
+
+    @staticmethod
+    def _field_description_context(field: dict) -> str:
+        event_name = str(
+            field.get("event_name")
+            or field.get("event_code")
+            or ""
+        ).strip()
+        form_name = str(
+            field.get("crf_name")
+            or field.get("crf_code")
+            or ""
+        ).strip()
+        return " / ".join(
+            part
+            for part in (event_name, form_name)
+            if part
+        )
 
     @staticmethod
     def _style_header(worksheet):

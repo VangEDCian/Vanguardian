@@ -23,8 +23,11 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
         "crf_template_id": 20,
         "field_template_id": 40,
         "event_code": "SCREENING",
+        "event_name": "Screening",
         "crf_code": "DEMOGRAPHICS",
+        "crf_name": "Demographics",
         "field_key": "AGE",
+        "field_label": "Age",
         "header": "SCREENING.DEMOGRAPHICS.AGE",
     }
 
@@ -73,7 +76,7 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
                 "subject_code",
                 "screening_code",
                 "randomization_code",
-                "SCREENING.DEMOGRAPHICS.AGE",
+                "Age",
             ],
         )
         self.assertEqual(
@@ -88,6 +91,121 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
         self.assertEqual(result.subject_count, 2)
         self.assertEqual(result.field_count, 1)
         self.assertEqual(data_adapter.calls[0]["subject_ids"], (100, 101))
+
+    def test_disambiguates_duplicate_field_descriptions_with_readable_context(self):
+        selected_fields = (
+            {
+                **self.field,
+                "token": "30:40",
+                "field_label": "Visit Date",
+            },
+            {
+                **self.field,
+                "token": "31:41",
+                "binding_id": 31,
+                "field_template_id": 41,
+                "event_code": "BASELINE",
+                "event_name": "Baseline",
+                "crf_code": "VITALS",
+                "crf_name": "Vital Signs",
+                "field_key": "VISIT_DATE",
+                "field_label": "Visit Date",
+                "header": "BASELINE.VITALS.VISIT_DATE",
+            },
+        )
+
+        content = SubjectExcelExportService._build_workbook(
+            subject_rows=(
+                {
+                    "id": 100,
+                    "subject_code": "SUB-001",
+                    "screening_code": "SCR-001",
+                    "randomization_code": "RND-001",
+                },
+            ),
+            selected_fields=selected_fields,
+            values_by_subject_id={
+                100: {
+                    "30:40": "2026-08-01",
+                    "31:41": "2026-08-02",
+                }
+            },
+        )
+
+        worksheet = load_workbook(BytesIO(content))["Subjects"]
+        self.assertEqual(
+            [cell.value for cell in worksheet[1]][-2:],
+            [
+                "Visit Date (Screening / Demographics)",
+                "Visit Date (Baseline / Vital Signs)",
+            ],
+        )
+
+    def test_exports_each_repeated_form_instance_on_its_own_row(self):
+        repeated_fields = (
+            {
+                **self.field,
+                "token": "31:41",
+                "binding_id": 31,
+                "field_template_id": 41,
+                "field_key": "AETERM",
+                "field_label": "Adverse Event Term",
+            },
+            {
+                **self.field,
+                "token": "31:42",
+                "binding_id": 31,
+                "field_template_id": 42,
+                "field_key": "AESTDTC",
+                "field_label": "AE Start Date",
+            },
+        )
+
+        content = SubjectExcelExportService._build_workbook(
+            subject_rows=(
+                {
+                    "id": 100,
+                    "subject_code": "NNG31-002",
+                    "screening_code": "NNG31-S001",
+                    "randomization_code": "2",
+                },
+            ),
+            selected_fields=repeated_fields,
+            values_by_subject_id={
+                100: (
+                    {
+                        "31:41": "Sốt",
+                        "31:42": "2026-06-18",
+                    },
+                    {
+                        "31:41": "Đau đầu",
+                        "31:42": "2026-06-15",
+                    },
+                )
+            },
+        )
+
+        worksheet = load_workbook(BytesIO(content))["Subjects"]
+        self.assertEqual(
+            list(worksheet.values)[1:],
+            [
+                (100, "NNG31-002", "NNG31-S001", "2", "Sốt", "2026-06-18"),
+                (100, "NNG31-002", "NNG31-S001", "2", "Đau đầu", "2026-06-15"),
+            ],
+        )
+
+    def test_falls_back_to_technical_header_without_field_description(self):
+        field_without_description = {
+            **self.field,
+            "field_label": "",
+        }
+
+        self.assertEqual(
+            SubjectExcelExportService._field_description_headers(
+                (field_without_description,),
+            ),
+            ("SCREENING.DEMOGRAPHICS.AGE",),
+        )
 
     def test_rejects_field_token_not_in_current_study_catalog(self):
         service = SubjectExcelExportService(

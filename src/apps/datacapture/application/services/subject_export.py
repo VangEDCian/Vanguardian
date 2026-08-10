@@ -21,7 +21,7 @@ class SubjectExportDataService:
         site_id: int,
         subject_ids: tuple[int, ...],
         field_specs: tuple[dict, ...],
-    ) -> dict[int, dict[str, Any]]:
+    ) -> dict[int, tuple[dict[str, Any], ...]]:
         if not subject_ids or not field_specs:
             return {}
 
@@ -36,9 +36,10 @@ class SubjectExportDataService:
                 )
             ].append(spec)
 
-        collected: dict[int, dict[str, list[Any]]] = defaultdict(
+        base_values: dict[int, dict[str, list[Any]]] = defaultdict(
             lambda: defaultdict(list)
         )
+        repeated_rows: dict[int, list[dict[str, Any]]] = defaultdict(list)
         rows = self.repository.list_page_state_rows(
             study_id=study_id,
             site_id=site_id,
@@ -66,18 +67,128 @@ class SubjectExportDataService:
                     field_value.value
                 )
             subject_id = int(row["subject_id"])
+            if any(
+                bool(spec.get("is_repeatable_within_event"))
+                for spec in specs
+            ):
+                repeated_row = {
+                    spec["token"]: self._collapse_values(
+                        self._decoded_field_values(
+                            values_by_field_key=values_by_field_key,
+                            spec=spec,
+                        )
+                    )
+                    for spec in specs
+                }
+                if any(
+                    value not in (None, "")
+                    for value in repeated_row.values()
+                ):
+                    repeated_rows[subject_id].append(repeated_row)
+                continue
+
             for spec in specs:
-                collected[subject_id][spec["token"]].extend(
-                    values_by_field_key.get(spec["field_key"], ())
+                base_values[subject_id][spec["token"]].extend(
+                    self._decoded_field_values(
+                        values_by_field_key=values_by_field_key,
+                        spec=spec,
+                    )
                 )
 
-        return {
-            subject_id: {
+        result = {}
+        for subject_id in base_values.keys() | repeated_rows.keys():
+            collapsed_base_values = {
                 token: self._collapse_values(values)
-                for token, values in values_by_token.items()
+                for token, values in base_values[subject_id].items()
             }
-            for subject_id, values_by_token in collected.items()
+            subject_repeated_rows = repeated_rows.get(subject_id, ())
+            if subject_repeated_rows:
+                result[subject_id] = tuple(
+                    {
+                        **collapsed_base_values,
+                        **repeated_row,
+                    }
+                    for repeated_row in subject_repeated_rows
+                )
+            else:
+                result[subject_id] = (collapsed_base_values,)
+        return result
+
+    @classmethod
+    def _decoded_field_values(
+        cls,
+        *,
+        values_by_field_key: dict[str, list[Any]],
+        spec: dict,
+    ) -> list[Any]:
+        return [
+            cls._decode_choice_value(value, spec=spec)
+            for value in values_by_field_key.get(spec["field_key"], ())
+        ]
+
+    @classmethod
+    def _decode_choice_value(cls, raw_value, *, spec: dict):
+        control_type = (
+            str(spec.get("control_type") or "")
+            .strip()
+            .upper()
+            .replace(" ", "_")
+            .replace("-", "_")
+        )
+        if control_type not in {
+            "RADIO",
+            "RADIO_BUTTON_LIST",
+            "CHECKBOX",
+            "CHECKBOX_LIST",
+        }:
+            return raw_value
+        choice_labels = {
+            str(value).strip(): str(label).strip()
+            for value, label in (spec.get("choice_labels") or {}).items()
+            if str(value).strip() and str(label).strip()
         }
+        if not choice_labels or raw_value in (None, ""):
+            return raw_value
+
+        selected_values = cls._normalize_selected_choice_values(raw_value)
+        labels_by_casefold = {
+            value.casefold(): label
+            for value, label in choice_labels.items()
+        }
+        decoded_values = []
+        for value in selected_values:
+            normalized_value = str(value).strip()
+            decoded_values.append(
+                choice_labels.get(
+                    normalized_value,
+                    labels_by_casefold.get(
+                        normalized_value.casefold(),
+                        normalized_value,
+                    ),
+                )
+            )
+        return ", ".join(decoded_values) if decoded_values else raw_value
+
+    @staticmethod
+    def _normalize_selected_choice_values(raw_value) -> list[Any]:
+        if isinstance(raw_value, (list, tuple, set)):
+            return list(raw_value)
+        if isinstance(raw_value, str):
+            normalized = raw_value.strip()
+            if normalized.startswith("["):
+                try:
+                    parsed = json.loads(normalized)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, list):
+                    return parsed
+            if "," in normalized:
+                return [
+                    value.strip()
+                    for value in normalized.split(",")
+                    if value.strip()
+                ]
+        return [raw_value]
 
     @classmethod
     def _read_field_values(cls, row: dict):

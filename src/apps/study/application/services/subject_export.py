@@ -21,13 +21,21 @@ class SubjectExportFieldCatalogService:
         if not study_version:
             return []
 
+        bindings = list(
+            self.repository.list_enabled_bindings(
+                study_id=study_id,
+                study_version=study_version,
+            )
+        )
+        fields_by_template_id = self.crf_context_adapter.list_export_fields_by_template_ids(
+            template_ids={int(binding.form_definition.pk) for binding in bindings},
+        )
+
         groups_by_event_id: dict[int, dict] = {}
-        for binding in self.repository.list_enabled_bindings(
-            study_id=study_id,
-            study_version=study_version,
-        ):
+        for binding in bindings:
             event = binding.event_definition
             form = binding.form_definition
+            form_name = self._translated_form_name(form)
             event_group = groups_by_event_id.setdefault(
                 int(event.pk),
                 {
@@ -38,9 +46,7 @@ class SubjectExportFieldCatalogService:
                 },
             )
             form_fields = []
-            for field in self.crf_context_adapter.list_template_fields_with_ui_config(
-                template_id=form.pk,
-            ):
+            for field in fields_by_template_id.get(int(form.pk), ()):
                 field_template_id = int(field["id"])
                 field_key = str(field["field_key"])
                 form_fields.append(
@@ -53,7 +59,12 @@ class SubjectExportFieldCatalogService:
                         "event_code": event.code,
                         "event_name": event.name,
                         "crf_code": form.code,
-                        "crf_name": self._translated_form_name(form),
+                        "crf_name": form_name,
+                        "is_repeatable_within_event": bool(
+                            binding.is_repeatable_within_event
+                        ),
+                        "control_type": field.get("control_type") or "",
+                        "choice_labels": field.get("choice_labels") or {},
                         "field_key": field_key,
                         "field_label": field.get("label") or field_key,
                         "header": f"{event.code}.{form.code}.{field_key}",
@@ -64,7 +75,7 @@ class SubjectExportFieldCatalogService:
                     {
                         "binding_id": int(binding.pk),
                         "crf_code": form.code,
-                        "crf_name": self._translated_form_name(form),
+                        "crf_name": form_name,
                         "fields": form_fields,
                     }
                 )

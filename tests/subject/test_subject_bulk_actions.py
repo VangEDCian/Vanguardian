@@ -500,6 +500,13 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
         self.assertIn("data-subject-export-visit", rendered)
         self.assertIn("data-subject-export-visit-toggle", rendered)
         self.assertIn("data-subject-export-visit-collapse", rendered)
+        self.assertIn("subject-export-modal__event-group is-collapsed", rendered)
+        self.assertIn('aria-expanded="false"', rendered)
+        self.assertIn('aria-label="Expand Visit"', rendered)
+        self.assertIn(
+            'id="subject-export-visit-fields-10" hidden',
+            " ".join(rendered.split()),
+        )
         self.assertIn("SCREENING.DEMOGRAPHICS.AGE", rendered)
         self.assertIn('name="export_fields"', rendered)
         self.assertNotIn('name="export_fields" checked', rendered)
@@ -520,7 +527,6 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
         render_fragment.assert_called_once_with(
             "subject/includes/subject_export_field_groups.html",
             {"subject_export_field_groups": []},
-            request=request,
         )
         self.assertEqual(response.content, b"<p>No fields</p>")
 
@@ -554,6 +560,23 @@ class SubjectBulkActionsTemplateTests(SimpleTestCase):
             "Source: subject/js/subject_bulk_actions.js",
             js_bundle,
         )
+
+    def test_export_catalog_fields_are_bound_before_event_handlers(self):
+        source = Path(
+            "src/staticfiles/subject/js/subject_bulk_actions.js"
+        ).read_text()
+        initializer = source.split(
+            "function initializeExportCatalog()",
+            maxsplit=1,
+        )[1].split("function loadExportCatalog()", maxsplit=1)[0]
+
+        field_declaration_index = initializer.index("const exportFields")
+        state_handler_index = initializer.index("const updateExportState")
+        field_listener_index = initializer.index("exportFields.forEach")
+
+        self.assertEqual(initializer.count("const exportFields"), 1)
+        self.assertLess(field_declaration_index, state_handler_index)
+        self.assertLess(state_handler_index, field_listener_index)
 
     def test_subject_row_actions_render_as_lazy_loader(self):
         next_url = "/studies/1/subjects/?page=2"

@@ -1,3 +1,5 @@
+import json
+
 from django.utils.translation import get_language
 
 from apps.crf.application.exceptions import (
@@ -211,6 +213,118 @@ class CrfTemplateQueryService:
             )
 
         return payload
+
+    def list_export_fields_by_template_ids(self, *, template_ids):
+        normalized_template_ids = tuple(sorted({int(template_id) for template_id in template_ids}))
+        fields_by_template_id = {template_id: [] for template_id in normalized_template_ids}
+        if not normalized_template_ids:
+            return fields_by_template_id
+
+        current_language = self._normalize_language_code(get_language())
+        field_templates = self.repository.list_export_fields_by_template_ids(
+            template_ids=normalized_template_ids,
+        )
+        for field_template in field_templates:
+            template_id = int(field_template.crf_template_id)
+            ui_config = getattr(field_template, "ui_config", None)
+            fields_by_template_id[template_id].append(
+                {
+                    "id": str(field_template.pk),
+                    "field_key": field_template.field_key,
+                    "label": self._export_field_label(
+                        field_template,
+                        current_language,
+                    ),
+                    "control_type": (
+                        str(ui_config.control_type)
+                        if ui_config is not None and not ui_config.deleted
+                        else ""
+                    ),
+                    "choice_labels": self._export_choice_labels(
+                        ui_config,
+                        current_language,
+                    ),
+                }
+            )
+        return fields_by_template_id
+
+    @classmethod
+    def _export_choice_labels(cls, ui_config, language_code) -> dict[str, str]:
+        if ui_config is None or ui_config.deleted:
+            return {}
+        control_type = str(ui_config.control_type or "").strip().upper()
+        if control_type not in {"RADIO", "CHECKBOX"}:
+            return {}
+        raw_options = cls._translated_related_value(
+            ui_config,
+            language_code,
+            "options",
+        )
+        return {
+            str(option.get("value") or "").strip(): str(
+                option.get("label") or ""
+            ).strip()
+            for option in cls._normalize_export_choice_options(raw_options)
+            if str(option.get("value") or "").strip()
+            and str(option.get("label") or "").strip()
+        }
+
+    @classmethod
+    def _normalize_export_choice_options(cls, raw_options) -> list[dict]:
+        if not raw_options:
+            return []
+        parsed = raw_options
+        if isinstance(raw_options, str):
+            normalized = raw_options.strip()
+            if normalized.startswith(("[", "{")):
+                try:
+                    parsed = json.loads(normalized)
+                except json.JSONDecodeError:
+                    return []
+            else:
+                return cls._export_choice_options_from_text(normalized)
+        if isinstance(parsed, dict):
+            if str(parsed.get("source") or "static").strip().lower() != "static":
+                return []
+            parsed = parsed.get("static") or []
+        if not isinstance(parsed, list):
+            return []
+        return [option for option in parsed if isinstance(option, dict)]
+
+    @staticmethod
+    def _export_choice_options_from_text(raw_options: str) -> list[dict]:
+        chunks = [
+            chunk.strip()
+            for chunk in raw_options.replace("\r", "\n")
+            .replace("|", "\n")
+            .replace(";", "\n")
+            .split("\n")
+            if chunk.strip()
+        ]
+        options = []
+        for chunk in chunks:
+            if "=" in chunk:
+                label, value = chunk.split("=", 1)
+                options.append({"value": value.strip(), "label": label.strip()})
+            else:
+                options.append({"value": chunk, "label": chunk})
+        return options
+
+    @staticmethod
+    def _export_field_label(field_template, language_code):
+        translations = list(field_template.translations.all())
+        for translation in translations:
+            if translation.language_code == language_code and translation.label:
+                return translation.label
+        if language_code == "en":
+            return field_template.field_key
+        for translation in translations:
+            if translation.language_code == "en" and translation.label:
+                return translation.label
+        for translation in translations:
+            if translation.label:
+                return translation.label
+        return field_template.field_key
 
     @staticmethod
     def _translated_related_value(instance, language_code, field_name, default=None):
