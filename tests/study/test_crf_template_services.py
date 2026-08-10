@@ -2,7 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 from openpyxl import load_workbook
 
 from apps.study.application.services import (
@@ -125,7 +125,7 @@ class ImportStudyCrfTemplatesTemplateServiceTests(SimpleTestCase):
         mock_adapter.upsert_crf_template.assert_called_once()
 
 
-class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
+class ImportStudyCrfTemplateFieldsTemplateServiceTests(TestCase):
     def setUp(self):
         self.service = ImportStudyCrfTemplateFieldsTemplateService()
 
@@ -170,7 +170,11 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
         mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
         mock_adapter.reset_import_template_fields.return_value = 0
-        mock_adapter.upsert_import_template_field.return_value = ("created", SimpleNamespace(pk=31))
+
+        def upsert_template_fields(*, prepared_rows, **kwargs):
+            return [("created", SimpleNamespace(pk=31), prepared_rows[0])]
+
+        mock_adapter.upsert_import_template_fields.side_effect = upsert_template_fields
         service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
 
         result = service.execute(
@@ -196,6 +200,8 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
             section_name="General",
         )
         mock_adapter.reset_import_template_fields.assert_called_once()
+        prepared_rows = mock_adapter.upsert_import_template_fields.call_args.kwargs["prepared_rows"]
+        cached_field_templates = mock_adapter.upsert_import_template_fields.call_args.kwargs["cached_field_templates"]
         self.assertEqual(
             mock_adapter.method_calls[-2:],
             [
@@ -204,17 +210,17 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
                     actor_user_id=7,
                     now=mock_adapter.reset_import_template_fields.call_args.kwargs["now"],
                 ),
-                call.upsert_import_template_field(
-                    crf_template_id=17,
-                    section_template_id=23,
-                    payload=mock_adapter.upsert_import_template_field.call_args.kwargs["payload"],
+                call.upsert_import_template_fields(
+                    prepared_rows=prepared_rows,
                     actor_user_id=7,
                     now=mock_adapter.reset_import_template_fields.call_args.kwargs["now"],
+                    cached_field_templates=cached_field_templates,
                 ),
             ],
         )
-        mock_adapter.upsert_import_template_field.assert_called_once()
-        payload = mock_adapter.upsert_import_template_field.call_args.kwargs["payload"]
+        mock_adapter.upsert_import_template_fields.assert_called_once()
+        self.assertEqual(cached_field_templates["AETERM"].pk, 31)
+        payload = prepared_rows[0].payload
         self.assertEqual(payload["field_key"], "AETERM")
         self.assertEqual(payload["label_vi"], "Bien co bat loi")
         self.assertEqual(payload["label_en"], "Adverse Event Term")
@@ -253,7 +259,11 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
         mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
         mock_adapter.reset_import_template_fields.return_value = 0
-        mock_adapter.upsert_import_template_field.return_value = ("created", field_template)
+
+        def upsert_template_fields(*, prepared_rows, **kwargs):
+            return [("created", field_template, prepared_rows[0])]
+
+        mock_adapter.upsert_import_template_fields.side_effect = upsert_template_fields
         service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
 
         result = service.execute(
@@ -279,6 +289,8 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
             role_required="DATA_MANAGER",
             is_enabled=True,
             actor_user_id=7,
+            existing_field_review_policy=None,
+            force_create=True,
             now=mock_adapter.reset_import_template_fields.call_args.kwargs["now"],
         )
 
@@ -319,10 +331,14 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
         mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
         mock_adapter.reset_import_template_fields.return_value = 4
-        mock_adapter.upsert_import_template_field.side_effect = [
-            ("updated", SimpleNamespace(pk=31)),
-            ("created", SimpleNamespace(pk=32)),
-        ]
+
+        def upsert_template_fields(*, prepared_rows, **kwargs):
+            return [
+                ("updated", SimpleNamespace(pk=31), prepared_rows[0]),
+                ("created", SimpleNamespace(pk=32), prepared_rows[1]),
+            ]
+
+        mock_adapter.upsert_import_template_fields.side_effect = upsert_template_fields
         service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
 
         result = service.execute(
@@ -340,7 +356,7 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         self.assertEqual(result.updated_count, 1)
         self.assertEqual(result.skipped_count, 0)
         mock_adapter.reset_import_template_fields.assert_called_once()
-        self.assertEqual(mock_adapter.upsert_import_template_field.call_count, 2)
+        mock_adapter.upsert_import_template_fields.assert_called_once()
 
 
 class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
