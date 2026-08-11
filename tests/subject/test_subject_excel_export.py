@@ -209,19 +209,27 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
                 100: (
                     {
                         "30:40": "Screening",
-                        "__export_visit_sort_key__": (0, 0, 11, 1, 11),
+                        "__export_visit_sort_key__": (
+                            0, 0, 11, 1, 11, "Screening", None,
+                        ),
                     },
                     {
                         "30:40": "Visit 1",
-                        "__export_visit_sort_key__": (1, 0, 21, 1, 21),
+                        "__export_visit_sort_key__": (
+                            1, 0, 21, 1, 21, "Visit 1", None,
+                        ),
                     },
                     {
-                        "30:40": "Visit 1 #1",
-                        "__export_visit_sort_key__": (1, 1, 31, 1, 31),
+                        "30:40": "FU 1 #1",
+                        "__export_visit_sort_key__": (
+                            2, 1, 31, 1, 31, "FU 1", 1,
+                        ),
                     },
                     {
-                        "30:40": "Visit 2 #2",
-                        "__export_visit_sort_key__": (2, 2, 41, 1, 41),
+                        "30:40": "FU 1 #2",
+                        "__export_visit_sort_key__": (
+                            2, 2, 41, 2, 41, "FU 1", 2,
+                        ),
                     },
                 )
             },
@@ -233,8 +241,8 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
             [
                 "Screening",
                 "Visit 1",
-                "Visit 1 #1",
-                "Visit 2 #2",
+                "FU 1 #1",
+                "FU 1 #2",
             ],
         )
         self.assertEqual(
@@ -242,8 +250,8 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
             [
                 "Screening",
                 "Visit 1",
-                "Visit 1 #1",
-                "Visit 2 #2",
+                "FU 1 #1",
+                "FU 1 #2",
             ],
         )
 

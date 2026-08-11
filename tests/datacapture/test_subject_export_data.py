@@ -52,7 +52,9 @@ class SubjectExportDataServiceTests(SimpleTestCase):
                 100: (
                     {
                         "30:40": "900; 901",
-                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                        "__export_visit_sort_key__": (
+                            0, 1, 0, 1, 1, "Screening", 1,
+                        ),
                     },
                 )
             },
@@ -82,7 +84,9 @@ class SubjectExportDataServiceTests(SimpleTestCase):
                 100: (
                     {
                         "30:40": "draft",
-                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                        "__export_visit_sort_key__": (
+                            0, 1, 0, 1, 1, "Screening", None,
+                        ),
                     },
                 )
             },
@@ -110,7 +114,9 @@ class SubjectExportDataServiceTests(SimpleTestCase):
                 100: (
                     {
                         "30:40": "42",
-                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                        "__export_visit_sort_key__": (
+                            0, 1, 0, 1, 1, "Screening", None,
+                        ),
                     },
                 )
             },
@@ -193,7 +199,9 @@ class SubjectExportDataServiceTests(SimpleTestCase):
                         "30:40": "42",
                         "31:41": "Sốt; Đau đầu",
                         "31:42": "2026-06-18; 2026-06-15",
-                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                        "__export_visit_sort_key__": (
+                            0, 1, 0, 1, 1, "Screening", None,
+                        ),
                     },
                 )
             },
@@ -254,7 +262,9 @@ class SubjectExportDataServiceTests(SimpleTestCase):
                     {
                         "30:40": "Female",
                         "30:41": "Headache, Nausea, other",
-                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                        "__export_visit_sort_key__": (
+                            0, 1, 0, 1, 1, "Screening", None,
+                        ),
                     },
                 )
             },
@@ -291,6 +301,7 @@ class SubjectExportDataServiceTests(SimpleTestCase):
             "event_form_binding_id": binding_id,
             "crf_template_id": crf_template_id,
             "visit__event_definition_id": 10,
+            "visit__event_definition__name": "Screening",
             "visit__repeat_index": 1,
             "repeat_index": repeat_index,
             "final_data": final_data,

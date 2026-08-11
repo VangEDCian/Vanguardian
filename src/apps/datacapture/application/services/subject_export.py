@@ -73,9 +73,16 @@ class SubjectExportDataService:
 
             subject_id = int(row["subject_id"])
             visit_scope = self._resolve_visit_scope(row)
+            is_repeatable_form = any(
+                bool(spec.get("is_repeatable_within_event"))
+                for spec in specs
+            )
             visit_row_metadata[subject_id].setdefault(
                 visit_scope,
-                self._visit_metadata_from_row(row=row),
+                self._visit_metadata_from_row(
+                    row=row,
+                    is_repeatable_form=is_repeatable_form,
+                ),
             )
 
             for spec in specs:
@@ -117,13 +124,23 @@ class SubjectExportDataService:
         )
 
     @staticmethod
-    def _visit_metadata_from_row(row: dict) -> tuple:
+    def _visit_metadata_from_row(
+        row: dict,
+        *,
+        is_repeatable_form: bool,
+    ) -> tuple:
         return (
             int(row.get("visit__event_definition__sequence_no") or 0),
             int(row.get("visit__repeat_index") or 0),
             int(row.get("visit_id") or 0),
             int(row.get("repeat_index") or 0),
             int(row.get("id") or 0),
+            str(row.get("visit__event_definition__name") or "").strip(),
+            (
+                int(row.get("repeat_index") or 1)
+                if is_repeatable_form
+                else None
+            ),
         )
 
     @classmethod

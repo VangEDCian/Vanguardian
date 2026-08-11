@@ -225,17 +225,23 @@ class SubjectExcelExportService:
         visit_metadata = subject_values.get(VISIT_SORT_KEY)
         if isinstance(visit_metadata, tuple):
             sequence_no = int(visit_metadata[0] if len(visit_metadata) > 0 else 0)
-            repeat_index = int(
-                visit_metadata[1]
-                if len(visit_metadata) > 1 and visit_metadata[1] is not None
-                else 0
+            event_name = str(
+                visit_metadata[5]
+                if len(visit_metadata) > 5 and visit_metadata[5] is not None
+                else ""
+            ).strip()
+            form_repeat_index = (
+                int(visit_metadata[6])
+                if len(visit_metadata) > 6 and visit_metadata[6] is not None
+                else None
             )
 
-            if sequence_no == 0:
-                return "Screening"
-            if repeat_index == 0:
-                return f"Visit {sequence_no}"
-            return f"Visit {sequence_no} #{repeat_index}"
+            label = event_name or (
+                "Screening" if sequence_no == 0 else f"Visit {sequence_no}"
+            )
+            if form_repeat_index is not None:
+                return f"{label} #{form_repeat_index}"
+            return label
 
         return f"Visit {visit_index}"
 
