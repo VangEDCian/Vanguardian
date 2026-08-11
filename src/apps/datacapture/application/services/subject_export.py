@@ -101,6 +101,9 @@ class SubjectExportDataService:
                     token: self._collapse_values(values)
                     for token, values in visit_rows[scope].items()
                 }
+                collapsed_base_values[_VISIT_SORT_KEY] = visit_row_metadata[
+                    subject_id
+                ].get(scope, ())
                 subject_result.append(collapsed_base_values)
             result[subject_id] = tuple(subject_result)
         return result

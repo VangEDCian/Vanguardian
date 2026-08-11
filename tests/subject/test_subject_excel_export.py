@@ -72,18 +72,18 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
         self.assertEqual(
             [cell.value for cell in worksheet[1]],
             [
-                "subject_id",
-                "subject_code",
-                "screening_code",
-                "randomization_code",
+                "Subject Code",
+                "Screening Code",
+                "Randomization Code",
+                "Visit",
                 "Age",
             ],
         )
         self.assertEqual(
             list(worksheet.values)[1:],
             [
-                (100, "SUB-001", "SCR-001", "RND-001", "42"),
-                (101, "SUB-002", "SCR-002", "RND-002", "=unsafe"),
+                ("SUB-001", "SCR-001", "RND-001", "Visit 1", "42"),
+                ("SUB-002", "SCR-002", "RND-002", "Visit 1", "=unsafe"),
             ],
         )
         self.assertEqual(worksheet["E3"].data_type, "s")
@@ -136,7 +136,7 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
         self.assertEqual(
             [cell.value for cell in worksheet[1]][-2:],
             [
-                "randomization_code",
+                "Visit",
                 "Visit Date",
             ],
         )
@@ -184,13 +184,66 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
             list(worksheet.values)[1:],
             [
                 (
-                    100,
                     "NNG31-002",
                     "NNG31-S001",
                     "2",
+                    "Visit 1",
                     "Sốt; Đau đầu",
                     "2026-06-18; 2026-06-15",
                 ),
+            ],
+        )
+
+    def test_exports_semantic_visit_labels(self):
+        content = SubjectExcelExportService._build_workbook(
+            subject_rows=(
+                {
+                    "id": 100,
+                    "subject_code": "SUB-001",
+                    "screening_code": "SCR-001",
+                    "randomization_code": "RND-001",
+                },
+            ),
+            selected_fields=(self.field,),
+            values_by_subject_id={
+                100: (
+                    {
+                        "30:40": "Screening",
+                        "__export_visit_sort_key__": (0, 0, 11, 1, 11),
+                    },
+                    {
+                        "30:40": "Visit 1",
+                        "__export_visit_sort_key__": (1, 0, 21, 1, 21),
+                    },
+                    {
+                        "30:40": "Visit 1 #1",
+                        "__export_visit_sort_key__": (1, 1, 31, 1, 31),
+                    },
+                    {
+                        "30:40": "Visit 2 #2",
+                        "__export_visit_sort_key__": (2, 2, 41, 1, 41),
+                    },
+                )
+            },
+        )
+
+        worksheet = load_workbook(BytesIO(content))["Subjects"]
+        self.assertEqual(
+            [row[3] for row in list(worksheet.values)[1:]],
+            [
+                "Screening",
+                "Visit 1",
+                "Visit 1 #1",
+                "Visit 2 #2",
+            ],
+        )
+        self.assertEqual(
+            [row[4] for row in list(worksheet.values)[1:]],
+            [
+                "Screening",
+                "Visit 1",
+                "Visit 1 #1",
+                "Visit 2 #2",
             ],
         )
 

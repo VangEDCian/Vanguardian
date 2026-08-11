@@ -14,6 +14,7 @@ EXCEL_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 MAX_EXCEL_COLUMNS = 16_384
+VISIT_SORT_KEY = "__export_visit_sort_key__"
 
 
 class SubjectExcelExportSelectionError(ValueError):
@@ -86,6 +87,7 @@ class SubjectExcelExportService:
             site_id=site_id,
             subject_ids=subject_ids,
         )
+        subject_rows = tuple(sorted(subject_rows, key=self._subject_row_sort_key))
         if not subject_rows:
             raise SubjectExcelExportSelectionError(
                 "No selected subjects are available in the current study site."
@@ -170,10 +172,10 @@ class SubjectExcelExportService:
         field_columns = cls._build_field_columns(selected_fields)
         field_headers = tuple(column["description"] for column in field_columns)
         headers = [
-            "subject_id",
-            "subject_code",
-            "screening_code",
-            "randomization_code",
+            "Subject Code",
+            "Screening Code",
+            "Randomization Code",
+            "Visit",
             *field_headers,
         ]
         worksheet.append(headers)
@@ -181,14 +183,21 @@ class SubjectExcelExportService:
 
         for subject in subject_rows:
             subject_id = int(subject["id"])
-            for subject_values in cls._subject_value_rows(
-                values_by_subject_id.get(subject_id),
+            for visit_index, subject_values in enumerate(
+                cls._subject_value_rows(
+                    values_by_subject_id.get(subject_id),
+                ),
+                start=1,
             ):
+                visit_label = cls._resolve_visit_label(
+                    subject_values=subject_values,
+                    visit_index=visit_index,
+                )
                 row_values = [
-                    subject_id,
                     subject.get("subject_code") or "",
                     subject.get("screening_code") or "",
                     subject.get("randomization_code") or "",
+                    visit_label,
                     *(
                         cls._field_values_for_column(
                             subject_values=subject_values,
@@ -210,6 +219,36 @@ class SubjectExcelExportService:
         output = BytesIO()
         workbook.save(output)
         return output.getvalue()
+
+    @staticmethod
+    def _resolve_visit_label(*, subject_values: dict, visit_index: int) -> str:
+        visit_metadata = subject_values.get(VISIT_SORT_KEY)
+        if isinstance(visit_metadata, tuple):
+            sequence_no = int(visit_metadata[0] if len(visit_metadata) > 0 else 0)
+            repeat_index = int(
+                visit_metadata[1]
+                if len(visit_metadata) > 1 and visit_metadata[1] is not None
+                else 0
+            )
+
+            if sequence_no == 0:
+                return "Screening"
+            if repeat_index == 0:
+                return f"Visit {sequence_no}"
+            return f"Visit {sequence_no} #{repeat_index}"
+
+        return f"Visit {visit_index}"
+
+    @staticmethod
+    def _subject_row_sort_key(subject_row: dict) -> tuple:
+        subject_code = str(subject_row.get("subject_code") or "").strip()
+        screening_code = str(subject_row.get("screening_code") or "").strip()
+        return (
+            0 if subject_code else 1,
+            subject_code,
+            screening_code,
+            int(subject_row.get("id") or 0),
+        )
 
     @staticmethod
     def _subject_value_rows(raw_subject_values) -> tuple[dict, ...]:

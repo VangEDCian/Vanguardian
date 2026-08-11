@@ -50,7 +50,10 @@ class SubjectExportDataServiceTests(SimpleTestCase):
             values,
             {
                 100: (
-                    {"30:40": "900; 901"},
+                    {
+                        "30:40": "900; 901",
+                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                    },
                 )
             },
         )
@@ -74,7 +77,17 @@ class SubjectExportDataServiceTests(SimpleTestCase):
             field_specs=self.field_specs,
         )
 
-        self.assertEqual(values, {100: ({"30:40": "draft"},)})
+        self.assertEqual(
+            {
+                100: (
+                    {
+                        "30:40": "draft",
+                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                    },
+                )
+            },
+            values,
+        )
 
     def test_matches_legacy_page_state_without_binding_by_event_and_form(self):
         row = self._row(
@@ -92,7 +105,17 @@ class SubjectExportDataServiceTests(SimpleTestCase):
             field_specs=self.field_specs,
         )
 
-        self.assertEqual(values, {100: ({"30:40": "42"},)})
+        self.assertEqual(
+            {
+                100: (
+                    {
+                        "30:40": "42",
+                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
+                    },
+                )
+            },
+            values,
+        )
 
     def test_repeats_base_values_and_aligns_fields_from_each_form_instance(self):
         repeated_specs = (
@@ -170,6 +193,7 @@ class SubjectExportDataServiceTests(SimpleTestCase):
                         "30:40": "42",
                         "31:41": "Sốt; Đau đầu",
                         "31:42": "2026-06-18; 2026-06-15",
+                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
                     },
                 )
             },
@@ -230,6 +254,7 @@ class SubjectExportDataServiceTests(SimpleTestCase):
                     {
                         "30:40": "Female",
                         "30:41": "Headache, Nausea, other",
+                        "__export_visit_sort_key__": (0, 1, 0, 1, 1),
                     },
                 )
             },
