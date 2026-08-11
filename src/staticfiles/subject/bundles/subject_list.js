@@ -818,6 +818,24 @@
   );
   let exportCatalogPromise = null;
 
+  function resetExportControls() {
+    if (!(exportForm instanceof HTMLFormElement)) {
+      return;
+    }
+    const exportFields = Array.from(
+      exportForm.querySelectorAll("[data-subject-export-field]"),
+    ).filter((field) => field instanceof HTMLInputElement);
+    exportFields.forEach((field) => {
+      field.disabled = false;
+    });
+    const exportSubmit = exportForm.querySelector(
+      "[data-subject-export-submit]",
+    );
+    if (exportSubmit instanceof HTMLButtonElement) {
+      exportSubmit.disabled = !exportFields.some((field) => field.checked);
+    }
+  }
+
   function initializeExportCatalog() {
     if (!(exportForm instanceof HTMLFormElement)) {
       return;
@@ -828,6 +846,7 @@
     const exportFields = Array.from(
       exportForm.querySelectorAll("[data-subject-export-field]"),
     ).filter((field) => field instanceof HTMLInputElement);
+    resetExportControls();
     const fieldsForVisit = (visit) =>
       Array.from(visit.querySelectorAll("[data-subject-export-field]")).filter(
         (field) => field instanceof HTMLInputElement,
@@ -908,10 +927,11 @@
   }
 
   function loadExportCatalog() {
-    if (
-      !(exportCatalog instanceof HTMLElement) ||
-      exportCatalog.dataset.subjectExportFieldCatalogLoaded === "true"
-    ) {
+    if (!(exportCatalog instanceof HTMLElement)) {
+      return Promise.resolve();
+    }
+    if (exportCatalog.dataset.subjectExportFieldCatalogLoaded === "true") {
+      resetExportControls();
       return Promise.resolve();
     }
     if (exportCatalogPromise) {
@@ -981,9 +1001,12 @@
         event.preventDefault();
         return;
       }
-      exportFields.forEach((field) => {
-        field.disabled = true;
-      });
+      const exportSubmit = exportForm.querySelector(
+        "[data-subject-export-submit]",
+      );
+      if (exportSubmit instanceof HTMLButtonElement) {
+        exportSubmit.disabled = true;
+      }
 
       const existingPayloadInput = exportForm.querySelector(
         "[name='export_fields'][data-subject-export-field-payload]",
