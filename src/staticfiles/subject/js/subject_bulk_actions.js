@@ -521,9 +521,12 @@
         return;
       }
 
-      exportFields.forEach((field) => {
-        field.disabled = true;
-      });
+      const exportSubmit = exportForm.querySelector(
+        "[data-subject-export-submit]",
+      );
+      if (exportSubmit instanceof HTMLButtonElement) {
+        exportSubmit.disabled = true;
+      }
 
       const existingPayloadInput = exportForm.querySelector(
         "[name='export_fields'][data-subject-export-field-payload]",
