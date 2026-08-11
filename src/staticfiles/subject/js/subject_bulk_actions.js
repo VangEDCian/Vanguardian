@@ -232,14 +232,14 @@
       return;
     }
 
-    selectedCheckboxes().forEach((checkbox) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = "subject_ids";
-      input.value = checkbox.value;
-      input.dataset.subjectBulkSelection = "";
-      form.appendChild(input);
-    });
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "subject_ids";
+    input.value = JSON.stringify(
+      selectedCheckboxes().map((checkbox) => checkbox.value),
+    );
+    input.dataset.subjectBulkSelection = "";
+    form.appendChild(input);
   }
 
   function setPageCheckboxes(checked) {
@@ -547,6 +547,10 @@
       if (exportSubmit instanceof HTMLButtonElement) {
         exportSubmit.disabled = true;
       }
+      exportFields.forEach((field) => {
+        field.disabled = true;
+      });
+      window.setTimeout(resetExportControls, 0);
 
       const existingPayloadInput = exportForm.querySelector(
         "[name='export_fields'][data-subject-export-field-payload]",

@@ -44,6 +44,28 @@ class SubjectBulkActionFormTests(SimpleTestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["subject_ids"], [20, 21])
 
+    def test_supports_subject_ids_json_payload(self):
+        form = SubjectBulkActionForm(
+            {
+                "action": "resync_stage",
+                "subject_ids": '["20", "21", "20"]',
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["subject_ids"], [20, 21])
+
+    def test_supports_subject_ids_json_payload_in_list(self):
+        form = SubjectBulkActionForm(
+            {
+                "action": "resync_stage",
+                "subject_ids": ['["20", "21", "20"]'],
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["subject_ids"], [20, 21])
+
     def test_requires_at_least_one_selected_subject(self):
         form = SubjectBulkActionForm({"action": "delete"})
 

@@ -253,6 +253,21 @@ class SubjectIdListField(forms.Field):
                 return []
             raise forms.ValidationError(_("Select at least one subject."))
 
+        if isinstance(values, (list, tuple)) and len(values) == 1:
+            values = values[0]
+        if isinstance(values, str):
+            if values.lstrip().startswith("["):
+                try:
+                    values = json.loads(values)
+                except json.JSONDecodeError as exc:
+                    raise forms.ValidationError(_("Invalid subject selection.")) from exc
+                if not isinstance(values, list):
+                    raise forms.ValidationError(_("Invalid subject selection."))
+            else:
+                values = [values]
+        elif not isinstance(values, (list, tuple)):
+            values = [values]
+
         subject_ids = []
         seen = set()
         for value in values:
