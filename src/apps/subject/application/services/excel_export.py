@@ -1,6 +1,6 @@
+from collections import OrderedDict
 from dataclasses import dataclass
 from io import BytesIO
-from collections import OrderedDict
 
 from django.utils import timezone
 from openpyxl import Workbook
@@ -21,7 +21,6 @@ class SubjectExcelExportSelectionError(ValueError):
 
 
 EXPORT_LABEL_LANGUAGE_CODE = "vi"
-_VISIT_SORT_KEY = "__export_visit_sort_key__"
 
 
 @dataclass(frozen=True)
@@ -223,15 +222,18 @@ class SubjectExcelExportService:
                 if isinstance(row, dict)
             ]
             if rows:
-                return tuple(
-                    row
-                    for row in sorted(
-                        rows,
-                        key=lambda row: tuple(row.get(_VISIT_SORT_KEY, ())),
-                    )
-                    if isinstance(row, dict)
-                )
+                return tuple(rows)
         return ({},)
+
+    @classmethod
+    def _field_description_headers(
+        cls,
+        selected_fields: tuple[dict, ...],
+    ) -> tuple[str, ...]:
+        return tuple(
+            column["description"]
+            for column in cls._build_field_columns(selected_fields)
+        )
 
     @classmethod
     def _build_field_columns(

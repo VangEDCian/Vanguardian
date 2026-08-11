@@ -101,9 +101,6 @@ class SubjectExportDataService:
                     token: self._collapse_values(values)
                     for token, values in visit_rows[scope].items()
                 }
-                collapsed_base_values[_VISIT_SORT_KEY] = visit_row_metadata[
-                    subject_id
-                ].get(scope, tuple())
                 subject_result.append(collapsed_base_values)
             result[subject_id] = tuple(subject_result)
         return result
@@ -273,7 +270,7 @@ class SubjectExportDataService:
             return ""
         if len(normalized) == 1:
             return normalized[0]
-        return json.dumps(normalized, ensure_ascii=False, default=str)
+        return "; ".join(str(value) for value in normalized)
 
     @staticmethod
     def _normalize_cell_value(value):

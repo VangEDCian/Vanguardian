@@ -122,7 +122,7 @@ class _CrfAdapterStub:
         self.fields_by_template_id = fields_by_template_id
         self.template_id_batches = []
 
-    def list_export_fields_by_template_ids(self, *, template_ids):
+    def list_export_fields_by_template_ids(self, *, template_ids, language_code=None):
         normalized_template_ids = tuple(sorted(template_ids))
         self.template_id_batches.append(normalized_template_ids)
         if self.fields_by_template_id is not None:

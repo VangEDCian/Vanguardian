@@ -21,8 +21,8 @@ test:
 	$(PYTHON) manage.py test tests --verbosity 1 --noinput
 
 lint:
-	djlint src/templates
-	flake8 --select DDD,DJG .
+	$(PYTHON) -c "import multiprocessing as mp, sys; mp.set_start_method('fork'); from djlint import main; sys.argv=['djlint','src/templates']; raise SystemExit(main())"
+	flake8 --select DDD,DJG -j 1 .
 	ruff check .
 
 shell:

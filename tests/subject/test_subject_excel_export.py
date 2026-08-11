@@ -136,8 +136,8 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
         self.assertEqual(
             [cell.value for cell in worksheet[1]][-2:],
             [
-                "Visit Date (Screening / Demographics)",
-                "Visit Date (Baseline / Vital Signs)",
+                "randomization_code",
+                "Visit Date",
             ],
         )
 
@@ -172,16 +172,10 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
             ),
             selected_fields=repeated_fields,
             values_by_subject_id={
-                100: (
-                    {
-                        "31:41": "Sốt",
-                        "31:42": "2026-06-18",
-                    },
-                    {
-                        "31:41": "Đau đầu",
-                        "31:42": "2026-06-15",
-                    },
-                )
+                100: {
+                    "31:41": "Sốt; Đau đầu",
+                    "31:42": "2026-06-18; 2026-06-15",
+                }
             },
         )
 
@@ -189,8 +183,14 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
         self.assertEqual(
             list(worksheet.values)[1:],
             [
-                (100, "NNG31-002", "NNG31-S001", "2", "Sốt", "2026-06-18"),
-                (100, "NNG31-002", "NNG31-S001", "2", "Đau đầu", "2026-06-15"),
+                (
+                    100,
+                    "NNG31-002",
+                    "NNG31-S001",
+                    "2",
+                    "Sốt; Đau đầu",
+                    "2026-06-18; 2026-06-15",
+                ),
             ],
         )
 
