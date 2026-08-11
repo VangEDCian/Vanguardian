@@ -214,13 +214,15 @@ class CrfTemplateQueryService:
 
         return payload
 
-    def list_export_fields_by_template_ids(self, *, template_ids):
+    def list_export_fields_by_template_ids(self, *, template_ids, language_code=None):
         normalized_template_ids = tuple(sorted({int(template_id) for template_id in template_ids}))
         fields_by_template_id = {template_id: [] for template_id in normalized_template_ids}
         if not normalized_template_ids:
             return fields_by_template_id
 
-        current_language = self._normalize_language_code(get_language())
+        current_language = self._normalize_language_code(
+            language_code if language_code is not None else get_language() or "en",
+        )
         field_templates = self.repository.list_export_fields_by_template_ids(
             template_ids=normalized_template_ids,
         )

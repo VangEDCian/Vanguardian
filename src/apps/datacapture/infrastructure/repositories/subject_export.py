@@ -42,7 +42,9 @@ class DjangoSubjectExportDataRepository:
                 "subject_id",
                 "event_form_binding_id",
                 "crf_template_id",
+                "visit_id",
                 "visit__event_definition_id",
+                "visit__event_definition__sequence_no",
                 "visit__repeat_index",
                 "repeat_index",
                 "final_data",
@@ -52,6 +54,7 @@ class DjangoSubjectExportDataRepository:
                 "subject_id",
                 "visit__event_definition__sequence_no",
                 "visit__repeat_index",
+                "visit_id",
                 "repeat_index",
                 "id",
             )

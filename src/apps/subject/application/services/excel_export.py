@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from io import BytesIO
+from collections import OrderedDict
 
 from django.utils import timezone
 from openpyxl import Workbook
@@ -19,6 +20,10 @@ class SubjectExcelExportSelectionError(ValueError):
     pass
 
 
+EXPORT_LABEL_LANGUAGE_CODE = "vi"
+_VISIT_SORT_KEY = "__export_visit_sort_key__"
+
+
 @dataclass(frozen=True)
 class SubjectExcelExportResult:
     content: bytes
@@ -32,7 +37,10 @@ class _StudyExportCatalogAdapter:
     def list_groups(*, study_id: int) -> list[dict]:
         from apps.study.public import list_subject_export_field_groups
 
-        return list_subject_export_field_groups(study_id=study_id)
+        return list_subject_export_field_groups(
+            study_id=study_id,
+            language_code=EXPORT_LABEL_LANGUAGE_CODE,
+        )
 
 
 class _DataCaptureExportAdapter:
@@ -160,7 +168,8 @@ class SubjectExcelExportService:
         workbook = Workbook()
         worksheet = workbook.active
         worksheet.title = "Subjects"
-        field_headers = cls._field_description_headers(selected_fields)
+        field_columns = cls._build_field_columns(selected_fields)
+        field_headers = tuple(column["description"] for column in field_columns)
         headers = [
             "subject_id",
             "subject_code",
@@ -182,8 +191,11 @@ class SubjectExcelExportService:
                     subject.get("screening_code") or "",
                     subject.get("randomization_code") or "",
                     *(
-                        subject_values.get(field["token"], "")
-                        for field in selected_fields
+                        cls._field_values_for_column(
+                            subject_values=subject_values,
+                            field_tokens=column["tokens"],
+                        )
+                        for column in field_columns
                     ),
                 ]
                 worksheet.append(row_values)
@@ -205,45 +217,65 @@ class SubjectExcelExportService:
         if isinstance(raw_subject_values, dict):
             return (raw_subject_values,)
         if isinstance(raw_subject_values, (list, tuple)):
-            rows = tuple(
+            rows = [
                 row
                 for row in raw_subject_values
                 if isinstance(row, dict)
-            )
+            ]
             if rows:
-                return rows
+                return tuple(
+                    row
+                    for row in sorted(
+                        rows,
+                        key=lambda row: tuple(row.get(_VISIT_SORT_KEY, ())),
+                    )
+                    if isinstance(row, dict)
+                )
         return ({},)
 
     @classmethod
-    def _field_description_headers(
+    def _build_field_columns(
         cls,
         selected_fields: tuple[dict, ...],
-    ) -> tuple[str, ...]:
-        descriptions = tuple(
-            cls._field_description(field)
-            for field in selected_fields
+    ) -> tuple[dict, ...]:
+        columns: OrderedDict[str, list[str]] = OrderedDict()
+        for field in selected_fields:
+            description = cls._field_description(field)
+            if not description:
+                description = cls._field_fallback_header(field)
+            token = str(field.get("token", ""))
+            columns.setdefault(description, []).append(token)
+
+        return tuple(
+            {"description": description, "tokens": tuple(tokens)}
+            for description, tokens in columns.items()
         )
-        description_counts: dict[str, int] = {}
-        for description in descriptions:
-            key = description.casefold()
-            description_counts[key] = description_counts.get(key, 0) + 1
 
-        candidate_counts: dict[str, int] = {}
-        headers = []
-        for field, description in zip(selected_fields, descriptions):
-            candidate = description
-            if description_counts[description.casefold()] > 1:
-                context = cls._field_description_context(field)
-                if context:
-                    candidate = f"{description} ({context})"
+    @staticmethod
+    def _field_fallback_header(field: dict) -> str:
+        return str(
+            field.get("header")
+            or field.get("field_key")
+            or "Field"
+        ).strip()
 
-            candidate_key = candidate.casefold()
-            candidate_count = candidate_counts.get(candidate_key, 0) + 1
-            candidate_counts[candidate_key] = candidate_count
-            if candidate_count > 1:
-                candidate = f"{candidate} [{candidate_count}]"
-            headers.append(candidate)
-        return tuple(headers)
+    @staticmethod
+    def _field_values_for_column(
+        *,
+        subject_values: dict,
+        field_tokens: tuple[str, ...],
+    ):
+        values = []
+        for token in field_tokens:
+            value = subject_values.get(token)
+            if value not in (None, ""):
+                values.append(value)
+
+        if not values:
+            return ""
+        if len(values) == 1:
+            return values[0]
+        return "; ".join(str(value) for value in values if str(value).strip())
 
     @staticmethod
     def _field_description(field: dict) -> str:
@@ -253,24 +285,6 @@ class SubjectExcelExportService:
             or field.get("field_key")
             or "Field"
         ).strip()
-
-    @staticmethod
-    def _field_description_context(field: dict) -> str:
-        event_name = str(
-            field.get("event_name")
-            or field.get("event_code")
-            or ""
-        ).strip()
-        form_name = str(
-            field.get("crf_name")
-            or field.get("crf_code")
-            or ""
-        ).strip()
-        return " / ".join(
-            part
-            for part in (event_name, form_name)
-            if part
-        )
 
     @staticmethod
     def _style_header(worksheet):

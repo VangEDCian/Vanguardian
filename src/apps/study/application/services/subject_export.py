@@ -14,7 +14,7 @@ class SubjectExportFieldCatalogService:
             crf_context_adapter or self.crf_context_adapter_class()
         )
 
-    def list_groups(self, *, study_id: int) -> list[dict]:
+    def list_groups(self, *, study_id: int, language_code="en") -> list[dict]:
         study_version = self.repository.resolve_active_study_version(
             study_id=study_id,
         )
@@ -29,6 +29,7 @@ class SubjectExportFieldCatalogService:
         )
         fields_by_template_id = self.crf_context_adapter.list_export_fields_by_template_ids(
             template_ids={int(binding.form_definition.pk) for binding in bindings},
+            language_code=language_code,
         )
 
         groups_by_event_id: dict[int, dict] = {}

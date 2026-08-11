@@ -158,8 +158,11 @@ def study_site_belongs_to_study(*, study_id: int, study_site_id: int) -> bool:
     )
 
 
-def list_subject_export_field_groups(*, study_id: int) -> list[dict]:
-    return SubjectExportFieldCatalogService().list_groups(study_id=study_id)
+def list_subject_export_field_groups(*, study_id: int, language_code="en") -> list[dict]:
+    return SubjectExportFieldCatalogService().list_groups(
+        study_id=study_id,
+        language_code=language_code,
+    )
 
 
 def list_event_attestation_policies_for_event(

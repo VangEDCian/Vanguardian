@@ -7,6 +7,8 @@ from apps.datacapture.infrastructure.repositories.subject_export import (
     DjangoSubjectExportDataRepository,
 )
 
+_VISIT_SORT_KEY = "__export_visit_sort_key__"
+
 
 class SubjectExportDataService:
     repository_class = DjangoSubjectExportDataRepository
@@ -36,10 +38,12 @@ class SubjectExportDataService:
                 )
             ].append(spec)
 
-        base_values: dict[int, dict[str, list[Any]]] = defaultdict(
-            lambda: defaultdict(list)
+        values_by_subject_and_visit: dict[
+            int, dict[tuple[int, int, int], dict[str, list[Any]]]
+        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        visit_row_metadata: dict[int, dict[tuple[int, int, int], tuple]] = defaultdict(
+            dict,
         )
-        repeated_rows: dict[int, list[dict[str, Any]]] = defaultdict(list)
         rows = self.repository.list_page_state_rows(
             study_id=study_id,
             site_id=site_id,
@@ -66,29 +70,18 @@ class SubjectExportDataService:
                 values_by_field_key[field_value.field_key].append(
                     field_value.value
                 )
+
             subject_id = int(row["subject_id"])
-            if any(
-                bool(spec.get("is_repeatable_within_event"))
-                for spec in specs
-            ):
-                repeated_row = {
-                    spec["token"]: self._collapse_values(
-                        self._decoded_field_values(
-                            values_by_field_key=values_by_field_key,
-                            spec=spec,
-                        )
-                    )
-                    for spec in specs
-                }
-                if any(
-                    value not in (None, "")
-                    for value in repeated_row.values()
-                ):
-                    repeated_rows[subject_id].append(repeated_row)
-                continue
+            visit_scope = self._resolve_visit_scope(row)
+            visit_row_metadata[subject_id].setdefault(
+                visit_scope,
+                self._visit_metadata_from_row(row=row),
+            )
 
             for spec in specs:
-                base_values[subject_id][spec["token"]].extend(
+                values_by_subject_and_visit[subject_id][visit_scope][
+                    spec["token"]
+                ].extend(
                     self._decoded_field_values(
                         values_by_field_key=values_by_field_key,
                         spec=spec,
@@ -96,23 +89,42 @@ class SubjectExportDataService:
                 )
 
         result = {}
-        for subject_id in base_values.keys() | repeated_rows.keys():
-            collapsed_base_values = {
-                token: self._collapse_values(values)
-                for token, values in base_values[subject_id].items()
-            }
-            subject_repeated_rows = repeated_rows.get(subject_id, ())
-            if subject_repeated_rows:
-                result[subject_id] = tuple(
-                    {
-                        **collapsed_base_values,
-                        **repeated_row,
-                    }
-                    for repeated_row in subject_repeated_rows
-                )
-            else:
-                result[subject_id] = (collapsed_base_values,)
+        for subject_id in values_by_subject_and_visit.keys():
+            visit_rows = values_by_subject_and_visit[subject_id]
+            sorted_scopes = sorted(
+                visit_rows.keys(),
+                key=lambda scope: visit_row_metadata[subject_id].get(scope, ()),
+            )
+            subject_result = []
+            for scope in sorted_scopes:
+                collapsed_base_values = {
+                    token: self._collapse_values(values)
+                    for token, values in visit_rows[scope].items()
+                }
+                collapsed_base_values[_VISIT_SORT_KEY] = visit_row_metadata[
+                    subject_id
+                ].get(scope, tuple())
+                subject_result.append(collapsed_base_values)
+            result[subject_id] = tuple(subject_result)
         return result
+
+    @staticmethod
+    def _resolve_visit_scope(row: dict) -> tuple[int, int, int]:
+        return (
+            int(row.get("visit__event_definition__sequence_no") or 0),
+            int(row.get("visit__repeat_index") or 0),
+            int(row.get("visit_id") or 0),
+        )
+
+    @staticmethod
+    def _visit_metadata_from_row(row: dict) -> tuple:
+        return (
+            int(row.get("visit__event_definition__sequence_no") or 0),
+            int(row.get("visit__repeat_index") or 0),
+            int(row.get("visit_id") or 0),
+            int(row.get("repeat_index") or 0),
+            int(row.get("id") or 0),
+        )
 
     @classmethod
     def _decoded_field_values(

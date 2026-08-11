@@ -18,7 +18,7 @@ class DjangoSubjectExcelExportRepository:
                 site_id=site_id,
                 deleted=False,
             )
-            .order_by("current_sequence", "id")
+            .order_by("subject_code", "id")
             .annotate(
                 randomization_code=F("randomization__randomization_number"),
             )
