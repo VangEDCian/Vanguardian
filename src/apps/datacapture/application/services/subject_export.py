@@ -137,7 +137,11 @@ class SubjectExportDataService:
             int(row.get("id") or 0),
             str(row.get("visit__event_definition__name") or "").strip(),
             (
-                int(row.get("repeat_index") or 1)
+                int(
+                    row.get("visit__repeat_index")
+                    or row.get("repeat_index")
+                    or 1
+                )
                 if is_repeatable_form
                 else None
             ),

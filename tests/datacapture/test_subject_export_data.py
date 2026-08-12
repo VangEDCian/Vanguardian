@@ -61,6 +61,50 @@ class SubjectExportDataServiceTests(SimpleTestCase):
         )
         self.assertEqual(repository.calls[0]["site_id"], 2)
 
+    def test_repeated_event_label_uses_visit_repeat_index(self):
+        repository = _ExportDataRepositoryStub(
+            rows=(
+                self._row(
+                    final_data=self._payload("Sốt"),
+                    current_entry_data="",
+                    page_state_id=4,
+                    visit_id=24,
+                    visit_repeat_index=1,
+                    repeat_index=1,
+                    event_name="Adverse event",
+                ),
+                self._row(
+                    final_data=self._payload("Đau đầu"),
+                    current_entry_data="",
+                    page_state_id=27,
+                    visit_id=81,
+                    visit_repeat_index=2,
+                    repeat_index=1,
+                    event_name="Adverse event",
+                ),
+            )
+        )
+
+        values = SubjectExportDataService(repository=repository).read_values(
+            study_id=1,
+            site_id=2,
+            subject_ids=(100,),
+            field_specs=(
+                {
+                    **self.field_specs[0],
+                    "is_repeatable_within_event": True,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            [
+                row["__export_visit_sort_key__"][-1]
+                for row in values[100]
+            ],
+            [1, 2],
+        )
+
     def test_falls_back_to_current_entry_when_final_data_is_empty(self):
         repository = _ExportDataRepositoryStub(
             rows=(
@@ -294,15 +338,19 @@ class SubjectExportDataServiceTests(SimpleTestCase):
         binding_id=30,
         crf_template_id=20,
         repeat_index=1,
+        visit_id=0,
+        visit_repeat_index=1,
+        event_name="Screening",
     ):
         return {
             "id": page_state_id,
             "subject_id": 100,
             "event_form_binding_id": binding_id,
             "crf_template_id": crf_template_id,
+            "visit_id": visit_id,
             "visit__event_definition_id": 10,
-            "visit__event_definition__name": "Screening",
-            "visit__repeat_index": 1,
+            "visit__event_definition__name": event_name,
+            "visit__repeat_index": visit_repeat_index,
             "repeat_index": repeat_index,
             "final_data": final_data,
             "current_entry__data": current_entry_data,
