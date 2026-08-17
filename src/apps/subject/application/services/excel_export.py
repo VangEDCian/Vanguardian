@@ -170,6 +170,7 @@ class SubjectExcelExportService:
         workbook = Workbook()
         worksheet = workbook.active
         worksheet.title = "Subjects"
+        # Group headers by CRF binding without collapsing fields that share a label.
         field_groups = cls._build_field_groups(selected_fields)
         field_columns = tuple(
             column
