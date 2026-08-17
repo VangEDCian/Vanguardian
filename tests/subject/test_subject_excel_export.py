@@ -76,18 +76,22 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
                 "Screening Code",
                 "Randomization Code",
                 "Visit",
-                "Age",
+                "Demographics",
             ],
         )
         self.assertEqual(
-            list(worksheet.values)[1:],
+            [cell.value for cell in worksheet[2]],
+            [None, None, None, None, "Age"],
+        )
+        self.assertEqual(
+            list(worksheet.values)[2:],
             [
                 ("SUB-001", "SCR-001", "RND-001", "Visit 1", "42"),
                 ("SUB-002", "SCR-002", "RND-002", "Visit 1", "=unsafe"),
             ],
         )
-        self.assertEqual(worksheet["E3"].data_type, "s")
-        self.assertEqual(worksheet.freeze_panes, "A2")
+        self.assertEqual(worksheet["E4"].data_type, "s")
+        self.assertEqual(worksheet.freeze_panes, "A3")
         self.assertEqual(result.subject_count, 2)
         self.assertEqual(result.field_count, 1)
         self.assertEqual(data_adapter.calls[0]["subject_ids"], (100, 101))
@@ -101,6 +105,13 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
             },
             {
                 **self.field,
+                "token": "30:42",
+                "field_template_id": 42,
+                "field_key": "COMMENT",
+                "field_label": "Comment",
+            },
+            {
+                **self.field,
                 "token": "31:41",
                 "binding_id": 31,
                 "field_template_id": 41,
@@ -111,6 +122,19 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
                 "field_key": "VISIT_DATE",
                 "field_label": "Visit Date",
                 "header": "BASELINE.VITALS.VISIT_DATE",
+            },
+            {
+                **self.field,
+                "token": "31:43",
+                "binding_id": 31,
+                "field_template_id": 43,
+                "event_code": "BASELINE",
+                "event_name": "Baseline",
+                "crf_code": "VITALS",
+                "crf_name": "Vital Signs",
+                "field_key": "COMMENT",
+                "field_label": "Comment",
+                "header": "BASELINE.VITALS.COMMENT",
             },
         )
 
@@ -127,18 +151,56 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
             values_by_subject_id={
                 100: {
                     "30:40": "2026-08-01",
+                    "30:42": "Demographics comment",
                     "31:41": "2026-08-02",
+                    "31:43": "Vitals comment",
                 }
             },
         )
 
         worksheet = load_workbook(BytesIO(content))["Subjects"]
         self.assertEqual(
-            [cell.value for cell in worksheet[1]][-2:],
+            [cell.value for cell in worksheet[1]],
             [
+                "Subject Code",
+                "Screening Code",
+                "Randomization Code",
                 "Visit",
-                "Visit Date",
+                "Demographics",
+                None,
+                "Vital Signs",
+                None,
             ],
+        )
+        self.assertEqual(
+            [cell.value for cell in worksheet[2]],
+            [
+                None,
+                None,
+                None,
+                None,
+                "Visit Date",
+                "Comment",
+                "Visit Date",
+                "Comment",
+            ],
+        )
+        self.assertEqual(
+            [cell.value for cell in worksheet[3]],
+            [
+                "SUB-001",
+                "SCR-001",
+                "RND-001",
+                "Visit 1",
+                "2026-08-01",
+                "Demographics comment",
+                "2026-08-02",
+                "Vitals comment",
+            ],
+        )
+        self.assertEqual(
+            {str(cell_range) for cell_range in worksheet.merged_cells.ranges},
+            {"A1:A2", "B1:B2", "C1:C2", "D1:D2", "E1:F1", "G1:H1"},
         )
 
     def test_exports_each_repeated_form_instance_on_its_own_row(self):
@@ -181,7 +243,7 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
 
         worksheet = load_workbook(BytesIO(content))["Subjects"]
         self.assertEqual(
-            list(worksheet.values)[1:],
+            list(worksheet.values)[2:],
             [
                 (
                     "NNG31-002",
@@ -237,7 +299,7 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
 
         worksheet = load_workbook(BytesIO(content))["Subjects"]
         self.assertEqual(
-            [row[3] for row in list(worksheet.values)[1:]],
+            [row[3] for row in list(worksheet.values)[2:]],
             [
                 "Screening",
                 "Visit 1",
@@ -246,7 +308,7 @@ class SubjectExcelExportServiceTests(SimpleTestCase):
             ],
         )
         self.assertEqual(
-            [row[4] for row in list(worksheet.values)[1:]],
+            [row[4] for row in list(worksheet.values)[2:]],
             [
                 "Screening",
                 "Visit 1",

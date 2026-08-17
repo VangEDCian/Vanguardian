@@ -5,6 +5,7 @@ from io import BytesIO
 from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 from apps.subject.infrastructure.repositories.subject_excel_export import (
     DjangoSubjectExcelExportRepository,
@@ -169,17 +170,52 @@ class SubjectExcelExportService:
         workbook = Workbook()
         worksheet = workbook.active
         worksheet.title = "Subjects"
-        field_columns = cls._build_field_columns(selected_fields)
+        field_groups = cls._build_field_groups(selected_fields)
+        field_columns = tuple(
+            column
+            for group in field_groups
+            for column in group["columns"]
+        )
         field_headers = tuple(column["description"] for column in field_columns)
-        headers = [
+        common_headers = [
             "Subject Code",
             "Screening Code",
             "Randomization Code",
             "Visit",
-            *field_headers,
         ]
-        worksheet.append(headers)
+        first_header_row = [*common_headers]
+        second_header_row = [None] * len(common_headers)
+        for group in field_groups:
+            column_count = len(group["columns"])
+            first_header_row.extend(
+                [group["title"], *([None] * (column_count - 1))]
+            )
+            second_header_row.extend(
+                column["description"] for column in group["columns"]
+            )
+
+        worksheet.append(first_header_row)
+        worksheet.append(second_header_row)
         cls._style_header(worksheet)
+        for column_index in range(1, len(common_headers) + 1):
+            worksheet.merge_cells(
+                start_row=1,
+                start_column=column_index,
+                end_row=2,
+                end_column=column_index,
+            )
+
+        group_start_column = len(common_headers) + 1
+        for group in field_groups:
+            group_end_column = group_start_column + len(group["columns"]) - 1
+            if group_end_column > group_start_column:
+                worksheet.merge_cells(
+                    start_row=1,
+                    start_column=group_start_column,
+                    end_row=1,
+                    end_column=group_end_column,
+                )
+            group_start_column = group_end_column + 1
 
         for subject in subject_rows:
             subject_id = int(subject["id"])
@@ -213,9 +249,11 @@ class SubjectExcelExportService:
                     values=row_values,
                 )
 
-        worksheet.freeze_panes = "A2"
-        worksheet.auto_filter.ref = worksheet.dimensions
-        cls._set_column_widths(worksheet, headers)
+        worksheet.freeze_panes = "A3"
+        cls._set_column_widths(
+            worksheet,
+            [*common_headers, *field_headers],
+        )
         output = BytesIO()
         workbook.save(output)
         return output.getvalue()
@@ -285,18 +323,61 @@ class SubjectExcelExportService:
         cls,
         selected_fields: tuple[dict, ...],
     ) -> tuple[dict, ...]:
-        columns: OrderedDict[str, list[str]] = OrderedDict()
+        return tuple(
+            column
+            for group in cls._build_field_groups(selected_fields)
+            for column in group["columns"]
+        )
+
+    @classmethod
+    def _build_field_groups(
+        cls,
+        selected_fields: tuple[dict, ...],
+    ) -> tuple[dict, ...]:
+        groups: OrderedDict[tuple, dict] = OrderedDict()
         for field in selected_fields:
             description = cls._field_description(field)
             if not description:
                 description = cls._field_fallback_header(field)
             token = str(field.get("token", ""))
-            columns.setdefault(description, []).append(token)
+            group_key = cls._field_group_key(field, token=token)
+            group = groups.setdefault(
+                group_key,
+                {
+                    "title": cls._crf_form_header(field),
+                    "columns": [],
+                },
+            )
+            group["columns"].append(
+                {
+                    "description": description,
+                    "tokens": (token,),
+                }
+            )
 
-        return tuple(
-            {"description": description, "tokens": tuple(tokens)}
-            for description, tokens in columns.items()
+        return tuple(groups.values())
+
+    @staticmethod
+    def _field_group_key(field: dict, *, token: str) -> tuple:
+        binding_id = field.get("binding_id")
+        if binding_id is not None:
+            return ("binding", binding_id)
+        form_identity = (
+            field.get("event_definition_id"),
+            field.get("crf_template_id"),
+            field.get("crf_code"),
         )
+        if any(value is not None for value in form_identity):
+            return ("form", *form_identity)
+        return ("field", token)
+
+    @staticmethod
+    def _crf_form_header(field: dict) -> str:
+        return str(
+            field.get("crf_name")
+            or field.get("crf_code")
+            or "CRF Form"
+        ).strip()
 
     @staticmethod
     def _field_fallback_header(field: dict) -> str:
@@ -336,14 +417,15 @@ class SubjectExcelExportService:
     @staticmethod
     def _style_header(worksheet):
         fill = PatternFill(fill_type="solid", fgColor="D9EAF7")
-        for cell in worksheet[1]:
-            cell.font = Font(bold=True, color="17324D")
-            cell.fill = fill
-            cell.alignment = Alignment(
-                horizontal="center",
-                vertical="center",
-                wrap_text=True,
-            )
+        for row in worksheet.iter_rows(min_row=1, max_row=2):
+            for cell in row:
+                cell.font = Font(bold=True, color="17324D")
+                cell.fill = fill
+                cell.alignment = Alignment(
+                    horizontal="center",
+                    vertical="center",
+                    wrap_text=True,
+                )
 
     @staticmethod
     def _force_formula_like_strings_to_text(worksheet, *, row_index, values):
@@ -358,7 +440,7 @@ class SubjectExcelExportService:
     def _set_column_widths(worksheet, headers):
         for column_index, header in enumerate(headers, start=1):
             worksheet.column_dimensions[
-                worksheet.cell(row=1, column=column_index).column_letter
+                get_column_letter(column_index)
             ].width = min(max(len(str(header)) + 2, 14), 60)
 
 
