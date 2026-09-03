@@ -10,7 +10,7 @@ from apps.study.application.services import ImportStudyEventAttestationPoliciesT
 
 CERTIFICATION_STATEMENT = (
     "I certify that the data entered in this eCRF are complete, accurate, "
-    "and ae supported by the source documents"
+    "and are supported by the source documents"
 )
 
 
