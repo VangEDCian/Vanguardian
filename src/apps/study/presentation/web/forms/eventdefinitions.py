@@ -58,6 +58,7 @@ class EventDefinitionsToolbarForm(SharedSearch, SharedTotal):
         "event_type",
         "timing_mode",
         "event_category",
+        "lifecycle_role",
         "execution_mode",
     )
     TOTAL_LABEL = _("Total Event Definitions")

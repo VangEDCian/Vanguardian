@@ -1,0 +1,76 @@
+{% extends "shared/_layout.html" %}
+{% load i18n static %}
+{% block title %}{{ detail_study.code }} | {% trans "CRF Page lifecycle" %}{% endblock %}
+{% block extra_css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'shared/css/components/common-table.css' %}">
+{% endblock %}
+{% block dashboard_breadcrumb_prefix %}
+    <a href="{{ detail_study.back_url }}" class="dashboard-breadcrumb__back">{% trans "Studies" %}</a>
+{% endblock %}
+{% block dashboard_content %}
+    <section class="entity-table-panel">
+        {% include "study/components/_study_detail_tabs.html" with study_active_tab="crf_page_lifecycle" %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="entity-table__toolbar">
+                <div class="entity-table__summary">
+                    <strong>{% trans "CRF Page lifecycle" %}</strong>
+                    <div>{% trans "Enable steps, set their execution order, and select the roles allowed to perform each step." %}</div>
+                    <div>
+                        {% trans "Data Assurance certification is configured separately at Visit level as CERTIFICATION. It is independent from Monitor SDV, does not block on open queries, and is not required for Lock." %}
+                        <a href="{% url 'study:study_crf_templates' study_id=detail_study.id %}">
+                            {% trans "Open CRF Templates to import the Attestation Template." %}
+                        </a>
+                    </div>
+                    <div>
+                        <a href="{% static 'study/templates/data_assurance_visit_signoff_import_template.xlsx' %}"
+                           download>{% trans "Download Data Assurance Visit certification template" %}</a>
+                    </div>
+                    {% if uses_legacy_default %}
+                        <div role="status">{% trans "This Study currently uses the legacy default: Verify → Finalize → Lock. Saving creates an explicit Study configuration." %}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% if lifecycle_form.non_field_errors %}
+                <div class="user-detail-field__error" role="alert">
+                    {% for error in lifecycle_form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+            <div class="entity-table__scroller">
+                <table class="entity-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Enabled" %}</th>
+                            <th>{% trans "Step" %}</th>
+                            <th>{% trans "Order" %}</th>
+                            <th>{% trans "Allowed roles" %}</th>
+                            <th>{% trans "Required permission" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in lifecycle_rows %}
+                            <tr>
+                                <td>{{ row.enabled_field }}</td>
+                                <td class="entity-table__primary">{{ row.label }}</td>
+                                <td>
+                                    {{ row.order_field }}
+                                    {% for error in row.order_field.errors %}<div class="user-detail-field__error">{{ error }}</div>{% endfor %}
+                                </td>
+                                <td>
+                                    {{ row.roles_field }}
+                                    {% for error in row.roles_field.errors %}<div class="user-detail-field__error">{{ error }}</div>{% endfor %}
+                                </td>
+                                <td><code>{{ row.permission }}</code></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="entity-table__footer entity-table__footer--actions">
+                <button type="submit" class="entity-table__footer-button entity-table__footer-button--primary">{% trans "Save lifecycle" %}</button>
+                <a href="{% url 'study:study_detail' study_id=detail_study.id %}" class="entity-table__footer-button entity-table__footer-button--secondary">{% trans "Cancel" %}</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

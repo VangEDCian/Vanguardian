@@ -44,6 +44,7 @@ class StudyEventTransitionRuleSnapshot:
     condition_definition_code: str | None = None
     condition_expression_json: str | dict[str, Any] | None = None
     offset_days: int | None = None
+    auto_execute: bool = False
 
 
 @dataclass(frozen=True)

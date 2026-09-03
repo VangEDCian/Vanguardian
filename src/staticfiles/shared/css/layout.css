@@ -88,7 +88,8 @@
   background: rgba(255, 255, 255, 0.22);
 }
 
-.top-nav__icon .svg-icon {
+.top-nav__icon .svg-icon,
+.top-nav__icon .navigation-inline-icon {
   width: 22px;
   height: 22px;
 }
@@ -155,7 +156,8 @@
   cursor: pointer;
 }
 
-.avatar-menu__trigger .svg-icon {
+.avatar-menu__trigger .svg-icon,
+.avatar-menu__trigger .navigation-inline-icon {
   width: 17px;
   height: 17px;
 }

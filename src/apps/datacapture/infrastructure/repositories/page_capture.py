@@ -2,8 +2,10 @@ import json
 import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
 
-from django.db.models import Max, Prefetch
+from django.db.models import CharField, Max, OuterRef, Prefetch, Q, Subquery, Value
+from django.db.models.functions import Cast, Coalesce, Concat
 from django.utils.translation import get_language
 
 from apps.core.choices import (
@@ -44,6 +46,7 @@ from apps.datacapture.models import (
     DataCapturePageStateTransitionLog,
     DataCaptureSectionInstance,
 )
+from apps.identity.models import User
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
 
@@ -53,6 +56,7 @@ class DjangoDataCapturePageRepository:
     FINAL_DATA_STATUSES = frozenset(
         {
             DataCapturePageStateStatusChoices.VERIFIED,
+            DataCapturePageStateStatusChoices.CERTIFIED,
             DataCapturePageStateStatusChoices.LOCKED,
             DataCapturePageStateStatusChoices.FINALIZED,
         }
@@ -60,6 +64,157 @@ class DjangoDataCapturePageRepository:
     LOOKUP_LABELS_PAYLOAD_KEY = "_field_lookup_labels"
     REPEAT_KEY_RE = re.compile(r"^(?P<base>.+)__repeat_(?P<repeat_index>\d+)$")
     DATE_PART_KEY_RE = re.compile(r"^(?P<base>.+)__(?P<part>day|month|year|time)$")
+
+    def _resolve_event_form_binding_id_for_scope(
+        self,
+        *,
+        visit_id: int,
+        crf_template_id: int,
+    ) -> int | None:
+        visit = (
+            SubjectEventInstance.objects.filter(
+                pk=visit_id,
+                deleted=False,
+            )
+            .only("id", "study_id", "study_version", "event_definition_id")
+            .first()
+        )
+        if visit is None:
+            return None
+        binding = (
+            EventFormBinding.objects.filter(
+                study_id=visit.study_id,
+                study_version=visit.study_version,
+                event_definition_id=visit.event_definition_id,
+                form_definition_id=crf_template_id,
+                deleted=False,
+                is_enabled=True,
+            )
+            .only("id")
+            .order_by("display_order", "id")
+            .first()
+        )
+        if binding is None:
+            return None
+        return int(binding.pk)
+
+    @staticmethod
+    def _visit_repeat_index(*, visit_id: int) -> int:
+        repeat_index = (
+            SubjectEventInstance.objects.filter(
+                pk=visit_id,
+                deleted=False,
+            )
+            .values_list("repeat_index", flat=True)
+            .first()
+        )
+        return max(1, int(repeat_index or 1))
+
+    def _resolve_page_state_repeat_index_for_scope(
+        self,
+        *,
+        visit_id: int,
+        event_form_binding_id: int | None,
+    ) -> int:
+        if event_form_binding_id is None:
+            return self._visit_repeat_index(visit_id=visit_id)
+        binding = (
+            EventFormBinding.objects.filter(
+                pk=event_form_binding_id,
+                deleted=False,
+            )
+            .only("id", "is_repeatable_within_event")
+            .first()
+        )
+        if binding is None or not bool(getattr(binding, "is_repeatable_within_event", False)):
+            return self._visit_repeat_index(visit_id=visit_id)
+        return 1
+
+    def _resolve_default_page_state_repeat_index_for_scope(
+        self,
+        *,
+        visit_id: int,
+    ) -> int:
+        return self._visit_repeat_index(visit_id=visit_id)
+
+    def ensure_page_state_binding_context(self, page_state, *, actor_user_id: int | None = None):
+        if page_state is None:
+            return None
+        update_fields: list[str] = []
+        resolved_binding_id = getattr(page_state, "event_form_binding_id", None)
+        if not resolved_binding_id:
+            resolved_binding_id = self._resolve_event_form_binding_id_for_scope(
+                visit_id=int(page_state.visit_id),
+                crf_template_id=int(page_state.crf_template_id),
+            )
+            if resolved_binding_id is not None:
+                page_state.event_form_binding_id = resolved_binding_id
+                update_fields.append("event_form_binding_id")
+        binding = getattr(page_state, "event_form_binding", None)
+        visit = getattr(page_state, "visit", None)
+        if resolved_binding_id and binding is not None and visit is not None:
+            expected_repeat_index = (
+                1
+                if bool(getattr(binding, "is_repeatable_within_event", False))
+                else max(1, int(getattr(visit, "repeat_index", 1) or 1))
+            )
+        else:
+            expected_repeat_index = self._resolve_page_state_repeat_index_for_scope(
+                visit_id=int(page_state.visit_id),
+                event_form_binding_id=resolved_binding_id,
+            )
+        if int(getattr(page_state, "repeat_index", 0) or 0) != expected_repeat_index:
+            page_state.repeat_index = expected_repeat_index
+            update_fields.append("repeat_index")
+        if not getattr(page_state, "instance_key", ""):
+            page_state.instance_key = uuid4().hex
+            update_fields.append("instance_key")
+        if update_fields:
+            page_state.updated_at = self._now()
+            page_state.updated_by_id = actor_user_id
+            update_fields.extend(["updated_at", "updated_by_id"])
+            page_state.save(update_fields=update_fields)
+        return page_state
+
+    @staticmethod
+    def _page_state_scope_filter_kwargs(
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        event_form_binding_id: int | None = None,
+    ) -> dict:
+        kwargs = {
+            "subject_id": subject_id,
+            "visit_id": visit_id,
+        }
+        if event_form_binding_id is not None:
+            kwargs["event_form_binding_id"] = event_form_binding_id
+        else:
+            kwargs["crf_template_id"] = crf_template_id
+        return kwargs
+
+    @classmethod
+    def _page_entry_scope_filter_kwargs(
+        cls,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        event_form_binding_id: int | None = None,
+    ) -> dict:
+        if event_form_binding_id is None:
+            return cls._page_state_scope_filter_kwargs(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=None,
+            )
+        return {
+            "subject_id": subject_id,
+            "visit_id": visit_id,
+            "page_state__event_form_binding_id": event_form_binding_id,
+        }
 
     @staticmethod
     def _normalize_field_key_list(field_keys: list[str] | tuple[str, ...]) -> list[str]:
@@ -120,13 +275,17 @@ class DjangoDataCapturePageRepository:
         subject_id: int,
         visit_id: int,
         crf_template_id: int,
+        event_form_binding_id: int | None = None,
     ):
         return (
             DataCapturePageEntry.objects.filter(
                 pk=page_entry_id,
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_entry_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
+                ),
                 deleted=False,
             )
             .only("id", "data", "entry_version", "status", "updated_by_id")
@@ -186,6 +345,111 @@ class DjangoDataCapturePageRepository:
             )
             output[field_key] = rules
         return output
+
+    @classmethod
+    def _build_validation_form_rows(cls, payload_map: dict[str, object]) -> list[dict[str, object]]:
+        row_map: dict[int, dict[str, object]] = {}
+        for raw_key, value in (payload_map or {}).items():
+            normalized_key = str(raw_key or "").strip()
+            if not normalized_key or normalized_key == "__form_verification__":
+                continue
+            base_key = cls._field_alias_base_key(normalized_key)
+            repeat_match = cls.REPEAT_KEY_RE.match(base_key)
+            repeat_index = int(repeat_match.group("repeat_index")) if repeat_match else 1
+            field_key = repeat_match.group("base") if repeat_match else base_key
+            row_map.setdefault(repeat_index, {})[field_key] = value
+        return [row_map[idx] for idx in sorted(row_map)]
+
+    def get_form_repeatability_by_codes(self, *, form_codes: tuple[str, ...]) -> dict[str, bool]:
+        normalized_codes = tuple(str(code or "").strip() for code in form_codes if str(code or "").strip())
+        if not normalized_codes:
+            return {}
+        rows = (
+            CrfSectionTemplate.objects.filter(
+                crf_template__code__in=normalized_codes,
+                deleted=False,
+                crf_template__deleted=False,
+            )
+            .values("crf_template__code")
+            .annotate(has_repeatable=Max("is_repeatable"))
+        )
+        return {
+            str(row["crf_template__code"]): bool(row["has_repeatable"])
+            for row in rows
+            if str(row.get("crf_template__code") or "").strip()
+        }
+
+    def get_subject_cross_form_validation_context(
+        self,
+        *,
+        subject_id: int,
+        form_codes: tuple[str, ...] = (),
+        exclude_visit_id: int | None = None,
+        exclude_crf_template_id: int | None = None,
+    ) -> dict[str, dict[str, object]]:
+        normalized_codes = tuple(str(code or "").strip() for code in form_codes if str(code or "").strip())
+        repeatability_by_code = self.get_form_repeatability_by_codes(form_codes=normalized_codes)
+        context: dict[str, dict[str, object]] = {
+            form_code: {
+                "is_repeatable": bool(repeatability_by_code.get(form_code)),
+                "rows": [],
+            }
+            for form_code in normalized_codes
+        }
+        if not normalized_codes:
+            return context
+        page_states = (
+            DataCapturePageState.objects.select_related("crf_template", "current_entry")
+            .filter(
+                subject_id=subject_id,
+                deleted=False,
+                crf_template__code__in=normalized_codes,
+                crf_template__deleted=False,
+            )
+        )
+        if exclude_visit_id is not None and exclude_crf_template_id is not None:
+            page_states = page_states.exclude(
+                visit_id=exclude_visit_id,
+                crf_template_id=exclude_crf_template_id,
+            )
+        page_states = page_states.only(
+            "id",
+            "visit_id",
+            "crf_template_id",
+            "crf_template__code",
+            "final_data",
+            "current_entry_id",
+            "current_entry__data",
+        ).order_by("crf_template__code", "visit_id", "id")
+
+        for page_state in page_states:
+            form_code = str(getattr(getattr(page_state, "crf_template", None), "code", "") or "").strip()
+            if not form_code:
+                continue
+            raw_payload = ""
+            current_entry = getattr(page_state, "current_entry", None)
+            if current_entry is not None and str(getattr(current_entry, "data", "") or "").strip():
+                raw_payload = current_entry.data
+            elif str(page_state.final_data or "").strip():
+                raw_payload = page_state.final_data
+            if not raw_payload:
+                continue
+            parsed_payload = self._load_json_map(raw_payload)
+            if not parsed_payload:
+                continue
+            flattened_payload = flatten_form_data_for_export(
+                normalize_form_data(parsed_payload, strict=False),
+                repeat_strategy="legacy_repeat_suffix",
+            )
+            context.setdefault(
+                form_code,
+                {
+                    "is_repeatable": bool(repeatability_by_code.get(form_code)),
+                    "rows": [],
+                },
+            )
+            context[form_code]["rows"].extend(self._build_validation_form_rows(flattened_payload))
+        return context
 
     @staticmethod
     def _load_json_map(raw_payload: str | None) -> dict:
@@ -325,6 +589,143 @@ class DjangoDataCapturePageRepository:
                 }
             )
         return contexts
+
+    def list_page_state_transition_history_for_subject(
+        self,
+        *,
+        subject_id: int,
+        limit: int = 200,
+        search: str = "",
+        field_name: str = "",
+    ) -> list[dict[str, object]]:
+        queryset = (
+            DataCapturePageStateTransitionLog.objects.filter(
+                page_state__subject_id=subject_id,
+                page_state__deleted=False,
+            )
+            .select_related(
+                "page_state",
+                "page_state__visit",
+                "page_state__visit__event_definition",
+                "page_state__crf_template",
+            )
+            .annotate(
+                audit_field_name=Value("page_state_status", output_field=CharField()),
+                audit_field_description=Concat(
+                    Coalesce("page_state__visit__event_name_snapshot", "page_state__visit__event_definition__name", Value("")),
+                    Value(" / "),
+                    Coalesce("page_state__crf_template__code", Value("")),
+                    output_field=CharField(),
+                ),
+                audit_value=Concat(
+                    Coalesce("from_status", Value("")),
+                    Value(" "),
+                    Coalesce("to_status", Value("")),
+                    Value(" "),
+                    Coalesce(Cast("data_version", output_field=CharField()), Value("")),
+                    Value(" "),
+                    Coalesce("reason_code", Value("")),
+                    Value(" "),
+                    Coalesce("reason_text", Value("")),
+                    Value(" "),
+                    Coalesce("trigger_source", Value("")),
+                    Value(" "),
+                    Coalesce("facts_json", Value("")),
+                    output_field=CharField(),
+                ),
+                audit_user_display=self._audit_user_display_expression("actor_id"),
+            )
+        )
+        queryset = self._apply_audit_history_filters(
+            queryset,
+            search=search,
+            field_name=field_name,
+        )
+        queryset = queryset.order_by("-created_at", "-id")
+        if limit:
+            queryset = queryset[:limit]
+
+        rows: list[dict[str, object]] = []
+        for log in queryset:
+            page_state = log.page_state
+            visit = page_state.visit
+            event_definition = getattr(visit, "event_definition", None)
+            crf_template = page_state.crf_template
+            rows.append(
+                {
+                    "occurred_at": log.created_at,
+                    "field_name": str(log.audit_field_name or "").strip(),
+                    "field_description": str(log.audit_field_description or "").strip(),
+                    "value": str(log.audit_value or "").strip(),
+                    "user_display": str(log.audit_user_display or "").strip(),
+                    "page_state_id": int(page_state.pk),
+                    "from_status": str(log.from_status or "").strip(),
+                    "to_status": str(log.to_status or "").strip(),
+                    "data_version": log.data_version,
+                    "reason_code": str(log.reason_code or "").strip(),
+                    "reason_text": str(log.reason_text or "").strip(),
+                    "trigger_source": str(log.trigger_source or "").strip(),
+                    "actor_id": log.actor_id,
+                    "event_code": str(
+                        visit.event_code_snapshot or getattr(event_definition, "code", "") or ""
+                    ).strip(),
+                    "event_label": str(
+                        visit.event_name_snapshot
+                        or getattr(event_definition, "name", "")
+                        or visit.event_code_snapshot
+                        or ""
+                    ).strip(),
+                    "form_code": str(getattr(crf_template, "code", "") or "").strip(),
+                    "form_label": str(getattr(crf_template, "code", "") or "").strip(),
+                    "repeat_index": page_state.repeat_index,
+                }
+            )
+        return rows
+
+    @classmethod
+    def _apply_audit_history_filters(cls, queryset, *, search: str = "", field_name: str = ""):
+        normalized_field_name = str(field_name or "").strip()
+        if normalized_field_name:
+            queryset = queryset.filter(audit_field_name__icontains=normalized_field_name)
+
+        for term in cls._audit_history_search_terms(search):
+            queryset = queryset.filter(
+                Q(audit_value__icontains=term)
+                | Q(audit_field_description__icontains=term)
+                | Q(audit_user_display__icontains=term)
+            )
+        return queryset
+
+    @staticmethod
+    def _audit_history_search_terms(search: str) -> tuple[str, ...]:
+        normalized_search = str(search or "").strip()
+        if not normalized_search:
+            return ()
+        return tuple(term for term in normalized_search.split() if term)
+
+    @staticmethod
+    def _audit_user_display_expression(actor_field: str):
+        user_display = (
+            User.objects.filter(pk=OuterRef(actor_field), deleted=False)
+            .annotate(
+                audit_display=Concat(
+                    Coalesce("display_name", Value("")),
+                    Value(" "),
+                    Coalesce("first_name", Value("")),
+                    Value(" "),
+                    Coalesce("last_name", Value("")),
+                    Value(" "),
+                    Coalesce("username", Value("")),
+                    output_field=CharField(),
+                )
+            )
+            .values("audit_display")[:1]
+        )
+        return Coalesce(
+            Cast(Subquery(user_display), output_field=CharField()),
+            Value("System"),
+            output_field=CharField(),
+        )
 
     def normalize_form_data_json_for_storage(
         self,
@@ -757,12 +1158,15 @@ class DjangoDataCapturePageRepository:
 
         return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
-    def get_page_state(self, *, subject_id: int, visit_id: int, crf_template_id: int):
+    def get_page_state(self, *, subject_id: int, visit_id: int, crf_template_id: int, event_form_binding_id: int | None = None):
         page_state = (
             DataCapturePageState.objects.filter(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_state_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
+                ),
                 deleted=False,
             )
             .only(
@@ -777,8 +1181,9 @@ class DjangoDataCapturePageRepository:
                 "visit__study_id",
                 "visit__study_version",
                 "visit__event_definition_id",
+                "subject__site_id",
             )
-            .select_related("visit")
+            .select_related("subject", "visit")
             .first()
         )
         if page_state is None:
@@ -796,14 +1201,18 @@ class DjangoDataCapturePageRepository:
             study_id=visit.study_id,
             study_version=visit.study_version,
             event_definition_id=visit.event_definition_id,
+            site_id=page_state.subject.site_id,
         )
 
-    def get_latest_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
+    def get_latest_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int, event_form_binding_id: int | None = None):
         page_entry = (
             DataCapturePageEntry.objects.filter(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_entry_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
+                ),
                 deleted=False,
             )
             .exclude(status__in=[DataCapturePageEntryStatusChoices.CANCELLED, "canceled"])
@@ -843,12 +1252,15 @@ class DjangoDataCapturePageRepository:
             updated_at=page_entry.updated_at,
         )
 
-    def get_latest_submitted_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
+    def get_latest_submitted_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int, event_form_binding_id: int | None = None):
         page_entry = (
             DataCapturePageEntry.objects.filter(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_entry_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
+                ),
                 deleted=False,
                 status=DataCapturePageEntryStatusChoices.SUBMITTED,
             )
@@ -902,8 +1314,14 @@ class DjangoDataCapturePageRepository:
         data: str,
         status: str,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ):
-        next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        next_entry_no = self._next_entry_no(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
         entry_version = self._entry_version_for_no(next_entry_no)
         data = self.normalize_form_data_json_for_storage(
             crf_template_id=crf_template_id,
@@ -938,11 +1356,22 @@ class DjangoDataCapturePageRepository:
         data: str,
         status: str,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ):
         """Save-draft after a submitted row: new correction draft; prior submitted row unchanged (6.2)."""
-        latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        latest = self.get_latest_entry(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
         assert latest is not None and latest.status == DataCapturePageEntryStatusChoices.SUBMITTED
-        next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        next_entry_no = self._next_entry_no(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
         entry_version = self._entry_version_for_no(next_entry_no)
         data = self.normalize_form_data_json_for_storage(
             crf_template_id=crf_template_id,
@@ -977,12 +1406,16 @@ class DjangoDataCapturePageRepository:
         keep_entry_id: int,
         target_status: str,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ) -> int:
         """Mark all submitted rows except ``keep_entry_id`` as superseded (submit flow 6.3)."""
         return DataCapturePageEntry.objects.filter(
-            subject_id=subject_id,
-            visit_id=visit_id,
-            crf_template_id=crf_template_id,
+            **self._page_entry_scope_filter_kwargs(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=event_form_binding_id,
+            ),
             deleted=False,
             status=DataCapturePageEntryStatusChoices.SUBMITTED,
         ).exclude(pk=keep_entry_id).update(
@@ -992,12 +1425,21 @@ class DjangoDataCapturePageRepository:
         )
 
     def has_other_submitted_entry(
-        self, *, subject_id: int, visit_id: int, crf_template_id: int, exclude_entry_id: int
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        exclude_entry_id: int,
+        event_form_binding_id: int | None = None,
     ) -> bool:
         return DataCapturePageEntry.objects.filter(
-            subject_id=subject_id,
-            visit_id=visit_id,
-            crf_template_id=crf_template_id,
+            **self._page_entry_scope_filter_kwargs(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=event_form_binding_id,
+            ),
             deleted=False,
             status=DataCapturePageEntryStatusChoices.SUBMITTED,
         ).exclude(pk=exclude_entry_id).exists()
@@ -1013,10 +1455,15 @@ class DjangoDataCapturePageRepository:
         return self._are_all_visit_forms_in_status(
             subject_id=subject_id,
             visit_id=visit_id,
-            status=DataCapturePageStateStatusChoices.VERIFIED,
+            status=(
+                DataCapturePageStateStatusChoices.VERIFIED,
+                DataCapturePageStateStatusChoices.CERTIFIED,
+                DataCapturePageStateStatusChoices.FINALIZED,
+                DataCapturePageStateStatusChoices.LOCKED,
+            ),
         )
 
-    def _are_all_visit_forms_in_status(self, *, subject_id: int, visit_id: int, status: str) -> bool:
+    def _are_all_visit_forms_in_status(self, *, subject_id: int, visit_id: int, status) -> bool:
         visit = (
             SubjectEventInstance.objects.filter(
                 pk=visit_id,
@@ -1041,13 +1488,18 @@ class DjangoDataCapturePageRepository:
         if not form_definition_ids:
             return False
 
+        status_filter = (
+            {"status__in": status}
+            if isinstance(status, (tuple, list, set, frozenset))
+            else {"status": status}
+        )
         submitted_form_count = (
             DataCapturePageState.objects.filter(
                 subject_id=subject_id,
                 visit_id=visit_id,
                 crf_template_id__in=form_definition_ids,
                 deleted=False,
-                status=status,
+                **status_filter,
             )
             .values("crf_template_id")
             .distinct()
@@ -1056,13 +1508,22 @@ class DjangoDataCapturePageRepository:
         return submitted_form_count == len(form_definition_ids)
 
     def list_submitted_entry_ids_except(
-        self, *, subject_id: int, visit_id: int, crf_template_id: int, exclude_entry_id: int | None
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        exclude_entry_id: int | None,
+        event_form_binding_id: int | None = None,
     ) -> list[int]:
         return list(
             DataCapturePageEntry.objects.filter(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_entry_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
+                ),
                 deleted=False,
                 status=DataCapturePageEntryStatusChoices.SUBMITTED,
             )
@@ -1070,8 +1531,13 @@ class DjangoDataCapturePageRepository:
             .values_list("id", flat=True)
         )
 
-    def get_page_state_by_scope(self, *, subject_id: int, visit_id: int, crf_template_id: int):
-        return self.get_page_state(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+    def get_page_state_by_scope(self, *, subject_id: int, visit_id: int, crf_template_id: int, event_form_binding_id: int | None = None):
+        return self.get_page_state(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
 
     def get_latest_stable_page_state_id_for_event_instance(self, *, event_instance_id: int) -> int | None:
         return (
@@ -1085,19 +1551,52 @@ class DjangoDataCapturePageRepository:
             .first()
         )
 
+    def get_latest_submitted_or_stable_page_state_id_for_event_instance(self, *, event_instance_id: int) -> int | None:
+        return (
+            DataCapturePageState.objects.filter(
+                visit_id=event_instance_id,
+                deleted=False,
+                status__in=(
+                    DataCapturePageStateStatusChoices.SUBMITTED,
+                    *self.FINAL_DATA_STATUSES,
+                ),
+                current_entry__status=DataCapturePageEntryStatusChoices.SUBMITTED,
+            )
+            .order_by("-updated_at", "-id")
+            .values_list("id", flat=True)
+            .first()
+        )
+
     def event_instance_has_data(self, *, event_instance_id: int) -> bool:
         return DataCapturePageEntry.objects.filter(
             visit_id=event_instance_id,
             deleted=False,
         ).exists()
 
-    def get_current_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int):
-        return self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+    def get_current_entry(self, *, subject_id: int, visit_id: int, crf_template_id: int, event_form_binding_id: int | None = None):
+        return self.get_latest_entry(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
 
     def update_latest_draft_entry_data(
-        self, *, subject_id: int, visit_id: int, crf_template_id: int, data: str, actor_user_id: int | None = None
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        data: str,
+        actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ):
-        latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        latest = self.get_latest_entry(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
         if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
             return latest
         data = self.normalize_form_data_json_for_storage(
@@ -1111,7 +1610,12 @@ class DjangoDataCapturePageRepository:
             updated_at=self._now(),
             updated_by_id=actor_user_id,
         )
-        return self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        return self.get_latest_entry(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
 
     def cancel_latest_draft_entry(
         self,
@@ -1121,8 +1625,14 @@ class DjangoDataCapturePageRepository:
         crf_template_id: int,
         target_status: str,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ):
-        latest = self.get_latest_entry(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+        latest = self.get_latest_entry(
+            subject_id=subject_id,
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+            event_form_binding_id=event_form_binding_id,
+        )
         if latest is None or latest.status != DataCapturePageEntryStatusChoices.DRAFT:
             return None
         DataCapturePageEntry.objects.filter(pk=latest.id).update(
@@ -1141,14 +1651,23 @@ class DjangoDataCapturePageRepository:
         status: str,
         actor_user_id: int | None = None,
         trigger_source: str = "manual",
+        event_form_binding_id: int | None = None,
     ):
         """Create or update page state lifecycle fields only."""
         now = self._now()
+        resolved_binding_id = event_form_binding_id or self._resolve_event_form_binding_id_for_scope(
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
+        repeat_index = self._resolve_default_page_state_repeat_index_for_scope(visit_id=visit_id)
         existing = (
             DataCapturePageState.objects.filter(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_state_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=resolved_binding_id,
+                ),
             )
             .order_by("id")
             .first()
@@ -1159,6 +1678,8 @@ class DjangoDataCapturePageRepository:
                 updated_at=now,
                 deleted=False,
                 status=status,
+                event_form_binding_id=resolved_binding_id or existing.event_form_binding_id,
+                repeat_index=repeat_index,
                 final_data=self._page_state_final_data_for_lifecycle_status(
                     status=status,
                     current_final_data=existing.final_data,
@@ -1184,6 +1705,9 @@ class DjangoDataCapturePageRepository:
             final_data=self.EMPTY_PAGE_STATE_FINAL_DATA,
             data_version=1,
             crf_template_id=crf_template_id,
+            event_form_binding_id=resolved_binding_id,
+            repeat_index=repeat_index,
+            instance_key=uuid4().hex,
             subject_id=subject_id,
             visit_id=visit_id,
             created_by_id=actor_user_id,
@@ -1212,11 +1736,19 @@ class DjangoDataCapturePageRepository:
         visit_id: int,
         crf_template_id: int,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ):
-        page_state = DataCapturePageState.objects.filter(
-            subject_id=subject_id,
+        resolved_binding_id = event_form_binding_id or self._resolve_event_form_binding_id_for_scope(
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+        )
+        page_state = DataCapturePageState.objects.filter(
+            **self._page_state_scope_filter_kwargs(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=resolved_binding_id,
+            ),
             deleted=False,
         ).first()
         if page_state is None:
@@ -1227,6 +1759,12 @@ class DjangoDataCapturePageRepository:
                 status=DataCapturePageStateStatusChoices.NOT_STARTED,
                 actor_user_id=actor_user_id,
                 trigger_source="system",
+                event_form_binding_id=resolved_binding_id,
+            )
+        else:
+            page_state = self.ensure_page_state_binding_context(
+                page_state,
+                actor_user_id=actor_user_id,
             )
         if page_state.status == DataCapturePageStateStatusChoices.NOT_STARTED:
             return self.upsert_page_state(
@@ -1236,6 +1774,7 @@ class DjangoDataCapturePageRepository:
                 status=DataCapturePageStateStatusChoices.IN_PROGRESS,
                 actor_user_id=actor_user_id,
                 trigger_source="manual",
+                event_form_binding_id=resolved_binding_id,
             )
         return page_state
 
@@ -1246,12 +1785,20 @@ class DjangoDataCapturePageRepository:
         visit_id: int,
         crf_template_id: int,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ) -> bool:
         """Create a not-started ``PageState`` when none exists for the scope."""
-        exists = DataCapturePageState.objects.filter(
-            subject_id=subject_id,
+        resolved_binding_id = event_form_binding_id or self._resolve_event_form_binding_id_for_scope(
             visit_id=visit_id,
             crf_template_id=crf_template_id,
+        )
+        exists = DataCapturePageState.objects.filter(
+            **self._page_state_scope_filter_kwargs(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=resolved_binding_id,
+            ),
             deleted=False,
         ).exists()
         if exists:
@@ -1263,6 +1810,7 @@ class DjangoDataCapturePageRepository:
             status=DataCapturePageStateStatusChoices.NOT_STARTED,
             actor_user_id=actor_user_id,
             trigger_source="system",
+            event_form_binding_id=resolved_binding_id,
         )
         return True
 
@@ -1279,10 +1827,16 @@ class DjangoDataCapturePageRepository:
         plan: SubmitExecutionPlan,
         data: str,
         actor_user_id: int | None = None,
+        event_form_binding_id: int | None = None,
     ):
         """Persist submit outcome described by a domain ``SubmitExecutionPlan`` (no branching here)."""
         if plan.action == "initial_submitted":
-            next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+            next_entry_no = self._next_entry_no(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=event_form_binding_id,
+            )
             assert plan.entry_state_change is not None
             entry_version = self._entry_version_for_no(next_entry_no)
             data = self.normalize_form_data_json_for_storage(
@@ -1321,6 +1875,7 @@ class DjangoDataCapturePageRepository:
                     keep_entry_id=plan.draft_entry_id,
                     target_status=plan.superseded_entry_state_change.to_status,
                     actor_user_id=actor_user_id,
+                    event_form_binding_id=event_form_binding_id,
                 )
             assert plan.entry_state_change is not None
             draft_entry = DataCapturePageEntry.objects.only("entry_version").get(pk=plan.draft_entry_id)
@@ -1349,7 +1904,12 @@ class DjangoDataCapturePageRepository:
                 updated_by_id=actor_user_id,
                 status=plan.superseded_entry_state_change.to_status,
             )
-            next_entry_no = self._next_entry_no(subject_id=subject_id, visit_id=visit_id, crf_template_id=crf_template_id)
+            next_entry_no = self._next_entry_no(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=event_form_binding_id,
+            )
             entry_version = self._entry_version_for_no(next_entry_no)
             assert plan.entry_state_change is not None
             data = self.normalize_form_data_json_for_storage(
@@ -1390,12 +1950,20 @@ class DjangoDataCapturePageRepository:
         actor_user_id: int | None = None,
         trigger_source: str = "manual",
         target_status: str = DataCapturePageStateStatusChoices.SUBMITTED,
+        event_form_binding_id: int | None = None,
     ):
+        resolved_binding_id = event_form_binding_id or self._resolve_event_form_binding_id_for_scope(
+            visit_id=visit_id,
+            crf_template_id=crf_template_id,
+        )
         page_state = (
             DataCapturePageState.objects.filter(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_state_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=resolved_binding_id,
+                ),
                 deleted=False,
             )
             .order_by("id")
@@ -1409,6 +1977,7 @@ class DjangoDataCapturePageRepository:
                 status=DataCapturePageStateStatusChoices.NOT_STARTED,
                 actor_user_id=actor_user_id,
                 trigger_source="system",
+                event_form_binding_id=resolved_binding_id,
             )
         now = self._now()
         from_status = page_state.status
@@ -1947,13 +2516,17 @@ class DjangoDataCapturePageRepository:
         status: str,
         actor_user_id: int | None = None,
         trigger_source: str = "review",
+        event_form_binding_id: int | None = None,
     ) -> None:
         """Persist stable ``final_data`` when status is verified, locked, or finalized."""
         now = self._now()
         page_state = DataCapturePageState.objects.filter(
-            subject_id=subject_id,
-            visit_id=visit_id,
-            crf_template_id=crf_template_id,
+            **self._page_state_scope_filter_kwargs(
+                subject_id=subject_id,
+                visit_id=visit_id,
+                crf_template_id=crf_template_id,
+                event_form_binding_id=event_form_binding_id,
+            ),
             deleted=False,
         ).first()
         if page_state is None:
@@ -1978,6 +2551,19 @@ class DjangoDataCapturePageRepository:
                 page_state.data_version
                 if status == DataCapturePageStateStatusChoices.FINALIZED
                 else page_state.finalized_data_version
+            ),
+            certified_at=(
+                now if status == DataCapturePageStateStatusChoices.CERTIFIED else page_state.certified_at
+            ),
+            certified_by_id=(
+                actor_user_id
+                if status == DataCapturePageStateStatusChoices.CERTIFIED
+                else page_state.certified_by_id
+            ),
+            certified_data_version=(
+                page_state.data_version
+                if status == DataCapturePageStateStatusChoices.CERTIFIED
+                else page_state.certified_data_version
             ),
             locked_at=(now if status == DataCapturePageStateStatusChoices.LOCKED else page_state.locked_at),
             locked_by_id=(
@@ -2082,12 +2668,17 @@ class DjangoDataCapturePageRepository:
         crf_template_id = int(page_state.crf_template_id) if page_state is not None else 0
         entry_version = ""
         if page_state is not None and page_state.current_entry_id:
-            entry_version = (
+            current_entry = (
                 DataCapturePageEntry.objects.filter(pk=page_state.current_entry_id)
-                .values_list("entry_version", flat=True)
+                .only("entry_version", "data")
                 .first()
-                or ""
             )
+            entry_version = str(getattr(current_entry, "entry_version", "") or "")
+            if not payload and current_entry is not None:
+                payload = flatten_form_data_for_export(
+                    normalize_form_data(current_entry.data, strict=False),
+                    repeat_strategy="legacy_repeat_suffix",
+                )
         template_snapshot = (
             self.get_form_template_snapshot(crf_template_id=crf_template_id)
             if crf_template_id
@@ -2150,12 +2741,22 @@ class DjangoDataCapturePageRepository:
             actor_id=actor_user_id,
         )
 
-    def _next_entry_no(self, *, subject_id: int, visit_id: int, crf_template_id: int) -> int:
+    def _next_entry_no(
+        self,
+        *,
+        subject_id: int,
+        visit_id: int,
+        crf_template_id: int,
+        event_form_binding_id: int | None = None,
+    ) -> int:
         max_entry_no = (
             DataCapturePageEntry.objects.filter(
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
+                **self._page_entry_scope_filter_kwargs(
+                    subject_id=subject_id,
+                    visit_id=visit_id,
+                    crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
+                ),
                 deleted=False,
             ).aggregate(max_entry_no=Max("entry_no")).get("max_entry_no")
         )

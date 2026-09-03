@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.datacapture.infrastructure.repositories import DjangoDataCaptureFactMappingRepository
+from apps.study.application.exceptions import FactMappingImportConflictError
 
 
 @dataclass(frozen=True)
@@ -51,37 +52,46 @@ class DataCaptureFactMappingConfigService:
             "updated_by_id": actor_user_id,
         }
 
-        with transaction.atomic():
-            fact_mapping = self.repository.get_fact_mapping_for_import(
-                study_id=study_id,
-                study_version=study_version,
-                event_definition_id=event_definition_id,
-                crf_template_id=crf_template_id,
-                fact_key=fact_key,
-            )
-            if fact_mapping is None:
-                fact_mapping = self.repository.create_fact_mapping(
+        try:
+            with transaction.atomic():
+                fact_mapping = self.repository.get_fact_mapping_for_import(
                     study_id=study_id,
                     study_version=study_version,
                     event_definition_id=event_definition_id,
                     crf_template_id=crf_template_id,
                     fact_key=fact_key,
-                    created_at=now,
-                    created_by_id=actor_user_id,
-                    **defaults,
                 )
+                if fact_mapping is not None and int(getattr(fact_mapping, "crf_template_id", 0) or 0) != int(crf_template_id):
+                    raise FactMappingImportConflictError(
+                        "Fact Key already exists in this study/event/version scope and is bound to another form."
+                    )
+                if fact_mapping is None:
+                    fact_mapping = self.repository.create_fact_mapping(
+                        study_id=study_id,
+                        study_version=study_version,
+                        event_definition_id=event_definition_id,
+                        crf_template_id=crf_template_id,
+                        fact_key=fact_key,
+                        created_at=now,
+                        created_by_id=actor_user_id,
+                        **defaults,
+                    )
+                    return DataCaptureFactMappingUpsertResult(
+                        outcome="created",
+                        fact_mapping_id=fact_mapping.pk,
+                    )
+
+                for field_name, value in defaults.items():
+                    setattr(fact_mapping, field_name, value)
+                self.repository.save_fact_mapping(fact_mapping, update_fields=list(defaults.keys()))
                 return DataCaptureFactMappingUpsertResult(
-                    outcome="created",
+                    outcome="updated",
                     fact_mapping_id=fact_mapping.pk,
                 )
-
-            for field_name, value in defaults.items():
-                setattr(fact_mapping, field_name, value)
-            self.repository.save_fact_mapping(fact_mapping, update_fields=list(defaults.keys()))
-            return DataCaptureFactMappingUpsertResult(
-                outcome="updated",
-                fact_mapping_id=fact_mapping.pk,
-            )
+        except IntegrityError as exc:
+            raise FactMappingImportConflictError(
+                "Fact Key already exists in this study/event/version scope and is bound to another form."
+            ) from exc
 
 
 __all__ = [

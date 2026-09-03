@@ -69,6 +69,25 @@ class DjangoCrfTemplateRepository:
             )
         )
 
+    def list_export_fields_by_template_ids(self, *, template_ids):
+        return (
+            CrfFieldTemplate.objects.filter(
+                crf_template_id__in=template_ids,
+                section_template_id__isnull=False,
+                deleted=False,
+                is_active=True,
+            )
+            .select_related("ui_config")
+            .prefetch_related("translations", "ui_config__translations")
+            .order_by(
+                "crf_template_id",
+                "section_template__display_order",
+                "section_template_id",
+                "display_order",
+                "id",
+            )
+        )
+
     def list_field_definitions_by_field_template_ids(self, field_template_ids):
         return (
             CrfFieldDefinition.objects.filter(

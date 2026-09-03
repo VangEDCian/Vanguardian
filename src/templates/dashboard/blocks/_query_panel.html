@@ -1,0 +1,23 @@
+{% load i18n static %}
+<article class="dashboard-panel dashboard-panel--query">
+    <div class="dashboard-panel__header">
+        <h2>{% trans "Query Summary" %}</h2>
+        <p>{% trans "Numbers follow the selected scope above." %}</p>
+    </div>
+    <div class="dashboard-query-summary__table">
+        {% for row in dashboard_query_rows %}
+            <div class="dashboard-query-summary__row">
+                <span class="dashboard-query-summary__label">{{ row.label }}</span>
+                <span class="dashboard-query-summary__icon {{ row.icon_class }}"
+                      aria-hidden="true"
+                      {% if row.icon_class != "dashboard-query-summary__icon--outline" %}style="--icon-url: url('{% static 'images/table/query.svg' %}');"{% endif %}></span>
+                <span class="dashboard-query-summary__count">{{ row.count }}</span>
+            </div>
+        {% endfor %}
+        <div class="dashboard-query-summary__row dashboard-query-summary__row--total">
+            <span class="dashboard-query-summary__label">{% trans "Total" %}</span>
+            <span aria-hidden="true"></span>
+            <span class="dashboard-query-summary__count">{{ dashboard_query_total }}</span>
+        </div>
+    </div>
+</article>

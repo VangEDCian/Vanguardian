@@ -1,7 +1,9 @@
 import json
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.translation import get_language
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
@@ -11,28 +13,48 @@ from apps.core.form_data_document import (
     flatten_form_data_for_export,
     normalize_form_data,
 )
+from apps.datacapture.application.services.page_lifecycle_policy import (
+    CrfPageLifecycleStep,
+    DataCapturePageLifecyclePolicyService,
+)
 from apps.datacapture.domain import DataCapturePageEntry, DataCapturePageState
 from apps.datacapture.public import (
     ensure_draft_page_state_if_not_exists,
+    get_event_attestation_panel_for_event_instance,
     get_latest_page_entry_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
     get_page_state_id_for_subject_visit_crf,
     get_page_state_status_for_subject_visit_crf,
     get_verified_field_template_ids_for_subject_visit_crf,
 )
-from apps.reconcile.public import list_open_reconcile_validation_issues_by_fields
+from apps.reconcile.public import (
+    list_field_template_ids_with_reconcile_queries,
+    list_field_template_ids_with_reconcile_validation_issues,
+    list_open_reconcile_validation_issues_by_fields,
+)
 from apps.shared.navigation import user_can_access_permission
 from apps.shared.views import AuthenticateTemplateContextMixin
+from apps.study.public import build_randomization_transition_facts
 from apps.subject.application.services.form_field_review_table import FormFieldReviewTableService
 from apps.subject.application.services.form_verification_navigation import (
     SubjectFormVerificationNavigationService,
 )
+from apps.subject.application.services.period_override import (
+    SubjectPeriodOverrideService,
+)
 from apps.subject.application.services.subject_list_verify_form_visibility import VERIFY_FORM_PERMISSION
 from apps.subject.infrastructure.repositories import DjangoSubjectEventInstanceFileRepository
 from apps.subject.models import Subject
-from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
+from apps.subject.presentation.web.mappers.participation_status import (
+    get_subject_participation_status_label,
+)
+from apps.subject.presentation.web.views.base import (
+    CRF_DATA_CHANGE_PERMISSIONS,
+    SubjectAbstractVerifyStudy,
+)
 from apps.subject.presentation.web.views.detail_navigation import SubjectDetailNavigationMixin
 from apps.subject.presentation.web.views.detail_rendering import SubjectDetailRenderingMixin
+from apps.subject.public import get_subject_capture_eligibility
 
 
 def _same_user_id(left, right) -> bool:
@@ -40,18 +62,17 @@ def _same_user_id(left, right) -> bool:
         return int(left) == int(right)
     except (TypeError, ValueError):
         return False
-
-
-def _split_closed_field_review_histories(histories):
-    query_histories = []
-    validation_issue_histories = []
-    for history in histories or []:
-        dataquery_id = str(history.get("dataquery_id") or "").strip().lower()
-        if dataquery_id.startswith("validation_issue_"):
-            validation_issue_histories.append(history)
-            continue
-        query_histories.append(history)
-    return query_histories, validation_issue_histories
+def _field_has_reconcile_records(
+    *,
+    field_template_id: int,
+    query_field_template_ids_with_records: set[int],
+    validation_issue_field_template_ids_with_records: set[int],
+) -> tuple[bool, bool]:
+    normalized_field_template_id = int(field_template_id)
+    return (
+        normalized_field_template_id in query_field_template_ids_with_records,
+        normalized_field_template_id in validation_issue_field_template_ids_with_records,
+    )
 
 
 class SubjectDetailView(
@@ -61,7 +82,7 @@ class SubjectDetailView(
     DetailView,
     SubjectAbstractVerifyStudy,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "SUBJECT.VIEW"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -70,6 +91,10 @@ class SubjectDetailView(
 
     model = Subject
     pk_url_kwarg = "subject_id"
+    period_override_service_class = SubjectPeriodOverrideService
+    randomization_transition_fact_builder = staticmethod(
+        build_randomization_transition_facts
+    )
     supported_control_type_map = {
         "text": "text",
         "entry_box": "text",
@@ -121,7 +146,13 @@ class SubjectDetailView(
             super()
             .get_queryset()
             .filter(study_id=self.get_study_id(), deleted=False)
-            .select_related("site", "study")
+            .select_related(
+                "site",
+                "study",
+                "enrollment",
+                "randomization",
+                "randomization__slot",
+            )
         )
 
     def get_layout_show_breadcrumb_trail(self):
@@ -138,14 +169,27 @@ class SubjectDetailView(
         if subject is None:
             return super().get_layout_detail_meta_items()
 
+        try:
+            randomization_code = subject.randomization.randomization_number or "—"
+        except ObjectDoesNotExist:
+            randomization_code = "—"
+
         return (
             {
                 "label": _("Site"),
                 "value": subject.site.code,
             },
             {
-                "label": _("Subject ID"),
-                "value": subject.subject_code or subject.screening_code or "—",
+                "label": _("Subject Code"),
+                "value": subject.subject_code or "—",
+            },
+            {
+                "label": _("Screening Code"),
+                "value": subject.screening_code or "—",
+            },
+            {
+                "label": _("Randomization Code"),
+                "value": randomization_code,
             },
             {
                 "label": _("Study"),
@@ -156,6 +200,20 @@ class SubjectDetailView(
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         mode = (request.GET.get("mode") or "").strip().lower()
+        if not mode and not self._user_can_change_crf_data():
+            raw_nav = self._build_event_navigation()
+            submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
+                subject_id=self.object.pk,
+                event_navigation=raw_nav,
+            )
+            readonly_url = self._readonly_mode_url_for_focus(
+                mode="viewonly",
+                event_navigation_submitted=submitted_nav,
+                focus_event_id=request.GET.get("event"),
+                focus_form_id=request.GET.get("form"),
+            )
+            if readonly_url:
+                return redirect(readonly_url)
         if mode in {"verification", "viewonly"} and not request.GET.get("event") and not request.GET.get("form"):
             raw_nav = self._build_event_navigation()
             submitted_nav = SubjectFormVerificationNavigationService.filter_submitted_only(
@@ -190,9 +248,24 @@ class SubjectDetailView(
             event_navigation = self._with_focus_urls(raw_event_navigation)
 
         focus_event_id = (self.request.GET.get("event") or "").strip()
-        focused_event = self._resolve_focus(event_navigation, focus_event_id)
+        focused_event = self._resolve_focus(event_navigation, focus_event_id) if focus_event_id else None
         if focused_event is None and event_navigation:
-            focused_event = event_navigation[0]
+            focused_event = self._resolve_default_focus_event(event_navigation)
+        focused_capture_eligibility = None
+        if focused_event and not is_submitted_readonly_mode:
+            try:
+                focused_event_instance_id = int(focused_event["id"])
+            except (KeyError, TypeError, ValueError):
+                focused_event_instance_id = None
+            if focused_event_instance_id is not None:
+                focused_capture_eligibility = get_subject_capture_eligibility(
+                    subject_id=subject.pk,
+                    event_instance_id=focused_event_instance_id,
+                )
+        is_focused_capture_allowed = (
+            focused_capture_eligibility is None
+            or focused_capture_eligibility.allowed
+        )
         focused_forms = focused_event["forms"] if focused_event else []
 
         focus_form_id = (self.request.GET.get("form") or "").strip()
@@ -216,6 +289,7 @@ class SubjectDetailView(
         datacapture_save_url = ""
         datacapture_submit_url = ""
         datacapture_delete_draft_url = ""
+        field_audit_history_url = ""
         event_file_import_url = ""
         event_file_preview_url = ""
         has_event_instance_files = False
@@ -225,6 +299,7 @@ class SubjectDetailView(
                 try:
                     template_id = int(form_definition_id)
                     visit_id = int(focused_event["id"]) if focused_event else None
+                    event_form_binding_id = int(focused_form.get("id")) if focused_form.get("id") else None
                     detail_url = reverse(
                         "subject:subject_detail",
                         kwargs={"study_id": self.get_study_id(), "subject_id": subject.pk},
@@ -245,11 +320,13 @@ class SubjectDetailView(
                         subject_id=subject.pk,
                         visit_id=visit_id,
                         crf_template_id=template_id,
+                        event_form_binding_id=event_form_binding_id,
                     )
                     if (
                         not focused_page_status
                         and focused_event
                         and not is_submitted_readonly_mode
+                        and is_focused_capture_allowed
                         and visit_id is not None
                     ):
                         ensure_draft_page_state_if_not_exists(
@@ -257,23 +334,27 @@ class SubjectDetailView(
                             visit_id=visit_id,
                             crf_template_id=template_id,
                             actor_user_id=self.request.user.pk,
+                            event_form_binding_id=event_form_binding_id,
                         )
                         focused_page_status = get_page_state_status_for_subject_visit_crf(
                             subject_id=subject.pk,
                             visit_id=visit_id,
                             crf_template_id=template_id,
+                            event_form_binding_id=event_form_binding_id,
                         )
                     if focused_event:
                         focused_latest_entry = get_latest_page_entry_for_subject_visit_crf(
                             subject_id=subject.pk,
                             visit_id=visit_id,
                             crf_template_id=template_id,
+                            event_form_binding_id=event_form_binding_id,
                         )
                         focused_latest_submitted_entry = (
                             get_latest_submitted_page_entry_for_subject_visit_crf(
                                 subject_id=subject.pk,
                                 visit_id=visit_id,
                                 crf_template_id=template_id,
+                                event_form_binding_id=event_form_binding_id,
                             )
                         )
                         if is_submitted_readonly_mode:
@@ -344,6 +425,7 @@ class SubjectDetailView(
                         subject_id=subject.pk,
                         visit_id=int(focused_event["id"]) if focused_event else None,
                         crf_template_id=template_id,
+                        event_form_binding_id=event_form_binding_id,
                     )
                     reason_required_field_keys = []
                     for field in focused_form_fields:
@@ -357,7 +439,11 @@ class SubjectDetailView(
                                 reason_required_field_keys.append(field_key)
                             reason_required_field_keys.append(f"field_{field_template_id}")
                     reason_required_field_keys = sorted(set(reason_required_field_keys))
-                    if focused_event and not is_submitted_readonly_mode:
+                    if (
+                        focused_event
+                        and not is_submitted_readonly_mode
+                        and is_focused_capture_allowed
+                    ):
                         url_kw = {
                             "study_id": self.get_study_id(),
                             "subject_id": subject.pk,
@@ -367,6 +453,19 @@ class SubjectDetailView(
                         datacapture_save_url = reverse("datacapture:page_save", kwargs=url_kw)
                         datacapture_submit_url = reverse("datacapture:page_submit", kwargs=url_kw)
                         datacapture_delete_draft_url = reverse("datacapture:page_delete_draft", kwargs=url_kw)
+                    if focused_event:
+                        field_audit_history_url = reverse(
+                            "subject:subject_field_audit_history",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": int(focused_event["id"]),
+                                "crf_template_id": template_id,
+                            },
+                        )
+                        form_binding_id = str(focused_form.get("id") or "").strip()
+                        if form_binding_id:
+                            field_audit_history_url = f"{field_audit_history_url}?form={form_binding_id}"
                 except (TypeError, ValueError):
                     focused_form_fields = []
                     focused_page_status = ""
@@ -385,6 +484,7 @@ class SubjectDetailView(
                     datacapture_save_url = ""
                     datacapture_submit_url = ""
                     datacapture_delete_draft_url = ""
+                    field_audit_history_url = ""
 
         if focused_event and not is_submitted_readonly_mode:
             try:
@@ -423,9 +523,11 @@ class SubjectDetailView(
         form_verification_reopen_url = ""
         form_verification_finalize_page_data_url = ""
         form_verification_lock_page_url = ""
+        form_verification_lock_blocked_by_queries = False
         form_verification_open_query_url = ""
         form_verification_query_thread_url = ""
         validation_issue_acknowledge_url = ""
+        event_attestation_panel = None
         form_verification_show_field_checkboxes = True
         form_verification_show_actions = False
         form_verification_show_all_rows_by_default = False
@@ -433,6 +535,8 @@ class SubjectDetailView(
         form_verification_has_submitted_entry = False
         field_query_state_by_id = {}
         field_validation_issue_state_by_id = {}
+        query_field_template_ids_with_records: set[int] = set()
+        validation_issue_field_template_ids_with_records: set[int] = set()
         if focused_form and focused_event and focused_form_fields and not is_submitted_readonly_mode:
             try:
                 visit_pk = int(focused_event["id"])
@@ -445,6 +549,7 @@ class SubjectDetailView(
                     subject_id=subject.pk,
                     visit_id=visit_pk,
                     crf_template_id=template_pk,
+                    event_form_binding_id=int(focused_form.get("id") or 0) or None,
                 )
                 if page_state_pk is not None:
                     validation_issue_acknowledge_url = reverse(
@@ -456,10 +561,25 @@ class SubjectDetailView(
                             "crf_template_id": template_pk,
                         },
                     )
+                    validation_issue_acknowledge_url = (
+                        f"{validation_issue_acknowledge_url}?form={focused_form.get('id', '')}"
+                    )
                     field_template_ids = tuple(
                         int(field["id"])
                         for field in focused_form_fields
                         if str(field.get("id") or "").isdigit()
+                    )
+                    query_field_template_ids_with_records = (
+                        list_field_template_ids_with_reconcile_queries(
+                            page_state_id=int(page_state_pk),
+                            field_template_ids=field_template_ids,
+                        )
+                    )
+                    validation_issue_field_template_ids_with_records = (
+                        list_field_template_ids_with_reconcile_validation_issues(
+                            page_state_id=int(page_state_pk),
+                            field_template_ids=field_template_ids,
+                        )
                     )
                     open_validation_issues_by_field = list_open_reconcile_validation_issues_by_fields(
                         page_state_id=int(page_state_pk),
@@ -470,13 +590,7 @@ class SubjectDetailView(
                             "validation_issue_count": len(issues),
                             "validation_issues": issues,
                         }
-                    form_verification_user_can_review = (
-                        getattr(focused_render_entry, "updated_by_id", None) is None
-                        or not _same_user_id(
-                            getattr(self.request.user, "id", None),
-                            getattr(focused_render_entry, "updated_by_id", None),
-                        )
-                    )
+                    form_verification_user_can_review = True
                     query_review = FormFieldReviewTableService().build_for_verification(
                         subject_code=subject.subject_code or subject.screening_code or "",
                         site_id=subject.site.code,
@@ -498,13 +612,14 @@ class SubjectDetailView(
                         if not str(field_template_id or "").isdigit():
                             continue
                         closed_query_histories = row.get("closed_query_histories") or []
-                        query_histories, validation_issue_histories = _split_closed_field_review_histories(
-                            closed_query_histories
+                        has_query_records, has_validation_issue_records = _field_has_reconcile_records(
+                            field_template_id=int(field_template_id),
+                            query_field_template_ids_with_records=query_field_template_ids_with_records,
+                            validation_issue_field_template_ids_with_records=validation_issue_field_template_ids_with_records,
                         )
                         if (
-                            not row.get("active_query_id")
-                            and not closed_query_histories
-                            and not validation_issue_histories
+                            not has_query_records
+                            and not has_validation_issue_records
                         ):
                             continue
                         field_query_state_by_id[int(field_template_id)] = {
@@ -514,8 +629,9 @@ class SubjectDetailView(
                             "query_thread_badge_count": row.get("query_thread_badge_count"),
                             "query_messages": row.get("query_messages"),
                             "closed_query_histories": closed_query_histories,
-                            "has_query_history": bool(query_histories),
-                            "has_validation_issue_history": bool(validation_issue_histories),
+                            "validation_issue_histories": row.get("validation_issue_histories") or [],
+                            "has_query_history": has_query_records,
+                            "has_validation_issue_history": has_validation_issue_records,
                         }
                     if field_query_state_by_id:
                         form_verification_query_thread_url = reverse(
@@ -527,7 +643,9 @@ class SubjectDetailView(
                                 "crf_template_id": template_pk,
                             },
                         )
-
+                        form_verification_query_thread_url = (
+                            f"{form_verification_query_thread_url}?form={focused_form.get('id', '')}"
+                        )
         form_render_sections = self._build_form_render_sections(
             focused_form_fields,
             entry_payload_map=focused_entry_values,
@@ -548,11 +666,13 @@ class SubjectDetailView(
                     subject_id=subject.pk,
                     visit_id=visit_pk,
                     crf_template_id=template_pk,
+                    event_form_binding_id=int(focused_form.get("id") or 0) or None,
                 )
                 verified_field_template_ids = get_verified_field_template_ids_for_subject_visit_crf(
                     subject_id=subject.pk,
                     visit_id=visit_pk,
                     crf_template_id=template_pk,
+                    event_form_binding_id=int(focused_form.get("id") or 0) or None,
                 )
                 form_verification_review = FormFieldReviewTableService().build_for_verification(
                     subject_code=subject.subject_code or subject.screening_code or "",
@@ -574,15 +694,22 @@ class SubjectDetailView(
                     focused_render_entry is not None
                     and DataCapturePageEntry.is_submitted(getattr(focused_render_entry, "status", ""))
                 )
-                form_verification_user_can_review = (
-                    getattr(focused_render_entry, "updated_by_id", None) is None
-                    or not _same_user_id(
-                        getattr(self.request.user, "id", None),
-                        getattr(focused_render_entry, "updated_by_id", None),
-                    )
-                )
+                form_verification_user_can_review = True
                 if is_form_verification_mode:
+                    form_query = f"?form={focused_form.get('id', '')}"
                     normalized_page_status = (focused_page_status or "").strip().lower()
+                    lifecycle_policy = DataCapturePageLifecyclePolicyService()
+                    actor_user_id = int(getattr(self.request.user, "id", 0) or 0)
+
+                    def can_perform_step(step_code):
+                        return lifecycle_policy.can_perform(
+                            study_id=self.get_study_id(),
+                            page_status=normalized_page_status,
+                            step_code=step_code,
+                            actor_user_id=actor_user_id,
+                            site_id=subject.site_id,
+                        )
+
                     form_verification_show_actions = normalized_page_status in {
                         DataCapturePageState.SUBMITTED,
                         DataCapturePageState.VERIFIED,
@@ -618,6 +745,7 @@ class SubjectDetailView(
                                 "crf_template_id": template_pk,
                             },
                         )
+                        form_verification_open_query_url = f"{form_verification_open_query_url}{form_query}"
                         form_verification_query_thread_url = reverse(
                             "subject:subject_form_verification_query_thread",
                             kwargs={
@@ -627,7 +755,11 @@ class SubjectDetailView(
                                 "crf_template_id": template_pk,
                             },
                         )
-                    if DataCapturePageState.can_start_or_continue_review(normalized_page_status):
+                        form_verification_query_thread_url = f"{form_verification_query_thread_url}{form_query}"
+                    if (
+                        DataCapturePageState.can_start_or_continue_review(normalized_page_status)
+                        and can_perform_step(CrfPageLifecycleStep.VERIFY)
+                    ):
                         form_verification_verify_checked_url = reverse(
                             "subject:subject_form_verification_verify_checked",
                             kwargs={
@@ -637,6 +769,7 @@ class SubjectDetailView(
                                 "crf_template_id": template_pk,
                             },
                         )
+                        form_verification_verify_checked_url = f"{form_verification_verify_checked_url}{form_query}"
                     if DataCapturePageState.can_reopen(normalized_page_status):
                         form_verification_reopen_url = reverse(
                             "subject:subject_form_verification_reopen",
@@ -647,28 +780,19 @@ class SubjectDetailView(
                                 "crf_template_id": template_pk,
                             },
                         )
-                    if normalized_page_status == DataCapturePageState.VERIFIED:
-                        form_verification_finalize_page_data_url = reverse(
-                            "subject:subject_form_verification_finalize_page_data",
-                            kwargs={
-                                "study_id": self.get_study_id(),
-                                "subject_id": subject.pk,
-                                "visit_id": visit_pk,
-                                "crf_template_id": template_pk,
-                            },
-                        )
+                        form_verification_reopen_url = f"{form_verification_reopen_url}{form_query}"
                 if (
                     is_form_verification_mode
-                    and normalized_page_status == DataCapturePageState.FINALIZED
                     and user_can_access_permission(
                         self.request.user,
-                        "DATA.LOCK",
+                        VERIFY_FORM_PERMISSION,
                         study_id=self.get_study_id(),
                         site_id=subject.site_id,
                     )
+                    and can_perform_step(CrfPageLifecycleStep.FINALIZE)
                 ):
-                    form_verification_lock_page_url = reverse(
-                        "subject:subject_form_verification_lock_page",
+                    form_verification_finalize_page_data_url = reverse(
+                        "subject:subject_form_verification_finalize_page_data",
                         kwargs={
                             "study_id": self.get_study_id(),
                             "subject_id": subject.pk,
@@ -676,12 +800,61 @@ class SubjectDetailView(
                             "crf_template_id": template_pk,
                         },
                     )
+                    form_verification_finalize_page_data_url = (
+                        f"{form_verification_finalize_page_data_url}{form_query}"
+                    )
+                if (
+                    is_form_verification_mode
+                    and user_can_access_permission(
+                        self.request.user,
+                        "DATA.LOCK",
+                        study_id=self.get_study_id(),
+                        site_id=subject.site_id,
+                    )
+                    and can_perform_step(CrfPageLifecycleStep.LOCK)
+                ):
+                    if field_query_state_by_id:
+                        form_verification_lock_blocked_by_queries = True
+                    else:
+                        form_verification_lock_page_url = reverse(
+                            "subject:subject_form_verification_lock_page",
+                            kwargs={
+                                "study_id": self.get_study_id(),
+                                "subject_id": subject.pk,
+                                "visit_id": visit_pk,
+                                "crf_template_id": template_pk,
+                            },
+                        )
+                        form_verification_lock_page_url = f"{form_verification_lock_page_url}?form={focused_form.get('id', '')}"
+
+        event_attestation_panel = self._build_event_attestation_panel(
+            is_form_verification_mode=is_form_verification_mode,
+            focused_event=focused_event,
+            subject_id=subject.pk,
+        )
 
         context["back_url"] = reverse(
             "subject:subject_list", kwargs={"study_id": self.get_study_id()},
         )
+        context["audit_history_url"] = reverse(
+            "subject:subject_audit_history",
+            kwargs={"study_id": self.get_study_id(), "subject_id": subject.pk},
+        )
+        context["period_override"] = self._build_period_override_context(
+            subject=subject,
+        )
         context["subject_obj"] = subject
         context["subject_display_id"] = subject.subject_code or subject.screening_code or "—"
+        context["participation_status_label"] = (
+            get_subject_participation_status_label(
+                subject,
+                randomization_transition_facts=(
+                    self.randomization_transition_fact_builder(
+                        study_id=self.get_study_id(),
+                    )
+                ),
+            )
+        )
         context["event_navigation"] = event_navigation
         context["focused_event"] = focused_event
         context["focused_forms"] = focused_forms
@@ -721,6 +894,10 @@ class SubjectDetailView(
         context["datacapture_save_url"] = datacapture_save_url
         context["datacapture_submit_url"] = datacapture_submit_url
         context["datacapture_delete_draft_url"] = datacapture_delete_draft_url
+        context["subject_lifecycle_blocks_capture"] = (
+            not is_focused_capture_allowed
+        )
+        context["field_audit_history_url"] = field_audit_history_url
         context["can_show_datacapture_entry_actions"] = (
             bool(datacapture_save_url)
             and not is_viewing_submitted_version
@@ -737,11 +914,15 @@ class SubjectDetailView(
         context["form_verification_reopen_url"] = form_verification_reopen_url
         context["form_verification_finalize_page_data_url"] = form_verification_finalize_page_data_url
         context["form_verification_lock_page_url"] = form_verification_lock_page_url
+        context["form_verification_lock_blocked_by_queries"] = form_verification_lock_blocked_by_queries
         context["form_verification_open_query_url"] = form_verification_open_query_url
         context["form_verification_query_thread_url"] = form_verification_query_thread_url
         context["validation_issue_acknowledge_url"] = validation_issue_acknowledge_url
         context["page_entry_has_open_queries"] = bool(field_query_state_by_id)
         context["page_entry_has_open_validation_issues"] = bool(field_validation_issue_state_by_id)
+        context["page_entry_has_validation_issue_records"] = bool(
+            validation_issue_field_template_ids_with_records
+        )
         context["form_verification_show_field_checkboxes"] = (
             form_verification_show_field_checkboxes and form_verification_user_can_review
         )
@@ -754,6 +935,7 @@ class SubjectDetailView(
         context["form_verification_query_actions_locked"] = (
             is_form_verification_mode and not form_verification_user_can_review
         )
+        context["event_attestation_panel"] = event_attestation_panel
         context["is_page_edit_locked"] = DataCapturePageState.is_capture_locked(focused_page_status)
         if datacapture_save_url:
             context["datacapture_save_confirm_message"] = _(
@@ -763,6 +945,35 @@ class SubjectDetailView(
                 "Delete current draft version? This action marks it as canceled."
             )
         return context
+
+    def _build_period_override_context(self, *, subject):
+        if not user_can_access_permission(
+            self.request.user,
+            "SUBJECT.PERIOD_OVERRIDE",
+            study_id=self.get_study_id(),
+            site_id=subject.site_id,
+        ):
+            return None
+        availability = self.period_override_service_class().get_availability(
+            subject_id=subject.pk,
+        )
+        if not availability.available:
+            return None
+        return {
+            "current_period_no": availability.current_period_no,
+            "current_treatment_code": availability.current_treatment_code,
+            "current_status": availability.current_status,
+            "next_period_no": availability.next_period_no,
+            "next_treatment_code": availability.next_treatment_code,
+            "source_event_status": availability.source_event_status,
+            "submit_url": reverse(
+                "subject:subject_period_override",
+                kwargs={
+                    "study_id": self.get_study_id(),
+                    "subject_id": subject.pk,
+                },
+            ),
+        }
 
     def _first_readonly_mode_url(self, *, mode: str, event_navigation_submitted: list) -> str | None:
         if not event_navigation_submitted:
@@ -777,6 +988,115 @@ class SubjectDetailView(
             kwargs={"study_id": self.get_study_id(), "subject_id": self.object.pk},
         )
         return f"{base}?mode={mode}&event={first_event['id']}&form={first_form['id']}"
+
+    def _readonly_mode_url_for_focus(
+        self,
+        *,
+        mode: str,
+        event_navigation_submitted: list,
+        focus_event_id: str | None = None,
+        focus_form_id: str | None = None,
+    ) -> str | None:
+        if not event_navigation_submitted:
+            return None
+        focused_event = (
+            self._resolve_focus(event_navigation_submitted, str(focus_event_id))
+            if focus_event_id
+            else event_navigation_submitted[0]
+        )
+        if focused_event is None:
+            return None
+        forms = focused_event.get("forms") or []
+        if not forms:
+            return None
+        focused_form = self._resolve_focus(forms, str(focus_form_id)) if focus_form_id else forms[0]
+        if focused_form is None:
+            return None
+        base = reverse(
+            "subject:subject_detail",
+            kwargs={"study_id": self.get_study_id(), "subject_id": self.object.pk},
+        )
+        return f"{base}?mode={mode}&event={focused_event['id']}&form={focused_form['id']}"
+
+    def _user_can_change_crf_data(self) -> bool:
+        return any(
+            user_can_access_permission(
+                self.request.user,
+                permission_code,
+                study_id=self.get_study_id(),
+                site_id=self.object.site_id,
+            )
+            for permission_code in CRF_DATA_CHANGE_PERMISSIONS
+        )
+
+    def _with_event_attestation_urls(
+        self,
+        panel: dict | None,
+        *,
+        subject_id: int,
+        event_instance_id: int,
+    ) -> dict | None:
+        if not panel or not panel.get("has_policies"):
+            return panel
+        if panel.get("visit_is_certified"):
+            panel["policies"] = []
+            return panel
+        visible_policies = []
+        for policy in panel.get("policies", []):
+            readiness = policy.get("readiness") or {}
+            if not readiness.get("permission_allowed"):
+                continue
+            policy["submit_url"] = reverse(
+                "datacapture:event_attestation_submit",
+                kwargs={
+                    "study_id": self.get_study_id(),
+                    "subject_id": subject_id,
+                    "visit_id": event_instance_id,
+                    "attestation_policy_id": int(policy["policy_id"]),
+                },
+            )
+            active_attestation = policy.get("active_attestation") or {}
+            if str(active_attestation.get("status") or "").upper() == "ACTIVE":
+                policy["revoke_url"] = reverse(
+                    "datacapture:event_attestation_revoke",
+                    kwargs={
+                        "study_id": self.get_study_id(),
+                        "subject_id": subject_id,
+                        "visit_id": event_instance_id,
+                        "event_attestation_id": int(active_attestation["id"]),
+                    },
+                )
+            else:
+                policy["revoke_url"] = ""
+            visible_policies.append(policy)
+        panel["policies"] = visible_policies
+        panel["has_policies"] = bool(visible_policies)
+        return panel
+
+    def _build_event_attestation_panel(
+        self,
+        *,
+        is_form_verification_mode: bool,
+        focused_event: dict | None,
+        subject_id: int,
+    ) -> dict | None:
+        if not is_form_verification_mode or not focused_event:
+            return None
+        try:
+            event_instance_id = int(focused_event["id"])
+            panel = get_event_attestation_panel_for_event_instance(
+                event_instance_id=event_instance_id,
+                actor_user_id=getattr(self.request.user, "id", None),
+                actor_is_superuser=bool(getattr(self.request.user, "is_superuser", False)),
+                language_code=get_language(),
+            )
+            return self._with_event_attestation_urls(
+                panel,
+                subject_id=subject_id,
+                event_instance_id=event_instance_id,
+            )
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _extract_entry_payload_map(raw_payload):

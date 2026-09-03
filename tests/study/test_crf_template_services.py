@@ -2,7 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 from openpyxl import load_workbook
 
 from apps.study.application.services import (
@@ -125,7 +125,7 @@ class ImportStudyCrfTemplatesTemplateServiceTests(SimpleTestCase):
         mock_adapter.upsert_crf_template.assert_called_once()
 
 
-class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
+class ImportStudyCrfTemplateFieldsTemplateServiceTests(TestCase):
     def setUp(self):
         self.service = ImportStudyCrfTemplateFieldsTemplateService()
 
@@ -170,7 +170,11 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
         mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
         mock_adapter.reset_import_template_fields.return_value = 0
-        mock_adapter.upsert_import_template_field.return_value = ("created", SimpleNamespace(pk=31))
+
+        def upsert_template_fields(*, prepared_rows, **kwargs):
+            return [("created", SimpleNamespace(pk=31), prepared_rows[0])]
+
+        mock_adapter.upsert_import_template_fields.side_effect = upsert_template_fields
         service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
 
         result = service.execute(
@@ -196,6 +200,8 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
             section_name="General",
         )
         mock_adapter.reset_import_template_fields.assert_called_once()
+        prepared_rows = mock_adapter.upsert_import_template_fields.call_args.kwargs["prepared_rows"]
+        cached_field_templates = mock_adapter.upsert_import_template_fields.call_args.kwargs["cached_field_templates"]
         self.assertEqual(
             mock_adapter.method_calls[-2:],
             [
@@ -204,20 +210,89 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
                     actor_user_id=7,
                     now=mock_adapter.reset_import_template_fields.call_args.kwargs["now"],
                 ),
-                call.upsert_import_template_field(
-                    crf_template_id=17,
-                    section_template_id=23,
-                    payload=mock_adapter.upsert_import_template_field.call_args.kwargs["payload"],
+                call.upsert_import_template_fields(
+                    prepared_rows=prepared_rows,
                     actor_user_id=7,
                     now=mock_adapter.reset_import_template_fields.call_args.kwargs["now"],
+                    cached_field_templates=cached_field_templates,
                 ),
             ],
         )
-        mock_adapter.upsert_import_template_field.assert_called_once()
-        payload = mock_adapter.upsert_import_template_field.call_args.kwargs["payload"]
+        mock_adapter.upsert_import_template_fields.assert_called_once()
+        self.assertEqual(cached_field_templates["AETERM"].pk, 31)
+        payload = prepared_rows[0].payload
         self.assertEqual(payload["field_key"], "AETERM")
         self.assertEqual(payload["label_vi"], "Bien co bat loi")
         self.assertEqual(payload["label_en"], "Adverse Event Term")
+
+    @patch.object(
+        ImportStudyCrfTemplateFieldsTemplateService,
+        "_load_rows_from_workbook",
+        return_value={
+            "Template Fields": [
+                (
+                    2,
+                    {
+                        "form_name": "AE",
+                        "section_name": "General",
+                        "field_name": "AETERM",
+                        "data_type": "TEXT",
+                        "display_order": "1",
+                        "control_type": "TEXT",
+                        "review_study_version": "v1.0",
+                        "review_type": "data review",
+                        "review_required_for_verify": "yes",
+                        "review_required_for_lock": "no",
+                        "review_blocking_if_missing": "yes",
+                        "review_role_required": "DATA_MANAGER",
+                        "review_enabled": "yes",
+                    },
+                )
+            ],
+        },
+    )
+    def test_execute_imports_field_review_policy_after_template_field(self, mock_load_rows):
+        form_template = SimpleNamespace(pk=17, study_id=3)
+        section_template = SimpleNamespace(pk=23)
+        field_template = SimpleNamespace(pk=31)
+        mock_adapter = MagicMock()
+        mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
+        mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
+        mock_adapter.reset_import_template_fields.return_value = 0
+
+        def upsert_template_fields(*, prepared_rows, **kwargs):
+            return [("created", field_template, prepared_rows[0])]
+
+        mock_adapter.upsert_import_template_fields.side_effect = upsert_template_fields
+        service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
+
+        result = service.execute(
+            command=SimpleNamespace(
+                actor_user_id=7,
+                selected_study_id=3,
+                study_id=3,
+                file_name="crf_template_fields_import_template.xlsx",
+                file_content=b"xlsx",
+            )
+        )
+
+        self.assertEqual(result.created_count, 1)
+        mock_adapter.upsert_import_field_review_policy.assert_called_once_with(
+            study_id=3,
+            study_version="v1.0",
+            crf_template_id=17,
+            field_template_id=31,
+            review_type="data_review",
+            is_required_for_page_verify=True,
+            is_required_for_lock=False,
+            is_blocking_if_missing=True,
+            role_required="DATA_MANAGER",
+            is_enabled=True,
+            actor_user_id=7,
+            existing_field_review_policy=None,
+            force_create=True,
+            now=mock_adapter.reset_import_template_fields.call_args.kwargs["now"],
+        )
 
     @patch.object(
         ImportStudyCrfTemplateFieldsTemplateService,
@@ -256,10 +331,14 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_template_by_name_or_code.return_value = form_template
         mock_adapter.resolve_import_section_by_name_or_code.return_value = section_template
         mock_adapter.reset_import_template_fields.return_value = 4
-        mock_adapter.upsert_import_template_field.side_effect = [
-            ("updated", SimpleNamespace(pk=31)),
-            ("created", SimpleNamespace(pk=32)),
-        ]
+
+        def upsert_template_fields(*, prepared_rows, **kwargs):
+            return [
+                ("updated", SimpleNamespace(pk=31), prepared_rows[0]),
+                ("created", SimpleNamespace(pk=32), prepared_rows[1]),
+            ]
+
+        mock_adapter.upsert_import_template_fields.side_effect = upsert_template_fields
         service = ImportStudyCrfTemplateFieldsTemplateService(crf_context_adapter=mock_adapter)
 
         result = service.execute(
@@ -277,7 +356,7 @@ class ImportStudyCrfTemplateFieldsTemplateServiceTests(SimpleTestCase):
         self.assertEqual(result.updated_count, 1)
         self.assertEqual(result.skipped_count, 0)
         mock_adapter.reset_import_template_fields.assert_called_once()
-        self.assertEqual(mock_adapter.upsert_import_template_field.call_count, 2)
+        mock_adapter.upsert_import_template_fields.assert_called_once()
 
 
 class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
@@ -324,6 +403,7 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter = MagicMock()
         mock_adapter.resolve_import_validation_rule_template_by_code.return_value = form_template
         mock_adapter.resolve_import_validation_rule_field_by_key.return_value = field_template
+        mock_adapter.reset_import_validation_rules.return_value = 1
         mock_adapter.upsert_import_validation_rule.return_value = ("created", SimpleNamespace(pk=31))
         service = ImportStudyCrfValidationRulesTemplateService(
             crf_context_adapter=mock_adapter,
@@ -350,6 +430,11 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_validation_rule_field_by_key.assert_called_once_with(
             crf_template_id=17,
             field_name="AETERM",
+        )
+        mock_adapter.reset_import_validation_rules.assert_called_once_with(
+            field_template_ids=[23],
+            actor_user_id=7,
+            now=mock_adapter.reset_import_validation_rules.call_args.kwargs["now"],
         )
         mock_adapter.upsert_import_validation_rule.assert_called_once_with(
             study_id=3,
@@ -393,6 +478,7 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter = MagicMock()
         mock_adapter.resolve_import_validation_rule_template_by_code.return_value = form_template
         mock_adapter.resolve_import_validation_rule_field_by_key.return_value = field_template
+        mock_adapter.reset_import_validation_rules.return_value = 1
         mock_adapter.upsert_import_validation_rule.return_value = ("created", SimpleNamespace(pk=31))
         service = ImportStudyCrfValidationRulesTemplateService(
             crf_context_adapter=mock_adapter,
@@ -413,6 +499,11 @@ class ImportStudyCrfValidationRulesTemplateServiceTests(SimpleTestCase):
         mock_adapter.resolve_import_validation_rule_template_by_code.assert_called_once_with(
             study_id=3,
             form_code="AE",
+        )
+        mock_adapter.reset_import_validation_rules.assert_called_once_with(
+            field_template_ids=[23],
+            actor_user_id=7,
+            now=mock_adapter.reset_import_validation_rules.call_args.kwargs["now"],
         )
 
 

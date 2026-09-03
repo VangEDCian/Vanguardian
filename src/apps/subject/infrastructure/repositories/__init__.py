@@ -1,3 +1,12 @@
+from apps.subject.infrastructure.repositories.bulk_actions import (
+    DjangoSubjectBulkActionRepository,
+)
+from apps.subject.infrastructure.repositories.early_termination import (
+    DjangoSubjectEarlyTerminationRepository,
+)
+from apps.subject.infrastructure.repositories.eligibility_workflow import (
+    DjangoSubjectEligibilityWorkflowRepository,
+)
 from apps.subject.infrastructure.repositories.event_instance_files import (
     DjangoSubjectEventInstanceFileRepository,
 )
@@ -7,8 +16,11 @@ from apps.subject.infrastructure.repositories.event_instance_resync import (
 from apps.subject.infrastructure.repositories.event_lifecycle import (
     DjangoSubjectEventLifecycleRepository,
 )
-from apps.subject.infrastructure.repositories.eligibility_workflow import (
-    DjangoSubjectEligibilityWorkflowRepository,
+from apps.subject.infrastructure.repositories.identifier_policy_migration import (
+    DjangoSubjectIdentifierPolicyMigrationRepository,
+)
+from apps.subject.infrastructure.repositories.period_lifecycle import (
+    DjangoSubjectPeriodLifecycleRepository,
 )
 from apps.subject.infrastructure.repositories.repeating_event_instance import (
     DjangoSubjectRepeatingEventInstanceRepository,
@@ -18,10 +30,14 @@ from apps.subject.infrastructure.repositories.workflow_action import DjangoSubje
 
 __all__ = [
     "DjangoSubjectCommandRepository",
+    "DjangoSubjectBulkActionRepository",
+    "DjangoSubjectEarlyTerminationRepository",
     "DjangoSubjectEligibilityWorkflowRepository",
     "DjangoSubjectEventInstanceFileRepository",
     "DjangoSubjectEventInstanceResyncRepository",
     "DjangoSubjectEventLifecycleRepository",
+    "DjangoSubjectIdentifierPolicyMigrationRepository",
+    "DjangoSubjectPeriodLifecycleRepository",
     "DjangoSubjectRepeatingEventInstanceRepository",
     "DjangoSubjectWorkflowActionRepository",
 ]

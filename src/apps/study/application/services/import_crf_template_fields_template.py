@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
+from django.db import transaction
+
+from apps.core.choices.datacapture import DataCaptureFieldReviewTypeChoices
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError, StudyScopeViolationError
 from apps.crf.public import CrfContextAdapter
 from apps.study.application.commands.import_crf_template_fields_template import (
@@ -60,6 +63,13 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "Codelist En",
             "Comments Vi",
             "Comments En",
+            "Review Study Version",
+            "Review Type",
+            "Review Required For Verify",
+            "Review Required For Lock",
+            "Review Blocking If Missing",
+            "Review Role Required",
+            "Review Enabled",
         ),
     }
     expected_header_map = {
@@ -101,6 +111,13 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "codelist en": "codelist_en",
             "comments vi": "comments_vi",
             "comments en": "comments_en",
+            "review study version": "review_study_version",
+            "review type": "review_type",
+            "review required for verify": "review_required_for_verify",
+            "review required for lock": "review_required_for_lock",
+            "review blocking if missing": "review_blocking_if_missing",
+            "review role required": "review_role_required",
+            "review enabled": "review_enabled",
         },
     }
     sheet_aliases = {
@@ -110,10 +127,49 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "CRF Template Fields",
         ),
     }
+    review_type_aliases = {
+        "data_review": DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        "datareview": DataCaptureFieldReviewTypeChoices.DATA_REVIEW,
+        "sdv": DataCaptureFieldReviewTypeChoices.SDV,
+        "medical_review": DataCaptureFieldReviewTypeChoices.MEDICAL_REVIEW,
+        "medical": DataCaptureFieldReviewTypeChoices.MEDICAL_REVIEW,
+    }
 
     def __init__(self, crf_context_adapter=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
         self._reset_template_ids_for_import = set()
+        self._form_template_cache = {}
+        self._section_template_cache = {}
+        self._field_template_cache = {}
+        self._field_review_policy_cache = {}
+
+    @staticmethod
+    def _build_lookup_key(*parts):
+        return tuple(str(part).strip().lower() for part in parts if part is not None)
+
+    def _resolve_template_cached(self, *, study_id, form_name):
+        key = self._build_lookup_key(study_id, form_name)
+        cached = self._form_template_cache.get(key)
+        if cached is not None:
+            return cached
+        template = self.crf_context_adapter.resolve_import_template_by_name_or_code(
+            study_id=study_id,
+            form_name=form_name,
+        )
+        self._form_template_cache[key] = template
+        return template
+
+    def _resolve_section_cached(self, *, crf_template_id, section_name):
+        key = self._build_lookup_key(crf_template_id, section_name)
+        cached = self._section_template_cache.get(key)
+        if cached is not None:
+            return cached
+        section = self.crf_context_adapter.resolve_import_section_by_name_or_code(
+            crf_template_id=crf_template_id,
+            section_name=section_name,
+        )
+        self._section_template_cache[key] = section
+        return section
 
     @staticmethod
     def _normalize_selected_study_id(selected_study_id):
@@ -128,6 +184,7 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             raise StudyScopeViolationError("Command study scope does not match the selected study.")
         return selected_study_id
 
+    @transaction.atomic
     def execute(self, command: ImportStudyCrfTemplateFieldsTemplateCommand) -> ImportStudyCrfTemplateFieldsTemplateResult:
         self._ensure_current_study_scope(
             selected_study_id=command.selected_study_id,
@@ -163,39 +220,92 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
                         reason=str(exc),
                     )
                 )
+        self._preload_field_templates(prepared_rows=prepared_rows)
+        self._preload_field_review_policies(prepared_rows=prepared_rows)
 
         import_now = self._now()
+        prepared_rows_by_template = {}
         for prepared_row in prepared_rows:
-            try:
-                crf_template_id = int(prepared_row.form_template.pk)
-                if crf_template_id not in self._reset_template_ids_for_import:
-                    self.crf_context_adapter.reset_import_template_fields(
-                        crf_template_id=crf_template_id,
-                        actor_user_id=command.actor_user_id,
-                        now=import_now,
-                    )
-                    self._reset_template_ids_for_import.add(crf_template_id)
+            crf_template_id = int(prepared_row.form_template.pk)
+            prepared_rows_by_template.setdefault(crf_template_id, []).append(prepared_row)
 
-                import_outcome = self._import_prepared_template_field_row(
-                    prepared_row=prepared_row,
+        for crf_template_id, template_rows in prepared_rows_by_template.items():
+            if crf_template_id not in self._reset_template_ids_for_import:
+                self.crf_context_adapter.reset_import_template_fields(
+                    crf_template_id=crf_template_id,
                     actor_user_id=command.actor_user_id,
                     now=import_now,
                 )
-            except (CrfTemplateImportFormatError, FormBuilderDomainValidationError) as exc:
-                issues.append(
-                    CrfTemplateFieldImportIssue(
-                        sheet_name=self.template_fields_sheet_name,
-                        row_number=prepared_row.row_number,
-                        identifier=prepared_row.identifier,
-                        reason=str(exc),
-                    )
+                self._reset_template_ids_for_import.add(crf_template_id)
+
+            try:
+                outcomes = self.crf_context_adapter.upsert_import_template_fields(
+                    prepared_rows=template_rows,
+                    actor_user_id=command.actor_user_id,
+                    now=import_now,
+                    cached_field_templates=self._field_template_cache.get(crf_template_id, {}),
                 )
+            except (CrfTemplateImportFormatError, FormBuilderDomainValidationError) as exc:
+                for prepared_row in template_rows:
+                    issues.append(
+                        CrfTemplateFieldImportIssue(
+                            sheet_name=self.template_fields_sheet_name,
+                            row_number=prepared_row.row_number,
+                            identifier=prepared_row.identifier,
+                            reason=str(exc),
+                        )
+                    )
                 continue
 
-            if import_outcome == "created":
-                created_count += 1
-            else:
-                updated_count += 1
+            for outcome, field_template, prepared_row in outcomes:
+                self._field_template_cache.setdefault(crf_template_id, {})[
+                    prepared_row.payload["field_key"]
+                ] = field_template
+                if outcome == "created":
+                    created_count += 1
+                else:
+                    updated_count += 1
+
+                review_policy = prepared_row.payload.get("review_policy")
+                if review_policy is None:
+                    continue
+                try:
+                    review_type = review_policy["review_type"]
+                    existing_review_policy = None
+                    if outcome == "updated":
+                        existing_review_policy = self._field_review_policy_cache.get(crf_template_id, {}).get(
+                            (field_template.pk, review_policy["study_version"], review_policy["review_type"])
+                        )
+                    upserted_review_policy = self.crf_context_adapter.upsert_import_field_review_policy(
+                        study_id=prepared_row.form_template.study_id,
+                        study_version=review_policy["study_version"],
+                        crf_template_id=prepared_row.form_template.pk,
+                        field_template_id=field_template.pk,
+                        review_type=review_policy["review_type"],
+                        is_required_for_page_verify=review_policy["is_required_for_page_verify"],
+                        is_required_for_lock=review_policy["is_required_for_lock"],
+                        is_blocking_if_missing=review_policy["is_blocking_if_missing"],
+                        role_required=review_policy["role_required"],
+                        is_enabled=review_policy["is_enabled"],
+                        actor_user_id=command.actor_user_id,
+                        existing_field_review_policy=existing_review_policy,
+                        force_create=(outcome == "created"),
+                        now=import_now,
+                    )
+                except (CrfTemplateImportFormatError, FormBuilderDomainValidationError) as exc:
+                    issues.append(
+                        CrfTemplateFieldImportIssue(
+                            sheet_name=self.template_fields_sheet_name,
+                            row_number=prepared_row.row_number,
+                            identifier=prepared_row.identifier,
+                            reason=str(exc),
+                        )
+                    )
+                    continue
+
+                self._field_review_policy_cache.setdefault(crf_template_id, {})[
+                    (field_template.pk, review_policy["study_version"], review_type)
+                ] = upserted_review_policy
 
         return ImportStudyCrfTemplateFieldsTemplateResult(
             total_rows=len(rows),
@@ -217,11 +327,11 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             field_label="Section Name",
             max_length=255,
         )
-        form_template = self.crf_context_adapter.resolve_import_template_by_name_or_code(
+        form_template = self._resolve_template_cached(
             study_id=study_id,
             form_name=form_name,
         )
-        section_template = self.crf_context_adapter.resolve_import_section_by_name_or_code(
+        section_template = self._resolve_section_cached(
             crf_template_id=form_template.pk,
             section_name=section_name,
         )
@@ -234,15 +344,111 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             payload=payload,
         )
 
-    def _import_prepared_template_field_row(self, *, prepared_row, actor_user_id, now):
-        import_outcome, _field_template = self.crf_context_adapter.upsert_import_template_field(
+    def _import_prepared_template_field_row(self, *, prepared_row, actor_user_id, now, cached_field_template):
+        crf_template_id = int(prepared_row.form_template.pk)
+        field_key = prepared_row.payload["field_key"]
+        import_outcome, field_template = self.crf_context_adapter.upsert_import_template_field(
             crf_template_id=prepared_row.form_template.pk,
             section_template_id=prepared_row.section_template.pk,
             payload=prepared_row.payload,
             actor_user_id=actor_user_id,
+            existing_field_template=cached_field_template,
             now=now,
         )
+        self._field_template_cache.setdefault(crf_template_id, {})[field_key] = field_template
+
+        review_policy = prepared_row.payload.get("review_policy")
+        if review_policy is not None:
+            review_type = review_policy["review_type"]
+            existing_review_policy = None
+            if import_outcome == "updated":
+                existing_review_policy = self._field_review_policy_cache.get(crf_template_id, {}).get(
+                    (field_template.pk, review_policy["study_version"], review_policy["review_type"])
+                )
+            upserted_review_policy = self.crf_context_adapter.upsert_import_field_review_policy(
+                study_id=prepared_row.form_template.study_id,
+                study_version=review_policy["study_version"],
+                crf_template_id=prepared_row.form_template.pk,
+                field_template_id=field_template.pk,
+                review_type=review_policy["review_type"],
+                is_required_for_page_verify=review_policy["is_required_for_page_verify"],
+                is_required_for_lock=review_policy["is_required_for_lock"],
+                is_blocking_if_missing=review_policy["is_blocking_if_missing"],
+                role_required=review_policy["role_required"],
+                is_enabled=review_policy["is_enabled"],
+                actor_user_id=actor_user_id,
+                existing_field_review_policy=existing_review_policy,
+                force_create=(import_outcome == "created"),
+                now=now,
+            )
+            self._field_review_policy_cache.setdefault(crf_template_id, {})[
+                (field_template.pk, review_policy["study_version"], review_type)
+            ] = upserted_review_policy
         return import_outcome
+
+    def _preload_field_templates(self, *, prepared_rows):
+        template_field_keys = {}
+        for prepared_row in prepared_rows:
+            crf_template_id = int(prepared_row.form_template.pk)
+            template_field_keys.setdefault(crf_template_id, set()).add(
+                prepared_row.payload["field_key"]
+            )
+
+        for crf_template_id, field_keys in template_field_keys.items():
+            if not field_keys:
+                continue
+            existing = self.crf_context_adapter.list_field_templates_for_import(
+                crf_template_id=crf_template_id,
+                field_keys=tuple(field_keys),
+            )
+            self._field_template_cache[crf_template_id] = {
+                field_template.field_key: field_template for field_template in existing
+            }
+
+    def _preload_field_review_policies(self, *, prepared_rows):
+        grouped = {}
+        for prepared_row in prepared_rows:
+            policy = prepared_row.payload.get("review_policy")
+            crf_template_id = int(prepared_row.form_template.pk)
+            if policy is None:
+                continue
+
+            field_template = self._field_template_cache.get(crf_template_id, {}).get(prepared_row.payload["field_key"])
+            if field_template is None:
+                continue
+
+            bucket = grouped.setdefault(
+                crf_template_id,
+                {
+                    "study_id": int(prepared_row.form_template.study_id),
+                    "field_template_ids": set(),
+                    "study_versions": set(),
+                    "review_types": set(),
+                },
+            )
+            bucket["field_template_ids"].add(int(field_template.pk))
+            bucket["study_versions"].add(str(policy["study_version"]))
+            bucket["review_types"].add(policy["review_type"])
+
+        for crf_template_id, bucket in grouped.items():
+            field_template_ids = tuple(bucket["field_template_ids"])
+            if not field_template_ids:
+                continue
+            existing_policies = self.crf_context_adapter.list_field_review_policies_for_import(
+                study_id=bucket["study_id"],
+                crf_template_id=crf_template_id,
+                field_template_ids=field_template_ids,
+                study_versions=tuple(bucket["study_versions"]),
+                review_types=tuple(bucket["review_types"]),
+            )
+            self._field_review_policy_cache[crf_template_id] = {
+                (
+                    int(policy.field_template_id),
+                    str(policy.study_version),
+                    str(policy.review_type),
+                ): policy
+                for policy in existing_policies
+            }
 
     def _build_payload(self, row_data):
         range_min = self._coerce_optional_decimal(row_data.get("range_min"), field_label="Range Min")
@@ -294,10 +500,66 @@ class ImportStudyCrfTemplateFieldsTemplateService(CrfTemplateWorkbookMixin):
             "codelist_en": self._nullable_text(row_data.get("codelist_en")),
             "comments_vi": self._nullable_text(row_data.get("comments_vi")),
             "comments_en": self._nullable_text(row_data.get("comments_en")),
+            "review_policy": self._build_review_policy_payload(row_data),
         }
 
-    def _nullable_text(self, value):
+    def _build_review_policy_payload(self, row_data):
+        if not self._has_review_policy_payload(row_data):
+            return None
+        return {
+            "study_version": self._require_text(
+                row_data.get("review_study_version"),
+                field_label="Review Study Version",
+                max_length=20,
+            ),
+            "review_type": self._normalize_review_type(row_data.get("review_type")),
+            "is_required_for_page_verify": self._coerce_bool(
+                row_data.get("review_required_for_verify"),
+                field_label="Review Required For Verify",
+                default=True,
+            ),
+            "is_required_for_lock": self._coerce_bool(
+                row_data.get("review_required_for_lock"),
+                field_label="Review Required For Lock",
+                default=False,
+            ),
+            "is_blocking_if_missing": self._coerce_bool(
+                row_data.get("review_blocking_if_missing"),
+                field_label="Review Blocking If Missing",
+                default=True,
+            ),
+            "role_required": self._nullable_text(row_data.get("review_role_required"), max_length=64),
+            "is_enabled": self._coerce_bool(
+                row_data.get("review_enabled"),
+                field_label="Review Enabled",
+                default=True,
+            ),
+        }
+
+    def _has_review_policy_payload(self, row_data):
+        review_keys = (
+            "review_study_version",
+            "review_type",
+            "review_required_for_verify",
+            "review_required_for_lock",
+            "review_blocking_if_missing",
+            "review_role_required",
+            "review_enabled",
+        )
+        return any(self._as_text(row_data.get(key)) for key in review_keys)
+
+    def _normalize_review_type(self, value):
+        normalized = self._as_text(value).lower().replace("-", "_").replace(" ", "_")
+        normalized = normalized or "data_review"
+        review_type = self.review_type_aliases.get(normalized)
+        if review_type is None:
+            raise CrfTemplateImportFormatError(f"Invalid Review Type: {value!r}")
+        return review_type
+
+    def _nullable_text(self, value, *, max_length=None):
         normalized_value = self._as_text(value)
+        if max_length is not None and len(normalized_value) > max_length:
+            raise CrfTemplateImportFormatError(f"Value must be {max_length} characters or fewer.")
         return normalized_value or None
 
     def _coerce_optional_decimal(self, value, *, field_label):

@@ -51,6 +51,10 @@
                                 <span>{% trans "Updated" %}</span>
                             </div>
                             <div class="event-definition-import-result__metric">
+                                <strong>{{ import_result.deleted_count }}</strong>
+                                <span>{% trans "Deleted" %}</span>
+                            </div>
+                            <div class="event-definition-import-result__metric">
                                 <strong>{{ import_result.skipped_count }}</strong>
                                 <span>{% trans "Skipped" %}</span>
                             </div>

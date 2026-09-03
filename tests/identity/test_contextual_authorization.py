@@ -313,6 +313,76 @@ class ContextualAuthorizationRequestCacheTests(TestCase):
         self.assertIs(first_decision, second_decision)
         self.assertEqual(repository.find_site_calls, 1)
 
+    def test_distinct_permissions_reuse_request_scoped_repository_queries(self):
+        now = timezone.now()
+        user = User.objects.create_user(username="cached-context-user", password="pw")
+        study = Study.objects.create(
+            created_at=now,
+            updated_at=now,
+            code="CACHE-STUDY",
+            name="Cache Study",
+            description="",
+            is_active=True,
+        )
+        site = Site.objects.create(
+            created_at=now,
+            updated_at=now,
+            code="CACHE-SITE",
+            name="Cache Site",
+            study=study,
+            is_active=True,
+        )
+        membership = StudySiteMembership.objects.create(
+            created_at=now,
+            updated_at=now,
+            user=user,
+            study_id=study.pk,
+            site_id=site.pk,
+            status=MembershipStatus.ACTIVE,
+        )
+        permissions = [
+            IdentityPermission.objects.create(
+                app_label="subject",
+                codename=codename,
+                name=codename,
+            )
+            for codename in ("view_cached_subject", "update_cached_subject")
+        ]
+        role = Role.objects.create(
+            study_id=study.pk,
+            code="CACHE_ROLE",
+            name="Cache Role",
+            scope_level=RoleScopeLevel.STUDY_SITE,
+            is_active=True,
+        )
+        role.permissions.add(*permissions)
+        StudySiteMembershipRole.objects.create(
+            study_site_membership=membership,
+            role=role,
+            assigned_at=now,
+        )
+        request = RequestFactory().get("/subjects/")
+        first_service = ContextualAuthorizationService(request=request)
+
+        first_decision = first_service.can(
+            user,
+            "subject.view_cached_subject",
+            study_id=study.pk,
+            study_site_id=site.pk,
+        )
+        with self.assertNumQueries(0):
+            second_decision = ContextualAuthorizationService(request=request).can(
+                user,
+                "subject.update_cached_subject",
+                study_id=study.pk,
+                study_site_id=site.pk,
+            )
+
+        self.assertTrue(first_decision.allowed)
+        self.assertTrue(second_decision.allowed)
+        self.assertEqual(first_decision.matched_role_id, role.pk)
+        self.assertEqual(second_decision.matched_role_id, role.pk)
+
 
 class CountingAuthorizationRepository:
     find_site_calls = 0

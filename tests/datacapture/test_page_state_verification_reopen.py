@@ -34,6 +34,9 @@ class _NoBlockingQueries:
     def has_active_blocking_query_for_page(self, **kwargs):
         return False
 
+    def has_unclosed_query_for_page(self, **kwargs):
+        return False
+
 
 class _BlockingFieldQueries:
     def has_open_query_for_page_field(self, **kwargs):
@@ -46,6 +49,9 @@ class _BlockingFieldQueries:
         return True
 
     def has_active_blocking_query_for_page(self, **kwargs):
+        return True
+
+    def has_unclosed_query_for_page(self, **kwargs):
         return True
 
 
@@ -186,6 +192,15 @@ class _GovernanceLockAdapter:
         return 501
 
 
+class _AllowLifecyclePolicy:
+    def __init__(self):
+        self.calls = []
+
+    def require_step(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace()
+
+
 class _SubjectEventLifecycleAdapter:
     def __init__(self):
         self.completed_event_instances = []
@@ -239,6 +254,16 @@ class _NotReviewableVerificationRepository:
 
 
 class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
+    def setUp(self):
+        super().setUp()
+        patcher = patch(
+            "apps.datacapture.application.services.event_attestation."
+            "DataCaptureEventAttestationService"
+        )
+        event_attestation_service = patcher.start()
+        event_attestation_service.return_value.invalidate_active_attestations_for_event.return_value = 0
+        self.addCleanup(patcher.stop)
+
     def test_correction_required_page_state_can_be_verified_again_after_reopen(self):
         repository = _CorrectionRequiredVerificationRepository()
         service = DataCapturePageStateVerificationFinalDataService(
@@ -422,18 +447,20 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
 
                 self.assertIs(repository.start_page_review_called, False)
 
-    def test_verify_rejects_checked_field_with_open_query_before_starting_review(self):
+    def test_verify_allows_checked_field_with_open_query(self):
         repository = _CorrectionRequiredVerificationRepository()
         service = DataCapturePageStateVerificationFinalDataService(
             repository=repository,
             reconcile_read_service=_BlockingFieldQueries(),
         )
+        service._required_field_template_ids = lambda **kwargs: (1,)
 
-        with self.assertRaisesMessage(
-            DataCaptureValidationError,
-            "yêu cầu đóng Query trước khi verify",
+        with patch(
+            "apps.datacapture.application.services.page_state_verification_final_data."
+            "CrfContextAdapter.list_template_fields_with_ui_config",
+            return_value=[{"id": 1, "field_key": "field_1"}],
         ):
-            service.merge_checked_field_template_ids(
+            all_verified, page_status, blockers, unverified_ids = service.merge_checked_field_template_ids(
                 subject_id=41,
                 visit_id=51,
                 crf_template_id=31,
@@ -441,7 +468,11 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                 actor_user_id=1,
             )
 
-        self.assertIs(repository.start_page_review_called, False)
+        self.assertIs(all_verified, True)
+        self.assertEqual(page_status, DataCapturePageState.VERIFIED)
+        self.assertEqual(blockers, [])
+        self.assertEqual(unverified_ids, [])
+        self.assertIs(repository.start_page_review_called, True)
 
     def test_reopen_requires_reason_text(self):
         service = DataCapturePageStateVerificationFinalDataService(
@@ -534,9 +565,31 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                     "status": DataCapturePageState.FINALIZED,
                     "actor_user_id": 1,
                     "trigger_source": "PageDataFinalized",
+                    "event_form_binding_id": None,
                 }
             ],
         )
+
+    def test_certify_page_sets_certified_status_after_policy_guard(self):
+        repository = _PageLifecycleRepository(status=DataCapturePageState.VERIFIED)
+        lifecycle_policy = _AllowLifecyclePolicy()
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_NoBlockingQueries(),
+            lifecycle_policy_service=lifecycle_policy,
+        )
+
+        page_status = service.certify_page(
+            subject_id=41,
+            visit_id=51,
+            crf_template_id=31,
+            actor_user_id=1,
+        )
+
+        self.assertEqual(page_status, DataCapturePageState.CERTIFIED)
+        self.assertEqual(lifecycle_policy.calls[0]["step_code"], "CERTIFY")
+        self.assertEqual(repository.update_calls[0]["status"], DataCapturePageState.CERTIFIED)
+        self.assertEqual(repository.update_calls[0]["trigger_source"], "PageCertified")
 
     def test_lock_page_requires_finalized_state(self):
         service = DataCapturePageStateVerificationFinalDataService(
@@ -581,6 +634,7 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                     "status": DataCapturePageState.LOCKED,
                     "actor_user_id": 1,
                     "trigger_source": "PageLocked",
+                    "event_form_binding_id": None,
                 }
             ],
         )
@@ -597,3 +651,26 @@ class DataCapturePageStateVerificationReopenTests(SimpleTestCase):
                 }
             ],
         )
+
+    def test_lock_page_requires_all_queries_closed(self):
+        repository = _PageLifecycleRepository(status=DataCapturePageState.FINALIZED)
+        governance_lock_adapter = _GovernanceLockAdapter()
+        service = DataCapturePageStateVerificationFinalDataService(
+            repository=repository,
+            reconcile_read_service=_BlockingFieldQueries(),
+            governance_lock_adapter=governance_lock_adapter,
+        )
+
+        with self.assertRaisesMessage(
+            DataCaptureValidationError,
+            "yêu cầu đóng hết Query trước khi lock",
+        ):
+            service.lock_page(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                actor_user_id=1,
+            )
+
+        self.assertEqual(repository.update_calls, [])
+        self.assertEqual(governance_lock_adapter.lock_calls, [])

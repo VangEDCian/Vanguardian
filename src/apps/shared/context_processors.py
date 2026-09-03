@@ -85,6 +85,13 @@ class DropdownHandlerAbstract(abc.ABC):
         self.request.COOKIES[self.COOKIE_NAME] = value
         return True
 
+    def _request_cache_key(self):
+        return (
+            type(self),
+            getattr(self, "study_id", None),
+            self.get_cookie_value(parse_to_int=False),
+        )
+
     @classmethod
     def destroy_cookie(cls, response: HttpResponse) -> bool:
         try:
@@ -123,6 +130,15 @@ class DropdownHandlerAbstract(abc.ABC):
             A populated `DropdownData` when possible; otherwise a default empty
             `DropdownData` for anonymous users or unexpected errors.
         """
+        request_cache = getattr(self.request, "_dropdown_data_cache", None)
+        if request_cache is None:
+            request_cache = {}
+            self.request._dropdown_data_cache = request_cache
+        cache_key = self._request_cache_key()
+        if cache_key in request_cache:
+            return request_cache[cache_key]
+
+        result = DropdownData()
         if self.user:
             try:
                 study_selected_id = self.get_cookie_value(parse_to_int=True)
@@ -137,7 +153,7 @@ class DropdownHandlerAbstract(abc.ABC):
                         select_display_text = self._label_for(obj)
                         break
 
-                return DropdownData(
+                result = DropdownData(
                     selected_id=study_selected_id,
                     select_options=[
                         {
@@ -150,7 +166,8 @@ class DropdownHandlerAbstract(abc.ABC):
                 )
             except Exception:
                 pass
-        return DropdownData()
+        request_cache[cache_key] = result
+        return result
 
 
 class StudyDropdownHandler(DropdownHandlerAbstract):
@@ -196,6 +213,10 @@ class SiteDropdownHandler(StudyDropdownHandler):
 
 
 def shared_select_options(request):
+    cached_context = getattr(request, "_shared_select_options_context", None)
+    if cached_context is not None:
+        return cached_context
+
     study_dd = StudyDropdownHandler(request=request).build()
     site_dd = SiteDropdownHandler(request=request, study_id=study_dd.selected_id).build()
     site_selected_id = site_dd.selected_id
@@ -203,8 +224,9 @@ def shared_select_options(request):
         request.user,
         study_id=study_dd.selected_id,
         site_id=site_selected_id,
+        request=request,
     )
-    return {
+    context = {
         # study
         "shared_study_cookies_key": StudyDropdownHandler.COOKIE_NAME,
         "shared_study_selected_id": study_dd.selected_id,
@@ -230,6 +252,8 @@ def shared_select_options(request):
             {"value": "en", "label": _("English")},
         ],
     }
+    request._shared_select_options_context = context
+    return context
 
 
 def _count_queries_need_response(
@@ -243,12 +267,11 @@ def _count_queries_need_response(
     if not can_view_queries or not study_id or not getattr(user, "is_authenticated", False):
         return 0
     try:
-        from apps.datacapture.public import list_page_state_contexts_for_study_site
         from apps.reconcile.application import ReconcileDataQueryReadService
 
-        page_state_ids = tuple(sorted(list_page_state_contexts_for_study_site(study_id=study_id, site_id=site_id)))
-        return ReconcileDataQueryReadService().count_open_queries_assigned_to_user(
-            page_state_ids=page_state_ids,
+        return ReconcileDataQueryReadService().count_open_queries_assigned_to_user_for_study_site(
+            study_id=study_id,
+            site_id=site_id,
             user_id=getattr(user, "pk", None),
         )
     except Exception:

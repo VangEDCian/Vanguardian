@@ -11,6 +11,7 @@ __all__ = [
     "CrfTemplateImportTemplateForm",
     "CrfValidationRuleImportTemplateForm",
     "CrfTemplatesToolbarForm",
+    "EventAttestationPolicyImportTemplateForm",
 ]
 
 
@@ -82,13 +83,34 @@ class CrfSectionLayoutConfigImportTemplateForm(CrfTemplateImportTemplateForm):
 
 
 class CrfValidationRuleImportTemplateForm(CrfTemplateImportTemplateForm):
+    import_file = MultipleFileField(
+        label=_("Import File"),
+        allow_empty_file=False,
+        widget=MultipleFileInput(
+            attrs={
+                "accept": ".xlsx,.xls",
+                "id": "id_validation_rule_import_file",
+            }
+        ),
+    )
+
+    def clean_import_file(self):
+        uploaded_files = self.cleaned_data["import_file"]
+        for uploaded_file in uploaded_files:
+            file_name = (uploaded_file.name or "").strip().lower()
+            if not file_name.endswith((".xlsx", ".xls")):
+                raise forms.ValidationError(_("Only .xlsx and .xls files are supported."))
+        return uploaded_files
+
+
+class EventAttestationPolicyImportTemplateForm(CrfTemplateImportTemplateForm):
     import_file = forms.FileField(
         label=_("Import File"),
         allow_empty_file=False,
         widget=forms.ClearableFileInput(
             attrs={
                 "accept": ".xlsx,.xls",
-                "id": "id_validation_rule_import_file",
+                "id": "id_event_attestation_policy_import_file",
             }
         ),
     )

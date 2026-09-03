@@ -9,6 +9,13 @@ class DjangoStudyCommandRepository:
     def get_study(self, *, study_id):
         return Study.objects.filter(pk=study_id, deleted=False).first()
 
+    def get_study_for_update(self, *, study_id):
+        return (
+            Study.objects.select_for_update()
+            .filter(pk=study_id, deleted=False)
+            .first()
+        )
+
     def study_code_exists(self, *, code, exclude_id=None):
         queryset = Study.objects.filter(code=code.strip(), deleted=False)
         if exclude_id is not None:
@@ -26,6 +33,12 @@ class DjangoStudyCommandRepository:
         end_date,
         is_active,
         actor_user_id,
+        subject_identifier_mode,
+        screening_identifier_mode,
+        subject_code_pattern,
+        screening_code_pattern,
+        subject_code_uniqueness_scope,
+        lock_subject_code_after_assignment,
     ):
         now = timezone.now()
         return Study.objects.create(
@@ -40,6 +53,12 @@ class DjangoStudyCommandRepository:
             updated_at=now,
             created_by_id=actor_user_id,
             updated_by_id=actor_user_id,
+            subject_identifier_mode=subject_identifier_mode,
+            screening_identifier_mode=screening_identifier_mode,
+            subject_code_pattern=subject_code_pattern,
+            screening_code_pattern=screening_code_pattern,
+            subject_code_uniqueness_scope=subject_code_uniqueness_scope,
+            lock_subject_code_after_assignment=lock_subject_code_after_assignment,
         )
 
     def save_study(self, study):

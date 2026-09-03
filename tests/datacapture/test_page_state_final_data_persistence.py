@@ -123,6 +123,8 @@ class DataCapturePageStateFinalDataPersistenceTests(SimpleTestCase):
 
     def test_new_non_finalized_page_state_starts_with_empty_final_data(self):
         repository = _FinalDataRepository()
+        repository._resolve_event_form_binding_id_for_scope = lambda **kwargs: 77
+        repository._resolve_default_page_state_repeat_index_for_scope = lambda **kwargs: 2
 
         with patch(
             "apps.datacapture.infrastructure.repositories.page_capture.DataCapturePageState.objects"
@@ -141,12 +143,22 @@ class DataCapturePageStateFinalDataPersistenceTests(SimpleTestCase):
 
         page_state_objects.create.assert_called_once()
         self.assertEqual(
+            page_state_objects.create.call_args.kwargs["event_form_binding_id"],
+            77,
+        )
+        self.assertEqual(
+            page_state_objects.create.call_args.kwargs["repeat_index"],
+            2,
+        )
+        self.assertEqual(
             page_state_objects.create.call_args.kwargs["final_data"],
             repository.EMPTY_PAGE_STATE_FINAL_DATA,
         )
 
     def test_new_stable_page_state_builds_final_data_after_create(self):
         repository = _FinalDataRepository()
+        repository._resolve_event_form_binding_id_for_scope = lambda **kwargs: 88
+        repository._resolve_default_page_state_repeat_index_for_scope = lambda **kwargs: 3
 
         with patch(
             "apps.datacapture.infrastructure.repositories.page_capture.DataCapturePageState.objects"
@@ -174,5 +186,13 @@ class DataCapturePageStateFinalDataPersistenceTests(SimpleTestCase):
                     "review_type": "data_review",
                 }
             ],
+        )
+        self.assertEqual(
+            page_state_objects.create.call_args.kwargs["event_form_binding_id"],
+            88,
+        )
+        self.assertEqual(
+            page_state_objects.create.call_args.kwargs["repeat_index"],
+            3,
         )
         page_state_objects.filter.return_value.update.assert_called_once_with(final_data='{"field_1": "final"}')

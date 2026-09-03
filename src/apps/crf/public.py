@@ -1,3 +1,5 @@
+import json
+
 from apps.crf.application import (
     CrfTemplateAmbiguousError,
     CrfTemplateApplicationService,
@@ -33,6 +35,77 @@ class CrfContextAdapter:
         return self.crf_template_service.list_template_fields_with_ui_config(
             template_id=template_id,
         )
+
+    def list_export_fields_by_template_ids(self, *, template_ids, language_code=None):
+        return self.crf_template_service.list_export_fields_by_template_ids(
+            template_ids=template_ids,
+            language_code=language_code,
+        )
+
+    def list_template_field_schema_for_display_label(self, *, template_id):
+        fields = self.list_template_fields_with_ui_config(template_id=template_id)
+        return [
+            {
+                "field_key": field["field_key"],
+                "label": field["label"],
+                "data_type": field["data_type"],
+                "ui_config": field.get("ui_config") or {},
+            }
+            for field in fields
+        ]
+
+    def resolve_choice_display_label(
+        self,
+        *,
+        template_id,
+        field_key,
+        raw_value,
+        language_code="en",
+    ):
+        normalized_value = "" if raw_value is None else str(raw_value).strip()
+        if not normalized_value:
+            return normalized_value
+        fields = self.list_template_fields_with_ui_config(template_id=template_id)
+        target_field = next((field for field in fields if field["field_key"] == field_key), None)
+        if target_field is None:
+            return normalized_value
+        options = self._normalize_choice_options(
+            (target_field.get("ui_config") or {}).get("options"),
+        )
+        if not options:
+            return normalized_value
+        label_map = {
+            str(option.get("value", "")).strip(): str(option.get("label", "")).strip()
+            for option in options
+        }
+        selected_values = [item.strip() for item in normalized_value.split(",") if item.strip()]
+        resolved = [label_map.get(value, value) for value in selected_values]
+        if not resolved:
+            return normalized_value
+        return ", ".join(resolved)
+
+    @staticmethod
+    def _normalize_choice_options(raw_options):
+        if not raw_options:
+            return []
+        if isinstance(raw_options, list):
+            return raw_options
+        if isinstance(raw_options, str):
+            normalized = raw_options.strip()
+            if normalized.startswith("["):
+                try:
+                    parsed = json.loads(normalized)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, list):
+                    return parsed
+            options = []
+            for chunk in normalized.split():
+                if "=" in chunk:
+                    label, value = chunk.split("=", 1)
+                    options.append({"label": label.strip(), "value": value.strip()})
+            return options
+        return []
 
     def resolve_unique_template_by_code(self, *, study_id, code, case_insensitive=False):
         return self.crf_template_service.resolve_unique_template_by_code(
@@ -154,6 +227,29 @@ class CrfContextAdapter:
             section_name=section_name,
         )
 
+    def list_field_templates_for_import(self, *, crf_template_id, field_keys):
+        return self.field_template_import_service.list_field_templates_for_import(
+            crf_template_id=crf_template_id,
+            field_keys=field_keys,
+        )
+
+    def list_field_review_policies_for_import(
+        self,
+        *,
+        study_id,
+        crf_template_id,
+        field_template_ids,
+        study_versions,
+        review_types,
+    ):
+        return self.field_template_import_service.list_field_review_policies_for_import(
+            study_id=study_id,
+            crf_template_id=crf_template_id,
+            field_template_ids=field_template_ids,
+            study_versions=study_versions,
+            review_types=review_types,
+        )
+
     def resolve_import_validation_rule_template_by_code_or_id(self, *, study_id, form_code):
         return self.validation_rule_import_service.resolve_template_by_code_or_id(
             study_id=study_id,
@@ -199,12 +295,64 @@ class CrfContextAdapter:
         payload,
         actor_user_id,
         now=None,
+        existing_field_template=None,
     ):
         return self.field_template_import_service.upsert_template_field(
             crf_template_id=crf_template_id,
             section_template_id=section_template_id,
             payload=payload,
             actor_user_id=actor_user_id,
+            now=now,
+            existing_field_template=existing_field_template,
+        )
+
+    def upsert_import_template_fields(
+        self,
+        *,
+        prepared_rows,
+        actor_user_id,
+        now=None,
+        cached_field_templates=None,
+    ):
+        return self.field_template_import_service.upsert_template_fields(
+            prepared_rows=prepared_rows,
+            actor_user_id=actor_user_id,
+            now=now,
+            cached_field_templates=cached_field_templates,
+        )
+
+    def upsert_import_field_review_policy(
+        self,
+        *,
+        study_id,
+        study_version,
+        crf_template_id,
+        field_template_id,
+        review_type,
+        is_required_for_page_verify,
+        is_required_for_lock,
+        is_blocking_if_missing,
+        role_required,
+        is_enabled,
+        actor_user_id,
+        existing_field_review_policy=None,
+        force_create=False,
+        now=None,
+    ):
+        return self.field_template_import_service.upsert_field_review_policy(
+            study_id=study_id,
+            study_version=study_version,
+            crf_template_id=crf_template_id,
+            field_template_id=field_template_id,
+            review_type=review_type,
+            is_required_for_page_verify=is_required_for_page_verify,
+            is_required_for_lock=is_required_for_lock,
+            is_blocking_if_missing=is_blocking_if_missing,
+            role_required=role_required,
+            is_enabled=is_enabled,
+            actor_user_id=actor_user_id,
+            existing_field_review_policy=existing_field_review_policy,
+            force_create=force_create,
             now=now,
         )
 
@@ -233,6 +381,19 @@ class CrfContextAdapter:
             mode=mode,
             vi_message=vi_message,
             en_message=en_message,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
+    def reset_import_validation_rules(
+        self,
+        *,
+        field_template_ids,
+        actor_user_id,
+        now=None,
+    ):
+        return self.validation_rule_import_service.reset_validation_rules_for_import(
+            field_template_ids=field_template_ids,
             actor_user_id=actor_user_id,
             now=now,
         )

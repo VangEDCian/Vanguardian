@@ -15,6 +15,8 @@ from apps.shared.widgets import (
     ToolbarTotalWidget,
 )
 
+_COUNT_NOT_PROVIDED = object()
+
 
 class SharedFilter(django_filters.FilterSet):
     filter = django_filters.ChoiceFilter(
@@ -91,14 +93,16 @@ class SharedSearch(django_filters.FilterSet):
 class SharedTotal:
     TOTAL_LABEL = _("Total")
 
-    def bind_total_field(self):
+    def bind_total_field(self, *, total_value=_COUNT_NOT_PROVIDED):
         toolbar_fields = getattr(getattr(self, "Meta", None), "toolbar_fields", ())
         if "total" in toolbar_fields:
+            if total_value is _COUNT_NOT_PROVIDED:
+                total_value = self.qs.count()
             self.form.fields["total"] = forms.CharField(
                 required=False,
                 widget=ToolbarTotalWidget(
                     total_label=self.TOTAL_LABEL,
-                    total_value=self.qs.count(),
+                    total_value=total_value,
                 ),
             )
             self._reorder_form_fields(toolbar_fields)

@@ -1,10 +1,16 @@
 {% load i18n %}
 {% if focused_form %}
+    {% if subject_lifecycle_blocks_capture %}
+        <div class="subject-form-panel__placeholder" role="status">
+            {% trans "Data entry is unavailable for this visit because of the subject's participation status." %}
+        </div>
+    {% endif %}
     {% if focused_event and datacapture_save_url and not is_viewing_submitted_version and not is_page_edit_locked %}
         <div data-datacapture-form-root
              data-save-url="{{ datacapture_save_url|escape }}"
              data-submit-url="{{ datacapture_submit_url|escape }}"
              data-delete-draft-url="{{ datacapture_delete_draft_url|default:''|escape }}"
+             data-event-form-binding-id="{{ focused_form.id|default:'' }}"
              data-current-entry-id="{{ focused_render_entry.id|default:'' }}"
              data-page-status="{{ focused_page_status|default:''|escape }}"
              data-confirmation-message="{{ datacapture_save_confirm_message|default:''|escape }}"
@@ -146,57 +152,8 @@
             </div>
         </div>
     {% endif %}
-    {% if page_entry_has_open_validation_issues %}
-        <div class="subject-form-verification-query-modal-backdrop"
-             hidden
-             data-validation-issue-modal
-             data-language-code="{{ LANGUAGE_CODE }}"
-             data-acknowledge-url="{{ validation_issue_acknowledge_url|default:'' }}"
-             data-title-en-prefix="Validation issues for field"
-             data-title-vi-prefix="Cảnh báo validation cho trường">
-            <div class="subject-form-verification-query-modal subject-form-validation-issue-modal"
-                 role="dialog"
-                 aria-modal="true"
-                 aria-labelledby="subject-form-validation-issue-modal-title">
-                <header class="subject-form-verification-query-modal__header">
-                    <h3 id="subject-form-validation-issue-modal-title"
-                        class="subject-form-verification-query-modal__title"
-                        data-validation-issue-modal-title></h3>
-                </header>
-                <div class="subject-form-verification-query-modal__body">
-                    <section class="subject-form-verification-query-modal__section">
-                        <dl class="subject-form-verification-query-modal__facts">
-                            <div class="subject-form-verification-query-modal__fact-row">
-                                <dt>{% trans "Brief Description" %}</dt>
-                                <dd data-validation-issue-modal-brief>
-                                </dd>
-                            </div>
-                            <div class="subject-form-verification-query-modal__fact-row">
-                                <dt>{% trans "Value" %}</dt>
-                                <dd data-validation-issue-modal-value>
-                                </dd>
-                            </div>
-                        </dl>
-                    </section>
-                    <section class="subject-form-verification-query-modal__section">
-                        <table class="subject-form-validation-issue-modal__table">
-                            <tbody data-validation-issue-modal-list>
-                            </tbody>
-                        </table>
-                    </section>
-                    <section class="subject-form-verification-query-modal__section">
-                        <div class="subject-form-verification-query-modal__actions">
-                            <button type="button"
-                                    class="entity-table__footer-button entity-table__footer-button--primary"
-                                    data-validation-issue-modal-submit>{% trans "Submit" %}</button>
-                            <button type="button"
-                                    class="entity-table__footer-button entity-table__footer-button--secondary"
-                                    data-validation-issue-modal-close>{% trans "Close" %}</button>
-                        </div>
-                    </section>
-                </div>
-            </div>
-        </div>
+    {% if page_entry_has_validation_issue_records %}
+        {% include "subject/includes/validation_issue_modal.html" with validation_issue_show_acknowledge=page_entry_has_open_validation_issues %}
     {% endif %}
 {% else %}
     <div class="subject-detail-screen__empty">{% trans "Select a CRF template to continue." %}</div>

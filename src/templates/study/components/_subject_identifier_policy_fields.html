@@ -1,0 +1,91 @@
+{% load i18n %}
+<section class="user-detail-section">
+    <h2 class="user-detail-section__title">{% trans "SUBJECT IDENTIFIER POLICY" %}</h2>
+    <div class="user-detail-section__body">
+        <p>
+            {% trans "Subject Code, Screening Code, and Randomization Code are separate identifiers. Copying a Randomization Code into Subject Code occurs only when explicitly selected below." %}
+        </p>
+        {% for error in form.non_field_errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+        {% if can_update_identifier_policy %}
+            <div class="user-detail-inline-row">
+                <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label"
+                           for="{{ form.subject_identifier_mode.id_for_label }}">{{ form.subject_identifier_mode.label }}:</label>
+                    <div class="user-detail-inline-field__control-wrap">
+                        {{ form.subject_identifier_mode }}
+                        {% for error in form.subject_identifier_mode.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                    </div>
+                </div>
+                <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label"
+                           for="{{ form.screening_identifier_mode.id_for_label }}">{{ form.screening_identifier_mode.label }}:</label>
+                    <div class="user-detail-inline-field__control-wrap">
+                        {{ form.screening_identifier_mode }}
+                        {% for error in form.screening_identifier_mode.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="user-detail-inline-row">
+                <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label"
+                           for="{{ form.subject_code_pattern.id_for_label }}">{{ form.subject_code_pattern.label }}:</label>
+                    <div class="user-detail-inline-field__control-wrap">
+                        {{ form.subject_code_pattern }}
+                        <small>{{ form.subject_code_pattern.help_text }}</small>
+                        {% for error in form.subject_code_pattern.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                    </div>
+                </div>
+                <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label"
+                           for="{{ form.screening_code_pattern.id_for_label }}">{{ form.screening_code_pattern.label }}:</label>
+                    <div class="user-detail-inline-field__control-wrap">
+                        {{ form.screening_code_pattern }}
+                        <small>{{ form.screening_code_pattern.help_text }}</small>
+                        {% for error in form.screening_code_pattern.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="user-detail-inline-row">
+                <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label"
+                           for="{{ form.subject_code_uniqueness_scope.id_for_label }}">{{ form.subject_code_uniqueness_scope.label }}:</label>
+                    <div class="user-detail-inline-field__control-wrap">{{ form.subject_code_uniqueness_scope }}</div>
+                </div>
+                <div class="user-detail-inline-field">
+                    <label class="user-detail-inline-field__label"
+                           for="{{ form.lock_subject_code_after_assignment.id_for_label }}">{{ form.lock_subject_code_after_assignment.label }}:</label>
+                    <div class="user-detail-inline-field__control-wrap">{{ form.lock_subject_code_after_assignment }}</div>
+                </div>
+            </div>
+        {% else %}
+            <input type="hidden"
+                   name="subject_identifier_mode"
+                   value="{{ form.subject_identifier_mode.value }}">
+            <input type="hidden"
+                   name="screening_identifier_mode"
+                   value="{{ form.screening_identifier_mode.value }}">
+            <input type="hidden"
+                   name="subject_code_pattern"
+                   value="{{ form.subject_code_pattern.value }}">
+            <input type="hidden"
+                   name="screening_code_pattern"
+                   value="{{ form.screening_code_pattern.value }}">
+            <input type="hidden"
+                   name="subject_code_uniqueness_scope"
+                   value="{{ form.subject_code_uniqueness_scope.value }}">
+            {% if form.lock_subject_code_after_assignment.value %}
+                <input type="hidden" name="lock_subject_code_after_assignment" value="1">
+            {% endif %}
+            <dl>
+                <dt>{{ form.subject_identifier_mode.label }}</dt>
+                <dd>{{ form.subject_identifier_mode.value }}</dd>
+                <dt>{{ form.screening_identifier_mode.label }}</dt>
+                <dd>{{ form.screening_identifier_mode.value }}</dd>
+                <dt>{{ form.subject_code_pattern.label }}</dt>
+                <dd>{{ form.subject_code_pattern.value }}</dd>
+                <dt>{{ form.screening_code_pattern.label }}</dt>
+                <dd>{{ form.screening_code_pattern.value }}</dd>
+            </dl>
+        {% endif %}
+    </div>
+</section>

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,7 @@ class FinalizeEligibilityAssessmentCommand:
     protocol_version: str | None = None
     crf_version: str | None = None
     rule_code: str | None = None
+    rule_expression_json: str | dict[str, Any] | None = None
     rule_version: str | None = None
     conclusion_field_key: str | None = None
     force_result: str | None = None

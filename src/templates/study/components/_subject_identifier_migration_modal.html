@@ -1,0 +1,38 @@
+{% load i18n %}
+<div class="modal-backdrop"
+     id="modal-subject-identifier-migration"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-subject-identifier-migration-title">
+    <div class="modal modal--warning">
+        <div class="modal__header">
+            <div class="modal__icon" aria-hidden="true">!</div>
+            <h2 class="modal__title" id="modal-subject-identifier-migration-title">
+                {% trans "Subject Code migration warning" %}
+            </h2>
+        </div>
+        <div class="modal__body">
+            <p class="modal__message" data-identifier-migration-summary></p>
+            <dl data-identifier-migration-counts>
+            </dl>
+            <div data-identifier-migration-issues></div>
+            <label for="subject-identifier-migration-confirmation-code">{% trans "Enter the Study Code to confirm" %}</label>
+            <input id="subject-identifier-migration-confirmation-code"
+                   class="old-textbox"
+                   type="text"
+                   autocomplete="off"
+                   data-identifier-migration-confirmation-code>
+            <span class="user-detail-field__error"
+                  data-identifier-migration-error
+                  hidden></span>
+        </div>
+        <div class="modal__footer">
+            <button type="button"
+                    class="modal__cancel"
+                    data-modal-close="modal-subject-identifier-migration">{% trans "Cancel" %}</button>
+            <button type="button"
+                    class="entity-table__footer-button entity-table__footer-button--warning"
+                    data-identifier-migration-confirm>{% trans "Confirm migration" %}</button>
+        </div>
+    </div>
+</div>

@@ -137,6 +137,33 @@ class SubjectEventInstanceResyncService:
             trigger_source=trigger_source,
         )
 
+    def resync_subjects_active_study_version(
+        self,
+        *,
+        study_id: int,
+        subject_ids,
+        actor_user_id: int | None = None,
+        include_terminal_subjects: bool = False,
+        create_missing_future_events: bool = False,
+        trigger_source: str = "subject_list_bulk_resync_stage",
+    ) -> SubjectEventInstanceResyncResult:
+        study_version = self.repository.resolve_active_study_version(study_id=study_id)
+        if not study_version:
+            return SubjectEventInstanceResyncResult(
+                study_id=study_id,
+                study_version="",
+                reason="active_study_version_not_found",
+            )
+        return self.resync_study_version(
+            study_id=study_id,
+            study_version=study_version,
+            actor_user_id=actor_user_id,
+            include_terminal_subjects=include_terminal_subjects,
+            create_missing_future_events=create_missing_future_events,
+            subject_ids=subject_ids,
+            trigger_source=trigger_source,
+        )
+
     def _resync_study_version_once(
         self,
         *,

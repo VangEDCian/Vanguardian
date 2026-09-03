@@ -65,9 +65,7 @@
                 <header class="randomization-section__header">
                     <div class="randomization-section__title-group">
                         <h2 class="randomization-section__title">{% trans "Sequence Periods" %}</h2>
-                        <p class="randomization-section__description">
-                            {% trans "Treatment periods configured for each sequence arm." %}
-                        </p>
+                        <p class="randomization-section__description">{% trans "Treatment periods configured for each sequence arm." %}</p>
                     </div>
                     <div class="randomization-section__actions">
                         <span class="randomization-section__count">{{ randomization_sequence_period_total }}</span>
@@ -92,6 +90,13 @@
                     </div>
                     <div class="randomization-section__actions randomization-section__actions--summary">
                         <span class="randomization-section__count">{{ randomization_slot_total }}</span>
+                        {% if can_manage_randomization_import %}
+                            <button type="button"
+                                    class="randomization-import-toggle"
+                                    data-modal-open="modal-import-nng31-master-list">
+                                {% trans "Import Master List" %}
+                            </button>
+                        {% endif %}
                         <div class="randomization-slot-status"
                              aria-label="{% trans 'Slot status summary' %}">
                             {% for item in randomization_slot_status_summary %}
@@ -104,6 +109,42 @@
                     </div>
                 </header>
                 {% include "shared/components/_common_table.html" with headers=randomization_slot_headers rows=randomization_slot_rows empty_text=randomization_slot_empty_text %}
+                {% if randomization_master_list_records %}
+                    <div class="randomization-master-list-status">
+                        <h3 class="randomization-master-list-status__title">{% trans "Master-list Approval" %}</h3>
+                        {% for item in randomization_master_list_records %}
+                            <div class="randomization-master-list-status__item">
+                                <div>
+                                    <strong>{{ item.scheme_code }}</strong>
+                                    <span>{% trans "Version" %}: {{ item.version }}</span>
+                                    <span>{% trans "SHA-256" %}: <code>{{ item.checksum }}</code></span>
+                                    <span>{% trans "File" %}: {{ item.source_filename }}</span>
+                                    {% if item.locked %}
+                                        <span class="randomization-master-list-status__state randomization-master-list-status__state--locked">
+                                            {% trans "Approved and locked" %}
+                                        </span>
+                                    {% else %}
+                                        <span class="randomization-master-list-status__state">{% trans "Pending independent approval" %}</span>
+                                    {% endif %}
+                                </div>
+                                {% if can_manage_randomization_import and not item.locked %}
+                                    <form method="post"
+                                          action="{{ item.approve_url }}"
+                                          data-randomization-approve-form
+                                          data-confirm-message="{% trans 'Approve and permanently lock this master list?' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="scheme_id" value="{{ item.scheme_id }}">
+                                        <input type="hidden" name="expected_checksum" value="{{ item.checksum }}">
+                                        <button type="submit"
+                                                class="entity-table__footer-button entity-table__footer-button--primary">
+                                            {% trans "Approve and Lock" %}
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </section>
         </div>
         <div id="scheme-import-i18n"
@@ -123,6 +164,7 @@
             {% include "study/components/_randomization_scheme_import_modal.html" %}
             {% include "study/components/_randomization_arm_import_modal.html" %}
             {% include "study/components/_randomization_sequence_period_import_modal.html" %}
+            {% include "study/components/_nng31_master_list_import_modal.html" %}
         {% endif %}
         <div id="scheme-import-modal"
              class="randomization-modal"

@@ -78,11 +78,11 @@ def _build_site_choice_pairs(sites):
 def _user_can_manage_identity_permissions(user, *, study_id):
     return user_can_access_permission(
         user,
-        "identity.create_user",
+        "USER_ACCESS.MANAGE",
         study_id=study_id,
     ) or user_can_access_permission(
         user,
-        "identity.update_user",
+        "USER_ACCESS.MANAGE",
         study_id=study_id,
     )
 
@@ -100,7 +100,7 @@ def _build_select_options(choices, selected_values):
 
 
 class IdentityUsersView(AuthenticateTemplateView):
-    permission_required = "identity.view_user_list"
+    permission_required = "USER_ACCESS.VIEW"
     require_study_context = False
     raise_exception = True
     template_name = "identity/users.html"
@@ -139,14 +139,14 @@ class IdentityUsersView(AuthenticateTemplateView):
         )
         context["can_create_user"] = user_can_access_permission(
             self.request.user,
-            "identity.create_user",
+            "USER_ACCESS.MANAGE",
             study_id=get_default_study_id(self.request),
         )
         return context
 
 
 class IdentityUserCreateView(AuthenticateTemplateView):
-    permission_required = "identity.create_user"
+    permission_required = "USER_ACCESS.MANAGE"
     require_study_context = False
     raise_exception = True
     template_name = "identity/user_create.html"
@@ -319,7 +319,7 @@ class IdentityUserCreateView(AuthenticateTemplateView):
         )
 
 class IdentityUserDetailView(AuthenticateTemplateView):
-    permission_required = "identity.view_user_detail"
+    permission_required = "USER_ACCESS.VIEW"
     require_study_context = False
     raise_exception = True
     template_name = "identity/user_detail.html"
@@ -373,7 +373,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
         self.include_deleted = self._include_deleted_users(request)
         if self.include_deleted and not user_can_access_permission(
             request.user,
-            "identity.restore_user",
+            "USER_ACCESS.MANAGE",
             study_id=get_default_study_id(request),
         ):
             raise PermissionDenied
@@ -507,7 +507,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
         return (
             user_can_access_permission(
                 request_user,
-                "identity.update_user",
+                "USER_ACCESS.MANAGE",
                 study_id=get_default_study_id(self.request),
             )
             and request_user.pk != detail_user_id
@@ -519,7 +519,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
         return (
             user_can_access_permission(
                 request_user,
-                "identity.delete_user",
+                "USER_ACCESS.MANAGE",
                 study_id=get_default_study_id(self.request),
             )
             and request_user.pk != detail_user_id
@@ -531,7 +531,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
         return (
             user_can_access_permission(
                 request_user,
-                "identity.restore_user",
+                "USER_ACCESS.MANAGE",
                 study_id=get_default_study_id(self.request),
             )
             and request_user.pk != detail_user_id
@@ -580,7 +580,7 @@ class IdentityUserDetailView(AuthenticateTemplateView):
 
 
 class IdentityStudyOptionsApiView(AuthenticateTemplateContextMixin, View):
-    permission_required = "study.view_study_list"
+    permission_required = "STUDY_CONFIG.VIEW"
     require_study_context = False
     raise_exception = True
     user_directory_query_service_class = IdentityUserDirectoryQueryService
@@ -615,7 +615,7 @@ class IdentityStudyOptionsApiView(AuthenticateTemplateContextMixin, View):
 
 
 class IdentityStudySiteOptionsApiView(AuthenticateTemplateContextMixin, View):
-    permission_required = ("study.view_study_list", "site.view_site_list")
+    permission_required = ("STUDY_CONFIG.VIEW", "site.view_site_list")
     require_study_context = False
     raise_exception = True
     user_directory_query_service_class = IdentityUserDirectoryQueryService
@@ -668,7 +668,7 @@ def _normalize_study_ids_param(raw_value):
 
 
 class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
-    permission_required = "identity.delete_user"
+    permission_required = "USER_ACCESS.MANAGE"
     require_study_context = False
     raise_exception = True
     delete_user_service_class = DeleteIdentityUserService
@@ -710,7 +710,7 @@ class IdentityUserDeleteView(AuthenticateTemplateContextMixin, View):
 
 
 class IdentityUserRestoreView(AuthenticateTemplateContextMixin, View):
-    permission_required = "identity.restore_user"
+    permission_required = "USER_ACCESS.MANAGE"
     require_study_context = False
     raise_exception = True
     restore_user_service_class = RestoreIdentityUserService

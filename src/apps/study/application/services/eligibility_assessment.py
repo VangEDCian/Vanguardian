@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 from django.db import transaction
@@ -40,6 +41,39 @@ class DataCaptureEligibilityFactReader:
         return read_fact_snapshot_for_page_state(page_state_id=page_state_id)
 
 
+class StudyEligibilityTransitionFactService:
+    repository_class = DjangoEligibilityAssessmentRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    def build_facts(self, *, study_id: int, subject_id: int, assessment_type: str = "SCREENING") -> dict[str, object]:
+        assessment = self.repository.get_current_assessment(
+            study_id=study_id,
+            subject_id=subject_id,
+            assessment_type=assessment_type,
+        )
+        if assessment is None:
+            return {}
+        is_final_eligible = bool(
+            assessment.assessment_status == EligibilityAssessmentStatusChoices.FINAL
+            and assessment.result == EligibilityResultChoices.ELIGIBLE
+            and assessment.is_current
+        )
+        is_final_not_eligible = bool(
+            assessment.assessment_status == EligibilityAssessmentStatusChoices.FINAL
+            and assessment.result == EligibilityResultChoices.NOT_ELIGIBLE
+            and assessment.is_current
+        )
+        return {
+            "eligibility.latest.result": assessment.result,
+            "eligibility.latest.assessment_status": assessment.assessment_status,
+            "eligibility.latest.is_current": assessment.is_current,
+            "eligible": is_final_eligible,
+            "not_eligible": is_final_not_eligible,
+        }
+
+
 class EligibilityAssessmentService:
     repository_class = DjangoEligibilityAssessmentRepository
     audit_context_adapter_class = AuditContextAdapter
@@ -67,9 +101,19 @@ class EligibilityAssessmentService:
         return SubjectEligibilityWorkflowAdapter()
 
     def finalize(self, command: FinalizeEligibilityAssessmentCommand) -> EligibilityAssessmentResult:
-        self._require_permission(command.actor_id, command.study_id, "finalize_subject_eligibility")
+        self._require_permission(
+            command.actor_id,
+            command.study_id,
+            "finalize_subject_eligibility",
+            site_id=command.site_id,
+        )
         if command.force_result:
-            self._require_permission(command.actor_id, command.study_id, "override_subject_eligibility")
+            self._require_permission(
+                command.actor_id,
+                command.study_id,
+                "override_subject_eligibility",
+                site_id=command.site_id,
+            )
 
         subject_scope = self.subject_workflow_adapter.get_subject_scope(
             study_id=command.study_id,
@@ -310,7 +354,12 @@ class EligibilityAssessmentService:
         )
 
     def enroll_subject(self, command: EnrollSubjectCommand) -> EligibilityAssessmentResult:
-        self._require_permission(command.actor_id, command.study_id, "finalize_subject_eligibility")
+        self._require_permission(
+            command.actor_id,
+            command.study_id,
+            "finalize_subject_eligibility",
+            site_id=command.site_id,
+        )
         assessment = self.repository.get_current_assessment(
             study_id=command.study_id,
             subject_id=command.subject_id,
@@ -351,10 +400,16 @@ class EligibilityAssessmentService:
         )
 
     def _read_fact_snapshot(self, command: FinalizeEligibilityAssessmentCommand):
+        if command.source_context != "datacapture":
+            return None
+        if command.source_object_type == "EVENT_INSTANCE" and command.source_object_id is not None:
+            from apps.datacapture.public import read_fact_snapshot_for_event_instance
+
+            return read_fact_snapshot_for_event_instance(event_instance_id=command.source_object_id)
         page_state_id = command.source_page_state_id or (
             command.source_object_id if command.source_object_type == "PAGE_STATE" else None
         )
-        if command.source_context != "datacapture" or page_state_id is None:
+        if page_state_id is None:
             return None
         return self.fact_reader.read_for_page_state(page_state_id=page_state_id)
 
@@ -368,11 +423,14 @@ class EligibilityAssessmentService:
                 conclusion_value=self._string_or_none(facts.get(command.conclusion_field_key or "")),
             )
 
-        conditions = self.repository.list_active_eligibility_conditions(
-            study_id=command.study_id,
-            study_version=command.study_version,
-            rule_code=command.rule_code,
-        )
+        inline_condition = self._condition_from_command(command)
+        conditions = [inline_condition] if inline_condition is not None else []
+        if inline_condition is None and command.rule_code:
+            conditions = self.repository.list_active_eligibility_conditions(
+                study_id=command.study_id,
+                study_version=command.study_version,
+                rule_code=command.rule_code,
+            )
         for condition in conditions:
             failed_conditions = self._evaluate_condition_definition(condition, facts)
             if not failed_conditions:
@@ -400,16 +458,68 @@ class EligibilityAssessmentService:
             conclusion_value=self._string_or_none(facts.get(command.conclusion_field_key or "screening.eligibility_conclusion")),
         )
 
+    def _condition_from_command(self, command: FinalizeEligibilityAssessmentCommand):
+        if command.rule_expression_json in (None, ""):
+            return None
+        expression_json = (
+            self._to_json(command.rule_expression_json)
+            if isinstance(command.rule_expression_json, dict)
+            else str(command.rule_expression_json)
+        )
+        return SimpleNamespace(
+            code=command.rule_code or "workflow_action_condition",
+            expression_json=expression_json,
+        )
+
     def _evaluate_condition_definition(self, condition, facts: dict[str, Any]) -> list[dict[str, Any]]:
         try:
             expression = json.loads(condition.expression_json or "{}")
         except json.JSONDecodeError:
             return [self._failed_condition("eligibility.expression", "valid_json", condition.expression_json, "OTHER")]
+        if isinstance(expression, dict) and "any" in expression:
+            checks = expression.get("any")
+            if isinstance(checks, list) and any(self._expression_matches(check, facts) for check in checks):
+                return []
+            return [
+                self._failed_condition(
+                    getattr(condition, "code", None) or "eligibility.expression",
+                    "any_condition_satisfied",
+                    False,
+                    "OTHER",
+                    operator="any",
+                )
+            ]
+        if isinstance(expression, dict) and "not" in expression:
+            if not self._expression_matches(expression.get("not"), facts):
+                return []
+            return [
+                self._failed_condition(
+                    getattr(condition, "code", None) or "eligibility.expression",
+                    "not_condition_satisfied",
+                    True,
+                    "OTHER",
+                    operator="not",
+                )
+            ]
         checks = expression.get("all") if isinstance(expression, dict) else None
         if not isinstance(checks, list):
             return []
         failed_conditions = []
         for index, check in enumerate(checks, start=1):
+            if isinstance(check, dict) and any(key in check for key in ("all", "any", "not")):
+                if self._expression_matches(check, facts):
+                    continue
+                failed_conditions.append(
+                    self._failed_condition(
+                        getattr(condition, "code", None) or "eligibility.expression",
+                        "nested_condition_satisfied",
+                        False,
+                        "OTHER",
+                        operator="expression",
+                        display_order=index,
+                    )
+                )
+                continue
             fact_key = check.get("fact")
             operator = check.get("operator") or "equals"
             expected = check.get("value")
@@ -426,6 +536,26 @@ class EligibilityAssessmentService:
                     )
                 )
         return failed_conditions
+
+    def _expression_matches(self, expression, facts: dict[str, Any]) -> bool:
+        if not isinstance(expression, dict):
+            return False
+        if "all" in expression:
+            checks = expression.get("all")
+            return isinstance(checks, list) and all(self._expression_matches(check, facts) for check in checks)
+        if "any" in expression:
+            checks = expression.get("any")
+            return isinstance(checks, list) and any(self._expression_matches(check, facts) for check in checks)
+        if "not" in expression:
+            return not self._expression_matches(expression.get("not"), facts)
+        fact_key = expression.get("fact")
+        if not fact_key:
+            return False
+        return self._evaluate_operator(
+            facts.get(fact_key),
+            expression.get("operator") or "equals",
+            expression.get("value"),
+        )
 
     def _evaluate_convention_facts(self, facts: dict[str, Any]) -> list[dict[str, Any]]:
         checks = [
@@ -588,10 +718,18 @@ class EligibilityAssessmentService:
             preferred_codes=["ENROLLMENT", "ELIGIBILITY_ASSESSMENT", "SCREENING"],
         )
 
-    def _require_permission(self, actor_id: int | None, study_id: int, permission_codename: str) -> None:
+    def _require_permission(
+        self,
+        actor_id: int | None,
+        study_id: int,
+        permission_codename: str,
+        *,
+        site_id: int | None = None,
+    ) -> None:
         if not self.repository.actor_has_permission(
             actor_id=actor_id,
             study_id=study_id,
+            site_id=site_id,
             permission_codename=permission_codename,
         ):
             raise EligibilityAssessmentPermissionError(
@@ -701,4 +839,5 @@ __all__ = [
     "DataCaptureEligibilityFactReader",
     "EligibilityAssessmentService",
     "EligibilityEvaluation",
+    "StudyEligibilityTransitionFactService",
 ]

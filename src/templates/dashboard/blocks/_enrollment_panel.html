@@ -1,0 +1,15 @@
+{% load i18n %}
+<article class="dashboard-panel dashboard-panel--enrollment">
+    <div class="dashboard-panel__header">
+        <h2>{% trans "Enrollment & Coverage" %}</h2>
+        <p>{% trans "Recruitment numbers for the selected study or site." %}</p>
+    </div>
+    <div class="dashboard-metric-list">
+        {% for row in dashboard_enrollment_rows %}
+            <div class="dashboard-metric-list__row">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.count }}</strong>
+            </div>
+        {% endfor %}
+    </div>
+</article>

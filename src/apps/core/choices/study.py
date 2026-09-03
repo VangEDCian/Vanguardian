@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+MASTER_LIST_RANDOMIZATION_TYPES = ("blocked", "stratified_blocked")
+
 
 class EventDefinitionTypeChoices(models.TextChoices):
     VISIT_BASED = "visit_based", _("Visit based")
@@ -22,6 +24,12 @@ class EventDefinitionCategoryChoices(models.TextChoices):
     FOLLOW_UP = "follow_up", _("Follow up")
     EOS = "eos", _("End of study")
     UNSCHEDULED = "unscheduled", _("Unscheduled")
+
+
+class EventDefinitionLifecycleRoleChoices(models.TextChoices):
+    REGULAR = "regular", _("Regular")
+    REGULAR_COMPLETION = "regular_completion", _("Regular completion")
+    EARLY_TERMINATION = "early_termination", _("Early termination")
 
 
 class EventExecutionModeChoices(models.TextChoices):
@@ -69,6 +77,25 @@ class EventInstanceStatusChoices(models.TextChoices):
     LOCKED = "locked", _("Locked")
     FINALIZED = "finalized", _("Finalized")
     SKIPPED = "skipped", _("Skipped")
+    CANCELLED = "cancelled", _("Cancelled")
+
+
+class SubjectLifecycleStatusChoices(models.TextChoices):
+    ACTIVE = "active", _("Active")
+    EARLY_TERMINATION_IN_PROGRESS = (
+        "early_termination_in_progress",
+        _("Early termination in progress"),
+    )
+    EARLY_TERMINATED = "early_terminated", _("Early terminated")
+    COMPLETED_NORMALLY = "completed_normally", _("Completed normally")
+
+
+class SubjectPeriodStatusChoices(models.TextChoices):
+    PLANNED = "planned", _("Planned")
+    ACTIVE = "active", _("Active")
+    WASHOUT = "washout", _("Washout")
+    COMPLETED = "completed", _("Completed")
+    REVIEW_REQUIRED = "review_required", _("Review Required")
     CANCELLED = "cancelled", _("Cancelled")
 
 

@@ -10,9 +10,12 @@ class SubjectListQueryRepository:
             SubjectEventInstance.objects.filter(
                 subject_id=OuterRef("pk"),
                 deleted=False,
-                status=EventInstanceStatusChoices.OPEN,
+                status__in=(
+                    EventInstanceStatusChoices.OPEN,
+                    EventInstanceStatusChoices.IN_PROGRESS,
+                ),
                 event_definition__event_type=EventDefinitionTypeChoices.VISIT_BASED,
             )
-            .order_by("-id")
+            .order_by("id")
             .values("event_definition__name")[:1]
         )

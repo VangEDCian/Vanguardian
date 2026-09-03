@@ -71,6 +71,27 @@ class StudyRandomizationSlotGenerationServiceTests(SimpleTestCase):
         self.assertIsNone(result)
         self.service.repository.list_slots_for_scheme.assert_not_called()
 
+    def test_generate_slots_returns_for_master_list_randomization_types(self):
+        for randomization_type in ("blocked", "stratified_blocked"):
+            with self.subTest(randomization_type=randomization_type):
+                repository = MagicMock()
+                self.service.repository = repository
+                scheme = SimpleNamespace(
+                    pk=1,
+                    status=RandomizationSchemeStatusChoice.ACTIVE,
+                    randomization_type=randomization_type,
+                    allocation_ratio_json={"ARM-A": 1},
+                    target_randomized_total=10,
+                )
+
+                result = self.service.generate_slots_for_scheme_arm(
+                    scheme=scheme,
+                    arm=SimpleNamespace(arm_code="ARM-A"),
+                )
+
+                self.assertIsNone(result)
+                repository.list_slots_for_scheme.assert_not_called()
+
     def test_generate_slots_reconciles_available_slots_with_ratio(self):
         # Existing: assigned=1, available=7 (A:5, B:1, C:1), void=1
         # Target total=8 => available target=7, ratio A:B=2:1 => desired A:4, B:3

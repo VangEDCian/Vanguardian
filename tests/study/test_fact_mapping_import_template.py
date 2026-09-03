@@ -7,6 +7,7 @@ from django.test import SimpleTestCase
 from openpyxl import load_workbook
 
 from apps.study.application.commands import (
+    FactMappingImportConflictError,
     FactMappingImportFormatError,
     ImportStudyFactMappingsTemplateCommand,
 )
@@ -123,3 +124,31 @@ class ImportStudyFactMappingsTemplateServiceTests(SimpleTestCase):
         self.assertEqual(result.skipped_count, 1)
         self.assertEqual(result.issues[0].row_number, 2)
         self.assertEqual(result.issues[0].event_code, "")
+
+    def test_execute_collects_conflict_issues(self):
+        command = ImportStudyFactMappingsTemplateCommand(
+            actor_user_id=99,
+            selected_study_id=3,
+            study_id=3,
+            file_name="fact_mappings.xlsx",
+            file_content=b"content",
+        )
+        with (
+            patch.object(
+                self.service,
+                "_load_rows_from_workbook",
+                return_value=[(2, {"event_code": "SCREENING", "form_code": "FORM_A", "fact_key": "fact.a"})],
+            ),
+            patch.object(
+                self.service,
+                "_import_row",
+                side_effect=FactMappingImportConflictError("Fact Key already exists in this study/event/version scope and is bound to another form."),
+            ),
+        ):
+            result = self.service.execute(command)
+
+        self.assertEqual(result.total_rows, 1)
+        self.assertEqual(result.created_count, 0)
+        self.assertEqual(result.updated_count, 0)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertIn("bound to another form", result.issues[0].reason)

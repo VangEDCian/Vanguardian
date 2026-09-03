@@ -11,6 +11,7 @@ from apps.crf.public import CrfContextAdapter
 from apps.datacapture.application.exceptions import DataCaptureValidationError
 from apps.datacapture.domain import DataCapturePageState
 from apps.datacapture.public import (
+    certify_page_for_subject_visit_crf,
     finalize_page_data_for_subject_visit_crf,
     get_latest_submitted_page_entry_for_subject_visit_crf,
     get_page_entry_for_subject_visit_crf,
@@ -70,6 +71,7 @@ def _current_user_matches_submitted_entry_editor(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        **_event_form_binding_kwargs_from_request(request),
     )
     return _same_user(getattr(request.user, "id", None), getattr(submitted_entry, "updated_by_id", None))
 
@@ -79,6 +81,25 @@ def _parse_int_or_none(value) -> int | None:
         return int(str(value or "").strip())
     except (TypeError, ValueError):
         return None
+
+
+def _event_form_binding_id_from_request(request) -> int | None:
+    return (
+        _parse_int_or_none(request.GET.get("form"))
+        or _parse_int_or_none(request.POST.get("form"))
+        or _parse_int_or_none(request.GET.get("event_form_binding_id"))
+        or _parse_int_or_none(request.POST.get("event_form_binding_id"))
+    )
+
+
+def _event_form_binding_kwargs(event_form_binding_id: int | None) -> dict[str, int]:
+    if event_form_binding_id is None:
+        return {}
+    return {"event_form_binding_id": event_form_binding_id}
+
+
+def _event_form_binding_kwargs_from_request(request) -> dict[str, int]:
+    return _event_form_binding_kwargs(_event_form_binding_id_from_request(request))
 
 
 def _load_entry_payload_map(raw_payload) -> dict:
@@ -128,6 +149,7 @@ def _filter_changed_review_fields(
     crf_template_id: int,
     normalized_payload: dict[str, object],
     submitted_entry,
+    event_form_binding_id: int | None = None,
 ) -> tuple[bool, list[int], list[dict[str, object]], bool]:
     checked_field_template_ids = list(normalized_payload["field_template_ids"])
     if _review_context_matches_submitted_entry(
@@ -145,6 +167,7 @@ def _filter_changed_review_fields(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        **_event_form_binding_kwargs(event_form_binding_id),
     )
     if reviewed_entry is None:
         return False, [], [], False
@@ -193,11 +216,13 @@ def _review_context_status_and_submitted_entry(
     subject_id: int,
     visit_id: int,
     crf_template_id: int,
+    event_form_binding_id: int | None = None,
 ):
     current_page_status = get_page_state_status_for_subject_visit_crf(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        **_event_form_binding_kwargs(event_form_binding_id),
     )
     normalized_current_status = (current_page_status or "").strip().lower()
     if not DataCapturePageState.can_start_or_continue_review(normalized_current_status):
@@ -207,6 +232,7 @@ def _review_context_status_and_submitted_entry(
         subject_id=subject_id,
         visit_id=visit_id,
         crf_template_id=crf_template_id,
+        **_event_form_binding_kwargs(event_form_binding_id),
     )
     if submitted_entry is None:
         return False, current_page_status, None
@@ -220,7 +246,7 @@ class SubjectFormVerificationVerifyCheckedView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -233,22 +259,17 @@ class SubjectFormVerificationVerifyCheckedView(
             subject_id = int(kwargs["subject_id"])
             visit_id = int(kwargs["visit_id"])
             crf_template_id = int(kwargs["crf_template_id"])
+            event_form_binding_id = _event_form_binding_id_from_request(request)
             context_is_reviewable, current_page_status, submitted_entry = (
                 _review_context_status_and_submitted_entry(
                     subject_id=subject_id,
                     visit_id=visit_id,
                     crf_template_id=crf_template_id,
+                    event_form_binding_id=event_form_binding_id,
                 )
             )
             if not context_is_reviewable:
                 return JsonResponse({"error": [STALE_REVIEW_ERROR]}, status=400)
-            if _current_user_matches_submitted_entry_editor(
-                request=request,
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
-            ):
-                return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
             context_can_continue, checked_field_template_ids, stale_review_fields, reload_required = (
                 _filter_changed_review_fields(
                     subject_id=subject_id,
@@ -256,6 +277,7 @@ class SubjectFormVerificationVerifyCheckedView(
                     crf_template_id=crf_template_id,
                     normalized_payload=normalized,
                     submitted_entry=submitted_entry,
+                    event_form_binding_id=event_form_binding_id,
                 )
             )
             if not context_can_continue:
@@ -285,6 +307,7 @@ class SubjectFormVerificationVerifyCheckedView(
                 checked_field_template_ids=checked_field_template_ids,
                 unverify_reason_text=normalized["reason_text"],
                 actor_user_id=getattr(request.user, "id", None),
+                **_event_form_binding_kwargs(event_form_binding_id),
             )
         except (SubjectValidationError, DataCaptureValidationError) as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
@@ -309,7 +332,7 @@ class SubjectFormVerificationReopenView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -325,6 +348,7 @@ class SubjectFormVerificationReopenView(
                 crf_template_id=int(kwargs["crf_template_id"]),
                 reason_text=reason_text,
                 actor_user_id=getattr(request.user, "id", None),
+                **_event_form_binding_kwargs_from_request(request),
             )
         except (SubjectValidationError, DataCaptureValidationError) as exc:
             return JsonResponse({"error": list(exc.messages)}, status=400)
@@ -343,7 +367,7 @@ class SubjectFormVerificationFinalizePageDataView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -353,18 +377,45 @@ class SubjectFormVerificationFinalizePageDataView(
             subject_id = int(kwargs["subject_id"])
             visit_id = int(kwargs["visit_id"])
             crf_template_id = int(kwargs["crf_template_id"])
-            if _current_user_matches_submitted_entry_editor(
-                request=request,
-                subject_id=subject_id,
-                visit_id=visit_id,
-                crf_template_id=crf_template_id,
-            ):
-                return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
             page_status = finalize_page_data_for_subject_visit_crf(
                 subject_id=subject_id,
                 visit_id=visit_id,
                 crf_template_id=crf_template_id,
                 actor_user_id=getattr(request.user, "id", None),
+                **_event_form_binding_kwargs_from_request(request),
+            )
+        except (DataCaptureValidationError, ValueError) as exc:
+            messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
+            return JsonResponse({"error": messages}, status=400)
+        return JsonResponse(
+            {
+                "ok": True,
+                "page_status": page_status,
+                "reload_required": True,
+            }
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SubjectFormVerificationCertifyPageView(
+    LoginRequiredMixin,
+    ContextPermissionRequiredMixin,
+    SubjectAbstractVerifyStudy,
+    View,
+):
+    permission_required = "EVENT_CERTIFICATION.CERTIFY"
+    authorization_scope = "STUDY_SITE"
+    require_site_context = True
+    raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        try:
+            page_status = certify_page_for_subject_visit_crf(
+                subject_id=int(kwargs["subject_id"]),
+                visit_id=int(kwargs["visit_id"]),
+                crf_template_id=int(kwargs["crf_template_id"]),
+                actor_user_id=getattr(request.user, "id", None),
+                **_event_form_binding_kwargs_from_request(request),
             )
         except (DataCaptureValidationError, ValueError) as exc:
             messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
@@ -397,6 +448,7 @@ class SubjectFormVerificationLockPageView(
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
                 actor_user_id=getattr(request.user, "id", None),
+                **_event_form_binding_kwargs_from_request(request),
             )
         except (DataCaptureValidationError, ValueError) as exc:
             messages = list(exc.messages) if hasattr(exc, "messages") else [str(exc)]
@@ -417,7 +469,7 @@ class SubjectFormVerificationQueryThreadView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -431,6 +483,7 @@ class SubjectFormVerificationQueryThreadView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                **_event_form_binding_kwargs_from_request(request),
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
@@ -526,7 +579,7 @@ class SubjectFormVerificationOpenQueryView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.verify_form"
+    permission_required = "SDV.MARK"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -540,6 +593,7 @@ class SubjectFormVerificationOpenQueryView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                **_event_form_binding_kwargs_from_request(request),
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
@@ -547,6 +601,7 @@ class SubjectFormVerificationOpenQueryView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                **_event_form_binding_kwargs_from_request(request),
             )
             if (page_state_status or "").strip().lower() not in {
                 DataCapturePageState.SUBMITTED,
@@ -556,13 +611,6 @@ class SubjectFormVerificationOpenQueryView(
                     {"error": ["Chỉ được tạo Query khi Page State ở trạng thái Submitted hoặc Verified."]},
                     status=400,
                 )
-            if _current_user_matches_submitted_entry_editor(
-                request=request,
-                subject_id=int(kwargs["subject_id"]),
-                visit_id=int(kwargs["visit_id"]),
-                crf_template_id=int(kwargs["crf_template_id"]),
-            ):
-                return JsonResponse({"error": [SELF_REVIEW_ERROR]}, status=400)
             result = open_reconcile_query(
                 page_state_id=int(page_state_id),
                 field_template_id=int(normalized["field_template_id"]),
@@ -592,7 +640,7 @@ class SubjectValidationIssueAcknowledgeView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "VALIDATION_ISSUE.ACKNOWLEDGE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -606,6 +654,7 @@ class SubjectValidationIssueAcknowledgeView(
                 subject_id=int(kwargs["subject_id"]),
                 visit_id=int(kwargs["visit_id"]),
                 crf_template_id=int(kwargs["crf_template_id"]),
+                **_event_form_binding_kwargs_from_request(request),
             )
             if page_state_id is None:
                 return JsonResponse({"error": ["Page state not found."]}, status=400)
@@ -622,11 +671,19 @@ class SubjectValidationIssueAcknowledgeView(
                 "ok": True,
                 "acknowledged_issue_ids": result["acknowledged_issue_ids"],
                 "acknowledged_count": result["acknowledged_count"],
+                "page_status": get_page_state_status_for_subject_visit_crf(
+                    subject_id=int(kwargs["subject_id"]),
+                    visit_id=int(kwargs["visit_id"]),
+                    crf_template_id=int(kwargs["crf_template_id"]),
+                    **_event_form_binding_kwargs_from_request(request),
+                )
+                or "",
             }
         )
 
 
 __all__ = [
+    "SubjectFormVerificationCertifyPageView",
     "SubjectFormVerificationFinalizePageDataView",
     "SubjectFormVerificationLockPageView",
     "SubjectFormVerificationOpenQueryView",

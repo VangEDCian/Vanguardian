@@ -1,4 +1,6 @@
 from apps.study.application import (
+    ApproveNng31MasterListCommand,
+    CommitNng31MasterListCommand,
     CommitRandomizationImportCommand,
     CreateStudyCommand,
     DeleteRandomizationArmCommand,
@@ -9,6 +11,7 @@ from apps.study.application import (
     ImportStudyCrfTemplateFieldsTemplateCommand,
     ImportStudyCrfTemplatesTemplateCommand,
     ImportStudyCrfValidationRulesTemplateCommand,
+    ImportStudyEventAttestationPoliciesTemplateCommand,
     ImportStudyEventDefinitionsTemplateCommand,
     ImportStudyEventFormBindingsTemplateCommand,
     ImportStudyFactMappingsTemplateCommand,
@@ -40,6 +43,12 @@ def to_import_study_crf_validation_rules_template_command(
     return ImportStudyCrfValidationRulesTemplateCommand(**kwargs)
 
 
+def to_import_study_event_attestation_policies_template_command(
+    **kwargs,
+) -> ImportStudyEventAttestationPoliciesTemplateCommand:
+    return ImportStudyEventAttestationPoliciesTemplateCommand(**kwargs)
+
+
 def to_import_study_event_definitions_template_command(**kwargs) -> ImportStudyEventDefinitionsTemplateCommand:
     return ImportStudyEventDefinitionsTemplateCommand(**kwargs)
 
@@ -58,6 +67,14 @@ def to_preview_randomization_import_command(**kwargs) -> PreviewRandomizationImp
 
 def to_commit_randomization_import_command(**kwargs) -> CommitRandomizationImportCommand:
     return CommitRandomizationImportCommand(**kwargs)
+
+
+def to_commit_nng31_master_list_command(**kwargs) -> CommitNng31MasterListCommand:
+    return CommitNng31MasterListCommand(**kwargs)
+
+
+def to_approve_nng31_master_list_command(**kwargs) -> ApproveNng31MasterListCommand:
+    return ApproveNng31MasterListCommand(**kwargs)
 
 
 def to_delete_randomization_scheme_command(**kwargs) -> DeleteRandomizationSchemeCommand:
@@ -97,10 +114,13 @@ def to_delete_study_command(**kwargs) -> DeleteStudyCommand:
 
 
 __all__ = [
+    "to_approve_nng31_master_list_command",
+    "to_commit_nng31_master_list_command",
     "to_import_study_crf_template_fields_template_command",
     "to_import_study_crf_validation_rules_template_command",
     "to_import_study_crf_section_layout_configs_template_command",
     "to_import_study_crf_templates_template_command",
+    "to_import_study_event_attestation_policies_template_command",
     "to_import_study_event_definitions_template_command",
     "to_import_study_event_form_bindings_template_command",
     "to_import_study_fact_mappings_template_command",

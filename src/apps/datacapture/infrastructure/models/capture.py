@@ -19,6 +19,7 @@ class DataCapturePageStateSnapshot:
     study_id: int
     study_version: str
     event_definition_id: int
+    site_id: int | None = None
 
 
 @dataclass(frozen=True)

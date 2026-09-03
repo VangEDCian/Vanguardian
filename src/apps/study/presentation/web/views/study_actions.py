@@ -17,6 +17,9 @@ from apps.study.application import (
     StudyCodeAlreadyExistsError,
     StudyDateRangeError,
     StudyNotFoundError,
+    StudySubjectIdentifierMigrationBlockedError,
+    StudySubjectIdentifierMigrationRequiredError,
+    StudySubjectIdentifierMigrationStalePlanError,
     ToggleStudyStatusService,
     UpdateStudyService,
 )
@@ -89,6 +92,23 @@ class StudyCreateView(
             end_date=form.cleaned_data.get("end_date"),
             is_active=form.cleaned_data.get("is_active", True),
             actor_user_id=request.user.pk,
+            subject_identifier_mode=form.cleaned_data["subject_identifier_mode"],
+            screening_identifier_mode=form.cleaned_data["screening_identifier_mode"],
+            subject_code_pattern=form.cleaned_data["subject_code_pattern"],
+            screening_code_pattern=form.cleaned_data["screening_code_pattern"],
+            subject_code_uniqueness_scope=form.cleaned_data[
+                "subject_code_uniqueness_scope"
+            ],
+            lock_subject_code_after_assignment=form.cleaned_data.get(
+                "lock_subject_code_after_assignment",
+                False,
+            ),
+            subject_identifier_migration_plan_hash=request.POST.get(
+                "subject_identifier_migration_plan_hash"
+            ),
+            subject_identifier_migration_confirmation_code=request.POST.get(
+                "subject_identifier_migration_confirmation_code"
+            ),
         )
 
         try:
@@ -98,6 +118,22 @@ class StudyCreateView(
             return self._render_form(request, form)
         except StudyDateRangeError:
             form.add_error("end_date", _("End date must be on or after start date."))
+            return self._render_form(request, form)
+        except StudySubjectIdentifierMigrationRequiredError:
+            form.add_error(
+                None,
+                _("Preview and confirm the Subject Code migration before saving."),
+            )
+            return self._render_form(request, form)
+        except StudySubjectIdentifierMigrationStalePlanError:
+            form.add_error(
+                None,
+                _("Subject data changed after preview. Preview the migration again."),
+            )
+            return self._render_form(request, form)
+        except StudySubjectIdentifierMigrationBlockedError as exc:
+            for issue in exc.preview.blockers:
+                form.add_error(None, issue.message)
             return self._render_form(request, form)
 
         self.get_study_audit_service().record_created(
@@ -115,7 +151,7 @@ class StudyCreateView(
 class StudyUpdateView(
     AuthenticateTemplateView
 ):
-    permission_required = "study.update_study"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/study_form.html"
@@ -161,6 +197,14 @@ class StudyUpdateView(
                     "start_date": self._study.start_date,
                     "end_date": self._study.end_date,
                     "is_active": self._study.is_active,
+                    "subject_identifier_mode": self._study.subject_identifier_mode,
+                    "screening_identifier_mode": self._study.screening_identifier_mode,
+                    "subject_code_pattern": self._study.subject_code_pattern,
+                    "screening_code_pattern": self._study.screening_code_pattern,
+                    "subject_code_uniqueness_scope": self._study.subject_code_uniqueness_scope,
+                    "lock_subject_code_after_assignment": (
+                        self._study.lock_subject_code_after_assignment
+                    ),
                 }
             ),
         )
@@ -176,6 +220,11 @@ class StudyUpdateView(
             user, "study.update_study_field_code", study_id=self._study.pk
         )
         context["show_is_active"] = False
+        context["subject_identifier_policy_preview_url"] = reverse(
+            "study:study_subject_identifier_policy_preview",
+            kwargs={"study_id": self._study.pk},
+        )
+        context["identifier_policy_current"] = self._study
 
         # Field-level update permissions
         context["can_update_field_code"] = user_can_access_permission(
@@ -218,6 +267,17 @@ class StudyUpdateView(
             end_date=form.cleaned_data.get("end_date"),
             is_active=self._study.is_active,
             actor_user_id=request.user.pk,
+            subject_identifier_mode=form.cleaned_data["subject_identifier_mode"],
+            screening_identifier_mode=form.cleaned_data["screening_identifier_mode"],
+            subject_code_pattern=form.cleaned_data["subject_code_pattern"],
+            screening_code_pattern=form.cleaned_data["screening_code_pattern"],
+            subject_code_uniqueness_scope=form.cleaned_data[
+                "subject_code_uniqueness_scope"
+            ],
+            lock_subject_code_after_assignment=form.cleaned_data.get(
+                "lock_subject_code_after_assignment",
+                False,
+            ),
         )
 
         try:

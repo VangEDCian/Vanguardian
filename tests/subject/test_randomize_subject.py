@@ -5,10 +5,17 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
+from apps.study.domain import (
+    StudySubjectIdentifierPolicy,
+    SubjectIdentifierMode,
+)
 from apps.subject.application.services.randomize_subject import (
     RandomizationSummary,
     RandomizeSubject,
     RandomizeSubjectCommand,
+)
+from apps.subject.infrastructure.repositories.randomization import (
+    DjangoSubjectRandomizationRepository,
 )
 
 
@@ -17,6 +24,7 @@ class RandomizeSubjectTests(SimpleTestCase):
         repository = _RandomizeRepositoryStub()
         slot_assigner = _SlotAssignerStub(arm_code="SEQ_E_N", sequence_no=1)
         audit = _AuditStub()
+        period_lifecycle = _PeriodLifecycleStub()
         published_events = []
 
         with (
@@ -28,6 +36,8 @@ class RandomizeSubjectTests(SimpleTestCase):
                 slot_assigner=slot_assigner,
                 audit_adapter=audit,
                 event_publisher=published_events.append,
+                period_lifecycle_service=period_lifecycle,
+                identifier_policy_reader=_default_policy_reader,
             ).execute(
                 RandomizeSubjectCommand(
                     subject_id=20,
@@ -39,10 +49,11 @@ class RandomizeSubjectTests(SimpleTestCase):
 
         self.assertEqual(summary.slot_id, 5)
         self.assertEqual(summary.arm_code, "SEQ_E_N")
-        self.assertEqual(summary.randomization_number, "1")
+        self.assertEqual(summary.randomization_number, "R-001")
         self.assertEqual(repository.recorded_assignments[0]["assignment"].slot_id, 5)
         self.assertEqual(repository.period_materializations, [])
         self.assertEqual(audit.events[0]["action"], "subject.randomized")
+        self.assertEqual(period_lifecycle.initialized_subject_ids, [20])
         self.assertEqual(published_events[0].slot_id, 5)
 
     def test_is_idempotent_for_existing_randomized_subject(self):
@@ -51,7 +62,7 @@ class RandomizeSubjectTests(SimpleTestCase):
             study_id=1,
             site_id=2,
             scheme_id=10,
-            scheme_code="NNG31_XOVER",
+            scheme_code="CROSS_OVER_NANOKINE_EPREX4000IU",
             arm_id=11,
             arm_code="SEQ_E_N",
             arm_name="Eprex -> NANOKINE",
@@ -60,22 +71,29 @@ class RandomizeSubjectTests(SimpleTestCase):
             randomization_event_id=None,
             randomization_status="assigned",
             randomization_datetime=datetime(2026, 5, 20, 8, 0, tzinfo=timezone.utc),
-            randomization_number="1",
+            randomization_number="R-001",
             randomization_source="workflow_action",
             period_count=2,
         )
         repository = _RandomizeRepositoryStub(existing=existing)
         slot_assigner = _SlotAssignerStub()
 
-        summary = RandomizeSubject(
-            repository=repository,
-            slot_assigner=slot_assigner,
-            audit_adapter=_AuditStub(),
-        ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
+        with patch(
+            "apps.subject.application.services.randomize_subject.transaction.atomic",
+            return_value=nullcontext(),
+        ):
+            summary = RandomizeSubject(
+                repository=repository,
+                slot_assigner=slot_assigner,
+                audit_adapter=_AuditStub(),
+                period_lifecycle_service=_PeriodLifecycleStub(),
+                identifier_policy_reader=_default_policy_reader,
+            ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
 
         self.assertEqual(summary.slot_id, 5)
         self.assertEqual(slot_assigner.calls, [])
         self.assertEqual(repository.period_materializations[0]["arm_id"], 11)
+        self.assertEqual(repository.period_materializations[0]["subject_code"], "NNG31-001")
 
     def test_materializes_sequence_arm_periods_for_seq_e_n(self):
         repository = _RandomizeRepositoryStub(period_count_by_arm={11: 2})
@@ -89,6 +107,8 @@ class RandomizeSubjectTests(SimpleTestCase):
                 repository=repository,
                 slot_assigner=slot_assigner,
                 audit_adapter=_AuditStub(),
+                period_lifecycle_service=_PeriodLifecycleStub(),
+                identifier_policy_reader=_default_policy_reader,
             ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
 
         self.assertEqual(summary.arm_code, "SEQ_E_N")
@@ -106,25 +126,80 @@ class RandomizeSubjectTests(SimpleTestCase):
                 repository=repository,
                 slot_assigner=slot_assigner,
                 audit_adapter=_AuditStub(),
+                period_lifecycle_service=_PeriodLifecycleStub(),
+                identifier_policy_reader=_default_policy_reader,
             ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
 
         self.assertEqual(summary.arm_code, "SEQ_N_E")
         self.assertEqual(summary.period_count, 2)
 
+    def test_copies_randomization_code_only_when_study_policy_requires_it(self):
+        repository = _RandomizeRepositoryStub(subject_code=None)
+
+        with (
+            patch(
+                "apps.subject.application.services.randomize_subject.transaction.atomic",
+                return_value=nullcontext(),
+            ),
+            patch(
+                "apps.subject.application.services.randomize_subject.transaction.on_commit",
+                side_effect=lambda fn: fn(),
+            ),
+        ):
+            RandomizeSubject(
+                repository=repository,
+                slot_assigner=_SlotAssignerStub(randomization_code="R-001"),
+                audit_adapter=_AuditStub(),
+                period_lifecycle_service=_PeriodLifecycleStub(),
+                identifier_policy_reader=_copy_randomization_policy_reader,
+            ).execute(RandomizeSubjectCommand(subject_id=20, actor_id=99))
+
+        self.assertEqual(repository.subject.subject_code, "R-001")
+        self.assertEqual(repository.identifier_history[0]["previous_code"], None)
+        self.assertEqual(repository.identifier_history[0]["subject_code"], "R-001")
+        self.assertEqual(
+            repository.identifier_history[0]["assignment_source"],
+            "copy_randomization_at_randomization",
+        )
+
 
 class _RandomizeRepositoryStub:
-    def __init__(self, *, existing=None, period_count_by_arm=None):
-        self.subject = SimpleNamespace(pk=20, study_id=1, site_id=2)
+    def __init__(self, *, existing=None, period_count_by_arm=None, subject_code="NNG31-001"):
+        self.subject = SimpleNamespace(
+            pk=20,
+            study_id=1,
+            site_id=2,
+            subject_code=subject_code,
+        )
         self.existing = existing
         self.period_count_by_arm = period_count_by_arm or {11: 2, 12: 2}
         self.recorded_assignments = []
         self.period_materializations = []
+        self.identifier_history = []
 
     def now(self):
         return datetime(2026, 5, 20, 8, 0, tzinfo=timezone.utc)
 
     def get_subject_scope(self, *, subject_id):
         return self.subject if subject_id == self.subject.pk else None
+
+    def get_subject_for_identifier_assignment(self, *, subject_id):
+        return self.get_subject_scope(subject_id=subject_id)
+
+    def subject_code_exists(self, **kwargs):
+        return False
+
+    @staticmethod
+    def lock_study_for_identifier_assignment(*, study_id):
+        return True
+
+    def update_subject_code(self, *, subject, subject_code, **kwargs):
+        previous_code = subject.subject_code
+        subject.subject_code = subject_code
+        return previous_code
+
+    def record_subject_code_assignment(self, **kwargs):
+        self.identifier_history.append(kwargs)
 
     def get_existing_randomization_summary(self, *, subject_id, summary_class):
         return self.existing
@@ -154,30 +229,47 @@ class _RandomizeRepositoryStub:
             randomization_event_id=1000,
             randomization_status="assigned",
             randomization_datetime=kwargs["now"],
-            randomization_number=str(assignment.sequence_no),
+            randomization_number=str(assignment.randomization_code),
             randomization_source=kwargs["source"],
             period_count=period_count,
         )
 
 
 class _SlotAssignerStub:
-    def __init__(self, *, arm_id=11, arm_code="SEQ_E_N", sequence_no=1):
+    def __init__(
+        self,
+        *,
+        arm_id=11,
+        arm_code="SEQ_E_N",
+        sequence_no=1,
+        randomization_code="R-001",
+    ):
         self.calls = []
         self.arm_id = arm_id
         self.arm_code = arm_code
         self.sequence_no = sequence_no
+        self.randomization_code = randomization_code
 
     def __call__(self, **kwargs):
         self.calls.append(kwargs)
         return SimpleNamespace(
             slot_id=5,
             scheme_id=10,
-            scheme_code="NNG31_XOVER",
+            scheme_code="CROSS_OVER_NANOKINE_EPREX4000IU",
             arm_id=self.arm_id,
             arm_code=self.arm_code,
             arm_name="Sequence arm",
             sequence_no=self.sequence_no,
+            randomization_code=self.randomization_code,
         )
+
+
+class _PeriodLifecycleStub:
+    def __init__(self):
+        self.initialized_subject_ids = []
+
+    def initialize_after_randomization(self, *, subject_id, actor_user_id):
+        self.initialized_subject_ids.append(subject_id)
 
 
 class _AuditStub:
@@ -186,3 +278,33 @@ class _AuditStub:
 
     def record_event(self, **kwargs):
         self.events.append(kwargs)
+
+
+def _default_policy_reader(*, study_id):
+    return StudySubjectIdentifierPolicy(study_id=study_id, study_code="NNG31")
+
+
+def _copy_randomization_policy_reader(*, study_id):
+    return StudySubjectIdentifierPolicy(
+        study_id=study_id,
+        study_code="NNG31",
+        subject_identifier_mode=SubjectIdentifierMode.COPY_RANDOMIZATION_AT_RANDOMIZATION,
+    )
+
+
+class SubjectKitCodeTests(SimpleTestCase):
+    def test_builds_kit_codes_from_subject_code_not_randomization_code(self):
+        self.assertEqual(
+            DjangoSubjectRandomizationRepository._build_kit_code(
+                subject_code="NNG31-001",
+                period_no=1,
+            ),
+            "NNG31-001",
+        )
+        self.assertEqual(
+            DjangoSubjectRandomizationRepository._build_kit_code(
+                subject_code="NNG31-001",
+                period_no=2,
+            ),
+            "R-NNG31-001",
+        )

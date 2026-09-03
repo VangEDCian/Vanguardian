@@ -50,6 +50,38 @@ class SubjectResyncStageViewTests(SimpleTestCase):
 
 
 class SubjectListActionsCellTemplateTests(SimpleTestCase):
+    def test_actions_cell_renders_subject_summary_link(self):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": {"subject": {"update_subject": True}},
+                "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
+                "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={},
+                ),
+            },
+        )
+
+        self.assertIn("Subject Summary", rendered)
+        self.assertIn(
+            reverse("subject:subject_summary", kwargs={"study_id": 1, "subject_id": 20}),
+            rendered,
+        )
+        self.assertIn("Audit History", rendered)
+        self.assertIn("Verify Page", rendered)
+        self.assertNotIn("CRF Page Workflow", rendered)
+        self.assertIn(
+            reverse(
+                "subject:subject_audit_history",
+                kwargs={"study_id": 1, "subject_id": 20},
+            ),
+            rendered,
+        )
+
     def test_actions_cell_renders_resync_stage_post_action_when_permitted(self):
         rendered = render_to_string(
             "subject/includes/subject_list_actions_cell.html",
@@ -57,6 +89,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(verify_eligible_subject_ids=frozenset()),
             },
@@ -73,6 +106,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(
                     verify_eligible_subject_ids=frozenset(),
@@ -90,6 +124,28 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
             rendered,
         )
 
+    def test_actions_cell_renders_trigger_workflow_without_subject_update(self):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": {"subject": {"update_subject": False}},
+                "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
+                "request": SimpleNamespace(
+                    get_full_path="/studies/1/subjects/?page=2"
+                ),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={20: 60},
+                    can_update_subject=False,
+                ),
+            },
+        )
+
+        self.assertIn("Trigger Workflow", rendered)
+        self.assertIn("You do not have permission to resync stage", rendered)
+
     def test_actions_cell_hides_trigger_workflow_without_open_workflow_action(self):
         rendered = render_to_string(
             "subject/includes/subject_list_actions_cell.html",
@@ -97,6 +153,7 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
                 "csrf_token": "test-token",
                 "perms": {"subject": {"update_subject": True}},
                 "record": SimpleNamespace(pk=20, study_id=1),
+                "next_url": "/studies/1/subjects/?page=2",
                 "request": SimpleNamespace(get_full_path="/studies/1/subjects/?page=2"),
                 "table": SimpleNamespace(
                     verify_eligible_subject_ids=frozenset(),
@@ -106,6 +163,50 @@ class SubjectListActionsCellTemplateTests(SimpleTestCase):
         )
 
         self.assertNotIn("Trigger Workflow", rendered)
+
+    def test_actions_cell_renders_early_termination_confirmation_fields_only_when_eligible(
+        self,
+    ):
+        rendered = render_to_string(
+            "subject/includes/subject_list_actions_cell.html",
+            {
+                "csrf_token": "test-token",
+                "perms": {},
+                "record": SimpleNamespace(
+                    pk=20,
+                    study_id=1,
+                    subject_code="SUBJ-020",
+                    screening_code="SCR-020",
+                ),
+                "next_url": "/studies/1/subjects/?page=2",
+                "request": SimpleNamespace(
+                    get_full_path="/studies/1/subjects/?page=2"
+                ),
+                "table": SimpleNamespace(
+                    verify_eligible_subject_ids=frozenset(),
+                    workflow_action_event_id_by_subject_id={},
+                    can_update_subject=False,
+                    can_early_terminate=True,
+                    early_termination_eligible_subject_ids=frozenset({20}),
+                ),
+            },
+        )
+
+        self.assertIn("Start Early Termination", rendered)
+        self.assertIn('name="reason_code"', rendered)
+        self.assertIn('name="effective_at"', rendered)
+        self.assertIn('name="reason_text"', rendered)
+        self.assertIn(
+            'name="next" value="/studies/1/subjects/?page=2"',
+            rendered,
+        )
+        self.assertIn(
+            reverse(
+                "subject:subject_early_termination_request",
+                kwargs={"study_id": 1, "subject_id": 20},
+            ),
+            rendered,
+        )
 
 
 class _ChangedResyncService:

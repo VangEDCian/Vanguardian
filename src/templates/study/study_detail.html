@@ -20,9 +20,15 @@
         <form method="post"
               class="user-detail-form"
               data-date-range-sync
+              {% if can_update_identifier_policy %}data-subject-identifier-policy-form data-identifier-policy-preview-url="{{ subject_identifier_policy_preview_url }}" data-current-study-code="{{ identifier_policy_current.code|escape }}" data-current-subject-identifier-mode="{{ identifier_policy_current.subject_identifier_mode|escape }}" data-current-subject-code-pattern="{{ identifier_policy_current.subject_code_pattern|escape }}" data-current-subject-code-uniqueness-scope="{{ identifier_policy_current.subject_code_uniqueness_scope|escape }}"{% endif %}
               data-date-range-start-id="{{ form.start_date.id_for_label }}"
               data-date-range-end-id="{{ form.end_date.id_for_label }}">
             {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="user-detail-field__error" role="alert">
+                    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
             {# ── Tab bar ─────────────────────────────────────────────────────────── #}
             {% include "study/components/_study_detail_tabs.html" with study_active_tab="settings" %}
             {# ── Tab: Info ───────────────────────────────────────────────────────── #}
@@ -129,15 +135,14 @@
                                                          resize:vertical;
                                                          min-height:72px"
                                                   {% if not can_update_field_description %}readonly{% endif %}>{{ form.description.value|default:'' }}</textarea>
-                                        {% for error in form.description.errors %}
-                                            <span class="user-detail-field__error">{{ error }}</span>
-                                        {% endfor %}
+                                        {% for error in form.description.errors %}<span class="user-detail-field__error">{{ error }}</span>{% endfor %}
                                     </div>
                                 </div>
                             </div>
                         {% endif %}
                     </div>
                 </section>
+                {% include "study/components/_subject_identifier_policy_fields.html" %}
             </div>
             <div class="entity-table__footer entity-table__footer--actions">
                 <button type="submit"
@@ -151,6 +156,16 @@
                             class="entity-table__footer-button entity-table__footer-button--danger"
                             data-modal-open="modal-delete-study">{% trans "Delete" %}</button>
                 {% endif %}
+                {% if can_update_identifier_policy %}
+                    <button type="button"
+                            class="entity-table__footer-button entity-table__footer-button--warning"
+                            data-subject-identifier-rollback
+                            data-rollback-preview-url="{{ subject_identifier_policy_rollback_preview_url }}"
+                            data-rollback-url="{{ subject_identifier_policy_rollback_url }}"
+                            data-study-code="{{ identifier_policy_current.code|escape }}">
+                        {% trans "Rollback latest Subject Code migration" %}
+                    </button>
+                {% endif %}
             </div>
         </form>
     </section>
@@ -161,8 +176,14 @@
         {% blocktrans with code=detail_study.code asvar modal_message %}Are you sure you want to delete <strong>{{ code }}</strong>? This action cannot be undone.{% endblocktrans %}
         {% include "shared/components/modal-confirm.html" with modal_id="modal-delete-study" modal_variant="danger" modal_title=modal_title modal_message=modal_message modal_confirm_label=modal_confirm form_action=delete_url %}
     {% endif %}
+    {% if can_update_identifier_policy %}
+        {% include "study/components/_subject_identifier_migration_modal.html" %}
+    {% endif %}
 {% endblock %}
 {% block extra_js %}
     {{ block.super }}
     <script src="{% static 'study/js/date_range_sync.js' %}"></script>
+    {% if can_update_identifier_policy %}
+        <script src="{% static 'study/js/subject_identifier_policy_migration.js' %}"></script>
+    {% endif %}
 {% endblock %}

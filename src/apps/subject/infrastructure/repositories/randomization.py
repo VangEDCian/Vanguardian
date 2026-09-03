@@ -3,11 +3,13 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from apps.study.models import RandomizationEvent, RandomizationSequencePeriod
+from apps.core.choices import SubjectPeriodStatusChoices
+from apps.study.models import RandomizationEvent, RandomizationSequencePeriod, Study
 from apps.subject.models import (
     Subject,
     SubjectEnrollment,
     SubjectEventInstance,
+    SubjectIdentifierHistory,
     SubjectMilestone,
     SubjectPeriod,
     SubjectPeriodMilestone,
@@ -16,15 +18,111 @@ from apps.subject.models import (
 
 
 class DjangoSubjectRandomizationRepository:
+    @staticmethod
+    def lock_study_for_identifier_assignment(*, study_id: int) -> bool:
+        return Study.objects.select_for_update().filter(
+            pk=study_id,
+            deleted=False,
+        ).exists()
+
     def now(self):
         return timezone.now()
+
+    def reconcile_imported_slot_assignments(self, *, assignments) -> int:
+        updated_count = 0
+        now = self.now()
+        for assignment in assignments:
+            updated_count += SubjectRandomization.objects.filter(
+                slot_id=assignment["slot_id"],
+                deleted=False,
+            ).update(
+                arm_id=assignment["arm_id"],
+                randomization_sequence=assignment["arm_code"],
+                randomization_number=assignment["randomization_number"],
+                updated_at=now,
+            )
+        return updated_count
 
     def get_subject_scope(self, *, subject_id: int):
         return (
             Subject.objects.select_related("study", "site")
             .filter(pk=subject_id, deleted=False)
-            .only("id", "study_id", "site_id")
+            .only("id", "study_id", "site_id", "subject_code")
             .first()
+        )
+
+    def get_subject_for_identifier_assignment(self, *, subject_id: int):
+        return (
+            Subject.objects.select_for_update()
+            .select_related("site")
+            .filter(pk=subject_id, deleted=False)
+            .only(
+                "id",
+                "study_id",
+                "site_id",
+                "site__code",
+                "subject_code",
+                "updated_at",
+                "updated_by_id",
+            )
+            .first()
+        )
+
+    @staticmethod
+    def subject_code_exists(
+        *,
+        study_id: int,
+        site_id: int,
+        subject_id: int,
+        subject_code: str,
+        uniqueness_scope: str,
+    ) -> bool:
+        queryset = Subject.objects.filter(
+            study_id=study_id,
+            subject_code=subject_code,
+            deleted=False,
+        ).exclude(pk=subject_id)
+        if uniqueness_scope == "study_site":
+            queryset = queryset.filter(site_id=site_id)
+        return queryset.exists()
+
+    @staticmethod
+    def update_subject_code(
+        *,
+        subject,
+        subject_code: str,
+        actor_user_id: int | None,
+        now,
+    ) -> str | None:
+        previous_code = str(subject.subject_code or "").strip() or None
+        if previous_code == subject_code:
+            return None
+        subject.subject_code = subject_code
+        subject.updated_at = now
+        subject.updated_by_id = actor_user_id
+        subject.save(update_fields=["subject_code", "updated_at", "updated_by_id"])
+        return previous_code
+
+    @staticmethod
+    def record_subject_code_assignment(
+        *,
+        subject_id: int,
+        previous_code: str | None,
+        subject_code: str,
+        assignment_source: str,
+        related_randomization_event_id: int | None,
+        actor_user_id: int | None,
+        occurred_at,
+    ) -> None:
+        SubjectIdentifierHistory.objects.create(
+            subject_id=subject_id,
+            identifier_type="subject_code",
+            from_value=previous_code,
+            to_value=subject_code,
+            assignment_source=assignment_source,
+            occurred_at=occurred_at,
+            related_randomization_event_id=related_randomization_event_id,
+            actor_user_id=actor_user_id,
         )
 
     def is_subject_enrolled_or_allowed_to_randomize(self, *, study_id: int, subject_id: int) -> bool:
@@ -87,7 +185,8 @@ class DjangoSubjectRandomizationRepository:
             .first()
         )
         before_data = self._serialize_subject_randomization(randomization)
-        randomization_number = str(assignment.sequence_no)
+        randomization_code = str(getattr(assignment, "randomization_code", None) or "").strip()
+        randomization_number = randomization_code or str(assignment.sequence_no)
         event = RandomizationEvent.objects.create(
             created_at=now,
             event_type="Assigned",
@@ -142,6 +241,7 @@ class DjangoSubjectRandomizationRepository:
         period_count = self.ensure_subject_periods(
             subject_id=subject.pk,
             arm_id=assignment.arm_id,
+            subject_code=subject.subject_code,
             actor_user_id=actor_user_id,
             now=now,
         )
@@ -178,7 +278,15 @@ class DjangoSubjectRandomizationRepository:
             period_count=period_count,
         )
 
-    def ensure_subject_periods(self, *, subject_id: int, arm_id: int | None, actor_user_id: int | None, now) -> int:
+    def ensure_subject_periods(
+        self,
+        *,
+        subject_id: int,
+        arm_id: int | None,
+        subject_code: str | None = None,
+        actor_user_id: int | None,
+        now,
+    ) -> int:
         if arm_id is None:
             return 0
         sequence_periods = list(
@@ -204,7 +312,11 @@ class DjangoSubjectRandomizationRepository:
                     "updated_at": now,
                     "deleted": False,
                     "treatment_code": sequence_period.treatment_code,
-                    "status": "Planned",
+                    "kit_code": self._build_kit_code(
+                        subject_code=subject_code,
+                        period_no=sequence_period.period_no,
+                    ),
+                    "status": SubjectPeriodStatusChoices.PLANNED,
                     "sequence_period_id": sequence_period.pk,
                     "start_event_instance_id": getattr(start_event, "pk", None),
                     "end_event_instance_id": getattr(end_event, "pk", None),
@@ -216,6 +328,10 @@ class DjangoSubjectRandomizationRepository:
                 updates = {
                     "updated_at": now,
                     "treatment_code": sequence_period.treatment_code,
+                    "kit_code": self._build_kit_code(
+                        subject_code=subject_code,
+                        period_no=sequence_period.period_no,
+                    ),
                     "sequence_period_id": sequence_period.pk,
                     "start_event_instance_id": getattr(start_event, "pk", None),
                     "end_event_instance_id": getattr(end_event, "pk", None),
@@ -233,7 +349,19 @@ class DjangoSubjectRandomizationRepository:
                 actor_user_id=actor_user_id,
                 now=now,
             )
+
         return len(sequence_periods)
+
+    @staticmethod
+    def _build_kit_code(*, subject_code: str | None, period_no: int) -> str | None:
+        code = str(subject_code or "").strip()
+        if not code:
+            return None
+        if int(period_no) == 1:
+            return code
+        if int(period_no) == 2:
+            return f"R-{code}"
+        return f"P{period_no}-{code}"
 
     def count_subject_periods(self, *, subject_id: int) -> int:
         return SubjectPeriod.objects.filter(subject_id=subject_id, deleted=False).count()

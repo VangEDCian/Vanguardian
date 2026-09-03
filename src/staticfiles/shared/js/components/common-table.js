@@ -30,10 +30,8 @@
   }
 
   function getDetailHref(row) {
-    const explicitHref =
-      row.getAttribute("data-detail-href") || row.dataset.detailHref || "";
-    if (explicitHref) {
-      return explicitHref;
+    if (row.hasAttribute("data-detail-href")) {
+      return row.getAttribute("data-detail-href") || "";
     }
 
     const firstLink = row.querySelector("a[href]");

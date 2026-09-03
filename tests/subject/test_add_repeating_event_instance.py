@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import translation
 
 from apps.core.choices import EventInstanceStatusChoices
+from apps.datacapture.domain import DataCapturePageState
 from apps.subject.application.services.add_repeating_event_instance import (
     AddRepeatingSubjectEventInstanceService,
     CurrentRepeatingEventOpenError,
@@ -57,6 +58,362 @@ class AddRepeatingSubjectEventInstanceServiceTests(SimpleTestCase):
         self.assertEqual(repository.created_kwargs["repeat_index"], 3)
         self.assertEqual(repository.created_kwargs["now"], now)
         self.assertEqual(repository.created_kwargs["actor_user_id"], 99)
+
+
+class SubjectDetailNavigationMixinTests(SimpleTestCase):
+    def test_build_event_navigation_hides_inactive_branch_events(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+
+        def event_instance(*, pk, code, status, sequence_no):
+            event_definition = SimpleNamespace(
+                id=pk,
+                pk=pk,
+                code=code,
+                name=code,
+                sequence_no=sequence_no,
+                is_repeating=False,
+                max_repeats=None,
+            )
+            return SimpleNamespace(
+                pk=pk,
+                event_definition_id=pk,
+                event_definition=event_definition,
+                event_name_snapshot=code,
+                event_code_snapshot=code,
+                status=status,
+                repeat_index=1,
+                completed_at=None,
+            )
+
+        visible_follow_up = event_instance(
+            pk=10,
+            code="FU",
+            status=EventInstanceStatusChoices.OPEN,
+            sequence_no=10,
+        )
+        events = [
+            visible_follow_up,
+            event_instance(
+                pk=11,
+                code="ET",
+                status=EventInstanceStatusChoices.NOT_READY,
+                sequence_no=20,
+            ),
+            event_instance(
+                pk=12,
+                code="CANCELLED_FU",
+                status=EventInstanceStatusChoices.CANCELLED,
+                sequence_no=30,
+            ),
+            event_instance(
+                pk=13,
+                code="SKIPPED_FU",
+                status=EventInstanceStatusChoices.SKIPPED,
+                sequence_no=40,
+            ),
+        ]
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet(events),
+                    _FakeQuerySet(
+                        [
+                            SimpleNamespace(
+                                id=visible_follow_up.pk,
+                                event_definition_id=visible_follow_up.event_definition_id,
+                                status=visible_follow_up.status,
+                            )
+                        ]
+                    ),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet([]),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instances",
+                return_value={},
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual([item["code"] for item in payload], ["FU"])
+
+    def test_cancelled_event_keeps_only_forms_with_submitted_data(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+        event_definition = SimpleNamespace(
+            id=76,
+            pk=76,
+            code="VISIT_1",
+            name="Visit 1",
+            sequence_no=1,
+            is_repeating=False,
+            max_repeats=None,
+        )
+        event_instance = SimpleNamespace(
+            pk=76,
+            event_definition_id=76,
+            event_definition=event_definition,
+            event_name_snapshot="Visit 1",
+            event_code_snapshot="VISIT_1",
+            status=EventInstanceStatusChoices.CANCELLED,
+            repeat_index=1,
+            completed_at=None,
+        )
+        bindings = [
+            SimpleNamespace(
+                pk=401,
+                event_definition_id=76,
+                form_definition=SimpleNamespace(pk=15, code="COMPLETED_CRF"),
+            ),
+            SimpleNamespace(
+                pk=402,
+                event_definition_id=76,
+                form_definition=SimpleNamespace(pk=16, code="DRAFT_CRF"),
+            ),
+        ]
+        form_instances = [
+            SimpleNamespace(
+                event_form_binding_id=401,
+                display_label="Completed CRF",
+                page_state_id=501,
+                status=DataCapturePageState.SUBMITTED,
+            ),
+            SimpleNamespace(
+                event_form_binding_id=402,
+                display_label="Draft CRF",
+                page_state_id=502,
+                status=DataCapturePageState.IN_PROGRESS,
+            ),
+        ]
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet([event_instance]),
+                    _FakeQuerySet(
+                        [
+                            SimpleNamespace(
+                                id=76,
+                                event_definition_id=76,
+                                status=EventInstanceStatusChoices.CANCELLED,
+                            )
+                        ]
+                    ),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet(bindings),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instance",
+                return_value=form_instances,
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.CrfTemplateQueryService._translated_value",
+                side_effect=["Completed CRF", "Draft CRF"],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_page_state_ids_with_open_reconcile_workbench_items",
+                return_value=set(),
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual([item["code"] for item in payload], ["VISIT_1"])
+        self.assertEqual(
+            [form["code"] for form in payload[0]["forms"]],
+            ["COMPLETED_CRF"],
+        )
+
+    def test_build_event_navigation_prefers_form_instance_display_label(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+        event_definition = SimpleNamespace(
+            id=76,
+            pk=76,
+            code="SCREENING",
+            name="Screening",
+            sequence_no=1,
+            is_repeating=False,
+            max_repeats=None,
+        )
+        event_instance = SimpleNamespace(
+            pk=76,
+            event_definition_id=76,
+            event_definition=event_definition,
+            event_name_snapshot="Screening",
+            event_code_snapshot="SCREENING",
+            status=EventInstanceStatusChoices.OPEN,
+            repeat_index=1,
+            completed_at=None,
+        )
+        binding = SimpleNamespace(
+            pk=401,
+            event_definition_id=76,
+            form_definition=SimpleNamespace(pk=15, code="AE"),
+        )
+        form_instance = SimpleNamespace(
+            event_form_binding_id=401,
+            display_label="AE #1 — acxc",
+        )
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet([event_instance]),
+                    _FakeQuerySet([SimpleNamespace(id=76, event_definition_id=76, status=EventInstanceStatusChoices.OPEN)]),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet([binding]),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instance",
+                return_value=[form_instance],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.CrfTemplateQueryService._translated_value",
+                return_value="Adverse Event Log",
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual(payload[0]["forms"][0]["title"], "AE #1 — acxc")
+
+    def test_default_focus_prefers_oldest_open_event(self):
+        navigation = [
+            {"id": "1", "status": EventInstanceStatusChoices.COMPLETED},
+            {"id": "2", "status": EventInstanceStatusChoices.OPEN},
+            {"id": "3", "status": EventInstanceStatusChoices.OPEN},
+        ]
+
+        focused_event = SubjectDetailNavigationMixin._resolve_default_focus_event(navigation)
+
+        self.assertEqual(focused_event["id"], "2")
+
+    def test_form_sidebar_tone_marks_open_reconcile_as_danger_before_submitted_success(self):
+        subject = SimpleNamespace(pk=3, study_id=1)
+        event_definition = SimpleNamespace(
+            id=76,
+            pk=76,
+            code="SCREENING",
+            name="Screening",
+            sequence_no=1,
+            is_repeating=False,
+            max_repeats=None,
+        )
+        event_instance = SimpleNamespace(
+            pk=76,
+            event_definition_id=76,
+            event_definition=event_definition,
+            event_name_snapshot="Screening",
+            event_code_snapshot="SCREENING",
+            status=EventInstanceStatusChoices.OPEN,
+            repeat_index=1,
+            completed_at=None,
+        )
+        adverse_event_binding = SimpleNamespace(
+            pk=401,
+            event_definition_id=76,
+            form_definition=SimpleNamespace(pk=15, code="AE"),
+        )
+        vitals_binding = SimpleNamespace(
+            pk=402,
+            event_definition_id=76,
+            form_definition=SimpleNamespace(pk=16, code="VS"),
+        )
+        adverse_event_instance = SimpleNamespace(
+            page_state_id=10,
+            event_form_binding_id=401,
+            display_label="AE #1",
+            status="submitted",
+        )
+        vitals_instance = SimpleNamespace(
+            page_state_id=20,
+            event_form_binding_id=402,
+            display_label="Vitals",
+            status="submitted",
+        )
+
+        class _View(SubjectDetailNavigationMixin):
+            def __init__(self, subject_obj):
+                self.object = subject_obj
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.SubjectEventInstance.objects.filter",
+                side_effect=[
+                    _FakeQuerySet([event_instance]),
+                    _FakeQuerySet([SimpleNamespace(id=76, event_definition_id=76, status=EventInstanceStatusChoices.OPEN)]),
+                ],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.EventFormBinding.objects.filter",
+                return_value=_FakeQuerySet([adverse_event_binding, vitals_binding]),
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_form_instances_for_event_instance",
+                return_value=[adverse_event_instance, vitals_instance],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.CrfTemplateQueryService._translated_value",
+                side_effect=["Adverse Event Log", "Vitals"],
+            ),
+            patch(
+                "apps.subject.presentation.web.views.detail_navigation.list_page_state_ids_with_open_reconcile_workbench_items",
+                return_value={10},
+            ),
+        ):
+            payload = _View(subject)._build_event_navigation()
+
+        self.assertEqual(payload[0]["forms"][0]["sidebar_tone"], "danger")
+        self.assertEqual(payload[0]["forms"][1]["sidebar_tone"], "success")
+
+
+class _FakeQuerySet(list):
+    def exclude(self, **kwargs):
+        if "status__in" in kwargs:
+            excluded_statuses = set(kwargs["status__in"])
+            return _FakeQuerySet(
+                [item for item in self if getattr(item, "status", None) not in excluded_statuses]
+            )
+        if "status" in kwargs:
+            excluded_status = kwargs["status"]
+            return _FakeQuerySet(
+                [item for item in self if getattr(item, "status", None) != excluded_status]
+            )
+        return self
+
+    def select_related(self, *args, **kwargs):
+        return self
+
+    def prefetch_related(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def only(self, *args, **kwargs):
+        return self
 
     def test_blocks_when_open_instance_exists(self):
         repository = _RepeatingEventRepositoryStub(
@@ -240,18 +597,21 @@ class SubjectDetailNavigationRepeatingActionTests(SimpleTestCase):
                     "event_definition_id": "100",
                     "status": EventInstanceStatusChoices.COMPLETED,
                     "is_repeating": True,
+                    "sidebar_label": "AE #1 — Headache",
                 },
                 {
                     "id": "11",
                     "event_definition_id": "100",
                     "status": EventInstanceStatusChoices.OPEN,
                     "is_repeating": True,
+                    "sidebar_label": "AE #2 — Nausea",
                 },
                 {
                     "id": "12",
                     "event_definition_id": "100",
                     "status": EventInstanceStatusChoices.VERIFIED,
                     "is_repeating": True,
+                    "sidebar_label": "AE #3 — Fatigue",
                 },
             ]
         }
@@ -260,6 +620,17 @@ class SubjectDetailNavigationRepeatingActionTests(SimpleTestCase):
 
         self.assertEqual(navigation[0]["id"], "11")
         self.assertEqual([item["id"] for item in navigation[0]["repeat_event_instances"]], ["10"])
+        self.assertEqual(navigation[0]["repeat_event_instances"][0]["sidebar_label"], "AE #1 — Headache")
+
+    def test_resolve_repeating_sidebar_label_prefers_form_title_over_date(self):
+        completed_at = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)
+
+        label = SubjectDetailNavigationMixin._resolve_repeating_sidebar_label(
+            forms=[{"title": "AE #1 — Headache"}],
+            completed_at=completed_at,
+        )
+
+        self.assertEqual(label, "AE #1 — Headache")
 
     def test_completed_at_label_uses_active_locale_date_format(self):
         completed_at = datetime(2026, 5, 18, 9, 30, tzinfo=timezone.utc)

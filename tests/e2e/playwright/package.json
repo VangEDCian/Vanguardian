@@ -1,0 +1,12 @@
+{
+  "name": "vanguardian-playwright-snapshots",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install:browsers": "playwright install chromium",
+    "snapshot": "node scripts/snapshot-apps.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}

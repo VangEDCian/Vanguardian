@@ -323,6 +323,20 @@ class ImportStudyFactMappingsTemplateService:
             raise FactMappingImportFormatError(f"Invalid {field_label}: {value!r}")
         return normalized_value
 
+    def _coerce_bool(self, value, *, field_label, default):
+        normalized_value = self._as_text(value).lower()
+        if not normalized_value:
+            return default
+        truthy = {"1", "true", "yes", "y"}
+        falsy = {"0", "false", "no", "n"}
+        if normalized_value in truthy:
+            return True
+        if normalized_value in falsy:
+            return False
+        raise FactMappingImportFormatError(
+            f"{field_label} must be one of: 1/0, true/false, yes/no."
+        )
+
     def _coerce_int(self, value, *, field_label, default=None):
         normalized = self._as_text(value)
         if not normalized:

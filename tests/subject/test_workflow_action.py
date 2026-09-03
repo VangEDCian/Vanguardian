@@ -6,7 +6,10 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
-from apps.subject.infrastructure.repositories.workflow_action import SubjectEventWorkflowContext
+from apps.subject.infrastructure.repositories.workflow_action import (
+    SubjectEventWorkflowContext,
+    SubjectWorkflowActionRuleContext,
+)
 
 
 class SubjectWorkflowActionServiceTests(SimpleTestCase):
@@ -119,6 +122,59 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
             ],
         )
 
+    def test_eligibility_workflow_requires_finalize_eligibility_permission(self):
+        event = SubjectEventWorkflowContext(
+            event_instance_id=60,
+            study_id=1,
+            subject_id=20,
+            site_id=2,
+            study_version="v1.0",
+            status="open",
+            event_definition_id=29,
+            event_code="ELIGIBILITY_ASSESSMENT",
+            event_type="operational",
+            event_category="screening",
+            execution_mode="workflow_action",
+        )
+        repository = _WorkflowRepositoryStub(event=event)
+
+        permission_code = SubjectWorkflowActionService(
+            repository=repository
+        ).required_permission_for_event_instance(
+            study_id=1,
+            subject_id=20,
+            event_instance_id=60,
+        )
+
+        self.assertEqual(permission_code, "study.finalize_subject_eligibility")
+
+        access_by_subject_id = SubjectWorkflowActionService(
+            repository=_WorkflowRepositoryStub(
+                event=event,
+                triggerable_context_map={20: event},
+            )
+        ).map_triggerable_event_access_by_subject_id(
+            study_id=1,
+            subject_ids=(20,),
+        )
+
+        self.assertEqual(access_by_subject_id[20].event_instance_id, 60)
+        self.assertEqual(
+            access_by_subject_id[20].permission_code,
+            "study.finalize_subject_eligibility",
+        )
+
+    def test_randomization_workflow_keeps_subject_update_permission(self):
+        permission_code = SubjectWorkflowActionService(
+            repository=_WorkflowRepositoryStub()
+        ).required_permission_for_event_instance(
+            study_id=1,
+            subject_id=20,
+            event_instance_id=30,
+        )
+
+        self.assertEqual(permission_code, "SUBJECT.UPDATE")
+
     def test_eligibility_assessment_workflow_finalizes_and_triggers_downstream_transition(self):
         repository = _WorkflowRepositoryStub(
             event=SubjectEventWorkflowContext(
@@ -143,6 +199,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
                 repository=repository,
                 source_page_state_resolver=lambda *, event_instance_id: 13,
                 eligibility_assessment_finalizer=finalizer,
+                source_event_certification_checker=lambda *, event_instance_id: True,
                 transition_service=transition_service,
             ).execute_for_open_event(
                 event_instance_id=60,
@@ -152,13 +209,53 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
 
         self.assertTrue(result.executed)
         self.assertEqual(result.action, "eligibility_assessment")
-        self.assertEqual(finalizer.commands[0].source_page_state_id, 13)
+        self.assertEqual(finalizer.commands[0].source_object_type, "EVENT_INSTANCE")
+        self.assertEqual(finalizer.commands[0].source_object_id, 10)
         self.assertEqual(finalizer.commands[0].event_instance_id, 60)
-        self.assertEqual(finalizer.commands[0].rule_code, "ELIGIBILITY_RULE_V1")
+        self.assertIsNone(finalizer.commands[0].rule_code)
+        self.assertIsNone(finalizer.commands[0].rule_expression_json)
+        self.assertEqual(repository.workflow_action_rule_calls, [])
         self.assertEqual(repository.completed_events[0]["reason"], "eligibility_assessment_finalized")
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 60)
         self.assertEqual(transition_service.commands[0].facts["eligibility.latest.result"], "ELIGIBLE")
         self.assertTrue(transition_service.commands[0].facts["eligible"])
+
+    def test_eligibility_assessment_workflow_requires_source_event_certification(self):
+        repository = _WorkflowRepositoryStub(
+            event=SubjectEventWorkflowContext(
+                event_instance_id=60,
+                study_id=1,
+                subject_id=20,
+                site_id=2,
+                study_version="v1.0",
+                status="open",
+                event_definition_id=29,
+                event_code="ELIGIBILITY_ASSESSMENT",
+                event_type="operational",
+                event_category="screening",
+                execution_mode="workflow_action",
+            )
+        )
+        finalizer = _EligibilityFinalizerStub()
+
+        with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
+            result = SubjectWorkflowActionService(
+                repository=repository,
+                source_page_state_resolver=lambda *, event_instance_id: 13,
+                eligibility_assessment_finalizer=finalizer,
+                source_event_certification_checker=lambda *, event_instance_id: False,
+                transition_service=_TransitionServiceStub(),
+            ).execute_for_open_event(
+                event_instance_id=60,
+                actor_user_id=99,
+                source_event_instance_id=10,
+            )
+
+        self.assertFalse(result.executed)
+        self.assertEqual(result.action, "eligibility_assessment")
+        self.assertEqual(result.reason, "eligibility_source_event_certification_required")
+        self.assertEqual(finalizer.commands, [])
+        self.assertEqual(repository.completed_events, [])
 
     def test_eligibility_assessment_manual_trigger_resolves_source_event(self):
         repository = _WorkflowRepositoryStub(
@@ -189,6 +286,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
                 repository=repository,
                 source_page_state_resolver=source_page_state_resolver,
                 eligibility_assessment_finalizer=finalizer,
+                source_event_certification_checker=lambda *, event_instance_id: True,
                 transition_service=_TransitionServiceStub(),
             ).execute_for_open_event(
                 event_instance_id=60,
@@ -198,7 +296,8 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertTrue(result.executed)
         self.assertEqual(repository.resolved_source_event_calls, [60])
         self.assertEqual(resolved_page_state_event_ids, [10])
-        self.assertEqual(finalizer.commands[0].source_page_state_id, 13)
+        self.assertEqual(finalizer.commands[0].source_object_type, "EVENT_INSTANCE")
+        self.assertEqual(finalizer.commands[0].source_object_id, 10)
 
     def test_enrollment_workflow_enrolls_subject_and_completes_event(self):
         repository = _WorkflowRepositoryStub(
@@ -235,6 +334,73 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(repository.completed_events[0]["reason"], "subject_enrolled")
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 70)
 
+    def test_washout_workflow_advances_period_and_completes_event(self):
+        repository = _WorkflowRepositoryStub(event=_washout_event())
+        period_lifecycle_service = _PeriodLifecycleServiceStub(has_changes=True)
+        transition_service = _TransitionServiceStub()
+
+        with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
+            result = SubjectWorkflowActionService(
+                repository=repository,
+                period_lifecycle_service=period_lifecycle_service,
+                transition_service=transition_service,
+            ).execute_for_open_event(
+                event_instance_id=80,
+                actor_user_id=99,
+            )
+
+        self.assertTrue(result.executed)
+        self.assertEqual(result.action, "washout")
+        self.assertEqual(
+            period_lifecycle_service.calls,
+            [
+                {
+                    "subject_id": 20,
+                    "actor_user_id": 99,
+                    "source_event_instance_id": 80,
+                    "trigger_source": "workflow_action",
+                }
+            ],
+        )
+        self.assertEqual(repository.completed_events[0]["reason"], "washout_completed")
+        self.assertEqual(transition_service.commands[0].source_event_instance_id, 80)
+
+    def test_washout_workflow_before_due_date_is_noop(self):
+        repository = _WorkflowRepositoryStub(event=_washout_event())
+        period_lifecycle_service = _PeriodLifecycleServiceStub(has_changes=False)
+        transition_service = _TransitionServiceStub()
+
+        with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
+            result = SubjectWorkflowActionService(
+                repository=repository,
+                period_lifecycle_service=period_lifecycle_service,
+                transition_service=transition_service,
+            ).execute_for_open_event(
+                event_instance_id=80,
+                actor_user_id=99,
+            )
+
+        self.assertFalse(result.executed)
+        self.assertEqual(result.reason, "washout_not_due_or_period_not_ready")
+        self.assertEqual(repository.completed_events, [])
+        self.assertEqual(transition_service.commands, [])
+
+
+def _washout_event():
+    return SubjectEventWorkflowContext(
+        event_instance_id=80,
+        study_id=1,
+        subject_id=20,
+        site_id=2,
+        study_version="v1.0",
+        status="open",
+        event_definition_id=40,
+        event_code="WASHOUT",
+        event_type="operational",
+        event_category="washout",
+        execution_mode="workflow_action",
+    )
+
 
 class _WorkflowRepositoryStub:
     def __init__(
@@ -244,6 +410,8 @@ class _WorkflowRepositoryStub:
         has_randomization=False,
         resolved_source_event_instance_id=None,
         triggerable_event_map=None,
+        triggerable_context_map=None,
+        workflow_action_rule=None,
     ):
         self.event = event or SubjectEventWorkflowContext(
             event_instance_id=30,
@@ -261,15 +429,24 @@ class _WorkflowRepositoryStub:
         self._has_randomization = has_randomization
         self._resolved_source_event_instance_id = resolved_source_event_instance_id
         self._triggerable_event_map = triggerable_event_map or {}
+        self._triggerable_context_map = triggerable_context_map or {}
+        self._workflow_action_rule = workflow_action_rule or SubjectWorkflowActionRuleContext(
+            condition_code="screening_source_ready",
+            condition_expression_json='{"all":[{"fact":"screening.event_certified","operator":"equals","value":true}]}',
+        )
         self.created_randomizations = []
         self.completed_events = []
         self.resolved_source_event_calls = []
         self.triggerable_event_map_calls = []
+        self.workflow_action_rule_calls = []
 
     def now(self):
         return datetime(2026, 5, 20, 8, 0, tzinfo=timezone.utc)
 
     def get_event_workflow_context_for_update(self, *, event_instance_id):
+        return self.event
+
+    def get_open_workflow_action_context(self, **kwargs):
         return self.event
 
     def has_subject_randomization(self, *, subject_id):
@@ -279,9 +456,16 @@ class _WorkflowRepositoryStub:
         self.triggerable_event_map_calls.append(kwargs)
         return self._triggerable_event_map
 
+    def map_open_workflow_action_context_by_subject_id(self, **kwargs):
+        return self._triggerable_context_map
+
     def resolve_source_event_instance_id_for_workflow_event(self, *, event_instance_id):
         self.resolved_source_event_calls.append(event_instance_id)
         return self._resolved_source_event_instance_id
+
+    def resolve_workflow_action_rule_for_event(self, *, event_instance_id):
+        self.workflow_action_rule_calls.append(event_instance_id)
+        return self._workflow_action_rule
 
     def create_subject_randomization(self, **kwargs):
         self.created_randomizations.append(kwargs)
@@ -336,6 +520,16 @@ class _EnrollmentStub:
             assessment_status="FINAL",
             is_current=True,
         )
+
+
+class _PeriodLifecycleServiceStub:
+    def __init__(self, *, has_changes):
+        self.has_changes = has_changes
+        self.calls = []
+
+    def advance_after_washout(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(has_changes=self.has_changes)
 
 
 class _TransitionServiceStub:

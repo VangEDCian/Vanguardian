@@ -110,20 +110,25 @@ class FormFieldReviewTableService:
                     field_template_ids=tuple(field_template_ids),
                 )
             )
-            query_thread_badge_counts = (
-                self._reconcile_read_service.count_query_threads_since_current_user_last_comment(
-                    page_state_id=page_state_id,
-                    field_template_ids=tuple(field_template_ids),
+            active_query_ids_tuple = tuple(active_query_ids.values())
+            query_messages_by_query_for_field = self._reconcile_read_service.list_latest_query_messages_by_dataquery_ids(
+                dataquery_ids=active_query_ids_tuple,
+                limit_per_query=10,
+            )
+            query_thread_badge_counts_by_active_query = (
+                self._reconcile_read_service.count_query_threads_since_current_user_last_comment_by_dataquery_ids(
+                    dataquery_ids=active_query_ids_tuple,
                     current_user_id=current_user_id,
                 )
             )
-            query_messages_by_field = (
-                self._reconcile_read_service.list_latest_query_messages_by_page_state_and_field_templates(
-                    page_state_id=page_state_id,
-                    field_template_ids=tuple(field_template_ids),
-                    limit_per_field=10,
-                )
-            )
+            query_messages_by_field = {
+                field_template_id: query_messages_by_query_for_field.get(dataquery_id, [])
+                for field_template_id, dataquery_id in active_query_ids.items()
+            }
+            query_thread_badge_counts = {
+                field_template_id: query_thread_badge_counts_by_active_query.get(dataquery_id, 0)
+                for field_template_id, dataquery_id in active_query_ids.items()
+            }
             closed_query_histories_by_field = (
                 self._reconcile_read_service.list_closed_query_histories_by_page_state_and_field_templates(
                     page_state_id=page_state_id,
@@ -345,15 +350,21 @@ class FormFieldReviewTableService:
             if query_key is not None
             else (False if is_repeatable_group_item else field_template_id in verified_query_field_template_ids)
         )
-        validation_issues = validation_issues_by_field.get(field_template_id, [])
+        validation_issues = self._format_validation_issues(
+            validation_issues_by_field.get(field_template_id, []),
+            control_norm=control_norm,
+            label_by_value=label_by_value,
+        )
         validation_issue_count = len(validation_issues)
         closed_query_histories = self._format_closed_query_histories(
             closed_query_histories_by_field_path.get(query_key, [])
             if query_key is not None
             else ([] if is_repeatable_group_item else closed_query_histories_by_field.get(field_template_id, [])),
         )
-        closed_query_histories.extend(
-            self._format_validation_issue_histories(validation_issue_histories_by_field.get(field_template_id, []))
+        validation_issue_histories = self._format_validation_issue_histories(
+            validation_issue_histories_by_field.get(field_template_id, []),
+            control_norm=control_norm,
+            label_by_value=label_by_value,
         )
         return {
             "field_template_id": field_template_id,
@@ -406,6 +417,7 @@ class FormFieldReviewTableService:
                 else ([] if is_repeatable_group_item else query_messages_by_field.get(field_template_id, [])),
             ),
             "closed_query_histories": closed_query_histories,
+            "validation_issue_histories": validation_issue_histories,
             "modified_by": modified_by_display,
             "is_checked": is_checked,
         }
@@ -828,58 +840,103 @@ class FormFieldReviewTableService:
             )
         return out
 
-    @classmethod
-    def _format_validation_issue_histories(cls, issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _format_validation_issues(
+        self,
+        issues: list[dict[str, Any]],
+        *,
+        control_norm: str,
+        label_by_value: dict[str, str],
+    ) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for issue in issues:
-            issue_id = issue.get("id")
-            status = str(issue.get("status") or "").strip()
+            normalized = dict(issue)
+            normalized["failed_value_display"] = self._resolve_display_value(
+                raw_value=issue.get("failed_value"),
+                control_norm=control_norm,
+                label_by_value=label_by_value,
+            )
+            out.append(normalized)
+        return out
+
+    def _format_validation_issue_histories(
+        self,
+        issues: list[dict[str, Any]],
+        *,
+        control_norm: str,
+        label_by_value: dict[str, str],
+    ) -> list[dict[str, Any]]:
+        formatted_items: list[tuple[datetime | None, int, dict[str, Any]]] = []
+        for issue in issues:
+            snapshot_id = issue.get("id")
+            issue_id = issue.get("validation_issue_id") or snapshot_id
+            result = str(issue.get("result") or "").strip().upper()
+            status = str(issue.get("status") or "").strip().upper()
             created_at = issue.get("created_at")
-            acknowledged_at = issue.get("acknowledged_at")
             resolved_at = issue.get("resolved_at")
-            response_at = acknowledged_at or resolved_at
+            evaluated_value_display = self._resolve_display_value(
+                raw_value=issue.get("evaluated_value"),
+                control_norm=control_norm,
+                label_by_value=label_by_value,
+            )
+            is_resolved = result == "PASS" or bool(resolved_at) or status in {"RESOLVED", "PASS", "CLOSED"}
+            result_label = result or status or "OPEN"
+            tone = "resolved" if is_resolved else "warning"
+            lifecycle_text = "đã xử lý" if is_resolved else "đang chờ trả lời"
             messages = [
                 {
-                    "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
+                    "dataquery_id": (
+                        f"validation_issue_{issue_id}_snapshot_{snapshot_id}"
+                        if issue_id and snapshot_id
+                        else "validation_issue_snapshot"
+                    ),
                     "text": str(issue.get("message") or "").strip(),
-                    "status": status,
+                    "status": result_label,
+                    "tone": tone,
                     "created_at": created_at,
                     "opened_by_id": None,
-                }
-            ]
-            answer_text = str(issue.get("acknowledgement_comment") or "").strip()
-            if answer_text and (acknowledged_at is not None or resolved_at is not None):
-                messages.append(
-                    {
-                        "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
-                        "text": answer_text,
-                        "status": "resolved",
-                        "created_at": response_at,
-                        "opened_by_id": issue.get("acknowledged_by"),
-                    }
-                )
-            elif status in {"OPEN", "ACKNOWLEDGEMENT_REQUIRED"}:
-                messages.append(
-                    {
-                        "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
-                        "text": "đang chờ trả lời",
-                        "status": "warning",
-                        "tone": "warning",
-                        "created_at": None,
-                        "opened_by_id": None,
-                    }
-                )
-            out.append(
-                {
-                    "dataquery_id": f"validation_issue_{issue_id}" if issue_id else "validation_issue",
-                    "label": f"Validation Issue #{issue_id}" if issue_id else "Validation Issue",
-                    "question_text": str(issue.get("message") or "").strip(),
-                    "opened_at": cls._format_datetime(created_at),
-                    "closed_at": cls._format_datetime(response_at),
-                    "messages": cls._format_query_messages(messages),
                 },
+                {
+                    "dataquery_id": (
+                        f"validation_issue_{issue_id}_snapshot_{snapshot_id}"
+                        if issue_id and snapshot_id
+                        else "validation_issue_snapshot"
+                    ),
+                    "text": lifecycle_text,
+                    "status": status or result or "OPEN",
+                    "tone": tone,
+                    "created_at": resolved_at or created_at,
+                    "opened_by_id": None,
+                },
+            ]
+            formatted_items.append(
+                (
+                    created_at if isinstance(created_at, datetime) else None,
+                    int(snapshot_id or 0),
+                    {
+                        "dataquery_id": (
+                            f"validation_issue_{issue_id}_snapshot_{snapshot_id}"
+                            if issue_id and snapshot_id
+                            else "validation_issue_snapshot"
+                        ),
+                        "status": status or result or "OPEN",
+                        "label": f"Validation Issue #{issue_id}" if issue_id else "Validation Issue",
+                        "question_text": str(issue.get("message") or "").strip(),
+                        "opened_at": self._format_datetime(created_at),
+                        "closed_at": self._format_datetime(resolved_at or created_at),
+                        "value_snapshot": evaluated_value_display,
+                        "messages": self._format_query_messages(messages),
+                    },
+                )
             )
-        return out
+        formatted_items.sort(
+            key=lambda item: (
+                item[0] is not None,
+                item[0] or datetime.min,
+                item[1],
+            ),
+            reverse=True,
+        )
+        return [item[2] for item in formatted_items]
 
     @staticmethod
     def _normalize_control_type(control_type: object) -> str:

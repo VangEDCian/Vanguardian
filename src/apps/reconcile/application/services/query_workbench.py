@@ -28,6 +28,7 @@ class QueryWorkbenchSummaryDTO:
     resolved: int
     closed: int
     validation_issues_open: int
+    hard_validation_issues_open: int
     actionable_for_current_user: int
 
 

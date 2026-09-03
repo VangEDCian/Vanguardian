@@ -50,6 +50,34 @@ class ReconcileDataQueryReadService:
             field_template_id=field_template_id,
         )
 
+    def list_field_template_ids_with_queries(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        return self.repository.list_field_template_ids_with_queries(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
+    def list_field_template_ids_with_validation_issues(
+        self,
+        *,
+        page_state_id: int,
+        field_template_ids: tuple[int, ...],
+    ) -> set[int]:
+        return self.repository.list_field_template_ids_with_validation_issues(
+            page_state_id=page_state_id,
+            field_template_ids=field_template_ids,
+        )
+
+    def summarize_workbench(self, *, page_state_ids: tuple[int, ...]) -> dict[str, int]:
+        return self.repository.summarize_workbench(page_state_ids=page_state_ids)
+
+    def list_page_state_ids_with_open_workbench_items(self, *, page_state_ids: tuple[int, ...]) -> set[int]:
+        return self.repository.list_page_state_ids_with_open_workbench_items(page_state_ids=page_state_ids)
+
     def list_field_template_ids_with_verified_queries(
         self,
         *,
@@ -86,6 +114,9 @@ class ReconcileDataQueryReadService:
 
     def has_active_blocking_query_for_page(self, *, page_state_id: int) -> bool:
         return self.repository.has_active_blocking_query_for_page(page_state_id=page_state_id)
+
+    def has_unclosed_query_for_page(self, *, page_state_id: int) -> bool:
+        return self.repository.has_unclosed_query_for_page(page_state_id=page_state_id)
 
     def list_latest_query_messages_by_page_state_and_field_templates(
         self,
@@ -224,6 +255,19 @@ class ReconcileDataQueryReadService:
     ) -> int:
         return self.repository.count_open_queries_assigned_to_user(
             page_state_ids=page_state_ids,
+            user_id=user_id,
+        )
+
+    def count_open_queries_assigned_to_user_for_study_site(
+        self,
+        *,
+        study_id: int | None,
+        site_id: int | None,
+        user_id: int | None,
+    ) -> int:
+        return self.repository.count_open_queries_assigned_to_user_for_study_site(
+            study_id=study_id,
+            site_id=site_id,
             user_id=user_id,
         )
 

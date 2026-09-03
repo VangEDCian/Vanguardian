@@ -2,6 +2,7 @@ from django.db import transaction
 
 from apps.core.choices import (
     EventDefinitionCategoryChoices,
+    EventDefinitionLifecycleRoleChoices,
     EventDefinitionTimingModeChoices,
     EventDefinitionTypeChoices,
     EventExecutionModeChoices,
@@ -44,6 +45,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "Event Type",
         "Timing Mode",
         "Event Category",
+        "Lifecycle Role",
         "Execution Mode",
         "Sequence No",
         "Phase Code",
@@ -60,8 +62,14 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "Window After Days",
         "Auto Open",
         "Auto Create",
+        "Auto Execute",
         "Requires Previous Completion",
         "Allow Skip",
+    )
+    required_columns = tuple(
+        column
+        for column in expected_columns
+        if column not in {"Lifecycle Role", "Auto Execute"}
     )
     expected_header_map = {
         "study code": "study_code",
@@ -72,6 +80,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "event type": "event_type",
         "timing mode": "timing_mode",
         "event category": "event_category",
+        "lifecycle role": "lifecycle_role",
         "execution mode": "execution_mode",
         "sequence no": "sequence_no",
         "phase code": "phase_code",
@@ -88,6 +97,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "window after days": "window_after_days",
         "auto open": "auto_open",
         "auto create": "auto_create",
+        "auto execute": "auto_execute",
         "requires previous completion": "requires_previous_completion",
         "allow skip": "allow_skip",
     }
@@ -114,6 +124,11 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
         "eos": EventDefinitionCategoryChoices.EOS,
         "end of study": EventDefinitionCategoryChoices.EOS,
         "unscheduled": EventDefinitionCategoryChoices.UNSCHEDULED,
+    }
+    lifecycle_role_aliases = {
+        "regular": EventDefinitionLifecycleRoleChoices.REGULAR,
+        "regular completion": EventDefinitionLifecycleRoleChoices.REGULAR_COMPLETION,
+        "early termination": EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION,
     }
     execution_mode_aliases = {
         "form_entry": EventExecutionModeChoices.FORM_ENTRY,
@@ -169,8 +184,10 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
 
         created_count = 0
         updated_count = 0
+        deleted_count = 0
         issues = []
         touched_study_versions = set()
+        imported_codes_by_study_version = {}
 
         for row_number, row_data in workbook_rows:
             try:
@@ -191,15 +208,24 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 )
                 continue
 
+            study_version = self._resolve_study_version(
+                study_id=command.study_id,
+                raw_study_version=row_data.get("study_version"),
+            )
+            imported_codes_by_study_version.setdefault(study_version, set()).add(
+                self._as_text(row_data.get("code"))
+            )
             if import_outcome == "created":
                 created_count += 1
             else:
                 updated_count += 1
-            touched_study_versions.add(
-                self._resolve_study_version(
-                    study_id=command.study_id,
-                    raw_study_version=row_data.get("study_version"),
-                )
+            touched_study_versions.add(study_version)
+
+        if not issues:
+            deleted_count = self._soft_delete_missing_event_definitions(
+                study_id=command.study_id,
+                imported_codes_by_study_version=imported_codes_by_study_version,
+                actor_user_id=command.actor_user_id,
             )
 
         warnings = self._resync_subject_event_instances(
@@ -212,10 +238,32 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             total_rows=len(workbook_rows),
             created_count=created_count,
             updated_count=updated_count,
+            deleted_count=deleted_count,
             skipped_count=len(issues),
             issues=tuple(issues),
             warnings=tuple(warnings),
         )
+
+    def _soft_delete_missing_event_definitions(
+        self,
+        *,
+        study_id,
+        imported_codes_by_study_version,
+        actor_user_id,
+    ):
+        deleted_count = 0
+        now = self._now()
+        for study_version, imported_codes in imported_codes_by_study_version.items():
+            version_deleted_count = self.repository.soft_delete_event_definitions_missing_from_import(
+                study_id=study_id,
+                study_version=study_version,
+                imported_codes=imported_codes,
+                actor_user_id=actor_user_id,
+                updated_at=now,
+            )
+            if isinstance(version_deleted_count, int):
+                deleted_count += version_deleted_count
+        return deleted_count
 
     def _resync_subject_event_instances(self, *, study_id, study_versions, actor_user_id) -> list[str]:
         warnings = []
@@ -272,6 +320,12 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             field_label="Event Category",
             allow_blank=True,
         )
+        lifecycle_role = self._normalize_choice(
+            raw_value=row_data.get("lifecycle_role"),
+            aliases=self.lifecycle_role_aliases,
+            field_label="Lifecycle Role",
+            allow_blank=True,
+        ) or EventDefinitionLifecycleRoleChoices.REGULAR
         execution_mode = self._normalize_choice(
             raw_value=row_data.get("execution_mode"),
             aliases=self.execution_mode_aliases,
@@ -317,6 +371,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             )
             auto_open = self._coerce_bool(row_data.get("auto_open"), allow_blank=True, default=False)
             auto_create = self._coerce_bool(row_data.get("auto_create"), allow_blank=True, default=False)
+            auto_execute = self._coerce_bool(row_data.get("auto_execute"), allow_blank=True, default=False)
             requires_previous_completion = self._coerce_bool(
                 row_data.get("requires_previous_completion"),
                 allow_blank=True,
@@ -334,8 +389,35 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             window_after_days = None
             auto_open = False
             auto_create = False
+            auto_execute = False
             requires_previous_completion = True
             allow_skip = False
+
+        if (
+            lifecycle_role
+            == EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION
+        ):
+            if (
+                event_category != EventDefinitionCategoryChoices.EOS
+                or timing_mode != EventDefinitionTimingModeChoices.CONDITIONAL
+            ):
+                raise EventDefinitionImportFormatError(
+                    "Early termination events must use Event Category 'eos' "
+                    "and Timing Mode 'conditional'."
+                )
+            if condition_code != "early_termination.requested" or not auto_open:
+                raise EventDefinitionImportFormatError(
+                    "Early termination events require Condition Code "
+                    "'early_termination.requested' and Auto Open enabled."
+                )
+        if (
+            lifecycle_role
+            == EventDefinitionLifecycleRoleChoices.REGULAR_COMPLETION
+            and event_category != EventDefinitionCategoryChoices.EOS
+        ):
+            raise EventDefinitionImportFormatError(
+                "Regular completion events must use Event Category 'eos'."
+            )
 
         now = self._now()
         defaults = {
@@ -346,6 +428,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
             "event_type": event_type,
             "timing_mode": timing_mode,
             "event_category": event_category,
+            "lifecycle_role": lifecycle_role,
             "execution_mode": execution_mode,
             "sequence_no": sequence_no,
             "phase_code": self._nullable_text(row_data.get("phase_code")),
@@ -396,6 +479,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                     window_after_days=window_after_days,
                     auto_open=auto_open,
                     auto_create=auto_create,
+                    auto_execute=auto_execute,
                     requires_previous_completion=requires_previous_completion,
                     allow_skip=allow_skip,
                     actor_user_id=actor_user_id,
@@ -430,6 +514,7 @@ class ImportStudyEventDefinitionsTemplateService(EventDefinitionTransitionMixin,
                 window_after_days=window_after_days,
                 auto_open=auto_open,
                 auto_create=auto_create,
+                auto_execute=auto_execute,
                 requires_previous_completion=requires_previous_completion,
                 allow_skip=allow_skip,
                 actor_user_id=actor_user_id,

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from django.utils import timezone
 from django.utils.translation import gettext_lazy
 
+from apps.core.choices.study import MASTER_LIST_RANDOMIZATION_TYPES
 from apps.study.application.exceptions import RandomizationSlotGenerationError
 from apps.study.domain import RandomizationScheme, RandomizationSlot
 from apps.study.infrastructure.repositories import DjangoRandomizationRepository
@@ -82,6 +83,11 @@ class StudyRandomizationSlotGenerationService:
             RandomizationSlotGenerationError: on invalid ratio references or
                 impossible totals (assigned+void greater than target).
         """
+        randomization_type = str(
+            getattr(scheme, "randomization_type", "") or ""
+        ).strip().lower()
+        if randomization_type in MASTER_LIST_RANDOMIZATION_TYPES:
+            return None
         if not RandomizationScheme.is_active(getattr(scheme, "status", None)):
             return None
 

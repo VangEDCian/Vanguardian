@@ -51,10 +51,9 @@ coverage.xml
 *.py,cover
 .hypothesis/
 
-# Migrations (optional: keep if you want to version control them)
-# Uncomment the next line if you don't want to commit migration files
-# */migrations/*.py
-# */migrations/*.pyc
+# Django migrations are deployment artifacts and must be version controlled.
+# Ignore only generated Python bytecode inside migration packages.
+**/migrations/__pycache__/
 
 # Deployment / build
 build/
@@ -79,10 +78,10 @@ node_modules
 .well-known/
 
 test-results/
+tests/e2e/playwright/.auth/
+tests/e2e/playwright/snapshot.local.json
+tests/e2e/playwright/snapshots/
 seeders/
-
-migrations/
-!migrations/__init__.py
 
 # Added by code-review-graph
 .code-review-graph/

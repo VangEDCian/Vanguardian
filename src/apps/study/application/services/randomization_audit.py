@@ -21,6 +21,8 @@ def serialize_randomization_scheme_snapshot(scheme):
         "randomization_type": scheme.randomization_type,
         "allocation_ratio_json": scheme.allocation_ratio_json,
         "target_randomized_total": scheme.target_randomized_total,
+        "randomization_code_prefix": getattr(scheme, "randomization_code_prefix", ""),
+        "randomization_code_padding": getattr(scheme, "randomization_code_padding", 3),
         "eligibility_rule_code": scheme.eligibility_rule_code,
         "requires_screening_pass": scheme.requires_screening_pass,
         "is_open_label": scheme.is_open_label,

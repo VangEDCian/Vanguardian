@@ -6,7 +6,7 @@
   border-radius: 4px;
   background: #ffffff;
   color: #222222;
-  font-size: 14px;
+  font-size: 1rem;
 }
 
 .subject-form-field-card__control input[data-submitted-diff-control="number"] {

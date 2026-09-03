@@ -1,8 +1,8 @@
 # from django.db.models import Q
 from django.urls import reverse
-from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.datetime_formatting import date_format
 from apps.study.application.exceptions import StudyNotFoundError
 from apps.study.application.services.study_filters import StudyFilterQueryService
 from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
@@ -26,6 +26,13 @@ class StudyDirectoryQueryService:
         "end_date",
         "status",
     )
+
+    @classmethod
+    def get_study_id(cls, *, study_id):
+        if study_id is None:
+            return None
+        return cls.repository_class().get_study(study_id=study_id)
+
     studies_sort_map = {
         "code": ("code",),
         "name": ("name", "code"),

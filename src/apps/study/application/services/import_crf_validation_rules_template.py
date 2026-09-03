@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from apps.crf.domain.exceptions import FormBuilderDomainValidationError, StudyScopeViolationError
 from apps.crf.public import CrfContextAdapter
 from apps.study.application.commands.import_crf_templates_template import CrfTemplateImportFormatError
@@ -7,6 +9,20 @@ from apps.study.application.commands.import_crf_validation_rules_template import
     ImportStudyCrfValidationRulesTemplateCommand,
     ImportStudyCrfValidationRulesTemplateResult,
 )
+
+
+@dataclass(frozen=True)
+class _PreparedValidationRuleImportRow:
+    row_number: int
+    identifier: str
+    form_template: object
+    field_template: object
+    rule_type: str
+    expression: str
+    severity: str
+    mode: str
+    vi_message: str
+    en_message: str
 
 
 class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
@@ -77,13 +93,17 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
         updated_count = 0
         issues = []
         rows = workbook_rows_by_sheet[self.validation_rules_sheet_name]
+        prepared_rows = []
         for row_number, row_data in rows:
             identifier = self._build_validation_rule_identifier(row_data)
             try:
-                import_outcome = self._import_validation_rule_row(
-                    selected_study_id=selected_study_id,
-                    row_data=row_data,
-                    actor_user_id=command.actor_user_id,
+                prepared_rows.append(
+                    self._prepare_validation_rule_row(
+                        selected_study_id=selected_study_id,
+                        row_data=row_data,
+                        row_number=row_number,
+                        identifier=identifier,
+                    )
                 )
             except (CrfTemplateImportFormatError, FormBuilderDomainValidationError) as exc:
                 issues.append(
@@ -91,6 +111,28 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
                         sheet_name=self.validation_rules_sheet_name,
                         row_number=row_number,
                         identifier=identifier,
+                        reason=str(exc),
+                    )
+                )
+
+        self._reset_validation_rules_for_import(
+            prepared_rows=prepared_rows,
+            actor_user_id=command.actor_user_id,
+        )
+
+        for prepared_row in prepared_rows:
+            try:
+                import_outcome = self._import_prepared_validation_rule_row(
+                    selected_study_id=selected_study_id,
+                    prepared_row=prepared_row,
+                    actor_user_id=command.actor_user_id,
+                )
+            except (CrfTemplateImportFormatError, FormBuilderDomainValidationError) as exc:
+                issues.append(
+                    CrfValidationRuleImportIssue(
+                        sheet_name=self.validation_rules_sheet_name,
+                        row_number=prepared_row.row_number,
+                        identifier=prepared_row.identifier,
                         reason=str(exc),
                     )
                 )
@@ -110,7 +152,7 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
             warnings=(),
         )
 
-    def _import_validation_rule_row(self, *, selected_study_id, row_data, actor_user_id):
+    def _prepare_validation_rule_row(self, *, selected_study_id, row_data, row_number, identifier):
         study_id = int(selected_study_id)
 
         form_code = self._require_text(row_data.get("form_code"), field_label="Form Code", max_length=64)
@@ -128,16 +170,41 @@ class ImportStudyCrfValidationRulesTemplateService(CrfTemplateWorkbookMixin):
             rule_type=rule_type,
             raw_expression=row_data.get("expression"),
         )
-        import_outcome, _validation_rule = self.crf_context_adapter.upsert_import_validation_rule(
-            study_id=study_id,
-            crf_template_id=form_template.pk,
-            field_template_id=field_template.pk,
+        return _PreparedValidationRuleImportRow(
+            row_number=row_number,
+            identifier=identifier,
+            form_template=form_template,
+            field_template=field_template,
             rule_type=rule_type,
             expression=expression,
             severity=self._require_text(row_data.get("severity"), field_label="Severity", max_length=20),
             mode=self._require_text(row_data.get("mode"), field_label="Mode", max_length=20),
             vi_message=self._require_text(row_data.get("vi_message"), field_label="Vi Message", max_length=10000),
             en_message=self._require_text(row_data.get("en_message"), field_label="En Message", max_length=10000),
+        )
+
+    def _reset_validation_rules_for_import(self, *, prepared_rows, actor_user_id):
+        target_field_template_ids = sorted({int(row.field_template.pk) for row in prepared_rows})
+        if not target_field_template_ids:
+            return
+        self.crf_context_adapter.reset_import_validation_rules(
+            field_template_ids=target_field_template_ids,
+            actor_user_id=actor_user_id,
+            now=self._now(),
+        )
+
+    def _import_prepared_validation_rule_row(self, *, selected_study_id, prepared_row, actor_user_id):
+        study_id = int(selected_study_id)
+        import_outcome, _validation_rule = self.crf_context_adapter.upsert_import_validation_rule(
+            study_id=study_id,
+            crf_template_id=prepared_row.form_template.pk,
+            field_template_id=prepared_row.field_template.pk,
+            rule_type=prepared_row.rule_type,
+            expression=prepared_row.expression,
+            severity=prepared_row.severity,
+            mode=prepared_row.mode,
+            vi_message=prepared_row.vi_message,
+            en_message=prepared_row.en_message,
             actor_user_id=actor_user_id,
             now=self._now(),
         )

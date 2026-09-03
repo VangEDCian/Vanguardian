@@ -80,7 +80,12 @@ class CrfValidationRuleImportTemplateFormTests(SimpleTestCase):
         form = CrfValidationRuleImportTemplateForm(data={}, files=files)
 
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["import_file"].name, "validation_rules.xlsx")
+        self.assertEqual(
+            [uploaded_file.name for uploaded_file in form.cleaned_data["import_file"]],
+            ["validation_rules.xlsx"],
+        )
+        self.assertTrue(form.fields["import_file"].widget.allow_multiple_selected)
+        self.assertIn("multiple", str(form["import_file"]))
         self.assertIn("id_validation_rule_import_file", str(form["import_file"]))
 
     def test_import_file_rejects_invalid_extension(self):

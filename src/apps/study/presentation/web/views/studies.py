@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
@@ -21,10 +22,16 @@ from apps.study.application import (
     StudyFilterActiveQueryService,
     StudyFilterInactiveQueryService,
     StudyNotFoundError,
+    StudySubjectIdentifierMigrationBlockedError,
+    StudySubjectIdentifierMigrationRequiredError,
+    StudySubjectIdentifierMigrationStalePlanError,
     UpdateStudyService,
 )
+from apps.study.application.services.crf_page_lifecycle import StudyCrfPageLifecycleService
+from apps.study.domain.crf_page_lifecycle import CrfPageLifecycleConfigurationError
 from apps.study.infrastructure.persistence.models import Study
 from apps.study.presentation.web.forms import StudyForm
+from apps.study.presentation.web.forms.crf_page_lifecycle import StudyCrfPageLifecycleForm
 from apps.study.presentation.web.forms.roles import StudyRoleCreateForm
 from apps.study.presentation.web.mappers.commands import to_update_study_command
 from apps.study.presentation.web.views.helpers import (
@@ -37,7 +44,7 @@ from apps.study.presentation.web.views.helpers import (
 class StudyListView(
     AuthenticateTemplateView
 ):
-    permission_required = "study.view_study_list"
+    permission_required = "STUDY_CONFIG.VIEW"
     authorization_scope = "STUDY"
     require_study_context = False
     raise_exception = True
@@ -96,7 +103,7 @@ class StudyListView(
 class StudyDetailView(
     AuthenticateTemplateView
 ):
-    permission_required = "study.view_study_detail"
+    permission_required = "STUDY_CONFIG.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/study_detail.html"
@@ -163,12 +170,18 @@ class StudyDetailView(
         can_update_field_description = user_can_access_permission(
             user, "study.update_study_field_description", study_id=study_id
         )
+        can_update_identifier_policy = user_can_access_permission(
+            user,
+            "STUDY_CONFIG.MANAGE",
+            study_id=study_id,
+        )
         can_update_detail = any((
             can_update_field_name,
             can_update_field_sponsor,
             can_update_field_dates,
             can_update_field_description,
             can_toggle_status,
+            can_update_identifier_policy,
         ))
 
         if self._detail_view_model is not None:
@@ -185,6 +198,14 @@ class StudyDetailView(
                     "start_date": self._study.start_date,
                     "end_date": self._study.end_date,
                     "is_active": self._study.is_active,
+                    "subject_identifier_mode": self._study.subject_identifier_mode,
+                    "screening_identifier_mode": self._study.screening_identifier_mode,
+                    "subject_code_pattern": self._study.subject_code_pattern,
+                    "screening_code_pattern": self._study.screening_code_pattern,
+                    "subject_code_uniqueness_scope": self._study.subject_code_uniqueness_scope,
+                    "lock_subject_code_after_assignment": (
+                        self._study.lock_subject_code_after_assignment
+                    ),
                 }
             ),
         )
@@ -210,6 +231,21 @@ class StudyDetailView(
         context["can_update_field_sponsor"] = can_update_field_sponsor
         context["can_update_field_dates"] = can_update_field_dates
         context["can_update_field_description"] = can_update_field_description
+        context["can_update_identifier_policy"] = can_update_identifier_policy
+        if can_update_identifier_policy:
+            context["subject_identifier_policy_preview_url"] = reverse(
+                "study:study_subject_identifier_policy_preview",
+                kwargs={"study_id": study_id},
+            )
+            context["subject_identifier_policy_rollback_preview_url"] = reverse(
+                "study:study_subject_identifier_policy_rollback_preview",
+                kwargs={"study_id": study_id},
+            )
+            context["subject_identifier_policy_rollback_url"] = reverse(
+                "study:study_subject_identifier_policy_rollback",
+                kwargs={"study_id": study_id},
+            )
+            context["identifier_policy_current"] = self._study
 
         return context
 
@@ -245,6 +281,66 @@ class StudyDetailView(
             if _can_change_study_status(request.user, self._study.pk)
             else self._study.is_active,
             actor_user_id=request.user.pk,
+            subject_identifier_mode=(
+                form.cleaned_data["subject_identifier_mode"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.subject_identifier_mode
+            ),
+            screening_identifier_mode=(
+                form.cleaned_data["screening_identifier_mode"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.screening_identifier_mode
+            ),
+            subject_code_pattern=(
+                form.cleaned_data["subject_code_pattern"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.subject_code_pattern
+            ),
+            screening_code_pattern=(
+                form.cleaned_data["screening_code_pattern"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.screening_code_pattern
+            ),
+            subject_code_uniqueness_scope=(
+                form.cleaned_data["subject_code_uniqueness_scope"]
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.subject_code_uniqueness_scope
+            ),
+            lock_subject_code_after_assignment=(
+                form.cleaned_data.get("lock_subject_code_after_assignment", False)
+                if user_can_access_permission(
+                    request.user,
+                    "STUDY_CONFIG.MANAGE",
+                    study_id=self._study.pk,
+                )
+                else self._study.lock_subject_code_after_assignment
+            ),
+            subject_identifier_migration_plan_hash=request.POST.get(
+                "subject_identifier_migration_plan_hash"
+            ),
+            subject_identifier_migration_confirmation_code=request.POST.get(
+                "subject_identifier_migration_confirmation_code"
+            ),
         )
 
         try:
@@ -254,6 +350,22 @@ class StudyDetailView(
             return self.render_to_response(self.get_context_data(form=form))
         except StudyDateRangeError:
             form.add_error("end_date", _("End date must be on or after start date."))
+            return self.render_to_response(self.get_context_data(form=form))
+        except StudySubjectIdentifierMigrationRequiredError:
+            form.add_error(
+                None,
+                _("Preview and confirm the Subject Code migration before saving."),
+            )
+            return self.render_to_response(self.get_context_data(form=form))
+        except StudySubjectIdentifierMigrationStalePlanError:
+            form.add_error(
+                None,
+                _("Subject data changed after preview. Preview the migration again."),
+            )
+            return self.render_to_response(self.get_context_data(form=form))
+        except StudySubjectIdentifierMigrationBlockedError as exc:
+            for issue in exc.preview.blockers:
+                form.add_error(None, issue.message)
             return self.render_to_response(self.get_context_data(form=form))
 
         self.get_study_audit_service().record_updated(
@@ -273,11 +385,16 @@ class StudyDetailView(
             user_can_access_permission(request_user, "study.update_study_field_dates", study_id=self._study.pk),
             user_can_access_permission(request_user, "study.update_study_field_description", study_id=self._study.pk),
             _can_change_study_status(request_user, self._study.pk),
+            user_can_access_permission(
+                request_user,
+                "STUDY_CONFIG.MANAGE",
+                study_id=self._study.pk,
+            ),
         ))
 
 
 class StudyRolesContextMixin(AuthenticateTemplateView):
-    permission_required = "study.view_study_detail"
+    permission_required = "USER_ACCESS.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     layout_nav_key = "STUDIES"
@@ -356,6 +473,12 @@ class StudyRolesContextMixin(AuthenticateTemplateView):
 class StudyManageRolesView(StudyRolesContextMixin):
     template_name = "study/study_manage_roles.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        # GET is role/access visibility; POST imports role-permission changes.
+        if request.method.upper() == "POST":
+            self.permission_required = "USER_ACCESS.MANAGE"
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["detail_study"] = self._detail_view_model["detail_study"]
@@ -396,6 +519,7 @@ class StudyManageRolesView(StudyRolesContextMixin):
 
 
 class StudyRoleCreateView(StudyRolesContextMixin):
+    permission_required = "USER_ACCESS.MANAGE"
     template_name = "study/study_role_create.html"
 
     def get_context_data(self, **kwargs):
@@ -434,3 +558,73 @@ class StudyRoleCreateView(StudyRolesContextMixin):
             return self.render_to_response(self.get_context_data(role_create_form=form))
 
         return redirect(self._role_manage_url())
+
+
+class StudyCrfPageLifecycleConfigView(StudyRolesContextMixin):
+    permission_required = "STUDY_CONFIG.MANAGE"
+    template_name = "study/study_crf_page_lifecycle.html"
+    lifecycle_service_class = StudyCrfPageLifecycleService
+    study_audit_service_class = StudyAuditService
+
+    def get_lifecycle_service(self):
+        return self.lifecycle_service_class()
+
+    def get_study_audit_service(self):
+        return self.study_audit_service_class()
+
+    @staticmethod
+    def _serialize_steps(steps):
+        return [
+            {
+                "step_code": step.step_code,
+                "display_order": step.display_order,
+                "allowed_role_ids": list(step.allowed_role_ids),
+            }
+            for step in steps
+        ]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        configuration = self.get_lifecycle_service().build_configuration(
+            study_id=self._study.pk
+        )
+        form = kwargs.get("lifecycle_form") or StudyCrfPageLifecycleForm(
+            configuration=configuration
+        )
+        context["detail_study"] = self._detail_view_model["detail_study"]
+        context["lifecycle_form"] = form
+        context["lifecycle_rows"] = form.rows()
+        context["uses_legacy_default"] = configuration["uses_legacy_default"]
+        return context
+
+    def post(self, request, *args, **kwargs):
+        configuration = self.get_lifecycle_service().build_configuration(
+            study_id=self._study.pk
+        )
+        form = StudyCrfPageLifecycleForm(request.POST, configuration=configuration)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(lifecycle_form=form))
+        try:
+            lifecycle_service = self.get_lifecycle_service()
+            before_steps = lifecycle_service.list_steps(study_id=self._study.pk)
+            after_steps = lifecycle_service.save(
+                study_id=self._study.pk,
+                raw_steps=form.raw_steps(),
+                actor_user_id=getattr(request.user, "id", None),
+            )
+        except CrfPageLifecycleConfigurationError as exc:
+            form.add_error(None, str(exc))
+            return self.render_to_response(self.get_context_data(lifecycle_form=form))
+        self.get_study_audit_service().record_crf_page_lifecycle_updated(
+            study=self._study,
+            before_steps=self._serialize_steps(before_steps),
+            after_steps=self._serialize_steps(after_steps),
+            **build_audit_request_context(request),
+        )
+        messages.success(request, _("CRF Page lifecycle configuration saved."))
+        return redirect(
+            reverse(
+                "study:study_crf_page_lifecycle",
+                kwargs={"study_id": self._study.pk},
+            )
+        )

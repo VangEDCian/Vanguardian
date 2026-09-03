@@ -9,6 +9,7 @@ class DataCapturePageStateStatusChoices(models.TextChoices):
     UNDER_REVIEW = "under_review", _("Under review")
     CORRECTION_REQUIRED = "correction_required", _("Correction required")
     VERIFIED = "verified", _("Verified")
+    CERTIFIED = "certified", _("Certified")
     LOCKED = "locked", _("Locked")
     FINALIZED = "finalized", _("Finalized")
 

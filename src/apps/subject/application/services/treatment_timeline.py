@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from django.utils import timezone
 
+from apps.subject.domain import SubjectPeriodStatus
 from apps.subject.infrastructure.repositories.treatment_timeline import (
     DjangoSubjectTreatmentTimelineRepository,
 )
@@ -15,6 +16,7 @@ class SubjectTreatmentPeriodDTO:
     sequence_period_id: int | None
     start_event_instance_id: int | None
     end_event_instance_id: int | None
+    kit_code: str | None = None
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,7 @@ class CurrentSubjectTreatmentDTO:
     randomization_sequence: str = ""
     last_treatment: str | None = None
     next_treatment: str | None = None
+    kit_code: str | None = None
 
 
 class SubjectTreatmentTimelineService:
@@ -68,10 +71,50 @@ class SubjectTreatmentTimelineService:
     ) -> CurrentSubjectTreatmentDTO:
         as_of = as_of or timezone.now()
         randomization = self.repository.get_randomization(subject_id=subject_id)
+        periods = self.repository.list_periods(subject_id=subject_id) if randomization is not None else []
+        return self._resolve_current_subject_treatment(
+            subject_id=subject_id,
+            randomization=randomization,
+            periods=periods,
+            event_instance_id=event_instance_id,
+            as_of=as_of,
+        )
+
+    def map_current_subject_treatment_by_subject_id(
+        self,
+        *,
+        subject_ids,
+        as_of=None,
+    ) -> dict[int, CurrentSubjectTreatmentDTO]:
+        subject_ids = tuple(dict.fromkeys(subject_ids))
+        if not subject_ids:
+            return {}
+        as_of = as_of or timezone.now()
+        randomizations = self.repository.get_randomizations(subject_ids=subject_ids)
+        periods_by_subject_id = self.repository.list_periods_by_subject_id(subject_ids=subject_ids)
+        return {
+            subject_id: self._resolve_current_subject_treatment(
+                subject_id=subject_id,
+                randomization=randomizations.get(subject_id),
+                periods=periods_by_subject_id.get(subject_id, []),
+                event_instance_id=None,
+                as_of=as_of,
+            )
+            for subject_id in subject_ids
+        }
+
+    def _resolve_current_subject_treatment(
+        self,
+        *,
+        subject_id,
+        randomization,
+        periods,
+        event_instance_id,
+        as_of,
+    ) -> CurrentSubjectTreatmentDTO:
         if randomization is None:
             return CurrentSubjectTreatmentDTO(subject_id=subject_id, status="Not randomized")
 
-        periods = self.repository.list_periods(subject_id=subject_id)
         if event_instance_id is not None:
             matched = self._match_event_period(periods=periods, event_instance_id=event_instance_id)
             if matched is not None:
@@ -82,17 +125,33 @@ class SubjectTreatmentTimelineService:
                     as_of=as_of,
                 )
 
-        active = self._find_active_period(periods=periods, as_of=as_of)
+        active = self._find_active_period(periods=periods)
         if active is not None:
             return CurrentSubjectTreatmentDTO(
                 subject_id=subject_id,
                 status="Active",
                 treatment_code=active.treatment_code,
+                kit_code=getattr(active, "kit_code", None),
                 current_phase="Treatment",
                 randomization_sequence=randomization.randomization_sequence or "",
             )
 
-        last_completed = self._find_last_completed_period(periods=periods, as_of=as_of)
+        washout = self._find_period_by_status(
+            periods=periods,
+            status=SubjectPeriodStatus.WASHOUT,
+        )
+        if washout is not None:
+            next_period = self._find_next_period(periods=periods, after_period=washout)
+            return CurrentSubjectTreatmentDTO(
+                subject_id=subject_id,
+                status="Washout",
+                current_phase="Washout",
+                randomization_sequence=randomization.randomization_sequence or "",
+                last_treatment=washout.treatment_code,
+                next_treatment=getattr(next_period, "treatment_code", None),
+            )
+
+        last_completed = self._find_last_completed_period(periods=periods)
         next_period = self._find_next_period(periods=periods, after_period=last_completed)
         if last_completed is not None and next_period is not None:
             return CurrentSubjectTreatmentDTO(
@@ -123,6 +182,7 @@ class SubjectTreatmentTimelineService:
             sequence_period_id=period.sequence_period_id,
             start_event_instance_id=period.start_event_instance_id,
             end_event_instance_id=period.end_event_instance_id,
+            kit_code=getattr(period, "kit_code", None),
         )
 
     @staticmethod
@@ -133,32 +193,59 @@ class SubjectTreatmentTimelineService:
         return None
 
     def _period_current_treatment(self, *, subject_id, randomization_sequence, period, as_of):
-        if self._period_has_actual_start(period=period, as_of=as_of) and not self._period_has_actual_end(period=period, as_of=as_of):
+        period_status = SubjectPeriodStatus.normalize(period.status)
+        if period_status == SubjectPeriodStatus.ACTIVE:
             return CurrentSubjectTreatmentDTO(
                 subject_id=subject_id,
                 status="Active",
                 treatment_code=period.treatment_code,
+                kit_code=getattr(period, "kit_code", None),
                 current_phase="Treatment",
                 randomization_sequence=randomization_sequence,
+            )
+        if period_status == SubjectPeriodStatus.WASHOUT:
+            return CurrentSubjectTreatmentDTO(
+                subject_id=subject_id,
+                status="Washout",
+                current_phase="Washout",
+                randomization_sequence=randomization_sequence,
+                last_treatment=period.treatment_code,
             )
         return CurrentSubjectTreatmentDTO(
             subject_id=subject_id,
             status="Planned",
             treatment_code=period.treatment_code,
+            kit_code=getattr(period, "kit_code", None),
             current_phase="Planned",
             randomization_sequence=randomization_sequence,
             next_treatment=period.treatment_code,
         )
 
-    def _find_active_period(self, *, periods, as_of):
-        for period in periods:
-            if self._period_has_actual_start(period=period, as_of=as_of) and not self._period_has_actual_end(period=period, as_of=as_of):
-                return period
-        return None
+    def _find_active_period(self, *, periods):
+        return self._find_period_by_status(
+            periods=periods,
+            status=SubjectPeriodStatus.ACTIVE,
+        )
 
-    def _find_last_completed_period(self, *, periods, as_of):
-        completed = [period for period in periods if self._period_has_actual_end(period=period, as_of=as_of)]
+    def _find_last_completed_period(self, *, periods):
+        completed = [
+            period
+            for period in periods
+            if SubjectPeriodStatus.normalize(period.status)
+            == SubjectPeriodStatus.COMPLETED
+        ]
         return completed[-1] if completed else None
+
+    @staticmethod
+    def _find_period_by_status(*, periods, status):
+        return next(
+            (
+                period
+                for period in periods
+                if SubjectPeriodStatus.normalize(period.status) == status
+            ),
+            None,
+        )
 
     @staticmethod
     def _find_next_period(*, periods, after_period):
@@ -168,23 +255,6 @@ class SubjectTreatmentTimelineService:
             if period.period_no > after_period.period_no:
                 return period
         return None
-
-    @staticmethod
-    def _period_has_actual_start(*, period, as_of) -> bool:
-        return any(
-            milestone.actual_at and milestone.actual_at <= as_of
-            for milestone in period.milestones
-            if milestone.milestone_code in {"PERIOD_START_ACTUAL", "DOSE_ACTUAL"}
-        )
-
-    @staticmethod
-    def _period_has_actual_end(*, period, as_of) -> bool:
-        return any(
-            milestone.actual_at and milestone.actual_at <= as_of
-            for milestone in period.milestones
-            if milestone.milestone_code in {"PERIOD_END_ACTUAL", "WASHOUT_START_ACTUAL"}
-        )
-
 
 __all__ = [
     "CurrentSubjectTreatmentDTO",

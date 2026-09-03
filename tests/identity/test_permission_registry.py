@@ -19,23 +19,27 @@ class PermissionRegistryTests(SimpleTestCase):
     def test_app_permission_registry_contains_used_permission_codes(self):
         permission_codes = {
             definition.permission_code
-            for definition in APP_PERMISSION_DEFINITIONS
+            for definition in ALL_PERMISSION_DEFINITIONS
         }
+        permission_codes.update({
+            definition.permission_code
+            for definition in APP_PERMISSION_DEFINITIONS
+        })
 
         self.assertTrue(
             {
                 "dashboard.view_dashboard",
-                "identity.view_user_list",
-                "identity.update_user",
+                "USER_ACCESS.VIEW",
+                "USER_ACCESS.MANAGE",
                 "site.view_site_membership_list",
-                "study.manage_crf_template",
+                "STUDY_CONFIG.MANAGE",
                 "study.update_study_field_name",
-                "subject.verify_form",
+                "SDV.MARK",
                 "reconcile.view_internal_query_thread",
             }.issubset(permission_codes)
         )
 
-    def test_seed_registry_includes_edc_permissions(self):
+    def test_permission_registry_includes_edc_permissions(self):
         edc_permission_codes = {
             definition.codename
             for definition in EDC_PERMISSION_DEFINITIONS

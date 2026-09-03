@@ -2,16 +2,25 @@ from django.urls import path
 
 from apps.subject.presentation.web.views import (
     SubjectAddRepeatingEventInstanceView,
+    SubjectAuditHistoryView,
+    SubjectBulkActionView,
     SubjectCreateView,
     SubjectDetailView,
+    SubjectEarlyTerminationRequestView,
     SubjectEventInstanceFileContentView,
     SubjectEventInstanceFileImportView,
     SubjectEventInstanceFilePreviewView,
+    SubjectExportFieldCatalogView,
+    SubjectFieldAuditHistoryView,
+    SubjectListActionsView,
     SubjectListView,
+    SubjectPeriodOverrideView,
     SubjectResyncStageView,
+    SubjectSummaryView,
     SubjectTriggerWorkflowView,
 )
 from apps.subject.presentation.web.views.verification_verify_checked import (
+    SubjectFormVerificationCertifyPageView,
     SubjectFormVerificationFinalizePageDataView,
     SubjectFormVerificationLockPageView,
     SubjectFormVerificationOpenQueryView,
@@ -35,9 +44,44 @@ urlpatterns = [
         name="subject_create",
     ),
     path(
+        "studies/<int:study_id>/subjects/bulk-action/",
+        SubjectBulkActionView.as_view(),
+        name="subject_bulk_action",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/export-fields/",
+        SubjectExportFieldCatalogView.as_view(),
+        name="subject_export_field_catalog",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/list-actions/",
+        SubjectListActionsView.as_view(),
+        name="subject_list_actions",
+    ),
+    path(
         "studies/<int:study_id>/subjects/<int:subject_id>/resync-stage/",
         SubjectResyncStageView.as_view(),
         name="subject_resync_stage",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/early-termination/request/",
+        SubjectEarlyTerminationRequestView.as_view(),
+        name="subject_early_termination_request",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/period-transition/override/",
+        SubjectPeriodOverrideView.as_view(),
+        name="subject_period_override",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/summary/",
+        SubjectSummaryView.as_view(),
+        name="subject_summary",
+    ),
+    path(
+        "studies/<int:study_id>/subjects/<int:subject_id>/audit-history/",
+        SubjectAuditHistoryView.as_view(),
+        name="subject_audit_history",
     ),
     path(
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/verify-checked/",
@@ -48,6 +92,11 @@ urlpatterns = [
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/reopen/",
         SubjectFormVerificationReopenView.as_view(),
         name="subject_form_verification_reopen",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/certify-page/",
+        SubjectFormVerificationCertifyPageView.as_view(),
+        name="subject_form_verification_certify_page",
     ),
     path(
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/finalize-page-data/",
@@ -63,6 +112,11 @@ urlpatterns = [
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/query-thread/",
         SubjectFormVerificationQueryThreadView.as_view(),
         name="subject_form_verification_query_thread",
+    ),
+    path(
+        "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/audit-history/",
+        SubjectFieldAuditHistoryView.as_view(),
+        name="subject_field_audit_history",
     ),
     path(
         "api/studies/<int:study_id>/subjects/<int:subject_id>/events/<int:visit_id>/forms/<int:crf_template_id>/verification/open-query/",

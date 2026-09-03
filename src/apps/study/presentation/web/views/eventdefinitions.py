@@ -52,7 +52,7 @@ class StudyEventDefinitionListView(
     AuthenticateTemplateContextMixin,
     SingleTableMixin, FilterView, ListView,
 ):
-    permission_required = "study.view_study_detail"
+    permission_required = "STUDY_CONFIG.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/event_definitions.html"
@@ -207,7 +207,7 @@ class StudyEventDefinitionListView(
     def post(self, request, *args, **kwargs):
         if not user_can_access_permission(
             request.user,
-            "study.create_study_eventdefinition",
+            "STUDY_CONFIG.MANAGE",
             study_id=self._study.pk,
         ):
             raise PermissionDenied
@@ -248,7 +248,7 @@ class StudyEventDefinitionListView(
 
 
 class StudyEventDefinitionCreateView(AuthenticateTemplateView):
-    permission_required = "study.create_study_eventdefinition"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/event_definition_form.html"
@@ -300,7 +300,7 @@ class StudyEventDefinitionCreateView(AuthenticateTemplateView):
 
 
 class StudyEventDefinitionImportTemplateView(StudyEventDefinitionListView):
-    permission_required = "study.create_study_eventdefinition"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 
@@ -311,7 +311,7 @@ class StudyEventDefinitionImportTemplateView(StudyEventDefinitionListView):
 
 
 class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
-    permission_required = "study.create_study_eventdefinition"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 
@@ -323,7 +323,7 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
     def post(self, request, *args, **kwargs):
         if not user_can_access_permission(
             request.user,
-            "study.create_study_eventdefinition",
+            "STUDY_CONFIG.MANAGE",
             study_id=self._study.pk,
         ):
             raise PermissionDenied
@@ -371,7 +371,7 @@ class StudyEventFormBindingImportTemplateView(StudyEventDefinitionListView):
 
 
 class StudyFactMappingImportTemplateView(StudyEventDefinitionListView):
-    permission_required = "study.create_study_eventdefinition"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
 
@@ -384,7 +384,7 @@ class StudyFactMappingImportTemplateView(StudyEventDefinitionListView):
     def post(self, request, *args, **kwargs):
         if not user_can_access_permission(
             request.user,
-            "study.create_study_eventdefinition",
+            "STUDY_CONFIG.MANAGE",
             study_id=self._study.pk,
         ):
             raise PermissionDenied

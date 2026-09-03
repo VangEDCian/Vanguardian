@@ -1,8 +1,13 @@
 from django.db.models import Max
 from django.utils import timezone
 
-from apps.study.models import EventDefinition, EventTransitionRule, Study
-from apps.subject.models import Subject, SubjectEventInstance, SubjectEventInstanceTransitionLog
+from apps.study.models import EventDefinition, EventTransitionRule, Site, Study
+from apps.subject.models import (
+    Subject,
+    SubjectEventInstance,
+    SubjectEventInstanceTransitionLog,
+    SubjectIdentifierHistory,
+)
 
 
 class DjangoSubjectCommandRepository:
@@ -22,6 +27,38 @@ class DjangoSubjectCommandRepository:
             max_current_sequence=Max("current_sequence"),
         )["max_current_sequence"] or 0
         return max_current_sequence + 1
+
+    def get_site_code(self, *, study_id: int, site_id: int) -> str | None:
+        return (
+            Site.objects.filter(pk=site_id, study_id=study_id, deleted=False)
+            .values_list("code", flat=True)
+            .first()
+        )
+
+    def subject_code_exists(
+        self,
+        *,
+        study_id: int,
+        site_id: int,
+        subject_code: str,
+        uniqueness_scope: str,
+    ) -> bool:
+        queryset = Subject.objects.filter(
+            study_id=study_id,
+            subject_code=subject_code,
+            deleted=False,
+        )
+        if uniqueness_scope == "study_site":
+            queryset = queryset.filter(site_id=site_id)
+        return queryset.exists()
+
+    @staticmethod
+    def screening_code_exists(*, study_id: int, screening_code: str) -> bool:
+        return Subject.objects.filter(
+            study_id=study_id,
+            screening_code=screening_code,
+            deleted=False,
+        ).exists()
 
     def create_subject(
         self,
@@ -44,6 +81,29 @@ class DjangoSubjectCommandRepository:
             updated_at=now,
             created_by_id=actor_user_id,
             updated_by_id=actor_user_id,
+        )
+
+    @staticmethod
+    def record_identifier_assignment(
+        *,
+        subject_id: int,
+        identifier_type: str,
+        to_value: str,
+        assignment_source: str,
+        actor_user_id: int | None,
+        occurred_at,
+        from_value: str | None = None,
+        related_randomization_event_id: int | None = None,
+    ):
+        return SubjectIdentifierHistory.objects.create(
+            subject_id=subject_id,
+            identifier_type=identifier_type,
+            from_value=from_value,
+            to_value=to_value,
+            assignment_source=assignment_source,
+            occurred_at=occurred_at,
+            related_randomization_event_id=related_randomization_event_id,
+            actor_user_id=actor_user_id,
         )
 
     def resolve_active_study_version(self, *, study_id):

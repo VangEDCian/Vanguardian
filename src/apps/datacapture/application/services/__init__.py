@@ -4,6 +4,7 @@ __all__ = [
     "DataCaptureFieldValidationRulesService",
     "DataCaptureEventTransitionTriggerResult",
     "DataCaptureEventFactEvaluation",
+    "DataCaptureEventAttestationService",
     "DataCaptureFactEvaluation",
     "DataCaptureFactEvaluationService",
     "DataCaptureFactMappingConfigService",
@@ -27,6 +28,7 @@ _MODULE_BY_NAME = {
         "apps.datacapture.application.services.trigger_event_transition"
     ),
     "DataCaptureEventFactEvaluation": "apps.datacapture.application.services.fact_evaluation",
+    "DataCaptureEventAttestationService": "apps.datacapture.application.services.event_attestation",
     "DataCaptureFactEvaluation": "apps.datacapture.application.services.fact_evaluation",
     "DataCaptureFactEvaluationService": "apps.datacapture.application.services.fact_evaluation",
     "DataCaptureFactMappingConfigService": "apps.datacapture.application.services.fact_mapping_config",

@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 
 from apps.study.models import Study
@@ -6,12 +7,20 @@ from apps.subject.models import (
     Subject,
     SubjectEnrollment,
     SubjectEventInstance,
+    SubjectIdentifierHistory,
     SubjectRandomization,
     SubjectStatusHistory,
 )
 
 
 class DjangoSubjectEligibilityWorkflowRepository:
+    @staticmethod
+    def lock_study_for_identifier_assignment(*, study_id: int) -> bool:
+        return Study.objects.select_for_update().filter(
+            pk=study_id,
+            deleted=False,
+        ).exists()
+
     def get_subject_scope(self, *, study_id: int, site_id: int, subject_id: int):
         return (
             Subject.objects.filter(
@@ -97,12 +106,6 @@ class DjangoSubjectEligibilityWorkflowRepository:
             if is_enrolled:
                 enrollment.enrollment_date = now.date()
                 enrollment.enrolled_by_id = actor_user_id
-                self._initialize_subject_code_on_enrollment(
-                    subject=subject,
-                    study_id=study_id,
-                    actor_user_id=actor_user_id,
-                    now=now,
-                )
             if to_status == screen_failure_status:
                 enrollment.screen_failed_at = now
             enrollment.save()
@@ -126,24 +129,63 @@ class DjangoSubjectEligibilityWorkflowRepository:
         }
 
     @staticmethod
-    def _initialize_subject_code_on_enrollment(*, subject, study_id: int, actor_user_id: int | None, now) -> None:
-        if str(subject.subject_code or "").strip():
-            return
-
-        study = Study.objects.select_for_update().only("id", "code").get(pk=study_id, deleted=False)
-        enrollment_sequence = subject.enrollment_current_sequence
-        if enrollment_sequence is None:
-            last_sequence = (
-                Subject.objects.filter(study_id=study_id, enrollment_current_sequence__isnull=False)
-                .order_by("-enrollment_current_sequence")
-                .values_list("enrollment_current_sequence", flat=True)
-                .first()
-                or 0
+    def get_subject_for_identifier_assignment(
+        *,
+        study_id: int,
+        site_id: int,
+        subject_id: int,
+    ):
+        return (
+            Subject.objects.select_for_update()
+            .select_related("site")
+            .filter(
+                pk=subject_id,
+                study_id=study_id,
+                site_id=site_id,
+                deleted=False,
             )
-            enrollment_sequence = int(last_sequence) + 1
+            .first()
+        )
 
+    @staticmethod
+    def get_next_enrollment_sequence(*, study_id: int) -> int:
+        current_max = Subject.objects.filter(
+            study_id=study_id,
+            enrollment_current_sequence__isnull=False,
+        ).aggregate(max_sequence=Max("enrollment_current_sequence"))["max_sequence"]
+        return int(current_max or 0) + 1
+
+    @staticmethod
+    def subject_code_exists(
+        *,
+        study_id: int,
+        site_id: int,
+        subject_id: int,
+        subject_code: str,
+        uniqueness_scope: str,
+    ) -> bool:
+        queryset = Subject.objects.filter(
+            study_id=study_id,
+            subject_code=subject_code,
+            deleted=False,
+        ).exclude(pk=subject_id)
+        if uniqueness_scope == "study_site":
+            queryset = queryset.filter(site_id=site_id)
+        return queryset.exists()
+
+    @staticmethod
+    def assign_subject_identifier(
+        *,
+        subject,
+        enrollment_sequence: int,
+        subject_code: str | None,
+        assignment_source: str,
+        actor_user_id: int | None,
+        now,
+    ) -> None:
+        previous_subject_code = str(subject.subject_code or "").strip() or None
         subject.enrollment_current_sequence = enrollment_sequence
-        subject.subject_code = f"{study.code}-{str(enrollment_sequence).rjust(3, '0')}"
+        subject.subject_code = subject_code
         subject.updated_at = now
         subject.updated_by_id = actor_user_id
         subject.save(
@@ -154,6 +196,16 @@ class DjangoSubjectEligibilityWorkflowRepository:
                 "updated_by_id",
             ]
         )
+        if subject_code and subject_code != previous_subject_code:
+            SubjectIdentifierHistory.objects.create(
+                subject_id=subject.pk,
+                identifier_type="subject_code",
+                from_value=previous_subject_code,
+                to_value=subject_code,
+                assignment_source=assignment_source,
+                occurred_at=now,
+                actor_user_id=actor_user_id,
+            )
 
 
 __all__ = ["DjangoSubjectEligibilityWorkflowRepository"]

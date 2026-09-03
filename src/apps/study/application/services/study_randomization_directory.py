@@ -1,9 +1,9 @@
 import json
 from collections import Counter
 
-from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
+from apps.shared.datetime_formatting import date_format
 from apps.study.domain import RandomizationSlot
 from apps.study.infrastructure.repositories import DjangoStudyDirectoryRepository
 
@@ -16,6 +16,8 @@ class StudyRandomizationDirectoryQueryService:
         {"label": _("TYPE")},
         {"label": _("ALLOCATION RATIO")},
         {"label": _("TARGET TOTAL")},
+        {"label": _("CODE PREFIX")},
+        {"label": _("CODE PADDING")},
         {"label": _("ELIGIBILITY RULE")},
         {"label": _("REQUIRES SCREENING PASS")},
         {"label": _("IS OPEN LABEL")},
@@ -56,6 +58,7 @@ class StudyRandomizationDirectoryQueryService:
     randomization_slot_headers = (
         {"label": _("SCHEME")},
         {"label": _("SEQUENCE")},
+        {"label": _("RANDOMIZATION ID")},
         {"label": _("ARM")},
         {"label": _("STATUS")},
         {"label": _("BLOCK")},
@@ -79,6 +82,11 @@ class StudyRandomizationDirectoryQueryService:
                 self._build_scheme_row(scheme) for scheme in schemes
             ],
             "randomization_scheme_total": len(schemes),
+            "randomization_master_list_records": [
+                self._build_master_list_record(scheme)
+                for scheme in schemes
+                if str(getattr(scheme, "master_list_checksum", "") or "").strip()
+            ],
             "randomization_scheme_empty_text": _(
                 "No randomization schemes have been configured for this study."
             ),
@@ -106,6 +114,21 @@ class StudyRandomizationDirectoryQueryService:
             ),
         }
 
+    @staticmethod
+    def _build_master_list_record(scheme):
+        return {
+            "scheme_id": scheme.pk,
+            "scheme_code": scheme.code,
+            "version": getattr(scheme, "master_list_version", "") or "",
+            "checksum": getattr(scheme, "master_list_checksum", "") or "",
+            "source_filename": getattr(scheme, "master_list_source_filename", "") or "",
+            "imported_by_id": getattr(scheme, "master_list_imported_by_id", None),
+            "imported_at": getattr(scheme, "master_list_imported_at", None),
+            "approved_by_id": getattr(scheme, "master_list_approved_by_id", None),
+            "approved_at": getattr(scheme, "master_list_approved_at", None),
+            "locked": getattr(scheme, "master_list_locked_at", None) is not None,
+        }
+
     def _build_scheme_row(self, scheme):
         return {
             "selection_value": scheme.pk,
@@ -128,6 +151,8 @@ class StudyRandomizationDirectoryQueryService:
                     else ""
                 ),
                 self._build_text_cell(str(scheme.target_randomized_total)),
+                self._build_text_cell(getattr(scheme, "randomization_code_prefix", "")),
+                self._build_text_cell(str(getattr(scheme, "randomization_code_padding", 3))),
                 self._build_text_cell(scheme.eligibility_rule_code),
                 self._build_boolean_state_cell(scheme.requires_screening_pass),
                 self._build_boolean_state_cell(scheme.is_open_label),
@@ -221,6 +246,7 @@ class StudyRandomizationDirectoryQueryService:
             "cells": [
                 self._build_text_cell(slot.scheme.code if slot.scheme_id else ""),
                 self._build_text_cell(str(slot.sequence_no)),
+                self._build_text_cell(slot.randomization_code),
                 self._build_text_cell(slot.arm.arm_code if slot.arm_id else ""),
                 self._build_text_cell(self._humanize_choice_value(slot.status)),
                 self._build_text_cell(

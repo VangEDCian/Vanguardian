@@ -32,6 +32,7 @@ class _ReconcileDataQueryWriteService:
     def __init__(self):
         self.update_value_thread_calls = []
         self.validation_failure_record_calls = []
+        self.correct_resolved_validation_issue_calls = []
 
     def add_update_value_threads_for_changed_fields(self, **kwargs):
         self.update_value_thread_calls.append(kwargs)
@@ -40,6 +41,10 @@ class _ReconcileDataQueryWriteService:
     def create_validation_failure_records(self, **kwargs):
         self.validation_failure_record_calls.append(kwargs)
         return {"soft_issue_count": 1, "query_count": 0}
+
+    def correct_resolved_validation_issues(self, **kwargs):
+        self.correct_resolved_validation_issue_calls.append(kwargs)
+        return {"corrected_issue_ids": [1], "corrected_count": 1}
 
 
 class _SubmitReasonRepository:
@@ -50,6 +55,8 @@ class _SubmitReasonRepository:
         all_visit_forms_submitted=False,
         changed_verified_field_keys=(),
         validation_rules_by_field_key=None,
+        cross_form_validation_context=None,
+        form_repeatability_by_codes=None,
     ):
         self.page_state = DataCapturePageStateSnapshot(
             id=11,
@@ -81,6 +88,8 @@ class _SubmitReasonRepository:
         self.all_visit_forms_submitted = all_visit_forms_submitted
         self.changed_verified_field_keys = list(changed_verified_field_keys)
         self.validation_rules_by_field_key = validation_rules_by_field_key or {}
+        self.cross_form_validation_context = dict(cross_form_validation_context or {})
+        self.form_repeatability_by_codes = dict(form_repeatability_by_codes or {})
         self.submit_page_state_calls = []
 
     def get_page_state_by_scope(self, **kwargs):
@@ -108,6 +117,14 @@ class _SubmitReasonRepository:
     def list_form_field_validation_rules(self, **kwargs):
         return self.validation_rules_by_field_key
 
+    def get_subject_cross_form_validation_context(self, **kwargs):
+        self.cross_form_validation_context_kwargs = kwargs
+        return dict(self.cross_form_validation_context)
+
+    def get_form_repeatability_by_codes(self, **kwargs):
+        self.form_repeatability_by_codes_kwargs = kwargs
+        return dict(self.form_repeatability_by_codes)
+
     def submit_page_state_with_entry(self, **kwargs):
         self.submit_page_state_calls.append(kwargs)
         return SimpleNamespace(pk=self.page_state.id, status=kwargs["target_status"], data_version=4)
@@ -126,9 +143,16 @@ def _service(repository, subject_event_lifecycle_adapter=None, reconcile_data_qu
     return DataCaptureSaveSubmitPageService(
         repository=repository,
         governance_lock_read_repository=_NoGovernanceLock(),
+        subject_capture_eligibility_reader=_AllowCaptureEligibilityReader(),
         subject_event_lifecycle_adapter=subject_event_lifecycle_adapter or _SubjectEventLifecycleAdapter(),
         reconcile_data_query_write_service=reconcile_data_query_write_service or _ReconcileDataQueryWriteService(),
     )
+
+
+class _AllowCaptureEligibilityReader:
+    @staticmethod
+    def get(**kwargs):
+        return SimpleNamespace(allowed=True, reason="subject_active")
 
 
 def _submit_without_transaction(service, command):
@@ -339,29 +363,40 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
         )
 
         self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
+
+    def test_submit_syncs_validation_issue_records_with_current_payload(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            changed_verified_field_keys=[],
+        )
+        reconcile_service = _ReconcileDataQueryWriteService()
+        service = _service(repository, reconcile_data_query_write_service=reconcile_service)
+        service.page_entry_state_events = SimpleNamespace(dispatch=lambda *args, **kwargs: None)
+
+        _submit_without_transaction(
+            service,
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(len(reconcile_service.correct_resolved_validation_issue_calls), 0)
+        self.assertEqual(len(reconcile_service.validation_failure_record_calls), 1)
+        self.assertEqual(
+            reconcile_service.validation_failure_record_calls[0]["evaluated_values_json"],
+            {"field_1": "new"},
+        )
+        self.assertEqual(
+            reconcile_service.validation_failure_record_calls[0]["data_version"],
+            4,
+        )
         self.assertEqual(
             repository.submit_page_state_calls[-1]["target_status"],
             DataCapturePageStateStatusChoices.SUBMITTED,
-        )
-        self.assertEqual(
-            reconcile_data_query_write_service.validation_failure_record_calls,
-            [
-                {
-                    "page_state_id": 11,
-                    "failures": [
-                        {
-                            "rule_id": 101,
-                            "field_template_id": 1,
-                            "field_key": "field_1",
-                            "mode": "SOFT",
-                            "severity": "warning",
-                            "message": "Value should match expected.",
-                            "failed_value": "new",
-                        }
-                    ],
-                    "actor_user_id": 1,
-                }
-            ],
         )
 
     def test_submit_stops_checking_field_validation_rules_after_first_failure(self):
@@ -448,6 +483,68 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
         failures = reconcile_data_query_write_service.validation_failure_record_calls[0]["failures"]
         self.assertEqual([failure["rule_id"] for failure in failures], [102])
 
+    def test_submit_moves_to_next_field_after_first_failure_for_current_field(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "field_1": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'new'",
+                        "message": "Field 1 first failure.",
+                    },
+                    {
+                        "id": 102,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'new'",
+                        "message": "Field 1 second failure.",
+                    },
+                ),
+                "field_2": (
+                    {
+                        "id": 201,
+                        "field_template_id": 2,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'beta'",
+                        "message": "Field 2 first failure.",
+                    },
+                    {
+                        "id": 202,
+                        "field_template_id": 2,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val == 'beta'",
+                        "message": "Field 2 second failure.",
+                    },
+                ),
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"field_1": "new", "field_2": "beta"}',
+                actor_user_id=1,
+            ),
+        )
+
+        failures = reconcile_data_query_write_service.validation_failure_record_calls[0]["failures"]
+        self.assertEqual([failure["rule_id"] for failure in failures], [101, 201])
+
     def test_custom_expression_supports_num_function_for_error_expression(self):
         repository = _SubmitReasonRepository(
             page_status=DataCapturePageStateStatusChoices.SUBMITTED,
@@ -474,6 +571,38 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
                 visit_id=51,
                 crf_template_id=31,
                 data='{"AGE": "17"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
+
+    def test_custom_expression_supports_days_between_function_for_date_rules(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "SAE_DATE_RECEIVED": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "$val != '' and bool($field.SAE_START_DATE) and not (0 <= days_between($field.SAE_DATE_RECEIVED, $field.SAE_START_DATE) <= 1)",
+                        "message": "SAE date received must be within 1 day of SAE start date.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"SAE_DATE_RECEIVED": "2026-01-03", "SAE_START_DATE": "2026-01-01"}',
                 actor_user_id=1,
             ),
         )
@@ -578,6 +707,125 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
         )
 
         self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
+
+    def test_custom_expression_supports_cross_form_field_token_for_same_subject(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "SAETERM": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "MAJOR",
+                        "expression": "$val == $form.AE.AETERM",
+                        "message": "SAE term duplicates existing AE term.",
+                    },
+                )
+            },
+            cross_form_validation_context={
+                "AE": {
+                    "is_repeatable": False,
+                    "rows": [{"AETERM": "Headache"}],
+                }
+            },
+            form_repeatability_by_codes={"AE": False},
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"SAETERM": "Headache"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
+        self.assertEqual(
+            [failure["rule_id"] for failure in reconcile_data_query_write_service.validation_failure_record_calls[0]["failures"]],
+            [101],
+        )
+        self.assertEqual(
+            repository.cross_form_validation_context_kwargs,
+            {
+                "subject_id": 41,
+                "form_codes": ("AE",),
+                "exclude_visit_id": 51,
+                "exclude_crf_template_id": 31,
+            },
+        )
+        self.assertEqual(repository.form_repeatability_by_codes_kwargs, {"form_codes": ("AE",)})
+    def test_custom_expression_supports_bool_with_missing_non_repeating_form(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "SAE_DATE": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "MAJOR",
+                        "expression": "bool($form.SCREENING_DEMOGRAPHICS.ICF_DATE) and $val < $form.SCREENING_DEMOGRAPHICS.ICF_DATE",
+                        "message": "SAE date must not precede ICF date.",
+                    },
+                )
+            },
+            cross_form_validation_context={},
+            form_repeatability_by_codes={"SCREENING_DEMOGRAPHICS": False},
+        )
+
+        result = _submit_without_transaction(
+            _service(repository),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"SAE_DATE": "2026-01-01"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
+        self.assertEqual(repository.form_repeatability_by_codes_kwargs, {"form_codes": ("SCREENING_DEMOGRAPHICS",)})
+
+    def test_custom_expression_missing_repeating_form_returns_empty_list(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "SAETERM": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "MAJOR",
+                        "expression": "$val in $form.AE.AETERM",
+                        "message": "SAE term duplicates AE term.",
+                    },
+                )
+            },
+            cross_form_validation_context={},
+            form_repeatability_by_codes={"AE": True},
+        )
+
+        result = _submit_without_transaction(
+            _service(repository),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"SAETERM": "Headache"}',
+                actor_user_id=1,
+            ),
+        )
+
+        self.assertEqual(result.page_status, DataCapturePageStateStatusChoices.SUBMITTED)
 
     def test_submit_creates_soft_validation_issue_records_when_required_field_is_missing_or_empty(self):
         for payload in ("{}", '{"field_1": ""}'):

@@ -21,7 +21,7 @@ class SubjectResyncStageView(
     SubjectAbstractVerifyStudy,
     View,
 ):
-    permission_required = "subject.update_subject"
+    permission_required = "SUBJECT.UPDATE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True

@@ -1,7 +1,11 @@
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 
-from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
+from apps.core.choices.study import (
+    MASTER_LIST_RANDOMIZATION_TYPES,
+    RandomizationSchemeStatusChoice,
+    RandomizationSlotStatusChoice,
+)
 from apps.study.infrastructure.persistence.models import (
     EventDefinition,
     RandomizationArm,
@@ -70,6 +74,27 @@ class DjangoRandomizationRepository:
             status=RandomizationSchemeStatusChoice.ACTIVE,
             requires_screening_pass=True,
         ).exists()
+
+    def get_active_scheme_status(self, *, study_id):
+        return (
+            RandomizationScheme.objects.filter(
+                study_id=study_id,
+                deleted=False,
+                status=RandomizationSchemeStatusChoice.ACTIVE,
+            )
+            .order_by("id")
+            .values_list("status", flat=True)
+            .first()
+        )
+
+    def count_available_slots_for_active_schemes(self, *, study_id):
+        return RandomizationSlot.objects.filter(
+            scheme__study_id=study_id,
+            scheme__deleted=False,
+            scheme__status=RandomizationSchemeStatusChoice.ACTIVE,
+            deleted=False,
+            status=RandomizationSlotStatusChoice.AVAILABLE,
+        ).count()
 
     def soft_delete_slots_for_scheme(self, *, scheme_id, updated_at):
         return RandomizationSlot.objects.filter(
@@ -227,13 +252,37 @@ class DjangoRandomizationRepository:
                 status=RandomizationSlotStatusChoice.AVAILABLE,
             )
         )
+        master_list_scheme = Q(
+            scheme__randomization_type__iexact=MASTER_LIST_RANDOMIZATION_TYPES[0]
+        ) | Q(
+            scheme__randomization_type__iexact=MASTER_LIST_RANDOMIZATION_TYPES[1]
+        )
+        queryset = queryset.exclude(
+            master_list_scheme,
+            scheme__master_list_approved_at__isnull=True,
+        ).exclude(
+            master_list_scheme,
+            scheme__master_list_locked_at__isnull=True,
+        ).exclude(
+            master_list_scheme,
+            scheme__master_list_checksum__isnull=True,
+        ).exclude(
+            master_list_scheme,
+            scheme__master_list_checksum="",
+        ).exclude(
+            master_list_scheme,
+            randomization_code__isnull=True,
+        ).exclude(
+            master_list_scheme,
+            randomization_code="",
+        )
         if scheme_id is not None:
             queryset = queryset.filter(scheme_id=scheme_id)
         if stratum_code:
             queryset = queryset.filter(stratum_code=stratum_code)
         if excluded_slot_ids:
             queryset = queryset.exclude(pk__in=excluded_slot_ids)
-        slot = queryset.order_by("sequence_no", "id").first()
+        slot = queryset.order_by("?").first()
         if slot is None:
             return None
 
@@ -257,6 +306,7 @@ class DjangoRandomizationRepository:
             "arm_code": slot.arm.arm_code,
             "arm_name": slot.arm.arm_name,
             "sequence_no": slot.sequence_no,
+            "randomization_code": slot.randomization_code,
         }
 
     def list_sequence_periods_for_arm(self, *, arm_id):

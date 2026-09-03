@@ -34,19 +34,20 @@ def _latest_active_entry_payload(*, subject_id: int, visit_id: int, crf_template
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureSaveAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.ENTER"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
+        raw_body = request.body.decode("utf-8")
         try:
             result = DataCaptureSaveSubmitPageService().save(
                 save_page_command_from_post(
                     subject_id=kwargs["subject_id"],
                     visit_id=kwargs["visit_id"],
                     crf_template_id=kwargs["crf_template_id"],
-                    raw_body=request.body.decode("utf-8"),
+                    raw_body=raw_body,
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
@@ -71,19 +72,20 @@ class DataCaptureSaveAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin,
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureSubmitAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.SUBMIT"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
 
     def post(self, request, *args, **kwargs):
+        raw_body = request.body.decode("utf-8")
         try:
             result = DataCaptureSaveSubmitPageService().submit(
                 submit_page_command_from_post(
                     subject_id=kwargs["subject_id"],
                     visit_id=kwargs["visit_id"],
                     crf_template_id=kwargs["crf_template_id"],
-                    raw_body=request.body.decode("utf-8"),
+                    raw_body=raw_body,
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )
@@ -107,7 +109,7 @@ class DataCaptureSubmitAPIView(LoginRequiredMixin, ContextPermissionRequiredMixi
 
 @method_decorator(csrf_exempt, name="dispatch")
 class DataCaptureDeleteDraftAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, SubjectAbstractVerifyStudy, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "CRF.UPDATE"
     authorization_scope = "STUDY_SITE"
     require_site_context = True
     raise_exception = True
@@ -119,6 +121,7 @@ class DataCaptureDeleteDraftAPIView(LoginRequiredMixin, ContextPermissionRequire
                     subject_id=kwargs["subject_id"],
                     visit_id=kwargs["visit_id"],
                     crf_template_id=kwargs["crf_template_id"],
+                    raw_body=request.body.decode("utf-8"),
                     actor_user_id=getattr(request.user, "id", None),
                 )
             )

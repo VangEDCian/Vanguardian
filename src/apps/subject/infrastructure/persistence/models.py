@@ -1,5 +1,9 @@
 from django.db import models
 
+from apps.core.choices import (
+    SubjectLifecycleStatusChoices,
+    SubjectPeriodStatusChoices,
+)
 from apps.study.infrastructure.persistence.models import EventDefinition, EventTransitionRule, Site, Study
 
 
@@ -12,6 +16,14 @@ class Subject(models.Model):
     screening_code = models.CharField(max_length=64, null=True, blank=True)
     current_sequence = models.BigIntegerField()
     enrollment_current_sequence = models.BigIntegerField(null=True, blank=True)
+    lifecycle_status = models.CharField(
+        max_length=40,
+        choices=SubjectLifecycleStatusChoices.choices,
+        default=SubjectLifecycleStatusChoices.ACTIVE,
+    )
+    lifecycle_status_at = models.DateTimeField(null=True, blank=True)
+    lifecycle_reason_code = models.CharField(max_length=64, null=True, blank=True)
+    lifecycle_reason_text = models.TextField(null=True, blank=True)
 
     site = models.ForeignKey(
         Site,
@@ -147,6 +159,112 @@ class SubjectStatusHistory(models.Model):
         verbose_name_plural = "subject status histories"
 
 
+class SubjectIdentifierMigrationBatch(models.Model):
+    study = models.ForeignKey(
+        Study,
+        on_delete=models.DO_NOTHING,
+        db_column="study_id",
+        related_name="subject_identifier_migration_batches",
+    )
+    operation_type = models.CharField(max_length=16)
+    from_policy_json = models.JSONField()
+    to_policy_json = models.JSONField()
+    plan_hash = models.CharField(max_length=64)
+    reverses_batch = models.OneToOneField(
+        "self",
+        on_delete=models.DO_NOTHING,
+        db_column="reverses_batch_id",
+        related_name="rollback_batch",
+        null=True,
+        blank=True,
+    )
+    occurred_at = models.DateTimeField()
+    actor_user_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_migration_batch"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["study", "occurred_at"],
+                name="subj_ident_mig_st_time_idx",
+            )
+        ]
+        verbose_name = "subject identifier migration batch"
+        verbose_name_plural = "subject identifier migration batches"
+
+
+class SubjectIdentifierMigrationItem(models.Model):
+    migration_batch = models.ForeignKey(
+        SubjectIdentifierMigrationBatch,
+        on_delete=models.DO_NOTHING,
+        db_column="migration_batch_id",
+        related_name="items",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="identifier_migration_items",
+    )
+    from_subject_code = models.CharField(max_length=64, null=True, blank=True)
+    to_subject_code = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_migration_item"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["migration_batch", "subject"],
+                name="subj_ident_mig_item_batch_subj_uq",
+            )
+        ]
+        verbose_name = "subject identifier migration item"
+        verbose_name_plural = "subject identifier migration items"
+
+
+class SubjectIdentifierHistory(models.Model):
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="identifier_history",
+    )
+    identifier_type = models.CharField(max_length=32)
+    from_value = models.CharField(max_length=64, null=True, blank=True)
+    to_value = models.CharField(max_length=64, null=True, blank=True)
+    assignment_source = models.CharField(max_length=48)
+    occurred_at = models.DateTimeField()
+    related_randomization_event = models.ForeignKey(
+        "study.RandomizationEvent",
+        on_delete=models.DO_NOTHING,
+        db_column="related_randomization_event_id",
+        related_name="subject_identifier_history_entries",
+        null=True,
+        blank=True,
+    )
+    actor_user_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_history"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["subject", "occurred_at"],
+                name="subj_ident_hist_time_idx",
+            ),
+            models.Index(
+                fields=["identifier_type", "to_value"],
+                name="subj_ident_hist_value_idx",
+            ),
+        ]
+        verbose_name = "subject identifier history"
+        verbose_name_plural = "subject identifier histories"
+
+
 class SubjectRandomization(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
@@ -237,7 +355,12 @@ class SubjectPeriod(models.Model):
 
     period_no = models.SmallIntegerField()
     treatment_code = models.CharField(max_length=64)
-    status = models.CharField(max_length=16, default="Planned")
+    kit_code = models.CharField(max_length=64, null=True, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=SubjectPeriodStatusChoices.choices,
+        default=SubjectPeriodStatusChoices.PLANNED,
+    )
 
     sequence_period = models.ForeignKey(
         "study.RandomizationSequencePeriod",
@@ -291,6 +414,36 @@ class SubjectPeriod(models.Model):
         verbose_name_plural = "subject periods"
 
 
+class SubjectIdentifierMigrationPeriodItem(models.Model):
+    migration_item = models.ForeignKey(
+        SubjectIdentifierMigrationItem,
+        on_delete=models.DO_NOTHING,
+        db_column="migration_item_id",
+        related_name="period_items",
+    )
+    period = models.ForeignKey(
+        SubjectPeriod,
+        on_delete=models.DO_NOTHING,
+        db_column="period_id",
+        related_name="identifier_migration_items",
+    )
+    from_kit_code = models.CharField(max_length=64, null=True, blank=True)
+    to_kit_code = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_identifier_migration_period_item"
+        managed = True
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=["migration_item", "period"],
+                name="subj_ident_mig_period_item_uq",
+            )
+        ]
+        verbose_name = "subject identifier migration period item"
+        verbose_name_plural = "subject identifier migration period items"
+
+
 class SubjectPeriodMilestone(models.Model):
     period = models.ForeignKey(
         SubjectPeriod,
@@ -328,6 +481,122 @@ class SubjectPeriodMilestone(models.Model):
         ]
         verbose_name = "subject period milestone"
         verbose_name_plural = "subject period milestones"
+
+
+class SubjectPeriodTransitionLog(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    period = models.ForeignKey(
+        SubjectPeriod,
+        on_delete=models.DO_NOTHING,
+        db_column="period_id",
+        related_name="transition_logs",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="period_transition_logs",
+    )
+    source_event_instance = models.ForeignKey(
+        "subject.SubjectEventInstance",
+        on_delete=models.DO_NOTHING,
+        db_column="source_event_instance_id",
+        related_name="period_transition_logs",
+        null=True,
+        blank=True,
+    )
+
+    from_status = models.CharField(max_length=16)
+    to_status = models.CharField(max_length=16)
+    trigger_source = models.CharField(max_length=64, default="system")
+    reason = models.CharField(max_length=128)
+    facts_json = models.TextField(null=True, blank=True)
+    actor_user_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_period_transition_log"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["period", "created_at"],
+                name="study_subperiod_tr_period_ix",
+            ),
+            models.Index(
+                fields=["subject", "created_at"],
+                name="study_subperiod_tr_subj_ix",
+            ),
+            models.Index(
+                fields=["source_event_instance", "created_at"],
+                name="study_subperiod_tr_event_ix",
+            ),
+        ]
+        verbose_name = "subject period transition log"
+        verbose_name_plural = "subject period transition logs"
+
+
+class SubjectPeriodTransitionOverride(models.Model):
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    deleted = models.BooleanField(default=False)
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.DO_NOTHING,
+        db_column="subject_id",
+        related_name="period_transition_overrides",
+    )
+    from_period = models.ForeignKey(
+        SubjectPeriod,
+        on_delete=models.DO_NOTHING,
+        db_column="from_period_id",
+        related_name="outgoing_transition_overrides",
+    )
+    to_period = models.ForeignKey(
+        SubjectPeriod,
+        on_delete=models.DO_NOTHING,
+        db_column="to_period_id",
+        related_name="incoming_transition_overrides",
+    )
+    source_event_instance = models.ForeignKey(
+        "subject.SubjectEventInstance",
+        on_delete=models.DO_NOTHING,
+        db_column="source_event_instance_id",
+        related_name="period_transition_overrides",
+        null=True,
+        blank=True,
+    )
+
+    period_end_at = models.DateTimeField()
+    next_period_start_at = models.DateTimeField()
+    reason_code = models.CharField(max_length=64)
+    reason_text = models.TextField()
+    pending_data_acknowledged = models.BooleanField(default=False)
+    clinical_transition_confirmed = models.BooleanField(default=False)
+    source_event_status = models.CharField(max_length=32, null=True, blank=True)
+    pending_data_snapshot_json = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=32, default="applied")
+    actor_user_id = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "study_subject_period_transition_override"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["subject", "created_at"],
+                name="study_subperiod_ov_subj_ix",
+            ),
+            models.Index(
+                fields=["from_period", "created_at"],
+                name="study_subperiod_ov_from_ix",
+            ),
+        ]
+        verbose_name = "subject period transition override"
+        verbose_name_plural = "subject period transition overrides"
 
 
 class SubjectMilestone(models.Model):

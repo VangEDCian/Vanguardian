@@ -1,14 +1,30 @@
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.formats import date_format
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 
 from apps.core.choices.study import EventExecutionModeChoices, EventInstanceStatusChoices
 from apps.crf.application.services.crf_template_query import CrfTemplateQueryService
 from apps.crf.public import CrfContextAdapter
+from apps.datacapture.domain import DataCapturePageState
+from apps.datacapture.public import (
+    list_form_instances_for_event_instance as _list_form_instances_for_event_instance,
+)
+from apps.datacapture.public import list_form_instances_for_event_instances
+from apps.reconcile.public import list_page_state_ids_with_open_reconcile_workbench_items
+from apps.shared.datetime_formatting import date_format
 from apps.study.models import EventFormBinding
 from apps.subject.models import SubjectEventInstance
+
+
+def list_form_instances_for_event_instance(*, visit_id: int, language_code: str | None = None):
+    return _list_form_instances_for_event_instance(
+        visit_id=visit_id,
+        language_code=language_code,
+    )
+
+
+_DEFAULT_LIST_FORM_INSTANCES_FOR_EVENT_INSTANCE = list_form_instances_for_event_instance
 
 
 class SubjectDetailNavigationMixin:
@@ -21,7 +37,12 @@ class SubjectDetailNavigationMixin:
                 deleted=False,
                 event_definition__execution_mode=EventExecutionModeChoices.FORM_ENTRY,
             )
-            .exclude(status=EventInstanceStatusChoices.NOT_READY)
+            .exclude(
+                status__in=(
+                    EventInstanceStatusChoices.NOT_READY,
+                    EventInstanceStatusChoices.SKIPPED,
+                )
+            )
             .select_related("event_definition")
             .order_by("event_definition__sequence_no", "repeat_index", "id")
         )
@@ -65,26 +86,83 @@ class SubjectDetailNavigationMixin:
                 event_instance.pk
             )
 
+        language_code = get_language()
+        lang = CrfTemplateQueryService._normalize_language_code(language_code)
         event_items_by_definition = {}
+        if list_form_instances_for_event_instance is not _DEFAULT_LIST_FORM_INSTANCES_FOR_EVENT_INSTANCE:
+            form_instances_by_event_id = {
+                int(event_instance.pk): list_form_instances_for_event_instance(
+                    visit_id=int(event_instance.pk),
+                    language_code=language_code,
+                )
+                for event_instance in event_instances
+            }
+        else:
+            form_instances_by_event_id = list_form_instances_for_event_instances(
+                visit_ids=tuple(int(event_instance.pk) for event_instance in event_instances),
+                language_code=language_code,
+            )
+        danger_page_state_ids = self._resolve_form_sidebar_danger_page_state_ids(
+            form_instances_by_event_id,
+        )
         for event_instance in event_instances:
+            form_instance_labels_by_binding_id = {}
+            form_instance_state_by_binding_id = {}
+            for form_instance in form_instances_by_event_id.get(int(event_instance.pk), []):
+                binding_id = int(form_instance.event_form_binding_id)
+                form_instance_labels_by_binding_id.setdefault(
+                    binding_id,
+                    str(form_instance.display_label or "").strip(),
+                )
+                form_instance_state_by_binding_id.setdefault(
+                    binding_id,
+                    {
+                        "page_state_id": getattr(form_instance, "page_state_id", None),
+                        "status": str(getattr(form_instance, "status", "") or ""),
+                    },
+                )
             forms = []
             for binding in bindings_map.get(event_instance.event_definition_id, []):
                 template = binding.form_definition
-                lang = CrfTemplateQueryService._normalize_language_code(get_language())
                 template_name = CrfTemplateQueryService._translated_value(
                     template,
                     lang,
                     "name",
                     default=template.code,
                 )
+                form_title = (
+                    form_instance_labels_by_binding_id.get(int(binding.pk))
+                    or template_name
+                )
+                form_state = form_instance_state_by_binding_id.get(int(binding.pk), {})
+                page_state_id = form_state.get("page_state_id")
+                page_state_status = str(form_state.get("status") or "").strip().lower()
                 forms.append(
                     {
                         "id": str(binding.pk),
                         "form_definition_id": str(template.pk),
-                        "title": template_name,
+                        "title": form_title,
                         "code": template.code,
+                        "page_state_id": str(page_state_id or ""),
+                        "page_state_status": page_state_status,
+                        "sidebar_tone": self._resolve_form_sidebar_tone(
+                            page_state_id=page_state_id,
+                            page_state_status=page_state_status,
+                            danger_page_state_ids=danger_page_state_ids,
+                        ),
                     }
                 )
+
+            if event_instance.status == EventInstanceStatusChoices.CANCELLED:
+                forms = [
+                    form
+                    for form in forms
+                    if DataCapturePageState.has_submitted_data(
+                        form.get("page_state_status"),
+                    )
+                ]
+                if not forms:
+                    continue
 
             event_definition = event_instance.event_definition
             event_name = event_instance.event_name_snapshot or event_definition.name
@@ -132,9 +210,21 @@ class SubjectDetailNavigationMixin:
             "can_add_another": can_add_another,
             "add_another_label": _("Add Another %(event_name)s") % {"event_name": event_name},
             "completed_at_label": self._format_completed_at_label(event_instance.completed_at),
+            "sidebar_label": self._resolve_repeating_sidebar_label(
+                forms=forms,
+                completed_at=event_instance.completed_at,
+            ),
             "forms": forms,
             "repeat_event_instances": [],
         }
+
+    @classmethod
+    def _resolve_repeating_sidebar_label(cls, *, forms: list[dict], completed_at) -> str:
+        for form in forms or []:
+            title = str(form.get("title") or "").strip()
+            if title:
+                return title
+        return cls._format_completed_at_label(completed_at)
 
     @staticmethod
     def _collapse_repeating_event_navigation(event_items_by_definition: dict[int, list[dict]]) -> list[dict]:
@@ -166,6 +256,51 @@ class SubjectDetailNavigationMixin:
                 }
             )
         return payload
+
+    @staticmethod
+    def _resolve_form_sidebar_danger_page_state_ids(
+        form_instances_by_event_id: dict[int, list],
+    ) -> set[int]:
+        page_state_ids = []
+        for form_instances in form_instances_by_event_id.values():
+            for form_instance in form_instances:
+                page_state_id = getattr(form_instance, "page_state_id", None)
+                if page_state_id:
+                    page_state_ids.append(int(page_state_id))
+        if not page_state_ids:
+            return set()
+        return list_page_state_ids_with_open_reconcile_workbench_items(
+            page_state_ids=tuple(page_state_ids),
+        )
+
+    @staticmethod
+    def _resolve_form_sidebar_tone(
+        *,
+        page_state_id: int | None,
+        page_state_status: str,
+        danger_page_state_ids: set[int] | None = None,
+    ) -> str:
+        if page_state_id:
+            normalized_page_state_id = int(page_state_id)
+            if danger_page_state_ids is None:
+                danger_page_state_ids = list_page_state_ids_with_open_reconcile_workbench_items(
+                    page_state_ids=(normalized_page_state_id,),
+                )
+            if normalized_page_state_id in danger_page_state_ids:
+                return "danger"
+        if page_state_status == DataCapturePageState.SUBMITTED:
+            return "success"
+        return ""
+
+    @staticmethod
+    def _resolve_default_focus_event(event_navigation: list[dict]) -> dict | None:
+        for event_item in event_navigation:
+            if event_item.get("status") == EventInstanceStatusChoices.OPEN:
+                return event_item
+            for repeat_item in event_item.get("repeat_event_instances") or []:
+                if repeat_item.get("status") == EventInstanceStatusChoices.OPEN:
+                    return repeat_item
+        return event_navigation[0] if event_navigation else None
 
     @staticmethod
     def _resolve_focus(items, focus_id):

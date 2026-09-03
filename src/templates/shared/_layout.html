@@ -12,16 +12,18 @@
             {% endblock %}
         </title>
         <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
-        <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
-        <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">
-        <link rel="stylesheet"
-              href="{% static 'shared/css/components/_common_select.css' %}">
-        <link rel="stylesheet"
-              href="{% static 'shared/css/components/modal.css' %}">
-        <link rel="stylesheet"
-              href="{% static 'shared/css/components/request_feedback.css' %}">
-        <link rel="stylesheet" href="{% static 'shared/css/layout.css' %}">
-        <link rel="stylesheet" href="{% static 'identity/css/session_guard.css' %}">
+        {% block core_css %}
+            <link rel="stylesheet" href="{% static 'identity/css/fonts.css' %}">
+            <link rel="stylesheet" href="{% static 'vendor/tailwind.css' %}">
+            <link rel="stylesheet"
+                  href="{% static 'shared/css/components/_common_select.css' %}">
+            <link rel="stylesheet"
+                  href="{% static 'shared/css/components/modal.css' %}">
+            <link rel="stylesheet"
+                  href="{% static 'shared/css/components/request_feedback.css' %}">
+            <link rel="stylesheet" href="{% static 'shared/css/layout.css' %}">
+            <link rel="stylesheet" href="{% static 'identity/css/session_guard.css' %}">
+        {% endblock %}
         {% block extra_css %}{% endblock %}
     </head>
     <body class="min-h-screen bg-slate-100 text-slate-800 font-sans antialiased">
@@ -29,15 +31,14 @@
             <header class="top-nav">
                 <div class="top-nav__inner">
                     <nav class="top-nav__menu" aria-label="{% trans 'Main navigation' %}">
-                        {% if ui_permissions.SUBJECTS_VIEW_LIST %}
+                        {% if ui_permissions.SUBJECT_VIEW %}
                             {% if shared_study_selected_id %}
                                 <a href="{% url 'subject:subject_list' study_id=shared_study_selected_id %}"
                                    class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
                                    data-nav-item
                                    data-nav-label="{% trans 'SUBJECTS' %}">
                                     <span class="top-nav__icon" aria-hidden="true">
-                                        <span class="svg-icon"
-                                              style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
+                                        <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                                     </span>
                                     <span>{% trans "SUBJECTS" %}</span>
                                 </a>
@@ -47,8 +48,7 @@
                                         class="top-nav__item{% if layout_nav_key == 'SUBJECTS' %} is-active{% endif %}"
                                         data-nav-label="{% trans 'SUBJECTS' %}">
                                     <span class="top-nav__icon" aria-hidden="true">
-                                        <span class="svg-icon"
-                                              style="--icon-url: url('{% static 'images/navigation/subjects.svg' %}')"></span>
+                                        <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                                     </span>
                                     <span>{% trans "SUBJECTS" %}</span>
                                 </button>
@@ -61,8 +61,7 @@
                                    data-nav-item
                                    data-nav-label="{% trans 'QUERIES' %}">
                                     <span class="top-nav__icon" aria-hidden="true">
-                                        <span class="svg-icon"
-                                              style="--icon-url: url('{% static 'images/table/query.svg' %}')"></span>
+                                        <svg class="navigation-inline-icon" viewBox="0 0 32 32" fill="currentColor"><circle cx="11" cy="15.5" r="1.5"></circle><path d="M12 12h-2V8h2a2 2 0 0 0 0-4h-2a2 2 0 0 0-2 2v.5H6V6a4 4 0 0 1 4-4h2a4 4 0 0 1 0 8Z"></path><path d="M22.448 21.034A10.971 10.971 0 0 0 19.921 4.745l-.999 1.73A8.997 8.997 0 1 1 5 14H3a10.992 10.992 0 0 0 18.034 8.448L28.586 30 30 28.586Z"></path></svg>
                                         {% if layout_queries_need_response_count %}
                                             <span class="top-nav__badge"
                                                   aria-label="{% blocktrans count query_count=layout_queries_need_response_count %}{{ query_count }} query needs your response{% plural %}{{ query_count }} queries need your response{% endblocktrans %}">
@@ -78,8 +77,7 @@
                                         class="top-nav__item{% if layout_nav_key == 'QUERIES' %} is-active{% endif %}"
                                         data-nav-label="{% trans 'QUERIES' %}">
                                     <span class="top-nav__icon" aria-hidden="true">
-                                        <span class="svg-icon"
-                                              style="--icon-url: url('{% static 'images/table/query.svg' %}')"></span>
+                                        <svg class="navigation-inline-icon" viewBox="0 0 32 32" fill="currentColor"><circle cx="11" cy="15.5" r="1.5"></circle><path d="M12 12h-2V8h2a2 2 0 0 0 0-4h-2a2 2 0 0 0-2 2v.5H6V6a4 4 0 0 1 4-4h2a4 4 0 0 1 0 8Z"></path><path d="M22.448 21.034A10.971 10.971 0 0 0 19.921 4.745l-.999 1.73A8.997 8.997 0 1 1 5 14H3a10.992 10.992 0 0 0 18.034 8.448L28.586 30 30 28.586Z"></path></svg>
                                     </span>
                                     <span>{% trans "QUERIES" %}</span>
                                 </button>
@@ -92,8 +90,7 @@
                                    data-nav-item
                                    data-nav-label="{% trans 'SITES' %}">
                                     <span class="top-nav__icon" aria-hidden="true">
-                                        <span class="svg-icon"
-                                              style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
+                                        <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
                                     </span>
                                     <span>{% trans "SITES" %}</span>
                                 </a>
@@ -103,8 +100,7 @@
                                         class="top-nav__item{% if layout_nav_key == 'SITES' %} is-active{% endif %}"
                                         data-nav-label="{% trans 'SITES' %}">
                                     <span class="top-nav__icon" aria-hidden="true">
-                                        <span class="svg-icon"
-                                              style="--icon-url: url('{% static 'images/navigation/sites.svg' %}')"></span>
+                                        <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
                                     </span>
                                     <span>{% trans "SITES" %}</span>
                                 </button>
@@ -116,26 +112,24 @@
             </span>
             <span>{% trans "PROJECT" %}</span>
                         </button> {% endcomment %}
-                        {% if ui_permissions.STUDIES_VIEW_LIST %}
+                        {% if ui_permissions.STUDY_CONFIG_VIEW %}
                             <a href="{% url 'study:study_list' %}"
                                class="top-nav__item{% if layout_nav_key == 'STUDIES' %} is-active{% endif %}"
                                data-nav-item
                                data-nav-label="{% trans 'STUDIES' %}">
                                 <span class="top-nav__icon" aria-hidden="true">
-                                    <span class="svg-icon"
-                                          style="--icon-url: url('{% static 'images/navigation/project.svg' %}')"></span>
+                                    <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                 </span>
                                 <span>{% trans "STUDIES" %}</span>
                             </a>
                         {% endif %}
-                        {% if ui_permissions.USERS_VIEW_LIST %}
+                        {% if ui_permissions.USER_ACCESS_VIEW %}
                             <a href="{% url 'identity:users' %}"
                                class="top-nav__item{% if layout_nav_key == 'USERS' %} is-active{% endif %}"
                                data-nav-item
                                data-nav-label="{% trans 'USERS' %}">
                                 <span class="top-nav__icon" aria-hidden="true">
-                                    <span class="svg-icon"
-                                          style="--icon-url: url('{% static 'images/navigation/users.svg' %}')"></span>
+                                    <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="10" r="3"></circle><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"></path></svg>
                                 </span>
                                 <span>{% trans "USERS" %}</span>
                             </a>
@@ -146,8 +140,7 @@
                                data-nav-item
                                data-nav-label="{% trans 'DASHBOARD' %}">
                                 <span class="top-nav__icon" aria-hidden="true">
-                                    <span class="svg-icon"
-                                          style="--icon-url: url('{% static 'images/navigation/dashboard.svg' %}')"></span>
+                                    <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
                                 </span>
                                 <span>{% trans "DASHBOARD" %}</span>
                             </a>
@@ -172,8 +165,7 @@
                                     class="avatar-menu__trigger"
                                     data-avatar-trigger
                                     aria-expanded="false">
-                                <span class="svg-icon"
-                                      style="--icon-url: url('{% static 'images/navigation/user.svg' %}')"></span>
+                                <svg class="navigation-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                             </button>
                             <div class="avatar-menu__panel" data-avatar-panel hidden>
                                 <div class="avatar-menu__header">
@@ -233,10 +225,12 @@
              data-session-guard-login-url="{% url 'identity:login' %}"
              data-session-guard-interval="15000"></div>
         {% include "shared/components/_session_guard_modal.html" %}
-        <script src="{% static 'shared/js/layout.js' %}"></script>
-        <script src="{% static 'shared/js/components/modal.js' %}"></script>
-        <script src="{% static 'shared/js/request_feedback.js' %}"></script>
-        <script src="{% static 'identity/js/session_guard.js' %}"></script>
+        {% block core_js %}
+            <script src="{% static 'shared/js/layout.js' %}"></script>
+            <script src="{% static 'shared/js/components/modal.js' %}"></script>
+            <script src="{% static 'shared/js/request_feedback.js' %}"></script>
+            <script src="{% static 'identity/js/session_guard.js' %}"></script>
+        {% endblock %}
         {% block extra_js %}{% endblock %}
     </body>
 </html>

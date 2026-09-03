@@ -102,6 +102,15 @@ class CrfValidationRuleImportService:
         return fields[0]
 
     @transaction.atomic
+    def reset_validation_rules_for_import(self, *, field_template_ids, actor_user_id, now=None):
+        now = now or timezone.now()
+        return self.repository.reset_validation_rules_for_import(
+            field_template_ids=field_template_ids,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+
+    @transaction.atomic
     def upsert_validation_rule(
         self,
         *,

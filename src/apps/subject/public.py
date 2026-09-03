@@ -11,6 +11,11 @@ from apps.subject.application.services.eligibility_workflow import (
     SubjectEventScopeSnapshot,
     SubjectScopeSnapshot,
 )
+from apps.subject.application.services.identifier_policy_migration import (
+    SubjectIdentifierMigrationBlockedError,
+    SubjectIdentifierMigrationConfirmationRequiredError,
+    SubjectIdentifierMigrationStalePlanError,
+)
 from apps.subject.models import (
     Subject,
     SubjectEventInstance,
@@ -216,11 +221,145 @@ def randomize_subject(**kwargs):
     return RandomizeSubject().execute(RandomizeSubjectCommand(**kwargs))
 
 
+def reconcile_imported_randomization_slots(*, assignments) -> int:
+    from apps.subject.infrastructure.repositories.randomization import (
+        DjangoSubjectRandomizationRepository,
+    )
+
+    return DjangoSubjectRandomizationRepository().reconcile_imported_slot_assignments(
+        assignments=assignments,
+    )
+
+
+def preview_subject_identifier_policy_migration(
+    *,
+    study_id,
+    current_policy,
+    target_policy,
+):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().preview(
+        study_id=study_id,
+        current_policy=current_policy,
+        target_policy=target_policy,
+    )
+
+
+def migrate_subject_identifiers_for_policy(
+    *,
+    study_id,
+    current_policy,
+    target_policy,
+    actor_user_id,
+    expected_plan_hash,
+    confirmation_code,
+):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().execute(
+        study_id=study_id,
+        current_policy=current_policy,
+        target_policy=target_policy,
+        actor_user_id=actor_user_id,
+        expected_plan_hash=expected_plan_hash,
+        confirmation_code=confirmation_code,
+    )
+
+
+def preview_subject_identifier_policy_rollback(*, study_id, current_policy):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().preview_rollback(
+        study_id=study_id,
+        current_policy=current_policy,
+    )
+
+
+def rollback_subject_identifier_policy(
+    *,
+    study_id,
+    current_policy,
+    actor_user_id,
+    expected_plan_hash,
+    confirmation_code,
+):
+    from apps.subject.application.services.identifier_policy_migration import (
+        SubjectIdentifierPolicyMigrationService,
+    )
+
+    return SubjectIdentifierPolicyMigrationService().execute_rollback(
+        study_id=study_id,
+        current_policy=current_policy,
+        actor_user_id=actor_user_id,
+        expected_plan_hash=expected_plan_hash,
+        confirmation_code=confirmation_code,
+    )
+
+
+def advance_subject_period_after_washout(
+    *,
+    subject_id: int,
+    actor_user_id: int | None = None,
+    source_event_instance_id: int | None = None,
+    trigger_source: str = "manual_period_transition",
+):
+    from apps.subject.application.services.period_lifecycle import (
+        SubjectPeriodLifecycleService,
+    )
+
+    return SubjectPeriodLifecycleService().advance_after_washout(
+        subject_id=subject_id,
+        actor_user_id=actor_user_id,
+        source_event_instance_id=source_event_instance_id,
+        trigger_source=trigger_source,
+    )
+
+
 def get_subject_site_id(*, study_id: int, subject_id: int) -> int | None:
     return (
         Subject.objects.filter(pk=subject_id, study_id=study_id, deleted=False)
         .values_list("site_id", flat=True)
         .first()
+    )
+
+
+def get_event_instance_snapshot(*, event_instance_id: int):
+    return (
+        SubjectEventInstance.objects.filter(pk=event_instance_id, deleted=False)
+        .values(
+            "id",
+            "subject_id",
+            "study_id",
+            "study_version",
+            "event_definition_id",
+            "repeat_index",
+            "updated_at",
+        )
+        .first()
+    )
+
+
+def get_subject_capture_eligibility(
+    *,
+    subject_id: int,
+    event_instance_id: int,
+    for_update: bool = False,
+):
+    from apps.subject.application.services.early_termination import (
+        SubjectCaptureEligibilityService,
+    )
+
+    return SubjectCaptureEligibilityService().get_eligibility(
+        subject_id=subject_id,
+        event_instance_id=event_instance_id,
+        for_update=for_update,
     )
 
 
@@ -268,15 +407,25 @@ __all__ = [
     "SubjectEnrollmentTransitionResult",
     "SubjectEventScopeSnapshot",
     "SubjectMilestone",
+    "SubjectIdentifierMigrationBlockedError",
+    "SubjectIdentifierMigrationConfirmationRequiredError",
+    "SubjectIdentifierMigrationStalePlanError",
     "SubjectPeriod",
     "SubjectPeriodMilestone",
     "SubjectScopeSnapshot",
+    "advance_subject_period_after_washout",
     "complete_subject_event_instance",
     "get_subject_site_id",
+    "get_event_instance_snapshot",
+    "get_subject_capture_eligibility",
     "mark_subject_event_instance_in_progress",
     "resync_subject_active_study_version",
     "resync_subject_event_instances",
     "randomize_subject",
+    "migrate_subject_identifiers_for_policy",
+    "preview_subject_identifier_policy_migration",
+    "preview_subject_identifier_policy_rollback",
+    "rollback_subject_identifier_policy",
     "trigger_subject_event_transition",
     "verify_subject_event_instance",
 ]

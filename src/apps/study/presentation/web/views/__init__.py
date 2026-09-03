@@ -4,6 +4,7 @@ from apps.study.presentation.web.views.crf_templates import (
     StudyCrfTemplateImportTemplateView,
     StudyCrfTemplateListView,
     StudyCrfValidationRuleImportTemplateView,
+    StudyEventAttestationPolicyImportTemplateView,
 )
 from apps.study.presentation.web.views.eventdefinitions import (
     StudyEventDefinitionCreateView,
@@ -12,7 +13,11 @@ from apps.study.presentation.web.views.eventdefinitions import (
     StudyEventFormBindingImportTemplateView,
     StudyFactMappingImportTemplateView,
 )
+from apps.study.presentation.web.views.event_form_display_labels import StudyEventFormDisplayLabelConfigView
 from apps.study.presentation.web.views.randomization import (
+    StudyNng31MasterListApprovalView,
+    StudyNng31MasterListImportCommitView,
+    StudyNng31MasterListImportPreviewView,
     StudyRandomizationArmImportCommitView,
     StudyRandomizationArmImportPreviewView,
     StudyRandomizationSchemeImportCommitView,
@@ -33,6 +38,7 @@ from apps.study.presentation.web.views.site import (
     SiteMembershipOptionsApiView,
 )
 from apps.study.presentation.web.views.studies import (
+    StudyCrfPageLifecycleConfigView,
     StudyDetailView,
     StudyListView,
     StudyManageRolesView,
@@ -44,6 +50,11 @@ from apps.study.presentation.web.views.study_actions import (
     StudyToggleStatusView,
     StudyUpdateView,
 )
+from apps.study.presentation.web.views.subject_identifier_policy import (
+    StudySubjectIdentifierPolicyPreviewView,
+    StudySubjectIdentifierPolicyRollbackPreviewView,
+    StudySubjectIdentifierPolicyRollbackView,
+)
 
 __all__ = [
     "SiteCreateView",
@@ -53,19 +64,25 @@ __all__ = [
     "SiteMembershipOptionsApiView",
     "StudyCreateView",
     "StudyCrfSectionLayoutConfigImportTemplateView",
+    "StudyCrfPageLifecycleConfigView",
     "StudyCrfTemplateFieldImportTemplateView",
     "StudyCrfTemplateImportTemplateView",
     "StudyCrfTemplateListView",
     "StudyCrfValidationRuleImportTemplateView",
+    "StudyEventAttestationPolicyImportTemplateView",
     "StudyDeleteView",
     "StudyDetailView",
     "StudyEventDefinitionCreateView",
     "StudyEventDefinitionImportTemplateView",
     "StudyEventDefinitionListView",
+    "StudyEventFormDisplayLabelConfigView",
     "StudyEventFormBindingImportTemplateView",
     "StudyFactMappingImportTemplateView",
     "StudyListView",
     "StudyManageRolesView",
+    "StudyNng31MasterListApprovalView",
+    "StudyNng31MasterListImportCommitView",
+    "StudyNng31MasterListImportPreviewView",
     "StudyRoleCreateView",
     "StudyRandomizationArmDeleteView",
     "StudyRandomizationArmImportCommitView",
@@ -77,5 +94,8 @@ __all__ = [
     "StudyRandomizationSequencePeriodImportPreviewView",
     "StudyRandomizationView",
     "StudyToggleStatusView",
+    "StudySubjectIdentifierPolicyPreviewView",
+    "StudySubjectIdentifierPolicyRollbackPreviewView",
+    "StudySubjectIdentifierPolicyRollbackView",
     "StudyUpdateView",
 ]

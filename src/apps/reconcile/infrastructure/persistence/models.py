@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.choices.reconcile import ReconcileValidationRunSourceChoices
+
 
 class ReconcileDataQueryStatusChoices(models.TextChoices):
     OPEN = "open", _("Open")
@@ -57,6 +59,11 @@ class ReconcileValidationIssueStatusChoices(models.TextChoices):
     QUERY_CREATED = "QUERY_CREATED", _("Query created")
     CLOSED = "CLOSED", _("Closed")
     WAIVED = "WAIVED", _("Waived")
+
+
+class ReconcileValidationIssueSnapshotResultChoices(models.TextChoices):
+    FAIL = "FAIL", _("Fail")
+    PASS = "PASS", _("Pass")
 
 
 class ReconcileDataQuery(models.Model):
@@ -253,6 +260,93 @@ class ReconcileValidationIssue(models.Model):
         verbose_name_plural = "reconcile validation issues"
 
 
+class ReconcileValidationRun(models.Model):
+    created_at = models.DateTimeField()
+
+    form_instance = models.ForeignKey(
+        "datacapture.DataCapturePageState",
+        on_delete=models.DO_NOTHING,
+        db_column="form_instance_id",
+        related_name="reconcile_validation_runs",
+    )
+    source = models.CharField(
+        max_length=32,
+        choices=ReconcileValidationRunSourceChoices.choices,
+    )
+    data_version = models.BigIntegerField()
+    triggered_by = models.BigIntegerField(null=True, blank=True)
+    related_audit_event = models.ForeignKey(
+        "audit.AuditEvent",
+        on_delete=models.DO_NOTHING,
+        db_column="related_audit_event_id",
+        related_name="reconcile_validation_runs",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "reconcile_validation_run"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(fields=["form_instance", "created_at"], name="recon_vi_run_form_time_idx"),
+            models.Index(fields=["source", "created_at"], name="recon_vi_run_source_time_idx"),
+        ]
+        verbose_name = "reconcile validation run"
+        verbose_name_plural = "reconcile validation runs"
+
+
+class ReconcileValidationIssueSnapshot(models.Model):
+    created_at = models.DateTimeField()
+
+    validation_issue = models.ForeignKey(
+        ReconcileValidationIssue,
+        on_delete=models.DO_NOTHING,
+        db_column="validation_issue_id",
+        related_name="snapshots",
+    )
+    validation_run = models.ForeignKey(
+        ReconcileValidationRun,
+        on_delete=models.DO_NOTHING,
+        db_column="validation_run_id",
+        related_name="snapshots",
+    )
+    result = models.CharField(
+        max_length=16,
+        choices=ReconcileValidationIssueSnapshotResultChoices.choices,
+    )
+    evaluated_values_json = models.JSONField(default=dict)
+    message = models.TextField()
+    severity = models.CharField(max_length=30)
+    data_version = models.BigIntegerField()
+    related_audit_event = models.ForeignKey(
+        "audit.AuditEvent",
+        on_delete=models.DO_NOTHING,
+        db_column="related_audit_event_id",
+        related_name="reconcile_validation_issue_snapshots",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "reconcile_validation_issue_snapshot"
+        managed = True
+        default_permissions = ()
+        indexes = [
+            models.Index(
+                fields=["validation_issue", "created_at"],
+                name="recon_vi_snap_issue_time_idx",
+            ),
+            models.Index(fields=["validation_run"], name="recon_vi_snap_run_idx"),
+            models.Index(
+                fields=["validation_issue", "validation_run"],
+                name="recon_vi_snap_issue_run_idx",
+            ),
+        ]
+        verbose_name = "reconcile validation issue snapshot"
+        verbose_name_plural = "reconcile validation issue snapshots"
+
+
 __all__ = [
     "ReconcileDataQuery",
     "ReconcileDataQuerySeverityChoices",
@@ -264,5 +358,9 @@ __all__ = [
     "ReconcileQueryThreadSourceChoices",
     "ReconcileQueryThreadVisibilityChoices",
     "ReconcileValidationIssue",
+    "ReconcileValidationRun",
+    "ReconcileValidationRunSourceChoices",
+    "ReconcileValidationIssueSnapshot",
+    "ReconcileValidationIssueSnapshotResultChoices",
     "ReconcileValidationIssueStatusChoices",
 ]

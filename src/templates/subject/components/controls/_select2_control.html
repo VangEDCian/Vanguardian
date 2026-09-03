@@ -8,7 +8,7 @@
 <input type="text"
        class="{{ input_class }}{% if field.classes %} {{ field.classes }}{% endif %}"
        tabindex="{% subject_control_tabindex field 1 %}"
-       value="{{ field.value }}"
+       value="{{ field.display_value|default:field.value }}"
        placeholder="{{ select2_control_i18n.placeholder }}"
        data-submitted-diff-select2
        data-submitted-diff-control="select2"
@@ -19,4 +19,10 @@
        autocomplete="off"
        {% if field.style %}style="{{ field.style }}"{% endif %}
        disabled>
-<datalist id="field-lookup-options-{{ field.id }}" data-field-lookup-options></datalist>
+<datalist id="field-lookup-options-{{ field.id }}" data-field-lookup-options>
+    {% if field.options_config.source == "static" %}
+        {% for option in field.options %}
+            <option value="{{ option.label }}" data-lookup-value="{{ option.value }}"></option>
+        {% endfor %}
+    {% endif %}
+</datalist>

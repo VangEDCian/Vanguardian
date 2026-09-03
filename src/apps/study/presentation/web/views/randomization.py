@@ -10,9 +10,12 @@ from django.views import View
 from apps.shared.navigation import user_can_access_permission
 from apps.shared.views.generic import AuthenticateTemplateContextMixin, AuthenticateTemplateView
 from apps.study.application import (
+    ApproveNng31MasterListService,
+    CommitNng31MasterListImportService,
     CommitStudyRandomizationArmsImportService,
     CommitStudyRandomizationSchemesImportService,
     CommitStudyRandomizationSequencePeriodsImportService,
+    PreviewNng31MasterListImportService,
     PreviewStudyRandomizationArmsImportService,
     PreviewStudyRandomizationSchemesImportService,
     PreviewStudyRandomizationSequencePeriodsImportService,
@@ -25,8 +28,14 @@ from apps.study.application import (
 )
 from apps.study.application.services import BaseRandomizationImportValidationService
 from apps.study.infrastructure.persistence.models import Study
-from apps.study.presentation.web.forms import RandomizationImportFileForm
+from apps.study.presentation.web.forms import (
+    Nng31MasterListApprovalForm,
+    Nng31MasterListImportFileForm,
+    RandomizationImportFileForm,
+)
 from apps.study.presentation.web.mappers.commands import (
+    to_approve_nng31_master_list_command,
+    to_commit_nng31_master_list_command,
     to_commit_randomization_import_command,
     to_preview_randomization_import_command,
 )
@@ -40,6 +49,9 @@ __all__ = [
     "StudyRandomizationArmImportCommitView",
     "StudyRandomizationSequencePeriodImportPreviewView",
     "StudyRandomizationSequencePeriodImportCommitView",
+    "StudyNng31MasterListApprovalView",
+    "StudyNng31MasterListImportCommitView",
+    "StudyNng31MasterListImportPreviewView",
 ]
 
 logger = logging.getLogger(__name__)
@@ -78,7 +90,7 @@ class StudyRandomizationView(
     StudyRandomizationAccessMixin,
     AuthenticateTemplateView,
 ):
-    permission_required = "study.view_study_detail"
+    permission_required = "RANDOMIZATION.LIST.VIEW"
     authorization_scope = "STUDY"
     raise_exception = True
     template_name = "study/randomization.html"
@@ -157,7 +169,7 @@ class StudyRandomizationView(
         )
         context["can_manage_randomization_import"] = user_can_access_permission(
             self.request.user,
-            "study.update_study",
+            "RANDOMIZATION.LIST.MANAGE",
             study_id=self._study.pk,
         )
         context["randomization_scheme_preview_url"] = reverse(
@@ -184,6 +196,19 @@ class StudyRandomizationView(
             "study:study_randomization_sequence_period_import_commit",
             kwargs={"study_id": self._study.pk},
         )
+        context["nng31_master_list_preview_url"] = reverse(
+            "study:study_nng31_master_list_import_preview",
+            kwargs={"study_id": self._study.pk},
+        )
+        context["nng31_master_list_commit_url"] = reverse(
+            "study:study_nng31_master_list_import_commit",
+            kwargs={"study_id": self._study.pk},
+        )
+        for item in context.get("randomization_master_list_records", []):
+            item["approve_url"] = reverse(
+                "study:study_nng31_master_list_approve",
+                kwargs={"study_id": self._study.pk, "scheme_id": item["scheme_id"]},
+            )
         context["randomization_page_url"] = reverse(
             "study:study_randomization",
             kwargs={"study_id": self._study.pk},
@@ -197,7 +222,7 @@ class StudyRandomizationImportBaseView(
     AuthenticateTemplateContextMixin,
     View,
 ):
-    permission_required = "study.update_study"
+    permission_required = "RANDOMIZATION.LIST.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     import_form_class = RandomizationImportFileForm
@@ -340,6 +365,10 @@ class StudyRandomizationSchemeImportPreviewView(StudyRandomizationImportBaseView
             'JSON object with ARM code as key and ratio > 0 as value. Example: {"ARM-A": 2, "ARM-B": 1}',
         ),
         "Target Randomized Total": _("Whole number greater than 0. Example: 100"),
+        "Randomization Code Prefix": _(
+            "Literal prefix including any separator. Examples: NNG31- or NNG31-R"
+        ),
+        "Randomization Code Padding": _("Optional digit width from 1 to 12. Example: 3"),
         "Eligibility Rule Code": _("Optional rule code, up to 64 characters. Example: ELIG-01"),
         "Requires Screening Pass": _("Yes/No, True/False, or 1/0"),
         "Is Open Label": _("Yes/No, True/False, or 1/0"),
@@ -475,3 +504,123 @@ class StudyRandomizationSequencePeriodImportCommitView(StudyRandomizationCommitB
     success_message = _(
         "Imported randomization sequence periods successfully. Created: %(created_count)s. Updated: %(updated_count)s.",
     )
+
+
+class StudyNng31MasterListImportPreviewView(StudyRandomizationImportBaseView):
+    import_form_class = Nng31MasterListImportFileForm
+    preview_service_class = PreviewNng31MasterListImportService
+    preview_title = _("NNG31 Randomization Master-list Preview")
+    field_input_guidance = {
+        "Scheme Code": _("Exact code of the configured NNG31 crossover scheme"),
+        "Randomization ID": _("Must match the configured scheme prefix and padding. Example: NNG31-001"),
+        "Sequence No": _("Ordered integer from 1 through 44"),
+        "Block No": _("Contiguous block number from 1 through 9"),
+        "Arm Code": _("Exact code of an active sequence Arm configured in the scheme"),
+    }
+
+    def serialize_preview_result(self, preview_result):
+        payload = super().serialize_preview_result(preview_result)
+        payload["meta_text"] = str(
+            _("SHA-256: %(checksum)s") % {"checksum": preview_result.checksum}
+        )
+        return payload
+
+
+class StudyNng31MasterListImportCommitView(StudyRandomizationCommitBaseView):
+    import_form_class = Nng31MasterListImportFileForm
+    commit_service_class = CommitNng31MasterListImportService
+    field_input_guidance = StudyNng31MasterListImportPreviewView.field_input_guidance
+
+    def post(self, request, *_args, **_kwargs):
+        form = self.get_import_form()
+        if not form.is_valid():
+            return self.render_form_errors(form)
+        uploaded_file = form.cleaned_data["import_file"]
+        try:
+            result = self.get_commit_service().execute(
+                to_commit_nng31_master_list_command(
+                    actor_user_id=request.user.pk,
+                    study_id=self._study.pk,
+                    file_name=uploaded_file.name,
+                    file_content=uploaded_file.read(),
+                    master_list_version=form.cleaned_data["master_list_version"],
+                )
+            )
+        except (RandomizationImportDependencyError, RandomizationImportFormatError) as exc:
+            return self.render_format_error(exc)
+        except RandomizationImportValidationError as exc:
+            return self.serialize_validation_error(exc)
+        return JsonResponse(
+            {
+                "detail": str(
+                    _(
+                        "Imported %(count)s NNG31 randomization slots. Preserved %(bypass_count)s assigned slots by Arm. SHA-256: %(checksum)s. Approval is still required."
+                    )
+                    % {
+                        "count": result.total_rows,
+                        "bypass_count": result.assigned_bypass_count,
+                        "checksum": result.checksum,
+                    }
+                ),
+                "redirect_url": reverse(
+                    "study:study_randomization",
+                    kwargs={"study_id": self._study.pk},
+                ),
+            }
+        )
+
+
+class StudyNng31MasterListApprovalView(
+    StudyRandomizationAccessMixin,
+    AuthenticateTemplateContextMixin,
+    View,
+):
+    permission_required = "RANDOMIZATION.LIST.MANAGE"
+    authorization_scope = "STUDY"
+    raise_exception = True
+    approval_service_class = ApproveNng31MasterListService
+
+    def post(self, request, *_args, **kwargs):
+        form = Nng31MasterListApprovalForm(request.POST)
+        if not form.is_valid():
+            return StudyRandomizationImportBaseView.render_form_errors(form)
+        if form.cleaned_data["scheme_id"] != kwargs["scheme_id"]:
+            return JsonResponse({"detail": str(_("Scheme identifier mismatch."))}, status=400)
+        try:
+            result = self.approval_service_class().execute(
+                to_approve_nng31_master_list_command(
+                    actor_user_id=request.user.pk,
+                    study_id=self._study.pk,
+                    scheme_id=kwargs["scheme_id"],
+                    expected_checksum=form.cleaned_data["expected_checksum"],
+                )
+            )
+        except RandomizationImportValidationError as exc:
+            return JsonResponse(
+                {
+                    "detail": str(_("Master-list approval failed.")),
+                    "issues": [
+                        {
+                            "row_number": issue.row_number,
+                            "identifier": issue.identifier,
+                            "column_label": issue.column_label,
+                            "reason": str(issue.reason),
+                            "detail": str(issue.reason),
+                        }
+                        for issue in exc.issues
+                    ],
+                },
+                status=400,
+            )
+        return JsonResponse(
+            {
+                "detail": str(
+                    _("Master list approved and locked. SHA-256: %(checksum)s")
+                    % {"checksum": result.checksum}
+                ),
+                "redirect_url": reverse(
+                    "study:study_randomization",
+                    kwargs={"study_id": self._study.pk},
+                ),
+            }
+        )

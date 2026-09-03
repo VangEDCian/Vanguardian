@@ -1,5 +1,9 @@
+from django.db.models import Q
+
 from apps.study.infrastructure.persistence.models import (
     ConditionDefinition,
+    EventAttestationPolicy,
+    EventAttestationPolicyTranslation,
     EventDefinition,
     EventFormBinding,
     EventTransitionRule,
@@ -30,6 +34,62 @@ class DjangoStudyEventRepository:
     def save_event_definition(self, event_definition, *, update_fields):
         event_definition.save(update_fields=update_fields)
         return event_definition
+
+    def soft_delete_event_definitions_missing_from_import(
+        self,
+        *,
+        study_id,
+        study_version,
+        imported_codes,
+        actor_user_id,
+        updated_at,
+    ):
+        normalized_codes = tuple(str(code or "").strip() for code in imported_codes or () if str(code or "").strip())
+        event_definition_ids = list(
+            EventDefinition.objects.filter(
+                study_id=study_id,
+                study_version=study_version,
+                deleted=False,
+            )
+            .exclude(code__in=normalized_codes)
+            .values_list("id", flat=True)
+        )
+        if not event_definition_ids:
+            return 0
+
+        EventTransitionRule.objects.filter(
+            Q(from_event_definition_id__in=event_definition_ids)
+            | Q(to_event_definition_id__in=event_definition_ids),
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+        EventFormBinding.objects.filter(
+            event_definition_id__in=event_definition_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+        EventAttestationPolicy.objects.filter(
+            event_definition_id__in=event_definition_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
+        return EventDefinition.objects.filter(
+            id__in=event_definition_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
 
     def get_condition_definition(self, *, study_id, study_version, code):
         return ConditionDefinition.objects.filter(
@@ -99,11 +159,46 @@ class DjangoStudyEventRepository:
         transition_rule.save(update_fields=update_fields)
         return transition_rule
 
+    def get_attestation_policy_for_import(self, *, study_id, study_version, event_definition, code):
+        return EventAttestationPolicy.objects.filter(
+            study_id=study_id,
+            study_version=study_version,
+            event_definition=event_definition,
+            code=code,
+        ).first()
+
+    def create_attestation_policy(self, **values):
+        return EventAttestationPolicy.objects.create(**values)
+
+    def save_attestation_policy(self, attestation_policy, *, update_fields):
+        attestation_policy.save(update_fields=update_fields)
+        return attestation_policy
+
+    def upsert_attestation_policy_translation(self, *, attestation_policy, language_code, defaults):
+        return EventAttestationPolicyTranslation.objects.update_or_create(
+            attestation_policy=attestation_policy,
+            language_code=language_code,
+            defaults=defaults,
+        )
+
     def get_event_form_binding(self, *, event_definition_id, form_definition_id):
         return EventFormBinding.objects.filter(
             event_definition_id=event_definition_id,
             form_definition_id=form_definition_id,
         ).first()
+
+    def soft_delete_event_form_bindings_for_import(self, *, event_definition_ids, actor_user_id, updated_at):
+        normalized_ids = tuple(int(event_definition_id) for event_definition_id in event_definition_ids or ())
+        if not normalized_ids:
+            return 0
+        return EventFormBinding.objects.filter(
+            event_definition_id__in=normalized_ids,
+            deleted=False,
+        ).update(
+            deleted=True,
+            updated_at=updated_at,
+            updated_by_id=actor_user_id,
+        )
 
     def create_event_form_binding(self, **values):
         return EventFormBinding.objects.create(**values)

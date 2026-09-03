@@ -2,14 +2,22 @@ import json
 
 from django.utils import timezone
 
-from apps.core.choices import EventInstanceStatusChoices
+from apps.core.choices import (
+    EventDefinitionLifecycleRoleChoices,
+    EventInstanceStatusChoices,
+    SubjectLifecycleStatusChoices,
+)
 from apps.study.models import EventDefinition, EventTransitionRule
 from apps.subject.domain import (
     StudyEventDefinitionSnapshot,
     StudyEventTransitionRuleSnapshot,
     SubjectEventInstanceSnapshot,
 )
-from apps.subject.models import SubjectEventInstance, SubjectEventInstanceTransitionLog
+from apps.subject.models import (
+    Subject,
+    SubjectEventInstance,
+    SubjectEventInstanceTransitionLog,
+)
 
 
 class DjangoSubjectEventLifecycleRepository:
@@ -42,6 +50,27 @@ class DjangoSubjectEventLifecycleRepository:
             return None
         return self._to_event_instance_snapshot(event_instance)
 
+    def lock_subject_for_event_instance(
+        self,
+        *,
+        event_instance_id: int,
+    ) -> bool:
+        subject_id = (
+            SubjectEventInstance.objects.filter(
+                pk=event_instance_id,
+                deleted=False,
+            )
+            .values_list("subject_id", flat=True)
+            .first()
+        )
+        if subject_id is None:
+            return False
+        return (
+            Subject.objects.select_for_update()
+            .filter(pk=subject_id, deleted=False)
+            .exists()
+        )
+
     def list_enabled_transition_rules_from(
         self,
         *,
@@ -71,6 +100,7 @@ class DjangoSubjectEventLifecycleRepository:
                 "condition_definition__expression_json",
                 "auto_open",
                 "auto_create",
+                "auto_execute",
                 "requires_previous_completion",
                 "allow_skip",
                 "display_order",
@@ -114,6 +144,30 @@ class DjangoSubjectEventLifecycleRepository:
             event_instance.event_definition_id: self._to_event_instance_snapshot(event_instance)
             for event_instance in event_instances
         }
+
+    def is_transition_target_allowed(
+        self,
+        *,
+        subject_id: int,
+        event_definition_id: int,
+    ) -> bool:
+        lifecycle_status = (
+            Subject.objects.filter(pk=subject_id, deleted=False)
+            .values_list("lifecycle_status", flat=True)
+            .first()
+        )
+        if lifecycle_status == SubjectLifecycleStatusChoices.ACTIVE:
+            return True
+        if (
+            lifecycle_status
+            != SubjectLifecycleStatusChoices.EARLY_TERMINATION_IN_PROGRESS
+        ):
+            return False
+        return EventDefinition.objects.filter(
+            pk=event_definition_id,
+            deleted=False,
+            lifecycle_role=EventDefinitionLifecycleRoleChoices.EARLY_TERMINATION,
+        ).exists()
 
     def get_event_definition(
         self,
@@ -445,6 +499,7 @@ class DjangoSubjectEventLifecycleRepository:
             condition_expression_json=getattr(rule.condition_definition, "expression_json", None),
             auto_open=rule.auto_open,
             auto_create=rule.auto_create,
+            auto_execute=rule.auto_execute,
             requires_previous_completion=rule.requires_previous_completion,
             allow_skip=rule.allow_skip,
             display_order=rule.display_order,

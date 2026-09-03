@@ -5,30 +5,52 @@
 ``apps.datacapture.public``.
 """
 
+from apps.subject.presentation.web.views.audit_history import SubjectAuditHistoryView
 from apps.subject.presentation.web.views.base import SubjectAbstractVerifyStudy
+from apps.subject.presentation.web.views.bulk_actions import SubjectBulkActionView
 from apps.subject.presentation.web.views.create import SubjectCreateView
+from apps.subject.presentation.web.views.early_termination import (
+    SubjectEarlyTerminationRequestView,
+)
 from apps.subject.presentation.web.views.event_instance_files import (
     SubjectEventInstanceFileContentView,
     SubjectEventInstanceFileImportView,
     SubjectEventInstanceFilePreviewView,
 )
+from apps.subject.presentation.web.views.export_field_catalog import (
+    SubjectExportFieldCatalogView,
+)
+from apps.subject.presentation.web.views.field_audit_history import SubjectFieldAuditHistoryView
 from apps.subject.presentation.web.views.listing import SubjectListView
+from apps.subject.presentation.web.views.list_actions import SubjectListActionsView
+from apps.subject.presentation.web.views.period_override import (
+    SubjectPeriodOverrideView,
+)
 from apps.subject.presentation.web.views.repeating_event_instance import (
     SubjectAddRepeatingEventInstanceView,
 )
 from apps.subject.presentation.web.views.resync_stage import SubjectResyncStageView
+from apps.subject.presentation.web.views.summary import SubjectSummaryView
 from apps.subject.presentation.web.views.trigger_workflow import SubjectTriggerWorkflowView
 
 __all__ = [
     "SubjectAddRepeatingEventInstanceView",
     "SubjectAbstractVerifyStudy",
+    "SubjectAuditHistoryView",
+    "SubjectBulkActionView",
+    "SubjectFieldAuditHistoryView",
     "SubjectCreateView",
+    "SubjectEarlyTerminationRequestView",
     "SubjectEventInstanceFileContentView",
     "SubjectEventInstanceFileImportView",
     "SubjectEventInstanceFilePreviewView",
+    "SubjectExportFieldCatalogView",
     "SubjectDetailView",
     "SubjectListView",
+    "SubjectListActionsView",
+    "SubjectPeriodOverrideView",
     "SubjectResyncStageView",
+    "SubjectSummaryView",
     "SubjectTriggerWorkflowView",
 ]
 

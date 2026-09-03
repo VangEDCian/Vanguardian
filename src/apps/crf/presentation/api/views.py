@@ -7,7 +7,7 @@ from apps.identity.presentation.mixins import ContextPermissionRequiredMixin
 
 
 class CrfFieldLookupValuesAPIView(LoginRequiredMixin, ContextPermissionRequiredMixin, View):
-    permission_required = "subject.view_subject_detail"
+    permission_required = "SUBJECT.VIEW"
     authorization_scope = "STUDY_SITE"
     require_study_context = False
     require_site_context = True

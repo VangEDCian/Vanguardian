@@ -15,6 +15,10 @@ from apps.study.application.exceptions import (
     EventFormBindingImportDependencyError,
     EventFormBindingImportFormatError,
 )
+from apps.study.application.services.event_form_display_label import (
+    EventFormDisplayLabelService,
+    EventFormDisplayLabelValidationError,
+)
 from apps.study.infrastructure.repositories import DjangoStudyEventRepository
 
 
@@ -45,9 +49,24 @@ class ImportStudyEventFormBindingsTemplateResult:
     warnings: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class _PreparedEventFormBindingImportRow:
+    row_number: int
+    event_code: str
+    form_code: str
+    event_definition: object
+    form_definition: object
+    display_order: int
+    is_repeatable_within_event: bool
+    role_scope: str | None
+    entry_mode: str | None
+    display_label_config: dict | None
+
+
 class ImportStudyEventFormBindingsTemplateService:
     crf_context_adapter_class = CrfContextAdapter
     repository_class = DjangoStudyEventRepository
+    display_label_service_class = EventFormDisplayLabelService
     expected_columns = (
         "Event Code",
         "Form Code",
@@ -55,6 +74,16 @@ class ImportStudyEventFormBindingsTemplateService:
         "Repeatable",
         "Role Scope",
         "Entry Mode",
+        "Display Label Enabled",
+        "Display Label Max Length",
+        "Display Label Use Choice Label",
+        "Display Label Empty Value Policy",
+        "Display Label Template VI",
+        "Display Label Fallback Template VI",
+        "Display Label Empty Text VI",
+        "Display Label Template EN",
+        "Display Label Fallback Template EN",
+        "Display Label Empty Text EN",
     )
     expected_header_map = {
         "event code": "event_code",
@@ -63,9 +92,26 @@ class ImportStudyEventFormBindingsTemplateService:
         "repeatable": "repeatable",
         "role scope": "role_scope",
         "entry mode": "entry_mode",
+        "display label enabled": "display_label_enabled",
+        "display label max length": "display_label_max_length",
+        "display label use choice label": "display_label_use_choice_label",
+        "display label empty value policy": "display_label_empty_value_policy",
+        "display label template vi": "display_label_template_vi",
+        "display label fallback template vi": "display_label_fallback_template_vi",
+        "display label empty text vi": "display_label_empty_text_vi",
+        "display label template en": "display_label_template_en",
+        "display label fallback template en": "display_label_fallback_template_en",
+        "display label empty text en": "display_label_empty_text_en",
     }
     true_values = {"true", "1", "yes", "y"}
     false_values = {"", "false", "0", "no", "n"}
+    empty_value_policy_aliases = {
+        "fallback": "FALLBACK",
+        "empty text": "EMPTY_TEXT",
+        "empty_text": "EMPTY_TEXT",
+        "omit token": "OMIT_TOKEN",
+        "omit_token": "OMIT_TOKEN",
+    }
     entry_mode_aliases = {
         "single": EventFormEntryModeChoices.SINGLE,
         "double entry": EventFormEntryModeChoices.DOUBLE_ENTRY,
@@ -77,9 +123,10 @@ class ImportStudyEventFormBindingsTemplateService:
         # "query_response": EventFormEntryModeChoices.QUERY_RESPONSE,
     }
 
-    def __init__(self, crf_context_adapter=None, repository=None):
+    def __init__(self, crf_context_adapter=None, repository=None, display_label_service=None):
         self.crf_context_adapter = crf_context_adapter or self.crf_context_adapter_class()
         self.repository = repository or self.repository_class()
+        self.display_label_service = display_label_service or self.display_label_service_class()
 
     @staticmethod
     def _normalize_selected_study_id(selected_study_id):
@@ -107,13 +154,16 @@ class ImportStudyEventFormBindingsTemplateService:
         created_count = 0
         updated_count = 0
         issues = []
+        prepared_rows = []
 
         for row_number, row_data in workbook_rows:
             try:
-                import_outcome = self._import_row(
-                    study_id=command.study_id,
-                    row_data=row_data,
-                    actor_user_id=command.actor_user_id,
+                prepared_rows.append(
+                    self._prepare_row(
+                        study_id=command.study_id,
+                        row_data=row_data,
+                        row_number=row_number,
+                    )
                 )
             except EventFormBindingImportFormatError as exc:
                 issues.append(
@@ -121,6 +171,28 @@ class ImportStudyEventFormBindingsTemplateService:
                         row_number=row_number,
                         event_code=str(row_data.get("event_code", "") or ""),
                         form_code=str(row_data.get("form_code", "") or ""),
+                        reason=str(exc),
+                    )
+                )
+
+        self._reset_bindings_for_import(
+            prepared_rows=prepared_rows,
+            actor_user_id=command.actor_user_id,
+        )
+
+        for prepared_row in prepared_rows:
+            try:
+                import_outcome = self._import_prepared_row(
+                    study_id=command.study_id,
+                    prepared_row=prepared_row,
+                    actor_user_id=command.actor_user_id,
+                )
+            except EventFormBindingImportFormatError as exc:
+                issues.append(
+                    EventFormBindingImportIssue(
+                        row_number=prepared_row.row_number,
+                        event_code=prepared_row.event_code,
+                        form_code=prepared_row.form_code,
                         reason=str(exc),
                     )
                 )
@@ -143,7 +215,7 @@ class ImportStudyEventFormBindingsTemplateService:
             warnings=(),
         )
 
-    def _import_row(self, *, study_id, row_data, actor_user_id):
+    def _prepare_row(self, *, study_id, row_data, row_number):
         event_code = self._as_text(row_data.get("event_code"))
         if not event_code:
             raise EventFormBindingImportFormatError("Event Code is required.")
@@ -168,41 +240,153 @@ class ImportStudyEventFormBindingsTemplateService:
             field_label="Entry Mode",
             allow_blank=True,
         )
+        return _PreparedEventFormBindingImportRow(
+            row_number=row_number,
+            event_code=event_code,
+            form_code=form_code,
+            event_definition=event_definition,
+            form_definition=form_definition,
+            display_order=display_order,
+            is_repeatable_within_event=is_repeatable_within_event,
+            role_scope=role_scope,
+            entry_mode=entry_mode,
+            display_label_config=self._prepare_display_label_config(row_data=row_data),
+        )
 
+    def _prepare_display_label_config(self, *, row_data):
+        config_keys = (
+            "display_label_enabled",
+            "display_label_max_length",
+            "display_label_use_choice_label",
+            "display_label_empty_value_policy",
+            "display_label_template_vi",
+            "display_label_fallback_template_vi",
+            "display_label_empty_text_vi",
+            "display_label_template_en",
+            "display_label_fallback_template_en",
+            "display_label_empty_text_en",
+        )
+        if all(self._as_text(row_data.get(key)) == "" for key in config_keys):
+            return None
+
+        return {
+            "is_enabled": self._coerce_bool_with_default(row_data.get("display_label_enabled"), default=True),
+            "max_length": self._coerce_int(
+                row_data.get("display_label_max_length"),
+                field_label="Display Label Max Length",
+                default=120,
+            ),
+            "use_choice_display_label": self._coerce_bool_with_default(
+                row_data.get("display_label_use_choice_label"),
+                default=True,
+            ),
+            "empty_value_policy": self._normalize_choice(
+                raw_value=row_data.get("display_label_empty_value_policy"),
+                aliases=self.empty_value_policy_aliases,
+                field_label="Display Label Empty Value Policy",
+                allow_blank=True,
+            ) or "FALLBACK",
+            "translations": {
+                "vi": {
+                    "label_template": self._required_text(
+                        row_data.get("display_label_template_vi"),
+                        field_label="Display Label Template VI",
+                    ),
+                    "fallback_template": self._required_text(
+                        row_data.get("display_label_fallback_template_vi"),
+                        field_label="Display Label Fallback Template VI",
+                    ),
+                    "empty_value_text": self._as_text(row_data.get("display_label_empty_text_vi")),
+                },
+                "en": {
+                    "label_template": self._required_text(
+                        row_data.get("display_label_template_en"),
+                        field_label="Display Label Template EN",
+                    ),
+                    "fallback_template": self._required_text(
+                        row_data.get("display_label_fallback_template_en"),
+                        field_label="Display Label Fallback Template EN",
+                    ),
+                    "empty_value_text": self._as_text(row_data.get("display_label_empty_text_en")),
+                },
+            },
+        }
+
+    def _reset_bindings_for_import(self, *, prepared_rows, actor_user_id):
+        target_event_definition_ids = sorted({int(row.event_definition.pk) for row in prepared_rows})
+        if not target_event_definition_ids:
+            return
+        self.repository.soft_delete_event_form_bindings_for_import(
+            event_definition_ids=target_event_definition_ids,
+            actor_user_id=actor_user_id,
+            updated_at=self._now(),
+        )
+
+    def _import_prepared_row(self, *, study_id, prepared_row, actor_user_id):
         now = self._now()
         defaults = {
             "study_id": study_id,
-            "study_version": event_definition.study_version,
-            "display_order": display_order,
-            "is_repeatable_within_event": is_repeatable_within_event,
-            "role_scope": role_scope,
-            "entry_mode": entry_mode,
+            "study_version": prepared_row.event_definition.study_version,
+            "display_order": prepared_row.display_order,
+            "is_repeatable_within_event": prepared_row.is_repeatable_within_event,
+            "role_scope": prepared_row.role_scope,
+            "entry_mode": prepared_row.entry_mode,
+            "is_required": True,
+            "is_enabled": True,
+            "deleted": False,
             "updated_at": now,
             "updated_by_id": actor_user_id,
         }
 
         with transaction.atomic():
             binding = self.repository.get_event_form_binding(
-                event_definition_id=event_definition.pk,
-                form_definition_id=form_definition.pk,
+                event_definition_id=prepared_row.event_definition.pk,
+                form_definition_id=prepared_row.form_definition.pk,
             )
 
             if binding is None:
-                self.repository.create_event_form_binding(
-                    event_definition_id=event_definition.pk,
-                    form_definition_id=form_definition.pk,
+                binding = self.repository.create_event_form_binding(
+                    event_definition_id=prepared_row.event_definition.pk,
+                    form_definition_id=prepared_row.form_definition.pk,
                     created_at=now,
                     created_by_id=actor_user_id,
-                    is_required=True,
-                    is_enabled=True,
                     **defaults,
+                )
+                self._sync_display_label_config(
+                    binding=binding,
+                    prepared_row=prepared_row,
+                    actor_user_id=actor_user_id,
                 )
                 return "created"
 
             for field_name, value in defaults.items():
                 setattr(binding, field_name, value)
             self.repository.save_event_form_binding(binding, update_fields=list(defaults.keys()))
+            self._sync_display_label_config(
+                binding=binding,
+                prepared_row=prepared_row,
+                actor_user_id=actor_user_id,
+            )
             return "updated"
+
+    def _sync_display_label_config(self, *, binding, prepared_row, actor_user_id):
+        if prepared_row.display_label_config is None:
+            return
+        try:
+            self.display_label_service.save_config(
+                binding_id=int(binding.pk),
+                actor_user_id=actor_user_id,
+                is_enabled=prepared_row.display_label_config["is_enabled"],
+                max_length=prepared_row.display_label_config["max_length"],
+                use_choice_display_label=prepared_row.display_label_config["use_choice_display_label"],
+                empty_value_policy=prepared_row.display_label_config["empty_value_policy"],
+                translations=prepared_row.display_label_config["translations"],
+            )
+        except EventFormDisplayLabelValidationError as exc:
+            error_messages = "; ".join(error.message for error in exc.errors) or str(exc)
+            raise EventFormBindingImportFormatError(
+                f"Display label config is invalid: {error_messages}"
+            ) from exc
 
     def _resolve_event_definition(self, *, study_id, event_code):
         event_definitions = list(self.repository.list_active_event_definitions_by_code(
@@ -325,6 +509,12 @@ class ImportStudyEventFormBindingsTemplateService:
             return False
         raise EventFormBindingImportFormatError(f"Invalid boolean value: {value!r}")
 
+    def _coerce_bool_with_default(self, value, *, default):
+        normalized = self._as_text(value)
+        if not normalized:
+            return default
+        return self._coerce_bool(normalized)
+
     def _coerce_int(self, value, *, field_label, default=None):
         normalized = self._as_text(value)
         if not normalized:
@@ -336,6 +526,12 @@ class ImportStudyEventFormBindingsTemplateService:
             return int(float(normalized))
         except ValueError as exc:
             raise EventFormBindingImportFormatError(f"{field_label} must be a number.") from exc
+
+    def _required_text(self, value, *, field_label):
+        normalized = self._as_text(value)
+        if not normalized:
+            raise EventFormBindingImportFormatError(f"{field_label} is required.")
+        return normalized
 
     def _normalize_choice(self, *, raw_value, aliases, field_label, allow_blank=False):
         normalized = self._as_text(raw_value).lower().replace("-", " ").replace("_", " ")

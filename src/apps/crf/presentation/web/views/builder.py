@@ -29,7 +29,7 @@ class CrfFormBuilderView(
     CrfFormBuilderSupportMixin,
     AuthenticateTemplateView,
 ):
-    permission_required = "study.manage_crf_template"
+    permission_required = "STUDY_CONFIG.MANAGE"
     require_study_context = False
     raise_exception = True
     template_name = "crf/form_builder.html"

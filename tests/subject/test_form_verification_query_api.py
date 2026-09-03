@@ -209,7 +209,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
         self.assertEqual(payload["error"], ["Chỉ được tạo Query khi Page State ở trạng thái Submitted hoặc Verified."])
         open_reconcile_query.assert_not_called()
 
-    def test_post_returns_400_when_current_user_last_updated_submitted_entry(self):
+    def test_post_allows_current_user_who_last_updated_submitted_entry(self):
         request = RequestFactory().post(
             "/open-query/",
             data=json.dumps(
@@ -240,6 +240,13 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             ),
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked.open_reconcile_query",
+                return_value={
+                    "dataquery_id": 101,
+                    "field_template_id": 11,
+                    "message_text": "Open this query",
+                    "message_type": "comment",
+                    "created_at": "2026-05-18T10:00:00+07:00",
+                },
             ) as open_reconcile_query,
         ):
             response = SubjectFormVerificationOpenQueryView().post(
@@ -250,12 +257,18 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
                 crf_template_id=4,
             )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertEqual(payload["error"], ["Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."])
-        open_reconcile_query.assert_not_called()
+        self.assertEqual(payload["dataquery_id"], 101)
+        open_reconcile_query.assert_called_once_with(
+            page_state_id=23,
+            field_template_id=11,
+            field_key="",
+            message_text="Open this query",
+            actor_user_id=7,
+        )
 
-    def test_verify_checked_returns_400_when_current_user_last_updated_submitted_entry(self):
+    def test_verify_checked_allows_current_user_who_last_updated_submitted_entry(self):
         request = RequestFactory().post(
             "/verify-checked/",
             data=json.dumps(
@@ -290,6 +303,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
                 "merge_form_verification_checked_fields_into_page_state_final_data",
+                return_value=(True, "verified", [], []),
             ) as merge_checked,
         ):
             response = SubjectFormVerificationVerifyCheckedView().post(
@@ -300,10 +314,18 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
                 crf_template_id=4,
             )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertEqual(payload["error"], ["Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."])
-        merge_checked.assert_not_called()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["page_status"], "verified")
+        merge_checked.assert_called_once_with(
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
+            checked_field_template_ids=[11],
+            unverify_reason_text="Revert verification",
+            actor_user_id=7,
+        )
 
     def test_verify_checked_returns_unverified_field_template_ids(self):
         request = RequestFactory().post(
@@ -406,7 +428,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             actor_user_id=7,
         )
 
-    def test_finalize_page_data_blocks_self_review_user(self):
+    def test_finalize_page_data_allows_current_user_who_last_updated_submitted_entry(self):
         request = RequestFactory().post(
             "/finalize-page-data/",
             data=json.dumps({}),
@@ -423,6 +445,7 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
             patch(
                 "apps.subject.presentation.web.views.verification_verify_checked."
                 "finalize_page_data_for_subject_visit_crf",
+                return_value="finalized",
             ) as finalize_page_data,
         ):
             response = SubjectFormVerificationFinalizePageDataView().post(
@@ -433,10 +456,15 @@ class SubjectFormVerificationOpenQueryViewTests(SimpleTestCase):
                 crf_template_id=4,
             )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertEqual(payload["error"], ["Bạn không được verify hoặc thao tác Query cho form do chính bạn cập nhật."])
-        finalize_page_data.assert_not_called()
+        self.assertEqual(payload["page_status"], "finalized")
+        finalize_page_data.assert_called_once_with(
+            subject_id=2,
+            visit_id=3,
+            crf_template_id=4,
+            actor_user_id=7,
+        )
 
     def test_lock_page_maps_request_to_datacapture_api(self):
         request = RequestFactory().post(

@@ -26,8 +26,10 @@ class FormVerificationTemplateTests(SimpleTestCase):
             ),
             "form_verification_verify_checked_url": "",
             "form_verification_reopen_url": "",
+            "form_verification_certify_page_url": "",
             "form_verification_finalize_page_data_url": "",
             "form_verification_lock_page_url": "",
+            "form_verification_lock_blocked_by_queries": False,
             "form_verification_open_query_url": "",
             "form_verification_query_thread_url": "",
             "form_verification_fields_locked": False,
@@ -68,6 +70,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
         has_verified_query: bool = False,
         open_query_count: int = 0,
         validation_issue_count: int = 0,
+        validation_issues: list[dict] | None = None,
+        validation_issue_histories: list[dict] | None = None,
         closed_query_histories: list[dict] | None = None,
         active_query_is_answered: bool = False,
         active_query_can_respond: bool = True,
@@ -97,7 +101,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
                             "display_value": "Value 1",
                             "open_query_count": open_query_count,
                             "validation_issue_count": validation_issue_count,
-                            "validation_issues": [],
+                            "validation_issues": validation_issues or [],
+                            "validation_issue_histories": validation_issue_histories or [],
                             "active_query_id": active_query_id,
                             "active_query_is_answered": active_query_is_answered,
                             "active_query_can_respond": active_query_can_respond,
@@ -143,6 +148,184 @@ class FormVerificationTemplateTests(SimpleTestCase):
         self.assertIn('data-form-verification-page-action="finalize"', rendered)
         self.assertIn('data-form-verification-page-action="lock"', rendered)
         self.assertIn("subject_form_verification_page_actions.js", rendered)
+
+    def test_verification_footer_disables_lock_when_queries_are_not_closed(self):
+        rendered = self._render_subject_detail_verification_screen(
+            form_verification_lock_blocked_by_queries=True,
+        )
+
+        self.assertIn("Lock Page", rendered)
+        self.assertIn("Close all queries before locking the form.", rendered)
+        self.assertIn("disabled", rendered)
+        self.assertNotIn('data-form-verification-page-action="lock"', rendered)
+        self.assertNotIn('data-post-url="/api/lock-page/"', rendered)
+
+    def test_verification_screen_renders_event_attestation_panel(self):
+        rendered = self._render_subject_detail_verification_screen(
+            event_attestation_panel={
+                "has_policies": True,
+                "summary": {
+                    "submitted_page_count": 1,
+                    "page_count": 1,
+                    "blocking_query_count": 0,
+                    "validation_issue_count": 0,
+                },
+                "policies": [
+                    {
+                        "policy_id": 51,
+                        "code": "VISIT_REVIEW",
+                        "action_kind": "REVIEW_COMPLETION",
+                        "dialog_title": "Complete Visit Review",
+                        "action_label": "Complete Review",
+                        "statement_text": "I reviewed this visit.",
+                        "confirmation_label": "I confirm.",
+                        "success_message": "Review completed.",
+                        "requires_confirmation_checkbox": True,
+                        "active_attestation": None,
+                        "readiness": {"can_submit": True, "blockers": [], "warnings": []},
+                        "submit_url": "/api/attest/",
+                        "revoke_url": "",
+                    }
+                ],
+                "history": [],
+            }
+        )
+
+        self.assertIn("Review and Certification", rendered)
+        self.assertIn("Complete Review", rendered)
+        self.assertIn("I reviewed this visit.", rendered)
+        self.assertIn("data-event-attestation-submit", rendered)
+        self.assertIn("subject_event_attestation.js", rendered)
+
+    def test_non_verification_screen_hides_event_attestation_panel(self):
+        rendered = self._render_subject_detail_verification_screen(
+            is_form_verification_mode=False,
+            event_attestation_panel={
+                "has_policies": True,
+                "policies": [],
+                "history": [],
+            },
+        )
+
+        self.assertNotIn("Review and Certification", rendered)
+        self.assertNotIn("subject_event_attestation.js", rendered)
+
+    def test_certified_visit_shows_status_and_history_without_certification_form(self):
+        rendered = self._render_subject_detail_verification_screen(
+            event_attestation_panel={
+                "has_policies": True,
+                "event_name": "Screening Visit",
+                "visit_is_certified": True,
+                "current_certification": {
+                    "status": "ACTIVE",
+                    "signer_name": "Data Assurance User",
+                    "attested_at": "2026-08-10T10:00:00+07:00",
+                    "scope_digest": "certified-scope-digest",
+                    "is_current_scope": True,
+                },
+                "summary": {
+                    "submitted_page_count": 1,
+                    "page_count": 1,
+                    "blocking_query_count": 0,
+                    "validation_issue_count": 0,
+                },
+                "policies": [
+                    {
+                        "policy_id": 51,
+                        "code": "SCREENING_CERT",
+                        "action_kind": "CERTIFICATION",
+                        "dialog_title": "Certify Screening Data",
+                        "action_label": "Certify Visit",
+                        "statement_text": (
+                            "I certify that the data entered in this eCRF are complete, "
+                            "accurate, and supported by the source documents."
+                        ),
+                        "confirmation_label": "I confirm.",
+                        "requires_confirmation_checkbox": True,
+                        "active_attestation": {"status": "ACTIVE", "is_current_scope": True},
+                        "readiness": {"can_submit": False, "blockers": [], "warnings": []},
+                        "submit_url": "/api/attest/",
+                        "revoke_url": "/api/revoke/",
+                    }
+                ],
+                "history": [
+                    {
+                        "action_label": "Certification completed",
+                        "status": "ACTIVE",
+                        "signer_name": "Data Assurance User",
+                        "attested_at": "2026-08-10T10:00:00+07:00",
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("Review and Certification", rendered)
+        self.assertIn("Certified", rendered)
+        self.assertIn("Data Assurance User", rendered)
+        self.assertIn("Attestation history", rendered)
+        self.assertIn("Certification completed", rendered)
+        self.assertRegex(rendered, r'class="subject-event-attestation__history"\s+open')
+        self.assertNotIn("Certify Screening Data", rendered)
+        self.assertNotIn("I certify that the data entered", rendered)
+        self.assertNotIn("data-event-attestation-policy", rendered)
+        self.assertNotIn("data-event-attestation-submit", rendered)
+        self.assertNotIn("data-event-attestation-revoke", rendered)
+        self.assertNotIn("subject_event_attestation.js", rendered)
+
+    def test_verification_screen_loads_readonly_validation_issue_modal(self):
+        rendered = self._render_subject_detail_verification_screen()
+
+        self.assertIn("data-validation-issue-modal", rendered)
+        self.assertIn("subject_validation_issue_modal.js", rendered)
+        self.assertNotIn("data-validation-issue-modal-submit", rendered)
+
+    def test_field_review_table_highlights_validation_issue_and_renders_action(self):
+        rendered = self._render_field_review_table(
+            show_checkboxes=True,
+            validation_issue_count=1,
+            validation_issues=[
+                {
+                    "id": 200,
+                    "rule_id": 31,
+                    "message": "Age is outside the eligible range.",
+                    "failed_value_display": "999",
+                    "mode": "soft_warning",
+                    "severity": "warning",
+                    "status": "OPEN",
+                    "created_at": "07/31/2026 08:34",
+                }
+            ],
+            validation_issue_histories=[
+                {
+                    "dataquery_id": "validation_issue_200_snapshot_341",
+                    "status": "FAIL",
+                    "label": "Validation Issue #200",
+                    "value_snapshot": "999",
+                    "opened_at": "07/31/2026 08:34",
+                    "closed_at": "",
+                    "messages": [
+                        {
+                            "dataquery_id": "validation_issue_200_snapshot_341",
+                            "text": "Age is outside the eligible range.",
+                            "status": "FAIL",
+                            "tone": "warning",
+                            "opened_by": "",
+                            "opened_at": "07/31/2026 08:34",
+                        }
+                    ],
+                }
+            ],
+        )
+
+        self.assertIn("subject-form-verification-review__row--has-validation-issue", rendered)
+        self.assertIn('data-has-validation-issue="true"', rendered)
+        self.assertIn("data-validation-issue-modal-trigger", rendered)
+        self.assertIn("images/datacapture/warning.svg", rendered)
+        self.assertIn("data-validation-issue-badge", rendered)
+        self.assertIn("data-validation-issue-source", rendered)
+        self.assertIn('data-issue-message="Age is outside the eligible range."', rendered)
+        self.assertIn('data-history-value="999"', rendered)
+        self.assertIn('data-message-text="Age is outside the eligible range."', rendered)
 
     def test_field_review_table_hides_actions_column_without_submitted_entry(self):
         rendered = self._render_field_review_table(
@@ -274,7 +457,7 @@ class FormVerificationTemplateTests(SimpleTestCase):
 
         self.assertNotIn("hidden", action_button)
 
-    def test_field_review_checkbox_is_disabled_when_field_has_open_query(self):
+    def test_field_review_checkbox_stays_enabled_when_field_has_open_query(self):
         rendered = self._render_field_review_table(
             show_checkboxes=True,
             fields_locked=False,
@@ -287,8 +470,8 @@ class FormVerificationTemplateTests(SimpleTestCase):
         input_end = rendered.index(">", checkbox_start)
         checkbox = rendered[input_start : input_end + 1]
 
-        self.assertIn("disabled", checkbox)
-        self.assertIn('aria-disabled="true"', checkbox)
+        self.assertNotIn("disabled", checkbox)
+        self.assertNotIn('aria-disabled="true"', checkbox)
         self.assertIn('data-blocked-by-open-query="true"', checkbox)
 
     def test_field_review_table_shows_validation_issue_count_and_disables_checkbox(self):

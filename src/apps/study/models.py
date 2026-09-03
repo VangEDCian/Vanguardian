@@ -2,6 +2,8 @@ from apps.study.infrastructure.persistence.models import (
     ConditionDefinition,
     EventDefinition,
     EventFormBinding,
+    EventFormDisplayConfig,
+    EventFormDisplayConfigTranslation,
     EventGateConditionResult,
     EventGateEvaluation,
     EventTransitionRule,
@@ -13,15 +15,19 @@ from apps.study.infrastructure.persistence.models import (
     Site,
     SiteMembership,
     Study,
+    StudyCrfPageLifecycleStep,
     SubjectEligibilityAssessment,
     SubjectEligibilityFailure,
 )
 
 __all__ = [
     "Study",
+    "StudyCrfPageLifecycleStep",
     "ConditionDefinition",
     "EventDefinition",
     "EventFormBinding",
+    "EventFormDisplayConfig",
+    "EventFormDisplayConfigTranslation",
     "EventGateConditionResult",
     "EventGateEvaluation",
     "EventTransitionRule",

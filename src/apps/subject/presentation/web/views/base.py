@@ -5,6 +5,8 @@ from django.views import View
 from apps.study.application.services import StudySiteDirectoryQueryService
 from apps.study.presentation.web.views.helpers import _user_has_study_access
 
+CRF_DATA_CHANGE_PERMISSIONS = ("CRF.ENTER", "CRF.UPDATE", "CRF.SUBMIT")
+
 
 class SubjectAbstractVerifyStudy(View):
     study_obj = None

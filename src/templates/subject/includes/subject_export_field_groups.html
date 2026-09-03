@@ -1,0 +1,50 @@
+{% load i18n %}
+{% for event_group in subject_export_field_groups %}
+    <section class="subject-export-modal__event-group is-collapsed"
+             data-subject-export-visit>
+        <div class="subject-export-modal__event-heading">
+            <button type="button"
+                    class="subject-export-modal__visit-collapse"
+                    data-subject-export-visit-collapse
+                    data-expanded-label="{% trans 'Collapse Visit' %}"
+                    data-collapsed-label="{% trans 'Expand Visit' %}"
+                    aria-expanded="false"
+                    aria-controls="subject-export-visit-fields-{{ event_group.event_definition_id }}"
+                    aria-label="{% trans 'Expand Visit' %}">
+                <span class="subject-export-modal__event-title">
+                    <strong>{{ event_group.event_name }}</strong>
+                    <span>{{ event_group.event_code }}</span>
+                </span>
+                <span class="subject-export-modal__visit-chevron" aria-hidden="true">▾</span>
+            </button>
+            <button type="button"
+                    class="subject-export-modal__visit-toggle"
+                    data-subject-export-visit-toggle
+                    data-select-label="{% trans 'Select all fields' %}"
+                    data-clear-label="{% trans 'Clear all fields' %}"
+                    aria-pressed="false">{% trans "Select all fields" %}</button>
+        </div>
+        <div class="subject-export-modal__field-grid"
+             id="subject-export-visit-fields-{{ event_group.event_definition_id }}"
+             hidden>
+            {% for form_group in event_group.forms %}
+                {% for field in form_group.fields %}
+                    <label class="subject-export-modal__field"
+                           for="subject-export-field-{{ field.binding_id }}-{{ field.field_template_id }}">
+                        <input id="subject-export-field-{{ field.binding_id }}-{{ field.field_template_id }}"
+                               type="checkbox"
+                               name="export_fields"
+                               value="{{ field.token }}"
+                               data-subject-export-field>
+                        <span>
+                            <strong>{{ field.crf_code }} · {{ field.field_label }}</strong>
+                            <small>{{ field.header }}</small>
+                        </span>
+                    </label>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </section>
+{% empty %}
+    <p class="subject-export-modal__empty">{% trans "No fields are available for export." %}</p>
+{% endfor %}

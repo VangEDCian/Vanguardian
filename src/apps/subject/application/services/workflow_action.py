@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from django.db import transaction
 
 from apps.study.public import randomize_subject
+from apps.subject.application.services.period_lifecycle import (
+    SubjectPeriodLifecycleService,
+)
 from apps.subject.infrastructure.repositories.workflow_action import (
     DjangoSubjectWorkflowActionRepository,
 )
@@ -11,10 +14,12 @@ _EVENT_STATUS_OPEN = "open"
 _EVENT_TYPE_OPERATIONAL = "operational"
 _EXECUTION_MODE_WORKFLOW_ACTION = "workflow_action"
 _EVENT_CATEGORY_RANDOMIZATION = "randomization"
+_EVENT_CATEGORY_WASHOUT = "washout"
 _EVENT_CODE_ELIGIBILITY_ASSESSMENT = "eligibility_assessment"
 _EVENT_CODE_ENROLLMENT = "enrollment"
 _ASSESSMENT_TYPE_SCREENING = "SCREENING"
-_ELIGIBILITY_ASSESSMENT_RULE_CODE = "ELIGIBILITY_RULE_V1"
+_FINALIZE_ELIGIBILITY_PERMISSION = "study.finalize_subject_eligibility"
+_DEFAULT_WORKFLOW_ACTION_PERMISSION = "SUBJECT.UPDATE"
 
 
 @dataclass(frozen=True)
@@ -25,10 +30,18 @@ class SubjectWorkflowActionResult:
     reason: str = ""
 
 
-def _default_source_page_state_resolver(*, event_instance_id: int) -> int | None:
-    from apps.datacapture.public import get_latest_stable_page_state_id_for_event_instance
+@dataclass(frozen=True)
+class SubjectWorkflowActionAccess:
+    event_instance_id: int
+    permission_code: str
 
-    return get_latest_stable_page_state_id_for_event_instance(event_instance_id=event_instance_id)
+
+def _default_source_page_state_resolver(*, event_instance_id: int) -> int | None:
+    from apps.datacapture.public import get_latest_submitted_or_stable_page_state_id_for_event_instance
+
+    return get_latest_submitted_or_stable_page_state_id_for_event_instance(
+        event_instance_id=event_instance_id
+    )
 
 
 def _default_eligibility_assessment_finalizer(command):
@@ -43,8 +56,15 @@ def _default_subject_enroller(command):
     return enroll_subject_after_eligibility_gate(command)
 
 
+def _default_source_event_certification_checker(*, event_instance_id: int) -> bool:
+    from apps.datacapture.public import has_current_event_certification_attestation
+
+    return has_current_event_certification_attestation(event_instance_id=event_instance_id)
+
+
 class SubjectWorkflowActionService:
     repository_class = DjangoSubjectWorkflowActionRepository
+    period_lifecycle_service_class = SubjectPeriodLifecycleService
 
     def __init__(
         self,
@@ -53,7 +73,9 @@ class SubjectWorkflowActionService:
         source_page_state_resolver=None,
         eligibility_assessment_finalizer=None,
         subject_enroller=None,
+        source_event_certification_checker=None,
         transition_service=None,
+        period_lifecycle_service=None,
     ):
         self.repository = repository or self.repository_class()
         self.randomize_subject = randomization_slot_assigner or randomize_subject
@@ -62,7 +84,13 @@ class SubjectWorkflowActionService:
             eligibility_assessment_finalizer or _default_eligibility_assessment_finalizer
         )
         self.subject_enroller = subject_enroller or _default_subject_enroller
+        self.source_event_certification_checker = (
+            source_event_certification_checker or _default_source_event_certification_checker
+        )
         self.transition_service = transition_service
+        self.period_lifecycle_service = (
+            period_lifecycle_service or self.period_lifecycle_service_class()
+        )
 
     def can_trigger_event_instance(
         self,
@@ -88,12 +116,59 @@ class SubjectWorkflowActionService:
             subject_ids=subject_ids,
         )
 
+    def required_permission_for_event_instance(
+        self,
+        *,
+        study_id: int,
+        subject_id: int,
+        event_instance_id: int,
+    ) -> str | None:
+        event = self.repository.get_open_workflow_action_context(
+            study_id=study_id,
+            subject_id=subject_id,
+            event_instance_id=event_instance_id,
+        )
+        if event is None:
+            return None
+        return self._required_permission_for_event(event)
+
+    def map_triggerable_event_access_by_subject_id(
+        self,
+        *,
+        study_id: int,
+        subject_ids,
+    ) -> dict[int, SubjectWorkflowActionAccess]:
+        context_by_subject_id = (
+            self.repository.map_open_workflow_action_context_by_subject_id(
+                study_id=study_id,
+                subject_ids=subject_ids,
+            )
+        )
+        return {
+            subject_id: SubjectWorkflowActionAccess(
+                event_instance_id=event.event_instance_id,
+                permission_code=self._required_permission_for_event(event),
+            )
+            for subject_id, event in context_by_subject_id.items()
+        }
+
+    @staticmethod
+    def _required_permission_for_event(event) -> str:
+        event_code = (event.event_code or "").strip().lower()
+        if event_code in {
+            _EVENT_CODE_ELIGIBILITY_ASSESSMENT,
+            _EVENT_CODE_ENROLLMENT,
+        }:
+            return _FINALIZE_ELIGIBILITY_PERMISSION
+        return _DEFAULT_WORKFLOW_ACTION_PERMISSION
+
     def execute_for_open_event(
         self,
         *,
         event_instance_id: int,
         actor_user_id: int | None = None,
         source_event_instance_id: int | None = None,
+        automatic: bool = False,
     ) -> SubjectWorkflowActionResult:
         with transaction.atomic():
             event = self.repository.get_event_workflow_context_for_update(event_instance_id=event_instance_id)
@@ -117,7 +192,13 @@ class SubjectWorkflowActionService:
                     event=event,
                     actor_user_id=actor_user_id,
                 )
-            if (event.event_category or "").strip().lower() != _EVENT_CATEGORY_RANDOMIZATION:
+            event_category = (event.event_category or "").strip().lower()
+            if event_category == _EVENT_CATEGORY_WASHOUT:
+                return self._execute_washout_workflow(
+                    event=event,
+                    actor_user_id=actor_user_id,
+                )
+            if event_category != _EVENT_CATEGORY_RANDOMIZATION:
                 return SubjectWorkflowActionResult(event_instance_id=event_instance_id, reason="unsupported_workflow_action")
             assignment = self.randomize_subject(
                 subject_id=event.subject_id,
@@ -186,15 +267,19 @@ class SubjectWorkflowActionService:
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
                 reason="eligibility_source_event_not_found",
             )
+        if not self.source_event_certification_checker(event_instance_id=source_event_instance_id):
+            return SubjectWorkflowActionResult(
+                event_instance_id=event.event_instance_id,
+                action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
+                reason="eligibility_source_event_certification_required",
+            )
 
-        source_page_state_id = self.source_page_state_resolver(event_instance_id=source_event_instance_id)
-        if source_page_state_id is None:
+        if self.source_page_state_resolver(event_instance_id=source_event_instance_id) is None:
             return SubjectWorkflowActionResult(
                 event_instance_id=event.event_instance_id,
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
                 reason="eligibility_source_page_state_not_found",
             )
-
         from apps.study.public import FinalizeEligibilityAssessmentCommand
 
         assessment = self.eligibility_assessment_finalizer(
@@ -204,13 +289,11 @@ class SubjectWorkflowActionService:
                 subject_id=event.subject_id,
                 assessment_type=_ASSESSMENT_TYPE_SCREENING,
                 source_context="datacapture",
-                source_object_type="PAGE_STATE",
-                source_object_id=source_page_state_id,
+                source_object_type="EVENT_INSTANCE",
+                source_object_id=source_event_instance_id,
                 study_version=event.study_version,
                 actor_id=actor_user_id,
                 event_instance_id=event.event_instance_id,
-                source_page_state_id=source_page_state_id,
-                rule_code=_ELIGIBILITY_ASSESSMENT_RULE_CODE,
             )
         )
         now = self.repository.now()
@@ -276,6 +359,44 @@ class SubjectWorkflowActionService:
             executed=True,
             action=_EVENT_CODE_ENROLLMENT,
             reason="subject_enrolled",
+        )
+
+    def _execute_washout_workflow(
+        self,
+        *,
+        event,
+        actor_user_id: int | None,
+    ) -> SubjectWorkflowActionResult:
+        period_result = self.period_lifecycle_service.advance_after_washout(
+            subject_id=event.subject_id,
+            actor_user_id=actor_user_id,
+            source_event_instance_id=event.event_instance_id,
+            trigger_source="workflow_action",
+        )
+        if not period_result.has_changes:
+            return SubjectWorkflowActionResult(
+                event_instance_id=event.event_instance_id,
+                action=_EVENT_CATEGORY_WASHOUT,
+                reason="washout_not_due_or_period_not_ready",
+            )
+
+        completed = self.repository.complete_workflow_event_instance(
+            event_instance_id=event.event_instance_id,
+            actor_user_id=actor_user_id,
+            now=self.repository.now(),
+            reason="washout_completed",
+        )
+        if completed:
+            self._trigger_downstream_transition(
+                event_instance_id=event.event_instance_id,
+                facts={"subject_period.transitioned": True},
+                actor_user_id=actor_user_id,
+            )
+        return SubjectWorkflowActionResult(
+            event_instance_id=event.event_instance_id,
+            executed=completed,
+            action=_EVENT_CATEGORY_WASHOUT,
+            reason="washout_completed" if completed else "washout_event_not_open",
         )
 
     def _trigger_downstream_transition(self, *, event_instance_id: int, facts: dict, actor_user_id: int | None) -> None:

@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
 from apps.study.application.exceptions import (
+    FactMappingImportConflictError as FactMappingImportConflictError,
+)
+from apps.study.application.exceptions import (
     FactMappingImportDependencyError as FactMappingImportDependencyError,
 )
 from apps.study.application.exceptions import (
@@ -41,6 +44,7 @@ class ImportStudyFactMappingsTemplateResult:
 
 __all__ = [
     "FactMappingImportDependencyError",
+    "FactMappingImportConflictError",
     "FactMappingImportFormatError",
     "FactMappingImportIssue",
     "FactMappingImportTemplateError",

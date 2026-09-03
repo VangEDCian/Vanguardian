@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.core.choices.study import RandomizationSchemeStatusChoice, RandomizationSlotStatusChoice
@@ -22,6 +23,11 @@ class RandomizationScheme(models.Model):
     allocation_ratio_json = models.JSONField(null=True, blank=True)
 
     target_randomized_total = models.PositiveIntegerField()
+    randomization_code_prefix = models.CharField(max_length=32, blank=True, default="")
+    randomization_code_padding = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+    )
     eligibility_rule_code = models.CharField(max_length=64, null=True, blank=True)
     requires_screening_pass = models.BooleanField(default=True)
     is_open_label = models.BooleanField(default=True)
@@ -36,6 +42,15 @@ class RandomizationScheme(models.Model):
 
     created_by_id = models.BigIntegerField(null=True, blank=True)
     approved_by_id = models.BigIntegerField(null=True, blank=True)
+
+    master_list_version = models.CharField(max_length=64, null=True, blank=True)
+    master_list_checksum = models.CharField(max_length=64, null=True, blank=True)
+    master_list_source_filename = models.CharField(max_length=255, null=True, blank=True)
+    master_list_imported_by_id = models.BigIntegerField(null=True, blank=True)
+    master_list_imported_at = models.DateTimeField(null=True, blank=True)
+    master_list_approved_by_id = models.BigIntegerField(null=True, blank=True)
+    master_list_approved_at = models.DateTimeField(null=True, blank=True)
+    master_list_locked_at = models.DateTimeField(null=True, blank=True)
 
     notes = models.TextField(null=True, blank=True)
 
@@ -129,6 +144,7 @@ class RandomizationSlot(models.Model):
     )
 
     sequence_no = models.IntegerField()
+    randomization_code = models.CharField(max_length=64, null=True, blank=True)
     block_no = models.IntegerField(null=True, blank=True)
     stratum_code = models.CharField(max_length=64, null=True, blank=True)
 
@@ -152,6 +168,10 @@ class RandomizationSlot(models.Model):
             models.UniqueConstraint(
                 fields=["scheme", "sequence_no"],
                 name="study_rslot_scheme_seq_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["scheme", "randomization_code"],
+                name="study_rslot_scheme_code_uq",
             ),
         ]
         indexes = [

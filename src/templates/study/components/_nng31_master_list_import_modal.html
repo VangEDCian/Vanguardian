@@ -1,0 +1,62 @@
+{% load i18n static %}
+<div class="modal-backdrop"
+     id="modal-import-nng31-master-list"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-import-nng31-master-list-title">
+    <div class="modal modal--info modal--randomization-import">
+        <form method="post"
+              enctype="multipart/form-data"
+              action="{{ nng31_master_list_commit_url }}"
+              data-randomization-import-form>
+            {% csrf_token %}
+            <div class="modal__header modal__header--left">
+                <div class="modal__icon" aria-hidden="true">i</div>
+                <h2 class="modal__title" id="modal-import-nng31-master-list-title">{% trans "Import NNG31 Master List" %}</h2>
+            </div>
+            <div class="modal__body modal__body--left modal__body--scrollable">
+                <div class="randomization-import-form">
+                    <div class="randomization-import-form__field">
+                        <label for="nng31-master-list-version"
+                               class="randomization-import-form__label">{% trans "Master-list Version" %}</label>
+                        <input type="text"
+                               id="nng31-master-list-version"
+                               name="master_list_version"
+                               maxlength="64"
+                               placeholder="1.0"
+                               required>
+                    </div>
+                    <div class="randomization-import-form__field">
+                        <label for="nng31-master-list-import-file"
+                               class="randomization-import-form__label">{% trans "Import File" %}</label>
+                        <input type="file"
+                               id="nng31-master-list-import-file"
+                               name="import_file"
+                               accept=".xlsx"
+                               required
+                               data-randomization-import-input
+                               data-import-kind="nng31-master-list"
+                               data-preview-url="{{ nng31_master_list_preview_url }}"
+                               data-commit-url="{{ nng31_master_list_commit_url }}"
+                               data-preview-title="{% trans 'NNG31 Randomization Master-list Preview' %}">
+                        <p class="randomization-import-form__help">
+                            {% trans "The preview resolves each Randomization ID through its Arm Code and displays the configured treatment sequence before import." %}
+                        </p>
+                        <a href="{% static 'study/templates/nng31_randomization_master_list_template.xlsx' %}"
+                           class="randomization-import-form__template-link"
+                           download>{% trans "Download Template" %}</a>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer modal__footer--end">
+                <button type="button"
+                        class="modal__cancel"
+                        data-modal-close="modal-import-nng31-master-list">{% trans "Cancel" %}</button>
+                <button type="submit"
+                        class="entity-table__footer-button entity-table__footer-button--primary">
+                    {% trans "Preview Import" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

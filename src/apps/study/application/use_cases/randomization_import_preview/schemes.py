@@ -41,6 +41,20 @@ class RandomizationSchemeImportPreviewUseCase(BaseRandomizationImportPreviewUseC
             aliases=("Target Total",),
         ),
         RandomizationImportColumn(
+            "randomization_code_prefix",
+            "Randomization Code Prefix",
+            required=False,
+            max_length=32,
+            aliases=("Code Prefix",),
+        ),
+        RandomizationImportColumn(
+            "randomization_code_padding",
+            "Randomization Code Padding",
+            data_type="integer",
+            required=False,
+            aliases=("Code Padding",),
+        ),
+        RandomizationImportColumn(
             "is_open_label",
             "Is Open Label",
             data_type="boolean",
@@ -90,6 +104,15 @@ class RandomizationSchemeImportPreviewUseCase(BaseRandomizationImportPreviewUseC
             return self._coerce_datetime(raw_value, field_label=column.label)
         if column.key == "status":
             return self._coerce_status(raw_value, field_label=column.label)
+        if column.key == "randomization_code_padding":
+            if self._is_empty_value(raw_value):
+                return ""
+            padding = self._coerce_int(raw_value, field_label=column.label)
+            if padding < 1 or padding > 12:
+                raise RandomizationImportFormatError(
+                    str(_("%(column)s must be between 1 and 12.") % {"column": column.label})
+                )
+            return padding
         return super()._coerce_value(raw_value=raw_value, column=column)
 
     def _coerce_allocation_ratio(self, value, *, field_label):

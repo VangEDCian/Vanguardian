@@ -1,7 +1,9 @@
 from contextlib import nullcontext
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
@@ -14,6 +16,7 @@ from apps.study.application.commands import (
 )
 from apps.study.application.exceptions import EligibilityEnrollmentGateError
 from apps.study.application.services.eligibility_assessment import EligibilityAssessmentService
+from apps.study.infrastructure.repositories import DjangoEligibilityAssessmentRepository
 
 
 class _FakeRepository:
@@ -27,13 +30,22 @@ class _FakeRepository:
             "retract_subject_eligibility",
             "override_subject_eligibility",
         }
+        self.permission_checks = []
         self.conditions = []
         self.fixed_now = datetime(2026, 5, 23, 9, 30, tzinfo=timezone.utc)
 
     def now(self):
         return self.fixed_now
 
-    def actor_has_permission(self, *, actor_id, study_id, permission_codename):
+    def actor_has_permission(self, *, actor_id, study_id, permission_codename, site_id=None):
+        self.permission_checks.append(
+            {
+                "actor_id": actor_id,
+                "study_id": study_id,
+                "site_id": site_id,
+                "permission_codename": permission_codename,
+            }
+        )
         return permission_codename in self.permissions
 
     def list_active_eligibility_conditions(self, *, study_id, study_version, rule_code=None):
@@ -98,6 +110,30 @@ class _FakeRepository:
             for assessment in self.assessments
             if assessment.is_current and assessment.assessment_status == EligibilityAssessmentStatusChoices.FINAL
         ]
+
+
+class DjangoEligibilityAssessmentRepositoryTests(SimpleTestCase):
+    @patch("apps.identity.application.authorization.ContextualAuthorizationService")
+    @patch("apps.study.infrastructure.repositories.eligibility.get_user_model")
+    def test_actor_permission_uses_study_site_scope(self, get_user_model, authorization_service_class):
+        user = SimpleNamespace(pk=99, is_active=True)
+        get_user_model.return_value.objects.filter.return_value.first.return_value = user
+        authorization_service_class.return_value.can.return_value = SimpleNamespace(allowed=True)
+
+        allowed = DjangoEligibilityAssessmentRepository().actor_has_permission(
+            actor_id=99,
+            study_id=1,
+            site_id=2,
+            permission_codename="finalize_subject_eligibility",
+        )
+
+        self.assertTrue(allowed)
+        authorization_service_class.return_value.can.assert_called_once_with(
+            user,
+            "study.finalize_subject_eligibility",
+            study_id=1,
+            study_site_id=2,
+        )
 
 
 class _FakeSubjectWorkflow:
@@ -215,7 +251,29 @@ class EligibilityAssessmentServiceTests(SimpleTestCase):
         self.assertFalse(subject_workflow.status_transitions[0].is_enrolled)
         self.assertEqual(repository.gates[0].target_action, "enroll_subject")
         self.assertEqual(repository.gates[0].result, "pass")
+        self.assertEqual(repository.permission_checks[0]["site_id"], 2)
         self.assertTrue(audit.events)
+
+    def test_finalize_without_explicit_rule_ignores_transition_conditions(self):
+        repository = _FakeRepository()
+        repository.conditions = [
+            SimpleNamespace(
+                code="not_eligible",
+                expression_json=(
+                    '{"all":[{"fact":"eligibility.latest.result",'
+                    '"operator":"equals","value":"NOT_ELIGIBLE"}]}'
+                ),
+            )
+        ]
+        service, _, subject_workflow, _ = self._service(
+            facts={"screening.eligibility_conclusion": True},
+            repository=repository,
+        )
+
+        result = service.finalize(replace(self._finalize_command(), rule_code=None))
+
+        self.assertEqual(result.result, EligibilityResultChoices.ELIGIBLE)
+        self.assertEqual(subject_workflow.status_transitions[0].to_status, "Eligible")
 
     def test_finalize_not_eligible_creates_failures_and_screen_failure_gate(self):
         service, repository, subject_workflow, audit = self._service(
@@ -232,6 +290,50 @@ class EligibilityAssessmentServiceTests(SimpleTestCase):
         self.assertEqual(subject_workflow.status_transitions[0].to_status, "ScreenFailure")
         self.assertGreaterEqual(len(repository.failures), 1)
         self.assertEqual(repository.gates[0].result, "fail")
+        self.assertTrue(audit.events)
+
+    def test_finalize_can_read_facts_from_event_instance_source(self):
+        service, repository, subject_workflow, audit = self._service(facts={})
+
+        command = FinalizeEligibilityAssessmentCommand(
+            study_id=1,
+            site_id=2,
+            subject_id=3,
+            event_instance_id=4,
+            assessment_type="SCREENING",
+            source_context="datacapture",
+            source_object_type="EVENT_INSTANCE",
+            source_object_id=4,
+            study_version="v1",
+            actor_id=99,
+            rule_code="ELIGIBILITY_RULE_V1",
+            reason_text="assessment complete",
+        )
+
+        with patch(
+            "apps.datacapture.public.read_fact_snapshot_for_event_instance",
+            return_value=SimpleNamespace(
+                page_state_id=8,
+                page_entry_id=9,
+                event_instance_id=4,
+                source_data_version=3,
+                source_data_hash="hash",
+                blocking_queries_open=False,
+                facts={
+                    "screening.inclusion.all_required_passed": True,
+                    "screening.exclusion.any_exclusion_present": False,
+                    "screening.eligibility_conclusion": "yes",
+                },
+            ),
+        ) as mocked_reader:
+            result = service.finalize(command)
+
+        self.assertEqual(result.result, EligibilityResultChoices.ELIGIBLE)
+        self.assertEqual(mocked_reader.call_args.kwargs["event_instance_id"], 4)
+        self.assertEqual(repository.assessments[0].source_object_type, "EVENT_INSTANCE")
+        self.assertEqual(repository.assessments[0].source_object_id, 4)
+        self.assertEqual(repository.assessments[0].source_page_state_id, 8)
+        self.assertEqual(subject_workflow.status_transitions[0].to_status, "Eligible")
         self.assertTrue(audit.events)
 
     def test_cannot_enroll_without_current_final_eligible_assessment(self):

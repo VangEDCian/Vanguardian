@@ -27,7 +27,7 @@ class StudyRandomizationSchemeDeleteView(
     AuthenticateTemplateContextMixin,
     View,
 ):
-    permission_required = "study.update_study"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     delete_service_class = DeleteRandomizationSchemeService
@@ -85,7 +85,7 @@ class StudyRandomizationArmDeleteView(
     AuthenticateTemplateContextMixin,
     View,
 ):
-    permission_required = "study.update_study"
+    permission_required = "STUDY_CONFIG.MANAGE"
     authorization_scope = "STUDY"
     raise_exception = True
     delete_service_class = DeleteRandomizationArmService

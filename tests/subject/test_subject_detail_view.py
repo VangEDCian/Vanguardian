@@ -1,13 +1,333 @@
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from django.contrib.auth.models import AnonymousUser
 from django.template.loader import render_to_string
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase
+from django.utils import translation
 
 from apps.core.form_data_document import REPEAT_COUNTS_EXPORT_META_KEY
 from apps.subject.presentation.web.views import SubjectDetailView
+from apps.subject.presentation.web.views.detail import _field_has_reconcile_records
+
+
+class SubjectDetailViewReadonlyRedirectTests(SimpleTestCase):
+    def setUp(self):
+        self.request_factory = RequestFactory()
+
+    def test_user_without_crf_change_permissions_defaults_to_viewonly_first_form(self):
+        view = self._build_view()
+        request = self._build_request("/studies/1/subjects/1/")
+        view.setup(request, study_id=1, subject_id=1)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=False,
+        ):
+            response = view.get(request, study_id=1, subject_id=1)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            "/studies/1/subjects/1/?mode=viewonly&event=1&form=1",
+        )
+
+    def test_user_without_crf_change_permissions_preserves_requested_focus(self):
+        view = self._build_view()
+        request = self._build_request("/studies/1/subjects/1/?event=2&form=5")
+        view.setup(request, study_id=1, subject_id=1)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=False,
+        ):
+            response = view.get(request, study_id=1, subject_id=1)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            "/studies/1/subjects/1/?mode=viewonly&event=2&form=5",
+        )
+
+    def _build_view(self):
+        view = SubjectDetailView()
+        view.object = SimpleNamespace(pk=1, site_id=1)
+        view.get_object = lambda: view.object
+        view.get_study_id = lambda: 1
+        view._build_event_navigation = lambda: [
+            {
+                "id": "1",
+                "status": "open",
+                "forms": [{"id": "1", "form_definition_id": "11"}],
+                "repeat_event_instances": [],
+            },
+            {
+                "id": "2",
+                "status": "open",
+                "forms": [{"id": "5", "form_definition_id": "12"}],
+                "repeat_event_instances": [],
+            },
+        ]
+        return view
+
+    def _build_request(self, path):
+        request = self.request_factory.get(path)
+        request.user = SimpleNamespace(is_authenticated=True, is_superuser=False)
+        return request
+
+
+class SubjectDetailViewPeriodOverrideTests(SimpleTestCase):
+    def test_builds_override_action_only_with_permission_and_available_period(self):
+        view = SubjectDetailView()
+        view.request = SimpleNamespace(user=SimpleNamespace(pk=99))
+        view.get_study_id = lambda: 1
+        view.period_override_service_class = _PeriodOverrideAvailabilityServiceStub
+        subject = SimpleNamespace(pk=20, site_id=2)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=True,
+        ):
+            context = view._build_period_override_context(subject=subject)
+
+        self.assertEqual(context["current_period_no"], 1)
+        self.assertEqual(context["next_period_no"], 2)
+        self.assertEqual(
+            context["submit_url"],
+            "/studies/1/subjects/20/period-transition/override/",
+        )
+
+    def test_hides_override_action_without_permission(self):
+        view = SubjectDetailView()
+        view.request = SimpleNamespace(user=SimpleNamespace(pk=99))
+        view.get_study_id = lambda: 1
+        subject = SimpleNamespace(pk=20, site_id=2)
+
+        with patch(
+            "apps.subject.presentation.web.views.detail.user_can_access_permission",
+            return_value=False,
+        ):
+            context = view._build_period_override_context(subject=subject)
+
+        self.assertIsNone(context)
+
+    @translation.override("vi")
+    def test_renders_period_override_action_and_audit_warning_in_vietnamese(self):
+        request = RequestFactory().get("/studies/1/subjects/20/")
+        request.user = AnonymousUser()
+
+        rendered = render_to_string(
+            "subject/subject_detail.html",
+            {
+                "subject_obj": SimpleNamespace(
+                    pk=20,
+                    site=SimpleNamespace(code="SITE01"),
+                    screening_code="SCR-001",
+                    get_lifecycle_status_display=lambda: "Active",
+                ),
+                "subject_display_id": "SUBJ-001",
+                "study_header_label": "Study 01",
+                "auth_user": {
+                    "is_superuser": False,
+                    "display_name": "Demo User",
+                    "username": "demo",
+                    "email": "",
+                },
+                "back_url": "/studies/1/subjects/",
+                "audit_history_url": "/audit/",
+                "period_override": {
+                    "current_period_no": 1,
+                    "current_treatment_code": "TREATMENT_A",
+                    "current_status": "active",
+                    "next_period_no": 2,
+                    "next_treatment_code": "TREATMENT_B",
+                    "source_event_status": "in_progress",
+                    "submit_url": (
+                        "/studies/1/subjects/20/period-transition/override/"
+                    ),
+                },
+                "event_navigation": [],
+                "focused_forms": [],
+            },
+            request=request,
+        )
+
+        self.assertIn("Chuyển giai đoạn", rendered)
+        self.assertIn("Kích hoạt Giai đoạn 2", rendered)
+        self.assertIn(
+            "Trạng thái lần thăm khám kết thúc giai đoạn hiện tại: IN_PROGRESS",
+            rendered,
+        )
+        self.assertIn("Tồn đọng nhập liệu", rendered)
+        self.assertNotIn("Activate Period 2", rendered)
+        self.assertIn(
+            "/studies/1/subjects/20/period-transition/override/",
+            rendered,
+        )
+
+
+class SubjectDetailViewEventAttestationTests(SimpleTestCase):
+    def setUp(self):
+        self.view = SubjectDetailView()
+        self.view.get_study_id = lambda: 1
+
+    def test_hides_attestation_policy_without_required_permission(self):
+        panel = self.view._with_event_attestation_urls(
+            {
+                "has_policies": True,
+                "policies": [
+                    {
+                        "policy_id": 1,
+                        "readiness": {
+                            "permission_allowed": False,
+                            "can_submit": False,
+                        },
+                        "active_attestation": None,
+                    }
+                ],
+                "history": [],
+            },
+            subject_id=11,
+            event_instance_id=262,
+        )
+
+        self.assertFalse(panel["has_policies"])
+        self.assertEqual(panel["policies"], [])
+
+    def test_does_not_load_event_attestation_panel_outside_verification_mode(self):
+        with patch(
+            "apps.subject.presentation.web.views.detail.get_event_attestation_panel_for_event_instance"
+        ) as panel_reader:
+            panel = self.view._build_event_attestation_panel(
+                is_form_verification_mode=False,
+                focused_event={"id": 262},
+                subject_id=11,
+            )
+
+        self.assertIsNone(panel)
+        panel_reader.assert_not_called()
+
+    def test_loads_event_attestation_panel_in_verification_mode(self):
+        self.view.request = SimpleNamespace(
+            user=SimpleNamespace(id=7, is_superuser=False),
+        )
+        source_panel = {"has_policies": False}
+
+        with (
+            patch(
+                "apps.subject.presentation.web.views.detail.get_event_attestation_panel_for_event_instance",
+                return_value=source_panel,
+            ) as panel_reader,
+            patch.object(
+                self.view,
+                "_with_event_attestation_urls",
+                return_value=source_panel,
+            ) as url_builder,
+        ):
+            panel = self.view._build_event_attestation_panel(
+                is_form_verification_mode=True,
+                focused_event={"id": 262},
+                subject_id=11,
+            )
+
+        self.assertIs(panel, source_panel)
+        panel_reader.assert_called_once_with(
+            event_instance_id=262,
+            actor_user_id=7,
+            actor_is_superuser=False,
+            language_code="en",
+        )
+        url_builder.assert_called_once_with(
+            source_panel,
+            subject_id=11,
+            event_instance_id=262,
+        )
+
+    def test_keeps_attestation_policy_with_required_permission(self):
+        panel = self.view._with_event_attestation_urls(
+            {
+                "has_policies": True,
+                "policies": [
+                    {
+                        "policy_id": 1,
+                        "readiness": {
+                            "permission_allowed": True,
+                            "can_submit": True,
+                        },
+                        "active_attestation": None,
+                    }
+                ],
+                "history": [],
+            },
+            subject_id=11,
+            event_instance_id=262,
+        )
+
+        self.assertTrue(panel["has_policies"])
+        self.assertEqual(len(panel["policies"]), 1)
+        self.assertEqual(
+            panel["policies"][0]["submit_url"],
+            "/api/studies/1/subjects/11/events/262/attestations/1/submit/",
+        )
+
+    def test_certified_visit_keeps_only_status_and_history(self):
+        current_certification = {
+            "id": 91,
+            "status": "ACTIVE",
+            "is_current_scope": True,
+        }
+        history = [{"id": 91, "status": "ACTIVE"}]
+
+        panel = self.view._with_event_attestation_urls(
+            {
+                "has_policies": True,
+                "visit_is_certified": True,
+                "current_certification": current_certification,
+                "policies": [{"policy_id": 1}],
+                "history": history,
+            },
+            subject_id=11,
+            event_instance_id=262,
+        )
+
+        self.assertTrue(panel["has_policies"])
+        self.assertEqual(panel["policies"], [])
+        self.assertEqual(panel["current_certification"], current_certification)
+        self.assertEqual(panel["history"], history)
+
+
+class _PeriodOverrideAvailabilityServiceStub:
+    def get_availability(self, *, subject_id):
+        return SimpleNamespace(
+            available=True,
+            current_period_no=1,
+            current_treatment_code="TREATMENT_A",
+            current_status="active",
+            next_period_no=2,
+            next_treatment_code="TREATMENT_B",
+            source_event_status="in_progress",
+        )
 
 
 class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
+    def test_field_history_flags_require_matching_reconcile_records_for_same_field(self):
+        result = _field_has_reconcile_records(
+            field_template_id=12,
+            query_field_template_ids_with_records={11, 14},
+            validation_issue_field_template_ids_with_records={13, 15},
+        )
+
+        self.assertEqual(result, (False, False))
+
+    def test_field_history_flags_detect_query_and_validation_issue_records_per_field(self):
+        result = _field_has_reconcile_records(
+            field_template_id=12,
+            query_field_template_ids_with_records={12, 14},
+            validation_issue_field_template_ids_with_records={12, 15},
+        )
+
+        self.assertEqual(result, (True, True))
+
     def test_parse_choice_options_supports_json_value_label_list(self):
         raw_options = '[{"value":"M","label":"Male"},{"value":"F","label":"Female"}]'
 
@@ -31,6 +351,25 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
             [
                 {"label": "Male", "value": "M"},
                 {"label": "Female", "value": "F"},
+            ],
+        )
+
+    def test_normalize_options_config_uses_value_when_static_label_is_blank(self):
+        result = SubjectDetailView._normalize_options_config(
+            {
+                "source": "static",
+                "static": [
+                    {"value": "250", "label": ""},
+                    {"value": "500", "label": ""},
+                ],
+            }
+        )
+
+        self.assertEqual(
+            result["static"],
+            [
+                {"value": "250", "label": "250"},
+                {"value": "500", "label": "500"},
             ],
         )
 
@@ -84,6 +423,20 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         )
 
         self.assertEqual(result, "F")
+
+    def test_build_table_row_cells_normalizes_html_line_breaks_for_criterion_text(self):
+        result = SubjectDetailView._build_table_row_cells(
+            {
+                "field_key": "ELIGIBILITY",
+                "label": "Line 1<br>Line 2",
+                "helper_text": "Help 1<br/>Help 2",
+                "is_required": False,
+            },
+            [{"key": "criterion", "source": "label", "cell_class": ""}],
+        )
+
+        self.assertEqual(result[0]["text"], "Line 1\nLine 2")
+        self.assertEqual(result[0]["helper_text"], "Help 1\nHelp 2")
 
     def test_repeatable_section_renders_saved_repeat_instances(self):
         view = SubjectDetailView()
@@ -292,6 +645,71 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertIn('type="time"', rendered)
         self.assertIn('value=""', rendered)
 
+    def test_field_render_resolves_select2_control_template(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "field": {
+                    "id": 14,
+                    "field_key": "HOSPITAL",
+                    "label": "Hospital",
+                    "control_type": "SELECT2",
+                    "value": "HOSPITAL_A",
+                    "display_value": "Hospital A",
+                    "lookup_key": "hospital",
+                    "options_config": {"source": "lookup", "lookup": "hospital"},
+                    "is_required": False,
+                },
+                "shared_study_selected_id": 31,
+                "shared_site_selected_id": 41,
+            },
+        )
+
+        self.assertIn('name="HOSPITAL"', rendered)
+        self.assertIn('value="HOSPITAL_A"', rendered)
+        self.assertIn('value="Hospital A"', rendered)
+        self.assertIn("data-field-lookup-value-input", rendered)
+        self.assertIn("data-field-lookup-label-input", rendered)
+        self.assertIn('data-field-lookup-key="hospital"', rendered)
+        self.assertIn("study_id=31", rendered)
+        self.assertIn("study_site_id=41", rendered)
+        self.assertIn('data-submitted-diff-control="select2"', rendered)
+        self.assertNotIn("Unsupported control type", rendered)
+
+    def test_field_render_resolves_static_select2_options(self):
+        rendered = render_to_string(
+            "subject/components/_field_render.html",
+            {
+                "field": {
+                    "id": 150,
+                    "field_key": "ECG_PKPD_RATE",
+                    "label": "Sampling Rate (Frequency)",
+                    "control_type": "SELECT2",
+                    "value": "250",
+                    "display_value": "250",
+                    "lookup_key": "",
+                    "options_config": {"source": "static"},
+                    "options": [
+                        {"value": "250", "label": "250"},
+                        {"value": "500", "label": "500"},
+                        {"value": "1000", "label": "1000"},
+                    ],
+                    "is_required": False,
+                },
+                "shared_study_selected_id": 1,
+                "shared_site_selected_id": 1,
+            },
+        )
+
+        self.assertIn('name="ECG_PKPD_RATE"', rendered)
+        self.assertIn('value="250"', rendered)
+        self.assertIn('data-submitted-diff-control="select2"', rendered)
+        self.assertIn('id="field-lookup-options-150"', rendered)
+        self.assertIn('<option value="250" data-lookup-value="250"></option>', rendered)
+        self.assertIn('<option value="500" data-lookup-value="500"></option>', rendered)
+        self.assertIn('<option value="1000" data-lookup-value="1000"></option>', rendered)
+        self.assertNotIn("Unsupported control type", rendered)
+
     def test_number_control_renders_range_and_precision_attrs(self):
         rendered = render_to_string(
             "subject/components/_field_render.html",
@@ -315,6 +733,83 @@ class SubjectDetailViewChoiceOptionsTests(SimpleTestCase):
         self.assertIn('data-range-max="120.25"', rendered)
         self.assertIn('data-precision="2"', rendered)
         self.assertIn('inputmode="decimal"', rendered)
+
+    def test_field_query_indicator_hides_history_icons_while_current_items_exist(self):
+        rendered = render_to_string(
+            "subject/components/_field_query_indicator.html",
+            {
+                "field": {
+                    "id": 1,
+                    "field_key": "AGE",
+                    "label": "Age",
+                    "value": "-1",
+                    "display_value": "-1",
+                    "active_query_id": 99,
+                    "has_query_history": True,
+                    "query_messages": [],
+                    "closed_query_histories": [],
+                    "validation_issue_count": 1,
+                    "validation_issues": [
+                        {
+                            "id": 7,
+                            "message": "Out of range",
+                            "severity": "major",
+                            "status": "OPEN",
+                            "created_at": "2026-06-17 12:00",
+                        }
+                    ],
+                    "has_validation_issue_history": True,
+                }
+            },
+        )
+
+        self.assertIn('title="Current Query"', rendered)
+        self.assertIn('title="Validation Issue"', rendered)
+        self.assertNotIn('title="Query History"', rendered)
+        self.assertNotIn('title="Validation Issue History"', rendered)
+
+    def test_field_query_indicator_preserves_validation_issue_failed_value_snapshot(self):
+        rendered = render_to_string(
+            "subject/components/_field_query_indicator.html",
+            {
+                "field": {
+                    "id": 1,
+                    "field_key": "AGE",
+                    "label": "Age",
+                    "value": "19",
+                    "display_value": "19",
+                    "active_query_id": None,
+                    "has_query_history": False,
+                    "query_messages": [],
+                    "closed_query_histories": [
+                        {
+                            "dataquery_id": "validation_issue_7",
+                            "status": "ACKNOWLEDGED",
+                            "label": "Validation Issue #7",
+                            "value_snapshot": "8",
+                            "opened_at": "2026-06-17 12:00",
+                            "closed_at": "2026-06-17 12:05",
+                            "messages": [],
+                        }
+                    ],
+                    "validation_issue_count": 1,
+                    "validation_issues": [
+                        {
+                            "id": 7,
+                            "message": "Out of range",
+                            "failed_value_display": "8",
+                            "severity": "major",
+                            "status": "OPEN",
+                            "created_at": "2026-06-17 12:00",
+                        }
+                    ],
+                    "has_validation_issue_history": True,
+                }
+            },
+        )
+
+        self.assertIn('data-issue-failed-value="8"', rendered)
+        self.assertIn('data-history-value="8"', rendered)
 
 
 class SubjectDetailPageEntryFooterTests(SimpleTestCase):
@@ -375,6 +870,37 @@ class SubjectDetailPageEntryFooterTests(SimpleTestCase):
 
 
 class SubjectDetailPageEntryMainTests(SimpleTestCase):
+    def test_form_render_header_uses_runtime_display_label(self):
+        rendered = render_to_string(
+            "subject/components/_form_render.html",
+            {
+                "focused_form": {"title": "AE #1 — acxc"},
+                "focused_page_status": "submitted",
+                "focused_event": {"name": "Screening"},
+                "form_render_sections": [{"title": "Section A", "fields": []}],
+                "can_add_repeat_sections": False,
+            },
+        )
+
+        self.assertIn("AE #1 — acxc", rendered)
+        self.assertIn("(SUBMITTED)", rendered)
+        self.assertNotIn("Adverse Event Log", rendered)
+
+    def test_form_render_placeholder_uses_runtime_display_label(self):
+        rendered = render_to_string(
+            "subject/components/_form_render.html",
+            {
+                "focused_form": {"title": "AE #1 — acxc"},
+                "focused_page_status": "",
+                "focused_event": {"name": "Screening"},
+                "form_render_sections": [],
+                "can_add_repeat_sections": False,
+            },
+        )
+
+        self.assertIn("AE #1 — acxc", rendered)
+        self.assertNotIn("Adverse Event Log", rendered)
+
     def test_radio_control_renders_clear_button_after_options(self):
         rendered = render_to_string(
             "subject/components/controls/_radio_control.html",
@@ -674,6 +1200,47 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
 
         self.assertLess(rendered.index('data-field-key="FIRST"'), rendered.index('data-field-key="SECOND"'))
 
+    def test_validation_issue_field_uses_separate_state_class_from_open_query(self):
+        rendered = render_to_string(
+            "subject/components/_section_render.html",
+            {
+                "hide_section_title": False,
+                "section": {
+                    "id": "7",
+                    "title": "Demographics",
+                    "layout_type": "grid",
+                    "show_section_header": True,
+                    "fields": [
+                        {
+                            "id": 11,
+                            "field_key": "DOB",
+                            "label": "Date of Birth",
+                            "control_type": "date",
+                            "value": "2028-02-01",
+                            "display_value": "01/02/2028",
+                            "date_day": "01",
+                            "date_month": "02",
+                            "date_year": "2028",
+                            "validation_issue_count": 1,
+                            "validation_issues": [
+                                {
+                                    "id": 501,
+                                    "message": "DOB is in the future.",
+                                    "mode": "SOFT",
+                                    "severity": "WARNING",
+                                    "status": "open",
+                                }
+                            ],
+                        },
+                    ],
+                },
+            },
+        )
+
+        self.assertIn("subject-form-field--has-validation-issue", rendered)
+        self.assertNotIn("subject-form-field--has-open-query", rendered)
+        self.assertIn("data-validation-issue-modal-trigger", rendered)
+
     def test_table_section_render_sorts_fields_by_display_order(self):
         rendered = render_to_string(
             "subject/components/_section_table_render.html",
@@ -711,6 +1278,31 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         )
 
         self.assertLess(rendered.index('data-field-key="FIRST"'), rendered.index('data-field-key="SECOND"'))
+
+    def test_table_section_render_converts_multiline_criterion_text_to_br(self):
+        rendered = render_to_string(
+            "subject/components/_field_table_row_render.html",
+            {
+                "section": {"table_layout": {"response_direction": "horizontal"}},
+                "field": {
+                    "field_key": "ELIGIBILITY",
+                    "control_type": "text",
+                    "table_row_cells": [
+                        {
+                            "kind": "text",
+                            "source": "label",
+                            "text": "Line 1\nLine 2",
+                            "show_required": False,
+                            "helper_text": "Help 1\nHelp 2",
+                            "cell_class": "subject-form-table-row__cell--criterion",
+                        }
+                    ],
+                },
+            },
+        )
+
+        self.assertIn("Line 1<br>Line 2", rendered)
+        self.assertIn("Help 1<br>Help 2", rendered)
 
     def test_repeat_table_render_sorts_headers_and_row_fields_by_display_order(self):
         rendered = render_to_string(
@@ -827,7 +1419,76 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         )
 
         self.assertIn("subject/js/subject_detail_sidebar_scroll.js", rendered)
+        self.assertIn("subject/js/subject_detail_sidebar_resize.js", rendered)
+        self.assertIn("data-subject-sidebar-resizer", rendered)
+        self.assertIn('role="separator"', rendered)
         self.assertIn('class="subject-detail-sidebar__child is-active"', rendered)
+
+    def test_subject_detail_marks_sidebar_form_tone_classes(self):
+        rendered = render_to_string(
+            "subject/subject_detail.html",
+            {
+                "focused_forms": [{"id": 6, "title": "Vitals", "focus_url": "/subjects/1/?event=1&form=6"}],
+                "event_navigation": [
+                    {
+                        "id": 1,
+                        "name": "Visit 1",
+                        "status": "open",
+                        "focus_url": "/subjects/1/?event=1",
+                        "is_repeating": False,
+                        "forms": [
+                            {
+                                "id": 6,
+                                "title": "Vitals",
+                                "focus_url": "/subjects/1/?event=1&form=6",
+                                "sidebar_tone": "success",
+                            },
+                            {
+                                "id": 7,
+                                "title": "Lab",
+                                "focus_url": "/subjects/1/?event=1&form=7",
+                                "sidebar_tone": "danger",
+                            },
+                        ],
+                    }
+                ],
+                "focused_event": {"id": 1},
+                "focused_form": {"id": 6, "title": "Vitals"},
+                "focused_render_entry": {"id": 99},
+                "focused_page_status": "in_progress",
+                "datacapture_save_url": "/api/save/",
+                "datacapture_submit_url": "/api/submit/",
+                "is_form_verification_mode": False,
+                "is_subject_detail_viewonly_mode": False,
+                "is_viewing_submitted_version": False,
+                "is_page_edit_locked": False,
+                "form_render_sections": [],
+                "current_data_values": {},
+                "previous_data_values": None,
+                "previous_submitted_entry_values": {},
+                "reason_required_field_keys": [],
+                "page_entry_has_open_queries": False,
+                "subject_display_id": "SUBJ-001",
+                "subject_obj": {"site": {"code": "SITE-01"}, "screening_code": "SCR-01"},
+                "study_header_label": "Study A",
+                "back_url": "/subjects/",
+                "auth_user": {"is_superuser": False, "display_name": "Demo User", "username": "demo", "email": ""},
+                "shared_study_selected_id": 1,
+                "shared_study_select_default": "Study A",
+                "shared_study_select_options": [],
+                "shared_study_cookies_key": "study",
+                "shared_site_select_default": "Site 01",
+                "shared_site_select_options": [],
+                "shared_site_cookies_key": "site",
+                "shared_language_select_options": [],
+                "layout_nav_key": "",
+                "layout_show_breadcrumb_trail": False,
+                "layout_detail_meta_items": [],
+            },
+        )
+
+        self.assertIn("subject-detail-sidebar__child is-active subject-detail-sidebar__child--success", rendered)
+        self.assertIn("subject-detail-sidebar__child subject-detail-sidebar__child--danger", rendered)
 
     def test_subject_detail_marks_repeating_event_group_active_for_sidebar_scroll(self):
         rendered = render_to_string(
@@ -949,3 +1610,61 @@ class SubjectDetailPageEntryMainTests(SimpleTestCase):
         self.assertIn('data-message-text="Please confirm value"', rendered)
         self.assertIn("data-query-modal", rendered)
         self.assertIn('data-query-thread-url="/api/query-thread/"', rendered)
+
+    def test_acknowledged_validation_issue_history_renders_readonly_modal(self):
+        rendered = render_to_string(
+            "subject/includes/subject_detail_page_entry_main.html",
+            {
+                "LANGUAGE_CODE": "en",
+                "focused_event": {"id": 1},
+                "focused_form": {"id": 6, "title": "Vitals"},
+                "focused_render_entry": {"id": 99},
+                "focused_page_status": "submitted",
+                "is_viewing_submitted_version": False,
+                "is_page_edit_locked": False,
+                "page_entry_has_open_validation_issues": False,
+                "page_entry_has_validation_issue_records": True,
+                "form_render_sections": [
+                    {
+                        "layout_type": "grid",
+                        "fields": [
+                            {
+                                "id": 11,
+                                "field_key": "AGE",
+                                "label": "Age",
+                                "control_type": "number",
+                                "value": "999",
+                                "display_value": "999",
+                                "validation_issue_count": 0,
+                                "has_validation_issue_history": True,
+                                "validation_issue_histories": [
+                                    {
+                                        "dataquery_id": "validation_issue_200_snapshot_343",
+                                        "status": "ACKNOWLEDGED",
+                                        "label": "Validation Issue #200",
+                                        "value_snapshot": "999",
+                                        "opened_at": "07/31/2026 08:37",
+                                        "closed_at": "07/31/2026 08:37",
+                                        "messages": [
+                                            {
+                                                "text": "Ok",
+                                                "status": "ACKNOWLEDGED",
+                                                "opened_by": "Data Entry",
+                                                "opened_at": "07/31/2026 08:37",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+
+        self.assertIn('title="Validation Issue History"', rendered)
+        self.assertIn("data-validation-issue-modal", rendered)
+        self.assertIn('data-history-status="ACKNOWLEDGED"', rendered)
+        self.assertIn('data-message-text="Ok"', rendered)
+        self.assertNotIn("data-validation-issue-modal-comment", rendered)
+        self.assertNotIn("data-validation-issue-modal-submit", rendered)

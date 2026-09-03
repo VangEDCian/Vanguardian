@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
@@ -51,7 +51,8 @@ class SiteAbstractVerifyStudy(View):
 
 class SiteListView(
     AuthenticateTemplateContextMixin,
-    SingleTableMixin, FilterView, ListView,
+    SingleTableMixin,
+    FilterView,
     SiteAbstractVerifyStudy,
 ):
     permission_required = "site.view_site_list"
@@ -63,7 +64,11 @@ class SiteListView(
     template_name = "study/sites.html"
     table_class = SiteListTable
     filterset_class = SitesToolbarForm
-    paginate_by = 10
+    # FilterView's object-list paginator and django-tables2 otherwise paginate
+    # the same queryset independently. Keep pagination owned by the table so
+    # the page performs one fewer identical COUNT query.
+    paginate_by = None
+    table_pagination = {"per_page": 10}
 
     study_obj: Study = None
 
@@ -72,10 +77,30 @@ class SiteListView(
             super().get_queryset()
             .select_related("investigator")
             .filter(study_id=self.get_study_id(), deleted=False)
+            .only(
+                "id",
+                "study_id",
+                "code",
+                "name",
+                "is_active",
+                "investigator_id",
+                "investigator__id",
+                "investigator__first_name",
+                "investigator__last_name",
+                "investigator__display_name",
+                "investigator__username",
+            )
         )
+
+    def get_filterset_kwargs(self, filterset_class):
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        kwargs["defer_total_count"] = True
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        table = context["table"]
+        context["filter"].bind_total_field(total_value=table.paginator.count)
         context["can_create_site"] = user_can_access_permission(
             self.request.user,
             "site.create_site",

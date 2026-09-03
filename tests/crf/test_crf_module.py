@@ -139,6 +139,67 @@ class CrfTemplateQueryServiceTests(SimpleTestCase):
         self.assertEqual(payload[0]["range_max"], Decimal("200"))
         self.assertEqual(payload[0]["precision"], 2)
 
+    @patch(
+        "apps.crf.application.services.crf_template_query.get_language",
+        return_value="vi",
+    )
+    def test_export_fields_are_loaded_for_all_templates_in_one_batch(self, _get_language):
+        repository = MagicMock()
+        repository.list_export_fields_by_template_ids.return_value = [
+            SimpleNamespace(
+                pk=7,
+                crf_template_id=2,
+                field_key="WEIGHT",
+                ui_config=SimpleNamespace(
+                    deleted=False,
+                    control_type="RADIO",
+                    translations=SimpleNamespace(
+                        all=lambda: [
+                            SimpleNamespace(
+                                language_code="vi",
+                                options=(
+                                    '{"source":"static","static":['
+                                    '{"value":"1","label":"Có"},'
+                                    '{"value":"0","label":"Không"}]}'
+                                ),
+                            ),
+                        ]
+                    ),
+                ),
+                translations=SimpleNamespace(
+                    all=lambda: [
+                        SimpleNamespace(language_code="en", label="Weight"),
+                        SimpleNamespace(language_code="vi", label="Cân nặng"),
+                    ]
+                ),
+            ),
+            SimpleNamespace(
+                pk=8,
+                crf_template_id=3,
+                field_key="AGE",
+                translations=SimpleNamespace(
+                    all=lambda: [
+                        SimpleNamespace(language_code="en", label="Age"),
+                    ]
+                ),
+            ),
+        ]
+
+        payload = CrfTemplateQueryService(
+            repository=repository,
+        ).list_export_fields_by_template_ids(template_ids=(3, 2, 3))
+
+        repository.list_export_fields_by_template_ids.assert_called_once_with(
+            template_ids=(2, 3),
+        )
+        self.assertEqual(payload[2][0]["label"], "Cân nặng")
+        self.assertEqual(payload[2][0]["control_type"], "RADIO")
+        self.assertEqual(
+            payload[2][0]["choice_labels"],
+            {"1": "Có", "0": "Không"},
+        )
+        self.assertEqual(payload[3][0]["label"], "Age")
+
 
 class FieldTemplateAggregateTests(SimpleTestCase):
     def test_rejects_calculated_as_data_type(self):
@@ -377,8 +438,7 @@ class CrfFieldTemplateImportServiceTests(SimpleTestCase):
         repository.reset_template_fields_for_import.return_value = 3
         service = CrfFieldTemplateImportService(repository=repository)
 
-        result = CrfFieldTemplateImportService.reset_template_fields_for_import.__wrapped__(
-            service,
+        result = service.reset_template_fields_for_import(
             crf_template_id=17,
             actor_user_id=9,
             now="2026-05-26T10:00:00",
@@ -398,11 +458,10 @@ class CrfFieldTemplateImportServiceTests(SimpleTestCase):
         definition = MagicMock(pk=41)
         ui_config = MagicMock(pk=51)
         repository.build_field_template.return_value = field_template
-        repository.save_field_definition.return_value = definition
-        repository.save_field_ui_config.return_value = ui_config
+        repository.create_field_definition.return_value = definition
+        repository.create_field_ui_config.return_value = ui_config
         service = CrfFieldTemplateImportService(repository=repository)
-        action, field_template = CrfFieldTemplateImportService.upsert_template_field.__wrapped__(
-            service,
+        action, field_template = service.upsert_template_field(
             crf_template_id=17,
             section_template_id=23,
             payload={
@@ -450,13 +509,13 @@ class CrfFieldTemplateImportServiceTests(SimpleTestCase):
             created_at="2026-05-19T10:00:00",
             created_by_id=9,
         )
-        repository.save_field_template_translation.assert_any_call(
+        repository.create_field_template_translation.assert_any_call(
             field_template=field_template,
             language_code="vi",
             label="Bien co bat loi",
         )
-        repository.save_field_definition.assert_called_once()
-        repository.save_field_definition_translation.assert_any_call(
+        repository.create_field_definition.assert_called_once()
+        repository.create_field_definition_translation.assert_any_call(
             definition=definition,
             language_code="en",
             values={
@@ -466,8 +525,8 @@ class CrfFieldTemplateImportServiceTests(SimpleTestCase):
                 "pattern_err_msg": "Invalid",
             },
         )
-        repository.save_field_ui_config.assert_called_once()
-        repository.save_field_ui_config_translation.assert_any_call(
+        repository.create_field_ui_config.assert_called_once()
+        repository.create_field_ui_config_translation.assert_any_call(
             ui_config=ui_config,
             language_code="vi",
             values={

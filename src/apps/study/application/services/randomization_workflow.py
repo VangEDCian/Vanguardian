@@ -22,6 +22,7 @@ class RandomizationSlotAssignment:
     arm_code: str
     arm_name: str
     sequence_no: int
+    randomization_code: str
 
 
 class StudyRandomizationSlotAssignmentService:
@@ -84,6 +85,7 @@ class StudyRandomizationSlotAssignmentService:
                 arm_code=str(result["arm_code"] or ""),
                 arm_name=str(result["arm_name"] or ""),
                 sequence_no=int(result["sequence_no"]),
+                randomization_code=str(result.get("randomization_code") or ""),
             )
 
         raise RandomizationSlotAssignmentError("Unable to assign an available randomization slot after retries.")
@@ -98,8 +100,27 @@ class StudyRandomizationSlotAssignmentService:
         )
 
 
+class StudyRandomizationTransitionFactService:
+    repository_class = DjangoRandomizationRepository
+
+    def __init__(self, repository=None):
+        self.repository = repository or self.repository_class()
+
+    def build_facts(self, *, study_id: int) -> dict[str, object]:
+        facts = {
+            "randomization.available_slot_count": self.repository.count_available_slots_for_active_schemes(
+                study_id=study_id,
+            ),
+        }
+        active_scheme_status = self.repository.get_active_scheme_status(study_id=study_id)
+        if active_scheme_status:
+            facts["randomization.scheme.status"] = active_scheme_status
+        return facts
+
+
 __all__ = [
     "RandomizationSlotAssignment",
     "RandomizationSlotAssignmentError",
     "StudyRandomizationSlotAssignmentService",
+    "StudyRandomizationTransitionFactService",
 ]

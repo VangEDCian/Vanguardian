@@ -745,3 +745,58 @@ msgstr "Nhập biến"
 
 msgid "Enter role"
 msgstr "Nhập vai trò"
+
+#. ==============================
+#. Module: Subject
+#. Feature: Subject period override
+#. ==============================
+msgid "Advance Period"
+msgstr "Chuyển giai đoạn"
+
+#, python-format
+msgid "Activate Period %(period_no)s"
+msgstr "Kích hoạt Giai đoạn %(period_no)s"
+
+#, python-format
+msgid "Transition from Period %(current_period)s (%(current_treatment)s) to Period %(next_period)s (%(next_treatment)s). Existing CRF and event statuses will not be changed."
+msgstr "Chuyển từ Giai đoạn %(current_period)s (%(current_treatment)s) sang Giai đoạn %(next_period)s (%(next_treatment)s). Các trạng thái CRF và lần thăm khám hiện có sẽ không thay đổi."
+
+#, python-format
+msgid "Current period end event status: %(event_status)s"
+msgstr "Trạng thái lần thăm khám kết thúc giai đoạn hiện tại: %(event_status)s"
+
+msgid "Current period ended at"
+msgstr "Thời điểm kết thúc giai đoạn hiện tại"
+
+msgid "Next period started at"
+msgstr "Thời điểm bắt đầu giai đoạn tiếp theo"
+
+msgid "Reason"
+msgstr "Lý do"
+
+msgid "Select a reason"
+msgstr "Chọn lý do"
+
+msgid "Paper CRF delayed"
+msgstr "Chậm xử lý CRF giấy"
+
+msgid "Source document issue"
+msgstr "Vấn đề với tài liệu nguồn"
+
+msgid "Data entry backlog"
+msgstr "Tồn đọng nhập liệu"
+
+msgid "Protocol deviation"
+msgstr "Sai lệch đề cương"
+
+msgid "Other"
+msgstr "Khác"
+
+msgid "Details"
+msgstr "Chi tiết"
+
+msgid "I acknowledge that current-period data may remain incomplete."
+msgstr "Tôi xác nhận dữ liệu của giai đoạn hiện tại có thể vẫn chưa hoàn tất."
+
+msgid "I confirm the clinical transition and required washout were satisfied."
+msgstr "Tôi xác nhận việc chuyển giai đoạn điều trị và thời gian washout bắt buộc đã được đáp ứng."

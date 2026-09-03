@@ -3,7 +3,10 @@ from unittest.mock import MagicMock, patch
 
 from django.test import RequestFactory, SimpleTestCase
 
-from apps.shared.context_processors import SiteDropdownHandler
+from apps.shared.context_processors import SiteDropdownHandler, StudyDropdownHandler
+from apps.study.infrastructure.persistence.models import Site
+from apps.study.presentation.web.forms.site import SitesToolbarForm
+from apps.study.presentation.web.views.site import SiteListView
 
 
 class SiteDropdownHandlerTests(SimpleTestCase):
@@ -37,6 +40,31 @@ class SiteDropdownHandlerTests(SimpleTestCase):
         base_queryset.filter.assert_called_once_with(pk__in=[11, 12])
         filtered_queryset.order_by.assert_called_once_with("id")
         self.assertIs(result, ordered_queryset)
+
+    @patch.object(StudyDropdownHandler, "get_objects")
+    def test_dropdown_build_reuses_request_scoped_result(self, get_objects):
+        request = self._build_request(is_superuser=True)
+        get_objects.return_value = [SimpleNamespace(id=7, name="Study A", code="STUDY-A")]
+
+        first = StudyDropdownHandler(request=request).build()
+        second = StudyDropdownHandler(request=request).build()
+
+        self.assertIs(second, first)
+        get_objects.assert_called_once_with()
+
+    def test_site_list_uses_only_table_pagination(self):
+        self.assertIsNone(SiteListView.paginate_by)
+        self.assertEqual(SiteListView.table_pagination, {"per_page": 10})
+
+    def test_site_toolbar_can_reuse_table_paginator_total(self):
+        toolbar = SitesToolbarForm(queryset=Site.objects.none(), defer_total_count=True)
+
+        self.assertNotIn("total", toolbar.form.fields)
+
+        toolbar.bind_total_field(total_value=17)
+
+        self.assertIn("total", toolbar.form.fields)
+        self.assertEqual(toolbar.form.fields["total"].widget.total_value, 17)
 
     @patch("apps.shared.context_processors.StudySiteMembership")
     @patch("apps.shared.context_processors.Site")

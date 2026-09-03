@@ -1,0 +1,15 @@
+{% load i18n %}
+<article class="dashboard-panel dashboard-panel--randomization">
+    <div class="dashboard-panel__header">
+        <h2>{% trans "Randomization Readiness" %}</h2>
+        <p>{% trans "Randomization numbers for the selected scope." %}</p>
+    </div>
+    <div class="dashboard-metric-list">
+        {% for row in dashboard_randomization_rows %}
+            <div class="dashboard-metric-list__row">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.count }}</strong>
+            </div>
+        {% endfor %}
+    </div>
+</article>
