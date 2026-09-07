@@ -285,22 +285,6 @@ class SubjectWorkflowActionService:
             )
         from apps.study.public import EligibilityAssessmentPermissionError, FinalizeEligibilityAssessmentCommand
 
-        assessment = self.eligibility_assessment_finalizer(
-            FinalizeEligibilityAssessmentCommand(
-                study_id=event.study_id,
-                site_id=event.site_id,
-                subject_id=event.subject_id,
-                assessment_type=_ASSESSMENT_TYPE_SCREENING,
-                source_context="datacapture",
-                source_object_type="EVENT_INSTANCE",
-                source_object_id=source_event_instance_id,
-                study_version=event.study_version,
-                actor_id=actor_user_id,
-                automatic=automatic,
-                event_instance_id=event.event_instance_id,
-            )
-        )
-
         try:
             assessment = self.eligibility_assessment_finalizer(
                 FinalizeEligibilityAssessmentCommand(
@@ -313,6 +297,7 @@ class SubjectWorkflowActionService:
                     source_object_id=source_event_instance_id,
                     study_version=event.study_version,
                     actor_id=actor_user_id,
+                    automatic=automatic,
                     event_instance_id=event.event_instance_id,
                 )
             )
