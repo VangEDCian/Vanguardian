@@ -283,10 +283,7 @@ class SubjectWorkflowActionService:
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
                 reason="eligibility_source_page_state_not_found",
             )
-        from apps.study.public import (
-            EligibilityAssessmentPermissionError,
-            FinalizeEligibilityAssessmentCommand,
-        from apps.study.public import FinalizeEligibilityAssessmentCommand
+        from apps.study.public import EligibilityAssessmentPermissionError, FinalizeEligibilityAssessmentCommand
 
         assessment = self.eligibility_assessment_finalizer(
             FinalizeEligibilityAssessmentCommand(
