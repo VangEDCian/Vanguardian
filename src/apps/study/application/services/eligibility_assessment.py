@@ -106,6 +106,7 @@ class EligibilityAssessmentService:
             command.study_id,
             "finalize_subject_eligibility",
             site_id=command.site_id,
+            bypass=command.automatic,
         )
         if command.force_result:
             self._require_permission(
@@ -113,6 +114,7 @@ class EligibilityAssessmentService:
                 command.study_id,
                 "override_subject_eligibility",
                 site_id=command.site_id,
+                bypass=command.automatic,
             )
 
         subject_scope = self.subject_workflow_adapter.get_subject_scope(
@@ -359,6 +361,7 @@ class EligibilityAssessmentService:
             command.study_id,
             "finalize_subject_eligibility",
             site_id=command.site_id,
+            bypass=command.automatic,
         )
         assessment = self.repository.get_current_assessment(
             study_id=command.study_id,
@@ -725,7 +728,10 @@ class EligibilityAssessmentService:
         permission_codename: str,
         *,
         site_id: int | None = None,
+        bypass: bool = False,
     ) -> None:
+        if bypass:
+            return
         if not self.repository.actor_has_permission(
             actor_id=actor_id,
             study_id=study_id,

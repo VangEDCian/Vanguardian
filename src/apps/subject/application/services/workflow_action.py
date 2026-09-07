@@ -192,6 +192,7 @@ class SubjectWorkflowActionService:
                 return self._execute_enrollment_workflow(
                     event=event,
                     actor_user_id=actor_user_id,
+                    automatic=automatic,
                 )
             event_category = (event.event_category or "").strip().lower()
             if event_category == _EVENT_CATEGORY_WASHOUT:
@@ -285,6 +286,22 @@ class SubjectWorkflowActionService:
         from apps.study.public import (
             EligibilityAssessmentPermissionError,
             FinalizeEligibilityAssessmentCommand,
+        from apps.study.public import FinalizeEligibilityAssessmentCommand
+
+        assessment = self.eligibility_assessment_finalizer(
+            FinalizeEligibilityAssessmentCommand(
+                study_id=event.study_id,
+                site_id=event.site_id,
+                subject_id=event.subject_id,
+                assessment_type=_ASSESSMENT_TYPE_SCREENING,
+                source_context="datacapture",
+                source_object_type="EVENT_INSTANCE",
+                source_object_id=source_event_instance_id,
+                study_version=event.study_version,
+                actor_id=actor_user_id,
+                automatic=automatic,
+                event_instance_id=event.event_instance_id,
+            )
         )
 
         try:
@@ -335,6 +352,7 @@ class SubjectWorkflowActionService:
         *,
         event,
         actor_user_id: int | None,
+        automatic: bool,
     ) -> SubjectWorkflowActionResult:
         from apps.study.public import EligibilityEnrollmentGateError, EnrollSubjectCommand
 
@@ -345,6 +363,7 @@ class SubjectWorkflowActionService:
                     site_id=event.site_id,
                     subject_id=event.subject_id,
                     actor_id=actor_user_id,
+                    automatic=automatic,
                     assessment_type=_ASSESSMENT_TYPE_SCREENING,
                 )
             )

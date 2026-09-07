@@ -206,6 +206,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
                 event_instance_id=60,
                 actor_user_id=99,
                 source_event_instance_id=10,
+                automatic=True,
             )
 
         self.assertTrue(result.executed)
@@ -213,6 +214,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(finalizer.commands[0].source_object_type, "EVENT_INSTANCE")
         self.assertEqual(finalizer.commands[0].source_object_id, 10)
         self.assertEqual(finalizer.commands[0].event_instance_id, 60)
+        self.assertTrue(finalizer.commands[0].automatic)
         self.assertIsNone(finalizer.commands[0].rule_code)
         self.assertIsNone(finalizer.commands[0].rule_expression_json)
         self.assertEqual(repository.workflow_action_rule_calls, [])

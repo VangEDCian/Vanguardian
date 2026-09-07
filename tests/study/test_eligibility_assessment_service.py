@@ -254,6 +254,24 @@ class EligibilityAssessmentServiceTests(SimpleTestCase):
         self.assertEqual(repository.permission_checks[0]["site_id"], 2)
         self.assertTrue(audit.events)
 
+    def test_automatic_finalize_bypasses_actor_permission(self):
+        repository = _FakeRepository()
+        repository.permissions.clear()
+        service, _, subject_workflow, _ = self._service(
+            facts={
+                "screening.inclusion.all_required_passed": True,
+                "screening.exclusion.any_exclusion_present": False,
+                "screening.eligibility_conclusion": "yes",
+            },
+            repository=repository,
+        )
+
+        result = service.finalize(replace(self._finalize_command(), automatic=True))
+
+        self.assertEqual(result.result, EligibilityResultChoices.ELIGIBLE)
+        self.assertEqual(subject_workflow.status_transitions[0].to_status, "Eligible")
+        self.assertEqual(repository.permission_checks, [])
+
     def test_finalize_without_explicit_rule_ignores_transition_conditions(self):
         repository = _FakeRepository()
         repository.conditions = [
