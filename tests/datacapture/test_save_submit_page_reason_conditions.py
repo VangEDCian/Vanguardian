@@ -577,6 +577,39 @@ class DataCaptureSubmitReasonConditionTests(SimpleTestCase):
 
         self.assertEqual(len(reconcile_data_query_write_service.validation_failure_record_calls), 1)
 
+    def test_custom_expression_num_accepts_comma_decimal_separator(self):
+        repository = _SubmitReasonRepository(
+            page_status=DataCapturePageStateStatusChoices.SUBMITTED,
+            validation_rules_by_field_key={
+                "TEMPERATURE": (
+                    {
+                        "id": 101,
+                        "field_template_id": 1,
+                        "mode": "SOFT",
+                        "rule_type": "CUSTOM_EXPRESSION",
+                        "severity": "warning",
+                        "expression": "num($val) < 34 or num($val) > 42",
+                        "message": "Temperature must be between 34 and 42.",
+                    },
+                )
+            },
+        )
+        reconcile_data_query_write_service = _ReconcileDataQueryWriteService()
+
+        _submit_without_transaction(
+            _service(repository, reconcile_data_query_write_service=reconcile_data_query_write_service),
+            SubmitPageCommand(
+                subject_id=41,
+                visit_id=51,
+                crf_template_id=31,
+                data='{"TEMPERATURE": "36,5"}',
+                actor_user_id=1,
+            ),
+        )
+
+        failures = reconcile_data_query_write_service.validation_failure_record_calls[0]["failures"]
+        self.assertEqual(failures, [])
+
     def test_custom_expression_supports_days_between_function_for_date_rules(self):
         repository = _SubmitReasonRepository(
             page_status=DataCapturePageStateStatusChoices.SUBMITTED,

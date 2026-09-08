@@ -19,7 +19,7 @@ REPEAT_KEY_RE = re.compile(r"^(?P<base>.+?)__repeat_(?P<repeat_index>\d+)$")
 
 def _num(value) -> float:
     if isinstance(value, str):
-        value = value.strip()
+        value = value.strip().replace(",", ".")
     return float(value)
 
 
