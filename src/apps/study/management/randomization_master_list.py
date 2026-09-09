@@ -1,7 +1,7 @@
 import csv
 import hashlib
 import io
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass
 
 from django.core.management.base import CommandError
@@ -11,7 +11,6 @@ from apps.study.domain import (
     format_scheme_randomization_code,
 )
 
-EXPECTED_BLOCK_SIZES = (4, 4, 4, 4, 4, 6, 6, 6, 6)
 REQUIRED_COLUMNS = (
     "Scheme Code",
     "Randomization ID",
@@ -54,16 +53,23 @@ def parse_and_validate_nng31_master_list(*, content: bytes, study, scheme, arms_
             raise CommandError(f"Line {line_no} has an invalid sequence or block number.") from exc
         rows.append(row)
 
-    if len(rows) != 44 or scheme.target_randomized_total != 44:
-        raise CommandError("NNG31 master list and scheme target must both contain exactly 44 allocations.")
-    if str(study.code).strip().upper() != "NNG31" or scheme.code != "NNG31_XOVER":
-        raise CommandError("This command only accepts study NNG31 and scheme NNG31_XOVER.")
-    if set(arms_by_code) != {"SEQ_E_N", "SEQ_N_E"}:
-        raise CommandError("NNG31_XOVER must have exactly the active arms SEQ_E_N and SEQ_N_E.")
+    expected_total = int(scheme.target_randomized_total or 0)
+    if len(rows) != expected_total:
+        raise CommandError(
+            "Master list must contain exactly the scheme target of "
+            f"{expected_total} allocations."
+        )
+    if str(study.code).strip().upper() != "NNG31":
+        raise CommandError("This command only accepts study NNG31.")
+    if len(arms_by_code) != 2:
+        raise CommandError("The NNG31 crossover scheme must have exactly two active arms.")
 
-    expected_sequences = list(range(1, 45))
+    expected_sequences = list(range(1, expected_total + 1))
     if [row.sequence_no for row in rows] != expected_sequences:
-        raise CommandError("Sequence No must be ordered, unique, and contiguous from 1 through 44.")
+        raise CommandError(
+            "Sequence No must be ordered, unique, and contiguous from 1 through "
+            f"{expected_total}."
+        )
     try:
         expected_codes = [
             format_scheme_randomization_code(scheme=scheme, sequence_no=sequence_no)
@@ -81,30 +87,14 @@ def parse_and_validate_nng31_master_list(*, content: bytes, study, scheme, arms_
     if any(row.arm_code not in arms_by_code for row in rows):
         raise CommandError("Every Arm Code must reference an active NNG31 crossover arm.")
 
-    rows_by_block = defaultdict(list)
-    for row in rows:
-        rows_by_block[row.block_no].append(row)
-    if sorted(rows_by_block) != list(range(1, 10)):
-        raise CommandError("Block No must be contiguous from 1 through 9.")
-    expected_block_numbers = [
-        block_no
-        for block_no, block_size in enumerate(EXPECTED_BLOCK_SIZES, start=1)
-        for _offset in range(block_size)
-    ]
-    if [row.block_no for row in rows] != expected_block_numbers:
-        raise CommandError("Each block must occupy one contiguous sequence range in block order.")
-    actual_sizes = tuple(len(rows_by_block[block_no]) for block_no in range(1, 10))
-    if actual_sizes != EXPECTED_BLOCK_SIZES:
-        raise CommandError("NNG31 requires five blocks of 4 followed by four blocks of 6.")
-    for block_no, block_rows in rows_by_block.items():
-        counts = Counter(row.arm_code for row in block_rows)
-        expected_per_arm = len(block_rows) // 2
-        if any(counts[arm_code] != expected_per_arm for arm_code in arms_by_code):
-            raise CommandError(f"Block {block_no} is not balanced 1:1.")
-
     totals = Counter(row.arm_code for row in rows)
-    if totals != Counter({"SEQ_E_N": 22, "SEQ_N_E": 22}):
-        raise CommandError("NNG31 master list must allocate exactly 22 subjects to each sequence.")
+    expected_per_arm = expected_total // 2
+    if expected_total % 2 or totals != Counter(
+        {arm_code: expected_per_arm for arm_code in arms_by_code}
+    ):
+        raise CommandError(
+            "Master list must allocate subjects equally between the two sequences."
+        )
     return rows, hashlib.sha256(content).hexdigest()
 
 

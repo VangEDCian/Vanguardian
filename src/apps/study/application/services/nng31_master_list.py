@@ -31,9 +31,6 @@ from apps.study.domain import (
 )
 from apps.study.infrastructure.repositories import DjangoNng31MasterListRepository
 
-EXPECTED_BLOCK_SIZES = (4, 4, 4, 4, 4, 6, 6, 6, 6)
-EXPECTED_RANDOMIZATION_TOTAL = sum(EXPECTED_BLOCK_SIZES)
-
 
 @dataclass(frozen=True)
 class Nng31MasterListPreviewResult(RandomizationImportPreviewResult):
@@ -200,31 +197,24 @@ class PreviewNng31MasterListImportService:
                     "Configure Randomization Code Prefix on the scheme before importing the master list.",
                 )
             )
-        if len(parsed_rows) != EXPECTED_RANDOMIZATION_TOTAL:
+        expected_total = int(scheme.target_randomized_total or 0)
+        if len(parsed_rows) != expected_total:
             issues.append(
                 self._issue(
                     first_row,
                     "Randomization ID",
-                    f"NNG31 master list must contain exactly {EXPECTED_RANDOMIZATION_TOTAL} allocations.",
-                )
-            )
-        if int(scheme.target_randomized_total or 0) != EXPECTED_RANDOMIZATION_TOTAL:
-            issues.append(
-                self._issue(
-                    first_row,
-                    "Scheme Code",
-                    f"Scheme target must be exactly {EXPECTED_RANDOMIZATION_TOTAL} allocations.",
+                    f"Master list must contain exactly the scheme target of {expected_total} allocations.",
                 )
             )
 
-        expected_sequences = list(range(1, EXPECTED_RANDOMIZATION_TOTAL + 1))
+        expected_sequences = list(range(1, expected_total + 1))
         actual_sequences = [int(row.values["sequence_no"]) for row in parsed_rows]
         if actual_sequences != expected_sequences:
             issues.append(
                 self._issue(
                     first_row,
                     "Sequence No",
-                    f"Sequence No must be ordered, unique, and contiguous from 1 through {EXPECTED_RANDOMIZATION_TOTAL}.",
+                    f"Sequence No must be ordered, unique, and contiguous from 1 through {expected_total}.",
                 )
             )
         expected_codes = []
@@ -275,13 +265,20 @@ class PreviewNng31MasterListImportService:
                 periods=periods,
             )
         )
-        issues.extend(
-            self._build_block_issues(
-                first_row=first_row,
-                parsed_rows=parsed_rows,
-                used_arm_codes=set(used_arm_codes),
-            )
-        )
+        if len(set(used_arm_codes)) == 2:
+            totals = Counter(used_arm_codes)
+            expected_per_arm = expected_total // 2
+            if expected_total % 2 or any(
+                totals[arm_code] != expected_per_arm
+                for arm_code in set(used_arm_codes)
+            ):
+                issues.append(
+                    self._issue(
+                        first_row,
+                        "Arm Code",
+                        "Master list must allocate subjects equally between the two sequences.",
+                    )
+                )
         return tuple(issues)
 
     def _build_period_issues(self, *, first_row, used_arm_codes, periods):
@@ -327,68 +324,6 @@ class PreviewNng31MasterListImportService:
                         first_row,
                         "Arm Code",
                         "The two NNG31 arms must configure reverse two-treatment crossover sequences.",
-                    )
-                )
-        return issues
-
-    def _build_block_issues(self, *, first_row, parsed_rows, used_arm_codes):
-        issues = []
-        rows_by_block = defaultdict(list)
-        for row in parsed_rows:
-            rows_by_block[int(row.values["block_no"])].append(row)
-        expected_block_numbers = list(range(1, len(EXPECTED_BLOCK_SIZES) + 1))
-        if sorted(rows_by_block) != expected_block_numbers:
-            issues.append(
-                self._issue(
-                    first_row,
-                    "Block No",
-                    f"Block No must be contiguous from 1 through {len(EXPECTED_BLOCK_SIZES)}.",
-                )
-            )
-            return issues
-        actual_sizes = tuple(len(rows_by_block[number]) for number in expected_block_numbers)
-        if actual_sizes != EXPECTED_BLOCK_SIZES:
-            issues.append(
-                self._issue(
-                    first_row,
-                    "Block No",
-                    "NNG31 requires five blocks of 4 followed by four blocks of 6.",
-                )
-            )
-        expected_block_sequence = [
-            block_no
-            for block_no, block_size in enumerate(EXPECTED_BLOCK_SIZES, start=1)
-            for _offset in range(block_size)
-        ]
-        if [int(row.values["block_no"]) for row in parsed_rows] != expected_block_sequence:
-            issues.append(
-                self._issue(
-                    first_row,
-                    "Block No",
-                    "Each block must occupy one contiguous sequence range in block order.",
-                )
-            )
-        if len(used_arm_codes) == 2:
-            for block_no, block_rows in rows_by_block.items():
-                counts = Counter(str(row.values["arm_code"]).strip() for row in block_rows)
-                expected_per_arm = len(block_rows) // 2
-                if any(counts[arm_code] != expected_per_arm for arm_code in used_arm_codes):
-                    issues.append(
-                        self._issue(
-                            block_rows[0].row_number,
-                            "Arm Code",
-                            f"Block {block_no} is not balanced 1:1.",
-                        )
-                    )
-            totals = Counter(
-                str(row.values["arm_code"]).strip() for row in parsed_rows
-            )
-            if any(total != EXPECTED_RANDOMIZATION_TOTAL // 2 for total in totals.values()):
-                issues.append(
-                    self._issue(
-                        first_row,
-                        "Arm Code",
-                        "NNG31 master list must allocate exactly 22 subjects to each sequence.",
                     )
                 )
         return issues
@@ -581,13 +516,15 @@ class CommitNng31MasterListImportService:
                 RandomizationSlotStatusChoice.AVAILABLE,
             )
         ]
-        if len(configured_slots) not in (0, EXPECTED_RANDOMIZATION_TOTAL):
+        expected_total = int(scheme.target_randomized_total or 0)
+        if len(configured_slots) not in (0, expected_total):
             raise RandomizationImportValidationError(
                 (
                     self.preview_service._issue(
                         1,
                         "Randomization ID",
-                        "Existing scheme must have no active slots or exactly 44 assigned/available slots.",
+                        "Existing scheme must have no active slots or exactly "
+                        f"{expected_total} assigned/available slots.",
                     ),
                 )
             )
@@ -786,8 +723,6 @@ class ApproveNng31MasterListService:
 __all__ = [
     "ApproveNng31MasterListService",
     "CommitNng31MasterListImportService",
-    "EXPECTED_BLOCK_SIZES",
-    "EXPECTED_RANDOMIZATION_TOTAL",
     "Nng31MasterListPreviewResult",
     "PreviewNng31MasterListImportService",
 ]

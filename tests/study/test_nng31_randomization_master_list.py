@@ -1,5 +1,6 @@
 import csv
 import io
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -45,6 +46,18 @@ from apps.study.presentation.web.forms import Nng31MasterListImportFileForm
 
 
 class Nng31RandomizationMasterListTests(SimpleTestCase):
+    STATISTICIAN_ARM_SEQUENCE = (
+        "NEEN"
+        "NENN"
+        "EEEN"
+        "EENN"
+        "ENNE"
+        "EENNNN"
+        "EEEENE"
+        "NNNENE"
+        "ENENEN"
+    )
+
     def test_randomization_code_uses_the_configured_prefix_literally(self):
         self.assertEqual(
             format_randomization_code(prefix="NNG31-", sequence_no=1, padding=3),
@@ -91,7 +104,7 @@ class Nng31RandomizationMasterListTests(SimpleTestCase):
                 parsed_row=SimpleNamespace(row_number=2, identifier="NNG31_XOVER"),
             )
 
-    def test_accepts_five_blocks_of_four_and_four_blocks_of_six(self):
+    def test_accepts_balanced_master_list(self):
         rows, checksum = parse_and_validate_nng31_master_list(
             content=self._valid_csv(),
             study=SimpleNamespace(code="NNG31"),
@@ -104,13 +117,52 @@ class Nng31RandomizationMasterListTests(SimpleTestCase):
         self.assertEqual(rows[-1].randomization_code, "NNG31-044")
         self.assertEqual(len(checksum), 64)
 
-    def test_rejects_an_unbalanced_block(self):
-        content = self._valid_csv().decode("utf-8").replace(
-            "NNG31_XOVER,NNG31-004,4,1,SEQ_N_E",
-            "NNG31_XOVER,NNG31-004,4,1,SEQ_E_N",
+    def test_accepts_statistician_sequence_without_enforcing_block_shape(self):
+        rows, checksum = parse_and_validate_nng31_master_list(
+            content=self._statistician_csv(),
+            study=SimpleNamespace(code="NNG31"),
+            scheme=self._scheme(),
+            arms_by_code={"SEQ_E_N": object(), "SEQ_N_E": object()},
         )
 
-        with self.assertRaisesMessage(CommandError, "Block 1 is not balanced 1:1"):
+        self.assertEqual(len(rows), 44)
+        self.assertEqual(Counter(row.arm_code for row in rows)["SEQ_E_N"], 22)
+        self.assertEqual(len(checksum), 64)
+
+    def test_accepts_configured_scheme_and_arm_codes_without_name_assumptions(self):
+        content = (
+            self._statistician_csv()
+            .decode("utf-8")
+            .replace("NNG31_XOVER", "CROSS_OVER_NANOKINE_EPREX4000IU")
+            .replace("SEQ_E_N", "SEQ_EPREX4000IU_NANOKINE")
+            .replace("SEQ_N_E", "SEQ_NANOKINE_EPREX4000IU")
+            .encode("utf-8")
+        )
+        scheme = self._scheme()
+        scheme.code = "CROSS_OVER_NANOKINE_EPREX4000IU"
+
+        rows, _checksum = parse_and_validate_nng31_master_list(
+            content=content,
+            study=SimpleNamespace(code="NNG31"),
+            scheme=scheme,
+            arms_by_code={
+                "SEQ_EPREX4000IU_NANOKINE": object(),
+                "SEQ_NANOKINE_EPREX4000IU": object(),
+            },
+        )
+
+        self.assertEqual(len(rows), 44)
+
+    def test_rejects_unequal_overall_sequence_allocation(self):
+        content = self._valid_csv().decode("utf-8").replace(
+            "NNG31_XOVER,NNG31-002,2,1,SEQ_N_E",
+            "NNG31_XOVER,NNG31-002,2,1,SEQ_E_N",
+        )
+
+        with self.assertRaisesMessage(
+            CommandError,
+            "allocate subjects equally between the two sequences",
+        ):
             parse_and_validate_nng31_master_list(
                 content=content.encode("utf-8"),
                 study=SimpleNamespace(code="NNG31"),
@@ -149,6 +201,24 @@ class Nng31RandomizationMasterListTests(SimpleTestCase):
                 )
         return output.getvalue().encode("utf-8")
 
+    @classmethod
+    def _statistician_csv(cls):
+        source = io.StringIO(cls._valid_csv().decode("utf-8"))
+        rows = list(csv.DictReader(source))
+        arm_codes = {"E": "SEQ_E_N", "N": "SEQ_N_E"}
+        for row, sequence_arm in zip(
+            rows,
+            cls.STATISTICIAN_ARM_SEQUENCE,
+            strict=True,
+        ):
+            row["Arm Code"] = arm_codes[sequence_arm]
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=REQUIRED_COLUMNS, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+        return output.getvalue().encode("utf-8")
+
     @staticmethod
     def _scheme():
         return SimpleNamespace(
@@ -164,6 +234,23 @@ class Nng31RandomizationMasterListTests(SimpleTestCase):
             Path(__file__).resolve().parents[2]
             / "src/staticfiles/study/templates/nng31_randomization_master_list_template.xlsx"
         )
+
+    @classmethod
+    def _statistician_template_content(cls):
+        workbook = load_workbook(cls._template_path())
+        worksheet = workbook.worksheets[0]
+        arm_codes = {
+            "E": "SEQ_EPREX4000IU_NANOKINE",
+            "N": "SEQ_NANOKINE_EPREX4000IU",
+        }
+        for row_number, sequence_arm in enumerate(
+            cls.STATISTICIAN_ARM_SEQUENCE,
+            start=2,
+        ):
+            worksheet.cell(row=row_number, column=5, value=arm_codes[sequence_arm])
+        output = io.BytesIO()
+        workbook.save(output)
+        return output.getvalue()
 
 
 class Nng31MasterListEndUserImportServiceTests(TestCase):
@@ -210,6 +297,23 @@ class Nng31MasterListEndUserImportServiceTests(TestCase):
         self.assertEqual(result.preview_rows[0].values[-1], "NANOKINE → EPREX_4000U")
         self.assertEqual(result.preview_rows[2].values[-1], "EPREX_4000U → NANOKINE")
         self.assertEqual(len(result.checksum), 64)
+
+    def test_preview_accepts_statistician_sequence_without_block_shape_rules(self):
+        result = PreviewNng31MasterListImportService(
+            repository=self._repository()
+        ).execute(
+            PreviewRandomizationImportCommand(
+                actor_user_id=99,
+                study_id=self.study.pk,
+                file_name="nng31_randomization_master_list_template.xlsx",
+                file_content=(
+                    Nng31RandomizationMasterListTests._statistician_template_content()
+                ),
+            )
+        )
+
+        self.assertEqual(result.issues, ())
+        self.assertEqual(result.total_rows, 44)
 
     def test_missing_code_prefix_produces_one_configuration_issue(self):
         self.scheme.randomization_code_prefix = ""
