@@ -5,7 +5,10 @@ from apps.study.application.commands import (
     RecordEventGateEvaluationCommand,
     RetractEligibilityAssessmentCommand,
 )
-from apps.study.application.exceptions import EligibilityEnrollmentGateError
+from apps.study.application.exceptions import (
+    EligibilityAssessmentPermissionError,
+    EligibilityEnrollmentGateError,
+)
 from apps.study.application.services.crf_page_lifecycle import (
     CrfPageLifecycleActionState,
     StudyCrfPageLifecycleService,
@@ -242,6 +245,7 @@ class StudyEventFormBindingReader:
 __all__ = [
     "RandomizationSlotAssignment",
     "EnrollSubjectCommand",
+    "EligibilityAssessmentPermissionError",
     "EligibilityEnrollmentGateError",
     "FinalizeEligibilityAssessmentCommand",
     "MarkEligibilityStaleOnSourceDataChangeCommand",

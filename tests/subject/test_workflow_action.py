@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
+from apps.study.public import EligibilityAssessmentPermissionError
 from apps.subject.application.services.workflow_action import SubjectWorkflowActionService
 from apps.subject.infrastructure.repositories.workflow_action import (
     SubjectEventWorkflowContext,
@@ -205,6 +206,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
                 event_instance_id=60,
                 actor_user_id=99,
                 source_event_instance_id=10,
+                automatic=True,
             )
 
         self.assertTrue(result.executed)
@@ -212,6 +214,7 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(finalizer.commands[0].source_object_type, "EVENT_INSTANCE")
         self.assertEqual(finalizer.commands[0].source_object_id, 10)
         self.assertEqual(finalizer.commands[0].event_instance_id, 60)
+        self.assertTrue(finalizer.commands[0].automatic)
         self.assertIsNone(finalizer.commands[0].rule_code)
         self.assertIsNone(finalizer.commands[0].rule_expression_json)
         self.assertEqual(repository.workflow_action_rule_calls, [])
@@ -219,6 +222,84 @@ class SubjectWorkflowActionServiceTests(SimpleTestCase):
         self.assertEqual(transition_service.commands[0].source_event_instance_id, 60)
         self.assertEqual(transition_service.commands[0].facts["eligibility.latest.result"], "ELIGIBLE")
         self.assertTrue(transition_service.commands[0].facts["eligible"])
+
+    def test_automatic_eligibility_workflow_keeps_event_open_when_actor_lacks_permission(self):
+        repository = _WorkflowRepositoryStub(
+            event=SubjectEventWorkflowContext(
+                event_instance_id=60,
+                study_id=1,
+                subject_id=20,
+                site_id=2,
+                study_version="v1.0",
+                status="open",
+                event_definition_id=29,
+                event_code="ELIGIBILITY_ASSESSMENT",
+                event_type="operational",
+                event_category="screening",
+                execution_mode="workflow_action",
+            )
+        )
+
+        def permission_denied(_command):
+            raise EligibilityAssessmentPermissionError(
+                "Permission study.finalize_subject_eligibility is required."
+            )
+
+        with patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()):
+            result = SubjectWorkflowActionService(
+                repository=repository,
+                source_page_state_resolver=lambda *, event_instance_id: 13,
+                eligibility_assessment_finalizer=permission_denied,
+                source_event_certification_checker=lambda *, event_instance_id: True,
+            ).execute_for_open_event(
+                event_instance_id=60,
+                actor_user_id=99,
+                source_event_instance_id=10,
+                automatic=True,
+            )
+
+        self.assertFalse(result.executed)
+        self.assertEqual(result.action, "eligibility_assessment")
+        self.assertEqual(result.reason, "eligibility_permission_required")
+        self.assertEqual(repository.completed_events, [])
+
+    def test_manual_eligibility_workflow_propagates_permission_error(self):
+        repository = _WorkflowRepositoryStub(
+            event=SubjectEventWorkflowContext(
+                event_instance_id=60,
+                study_id=1,
+                subject_id=20,
+                site_id=2,
+                study_version="v1.0",
+                status="open",
+                event_definition_id=29,
+                event_code="ELIGIBILITY_ASSESSMENT",
+                event_type="operational",
+                event_category="screening",
+                execution_mode="workflow_action",
+            )
+        )
+
+        def permission_denied(_command):
+            raise EligibilityAssessmentPermissionError(
+                "Permission study.finalize_subject_eligibility is required."
+            )
+
+        with (
+            patch("apps.subject.application.services.workflow_action.transaction.atomic", return_value=nullcontext()),
+            self.assertRaises(EligibilityAssessmentPermissionError),
+        ):
+            SubjectWorkflowActionService(
+                repository=repository,
+                source_page_state_resolver=lambda *, event_instance_id: 13,
+                eligibility_assessment_finalizer=permission_denied,
+                source_event_certification_checker=lambda *, event_instance_id: True,
+            ).execute_for_open_event(
+                event_instance_id=60,
+                actor_user_id=99,
+                source_event_instance_id=10,
+                automatic=False,
+            )
 
     def test_eligibility_assessment_workflow_requires_source_event_certification(self):
         repository = _WorkflowRepositoryStub(

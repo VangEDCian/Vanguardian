@@ -27,6 +27,7 @@ class FinalizeEligibilityAssessmentCommand:
     force_result: str | None = None
     reason_code: str | None = None
     reason_text: str | None = None
+    automatic: bool = False
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,7 @@ class EnrollSubjectCommand:
     assessment_type: str = "SCREENING"
     reason_code: str | None = None
     reason_text: str | None = None
+    automatic: bool = False
 
 
 @dataclass(frozen=True)

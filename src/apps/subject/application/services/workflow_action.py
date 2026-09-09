@@ -186,11 +186,13 @@ class SubjectWorkflowActionService:
                     event=event,
                     actor_user_id=actor_user_id,
                     source_event_instance_id=source_event_instance_id,
+                    automatic=automatic,
                 )
             if event_code == _EVENT_CODE_ENROLLMENT:
                 return self._execute_enrollment_workflow(
                     event=event,
                     actor_user_id=actor_user_id,
+                    automatic=automatic,
                 )
             event_category = (event.event_category or "").strip().lower()
             if event_category == _EVENT_CATEGORY_WASHOUT:
@@ -255,6 +257,7 @@ class SubjectWorkflowActionService:
         event,
         actor_user_id: int | None,
         source_event_instance_id: int | None,
+        automatic: bool,
     ) -> SubjectWorkflowActionResult:
         source_event_instance_id = source_event_instance_id or (
             self.repository.resolve_source_event_instance_id_for_workflow_event(
@@ -280,22 +283,32 @@ class SubjectWorkflowActionService:
                 action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
                 reason="eligibility_source_page_state_not_found",
             )
-        from apps.study.public import FinalizeEligibilityAssessmentCommand
+        from apps.study.public import EligibilityAssessmentPermissionError, FinalizeEligibilityAssessmentCommand
 
-        assessment = self.eligibility_assessment_finalizer(
-            FinalizeEligibilityAssessmentCommand(
-                study_id=event.study_id,
-                site_id=event.site_id,
-                subject_id=event.subject_id,
-                assessment_type=_ASSESSMENT_TYPE_SCREENING,
-                source_context="datacapture",
-                source_object_type="EVENT_INSTANCE",
-                source_object_id=source_event_instance_id,
-                study_version=event.study_version,
-                actor_id=actor_user_id,
-                event_instance_id=event.event_instance_id,
+        try:
+            assessment = self.eligibility_assessment_finalizer(
+                FinalizeEligibilityAssessmentCommand(
+                    study_id=event.study_id,
+                    site_id=event.site_id,
+                    subject_id=event.subject_id,
+                    assessment_type=_ASSESSMENT_TYPE_SCREENING,
+                    source_context="datacapture",
+                    source_object_type="EVENT_INSTANCE",
+                    source_object_id=source_event_instance_id,
+                    study_version=event.study_version,
+                    actor_id=actor_user_id,
+                    automatic=automatic,
+                    event_instance_id=event.event_instance_id,
+                )
             )
-        )
+        except EligibilityAssessmentPermissionError:
+            if not automatic:
+                raise
+            return SubjectWorkflowActionResult(
+                event_instance_id=event.event_instance_id,
+                action=_EVENT_CODE_ELIGIBILITY_ASSESSMENT,
+                reason="eligibility_permission_required",
+            )
         now = self.repository.now()
         completed = self.repository.complete_workflow_event_instance(
             event_instance_id=event.event_instance_id,
@@ -321,6 +334,7 @@ class SubjectWorkflowActionService:
         *,
         event,
         actor_user_id: int | None,
+        automatic: bool,
     ) -> SubjectWorkflowActionResult:
         from apps.study.public import EligibilityEnrollmentGateError, EnrollSubjectCommand
 
@@ -331,6 +345,7 @@ class SubjectWorkflowActionService:
                     site_id=event.site_id,
                     subject_id=event.subject_id,
                     actor_id=actor_user_id,
+                    automatic=automatic,
                     assessment_type=_ASSESSMENT_TYPE_SCREENING,
                 )
             )

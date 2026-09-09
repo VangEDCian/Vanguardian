@@ -103,12 +103,6 @@ class StudyCreateView(
                 "lock_subject_code_after_assignment",
                 False,
             ),
-            subject_identifier_migration_plan_hash=request.POST.get(
-                "subject_identifier_migration_plan_hash"
-            ),
-            subject_identifier_migration_confirmation_code=request.POST.get(
-                "subject_identifier_migration_confirmation_code"
-            ),
         )
 
         try:
