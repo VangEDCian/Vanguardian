@@ -81,7 +81,7 @@ python manage.py migrate
 Create an admin account if you need quick access to the back office:
 
 ```bash
-python manage.py createsuperuser 
+python manage.py createsuperuser
 ```
 
 ### 5. Run the application
